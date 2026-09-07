@@ -4,6 +4,7 @@ import ThreatModelKit
 
 struct WiringTests {
     @Test func theTestTargetCanSeeThePackage() {
-        #expect(threatModelKitIsWired)
+        let severity = ThreatSeverity(id: "high", label: "High", rank: 3)
+        #expect(severity.rank == 3)
     }
 }
