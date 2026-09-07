@@ -1789,6 +1789,8 @@ Expected: FAIL — `cannot find 'ListTechnologies' in scope`.
 Create `ThreatModelKit/Sources/ThreatModelKit/catalogue/usecase/ListTechnologies.swift`:
 
 ```swift
+import Foundation
+
 public protocol ListTechnologiesUseCase {
     func execute(_ request: ListTechnologiesRequest) -> ListTechnologiesResponse
 }
@@ -1863,7 +1865,7 @@ public struct ListTechnologies: ListTechnologiesUseCase {
                     id: category.id.value,
                     label: category.label,
                     technologies: members
-                        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                        .sorted { $0.name.caseInsensitiveCompare($1.name) == .orderedAscending }
                         .map {
                             ListedTechnology(id: $0.id.value, name: $0.name, description: $0.description)
                         }
