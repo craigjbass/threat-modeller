@@ -8,8 +8,8 @@ public final class TestDependencies {
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
 
-    public init(catalogue: InMemoryTechnologyCatalogue = CatalogueFixture.catalogue()) {
-        self.catalogue = catalogue
+    public init() {
+        self.catalogue = CatalogueFixture.catalogue()
         self.models = InMemoryThreatModelGateway()
         self.ids = SequentialIdentityGenerator()
     }
