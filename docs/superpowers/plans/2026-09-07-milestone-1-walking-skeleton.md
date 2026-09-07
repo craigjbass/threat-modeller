@@ -2477,7 +2477,7 @@ struct AssessThreatModelTests {
         let response = assess(ThreatModel(components: [ec2()]))
 
         let credentialTheft = try #require(response.threats.first { $0.threatId == "credential-theft" })
-        #expect(credentialTheft.controls.allSatisfy(\.isTechnologySpecific))
+        #expect(credentialTheft.controls.allSatisfy { $0.isTechnologySpecific })
         #expect(credentialTheft.controls.map(\.description) == [
             "Enforce IMDSv2 to block SSRF-based credential theft",
             "Use IAM roles with minimal permissions"
