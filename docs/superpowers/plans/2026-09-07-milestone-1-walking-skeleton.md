@@ -495,6 +495,11 @@ cmd_verify() {
   [ -f "$LOCK" ] || { echo "No lock file at $LOCK" >&2; exit 1; }
   local failed=0
   for f in "${FILES[@]}"; do
+    if [ ! -f "$DEST/$f" ]; then
+      echo "MISSING $f" >&2
+      failed=1
+      continue
+    fi
     local expected actual
     expected="$(grep "\"$f\"" "$LOCK" | sed 's/.*: "//; s/".*//')"
     actual="$(checksum "$DEST/$f")"
