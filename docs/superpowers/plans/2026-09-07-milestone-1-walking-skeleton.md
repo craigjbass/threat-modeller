@@ -1646,6 +1646,7 @@ public func verifyTechnologyCatalogueContract(
     #expect(subject.threatsFor(technologyId: unknownId).isEmpty)
 
     let taxonomy = subject.taxonomy()
+    #expect(taxonomy.severities.isEmpty == false)
     #expect(taxonomy.severities.enumerated().allSatisfy { index, severity in
         severity.rank == index + 1
     })
