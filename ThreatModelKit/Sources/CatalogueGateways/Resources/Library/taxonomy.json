@@ -1,0 +1,88 @@
+{
+  "stride": [
+    { "id": "spoofing", "label": "Spoofing" },
+    { "id": "tampering", "label": "Tampering" },
+    { "id": "repudiation", "label": "Repudiation" },
+    { "id": "information-disclosure", "label": "Information Disclosure" },
+    { "id": "denial-of-service", "label": "Denial of Service" },
+    { "id": "elevation-of-privilege", "label": "Elevation of Privilege" }
+  ],
+  "severities": [
+    { "id": "low", "label": "Low" },
+    { "id": "medium", "label": "Medium" },
+    { "id": "high", "label": "High" },
+    { "id": "critical", "label": "Critical" }
+  ],
+  "categories": [
+    {
+      "id": "compute",
+      "label": "Compute",
+      "presetThreatIds": ["unauthorized-access", "misconfiguration", "malware-infection", "data-exfiltration", "privilege-escalation", "credential-theft", "dos-attack"]
+    },
+    {
+      "id": "database",
+      "label": "Database",
+      "presetThreatIds": ["sql-injection", "unauthorized-access", "data-exfiltration", "misconfiguration", "backup-exposure", "sensitive-data-exposure"]
+    },
+    {
+      "id": "storage",
+      "label": "Storage",
+      "presetThreatIds": ["bucket-misconfiguration", "data-exfiltration", "unauthorized-access", "sensitive-data-exposure", "backup-exposure"]
+    },
+    {
+      "id": "serverless",
+      "label": "Serverless",
+      "presetThreatIds": ["injection-attack", "misconfiguration", "excessive-permissions", "sensitive-data-exposure", "dos-attack"]
+    },
+    {
+      "id": "container",
+      "label": "Container",
+      "presetThreatIds": ["container-escape", "misconfiguration", "unauthorized-access", "privilege-escalation", "supply-chain-attack", "credential-theft"]
+    },
+    {
+      "id": "cicd",
+      "label": "CI/CD",
+      "presetThreatIds": ["supply-chain-attack", "injection-attack", "misconfiguration", "credential-theft", "unauthorized-access", "excessive-permissions"]
+    },
+    {
+      "id": "networking",
+      "label": "Networking",
+      "presetThreatIds": ["misconfiguration", "network-misconfiguration", "dos-attack", "sensitive-data-exposure", "unauthorized-access"]
+    },
+    {
+      "id": "identity",
+      "label": "Identity & Access",
+      "presetThreatIds": ["privilege-escalation", "credential-theft", "excessive-permissions", "misconfiguration", "account-takeover"]
+    },
+    {
+      "id": "secrets",
+      "label": "Secrets Management",
+      "presetThreatIds": ["credential-theft", "misconfiguration", "excessive-permissions", "unauthorized-access", "sensitive-data-exposure"]
+    },
+    {
+      "id": "messaging",
+      "label": "Messaging",
+      "presetThreatIds": ["message-tampering", "unauthorized-access", "dos-attack", "misconfiguration", "excessive-permissions"]
+    },
+    {
+      "id": "monitoring",
+      "label": "Monitoring",
+      "presetThreatIds": ["log-tampering", "misconfiguration", "sensitive-data-exposure", "audit-logging-bypass"]
+    },
+    {
+      "id": "ai-ml",
+      "label": "AI & Machine Learning",
+      "presetThreatIds": ["prompt-injection", "ai-training-data-poisoning", "ai-model-extraction", "sensitive-data-exposure", "misconfiguration"]
+    },
+    {
+      "id": "orchestration",
+      "label": "Orchestration",
+      "presetThreatIds": ["workflow-manipulation", "misconfiguration", "excessive-permissions", "sensitive-data-exposure"]
+    },
+    {
+      "id": "saas",
+      "label": "SaaS",
+      "presetThreatIds": ["account-takeover", "credential-theft", "data-exfiltration", "misconfiguration", "sensitive-data-exposure", "oauth-token-abuse"]
+    }
+  ]
+}

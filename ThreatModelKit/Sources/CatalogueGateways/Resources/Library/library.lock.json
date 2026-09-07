@@ -1,0 +1,14 @@
+{
+  "repository": "jib1337/threat-model-library",
+  "tag": "v1.0.1",
+  "files": {
+    "taxonomy.json": "989e265a24db1b68cf6ba44bc075b87f8b1353dfab56b3d93ac081881635a81a",
+    "technologies/aws.json": "fda5444c46432a814073264d2a4cab8ef9f4ba8f55550f7aaf854d2a38ed1d29",
+    "technologies/azure.json": "0a0ba0e5227b6ba4eaaab4a415c3e8d9580c68915df231d32066b59f1ec3cc8b",
+    "technologies/gcp.json": "8918617d34e8094eba8685d070c7cd14e3eb8224d86a3bfbe4ff33a5f491cf31",
+    "technologies/saas.json": "a1f770918a3830d894a76d33c090ea05d17d16f6063f318b534789a534b8a6ee",
+    "technologies/self-hosted.json": "58ff21add10b406461197c01d1ed2339f86d82b8934caf07bd968b9016da5a76",
+    "threats/common-threats.json": "f8ac5c8f31e40ee776b66cc89158bf95f4497d13e8eb4bd5491d947b36c757f8",
+    "mitigations/pathway-mitigations.json": "99070f79ab9b8f3421ff89e8e2eda3a18d0741cf2128c5339a8248dc01471032"
+  }
+}

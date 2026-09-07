@@ -1,0 +1,2255 @@
+{
+  "provider": "gcp",
+  "displayName": "Google Cloud Platform",
+  "idPrefix": "gcp-",
+  "services": [
+    {
+      "id": "gcp-compute-engine",
+      "name": "Compute Engine",
+      "provider": "gcp",
+      "category": "compute",
+      "description": "Virtual machines on Google infrastructure",
+      "threatIds": ["unauthorized-access", "misconfiguration", "malware-infection", "data-exfiltration", "privilege-escalation", "dos-attack", "credential-theft", "lateral-movement", "unpatched-vulnerabilities", "ssrf-attack"],
+      "threatContext": {
+        "credential-theft": "Metadata server credential theft via http://metadata.google.internal, service account key exposure, access token theft",
+        "lateral-movement": "VPC-based pivoting, IAP tunnel abuse, OS Login exploitation, service account impersonation",
+        "unpatched-vulnerabilities": "OS-level CVEs, outdated public images, unpatched guest agents and packages",
+        "ssrf-attack": "SSRF to GCP metadata server (http://metadata.google.internal/computeMetadata/v1/) for service account token theft, internal VPC service enumeration"
+      },
+      "threatMitigations": {
+        "unauthorized-access": [
+          "Enable OS Login to manage SSH access via IAM instead of managing SSH keys directly",
+          "Use Identity-Aware Proxy (IAP) TCP forwarding for administrative access instead of exposing SSH/RDP ports",
+          "Restrict service account impersonation with IAM Conditions (e.g., resource, time-based)",
+          "Apply Organization Policy constraints to disable external IP on VMs (constraints/compute.vmExternalIpAccess)"
+        ],
+        "misconfiguration": [
+          "Use Security Health Analytics in Security Command Center to detect misconfigured VMs",
+          "Enforce Organization Policy constraints for Shielded VM, serial port access, and OS Login",
+          "Deploy VM instances via Terraform or Deployment Manager with security baselines",
+          "Use GCP Recommender to identify idle VMs and overly permissive firewall rules"
+        ],
+        "malware-infection": [
+          "Enable Security Command Center Virtual Machine Threat Detection for runtime threat detection",
+          "Use OS Config patch management for automated guest OS patching",
+          "Restrict outbound VPC firewall rules to limit command-and-control communication",
+          "Deploy Container-Optimized OS (COS) for minimal attack surface on container workloads"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Flow Logs and export to Cloud Logging for monitoring unusual egress patterns",
+          "Configure VPC Service Controls perimeters to prevent data movement outside trusted boundaries",
+          "Use Cloud Monitoring alerts on network egress metrics for anomalous data transfers",
+          "Restrict snapshot sharing and image export via Organization Policy (constraints/compute.storageResourceUseRestrictions)"
+        ],
+        "privilege-escalation": [
+          "Use IAM Recommender to identify and remove unused permissions on VM service accounts",
+          "Restrict iam.serviceAccounts.actAs permission to prevent unauthorized role assumption",
+          "Enable Security Command Center Event Threat Detection for anomalous IAM activity",
+          "Use IAM Conditions to scope service account permissions by resource and time"
+        ],
+        "dos-attack": [
+          "Place VMs behind Cloud Load Balancing with Cloud Armor security policies",
+          "Use Managed Instance Groups with autoscaling to absorb traffic spikes",
+          "Configure VPC firewall rules to restrict inbound traffic to required ports and source ranges",
+          "Enable Cloud Armor Adaptive Protection for automatic DDoS mitigation"
+        ],
+        "credential-theft": [
+          "Disable the legacy metadata server endpoint and enforce the Metadata-Flavor header requirement",
+          "Use Workload Identity Federation for external workloads instead of exporting service account keys",
+          "Rotate service account keys automatically using Cloud Scheduler and Cloud Functions",
+          "Restrict metadata server access with custom firewall rules on the VM"
+        ],
+        "lateral-movement": [
+          "Implement micro-segmentation using VPC firewall rules with service account-based targeting",
+          "Enable VPC Flow Logs and use Security Command Center to detect internal port scanning",
+          "Use Private Google Access and restrict VMs to internal-only communication where possible",
+          "Deploy network-level IDS using Packet Mirroring with a third-party NIDS appliance"
+        ],
+        "unpatched-vulnerabilities": [
+          "Use OS Config patch management with automatic patch deployment schedules",
+          "Enable VM Manager vulnerability reports for continuous CVE scanning of guest OS packages",
+          "Build hardened golden images with Packer and enforce their use via Organization Policy",
+          "Use Container-Optimized OS or Shielded VMs for reduced attack surface and verified boot"
+        ],
+        "ssrf-attack": [
+          "Enforce the Metadata-Flavor: Google header on metadata server requests (blocks many SSRF vectors)",
+          "Restrict application-level outbound requests with allowlisted destinations",
+          "Use VPC Service Controls to prevent metadata-retrieved credentials from accessing resources outside the perimeter",
+          "Validate and sanitize user-supplied URLs at the application layer before issuing server-side requests"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-functions",
+      "name": "Cloud Functions",
+      "provider": "gcp",
+      "category": "serverless",
+      "description": "Event-driven serverless compute",
+      "threatIds": ["injection-attack", "misconfiguration", "excessive-permissions", "sensitive-data-exposure", "dos-attack"],
+      "threatContext": {
+        "injection-attack": "Event data injection via Pub/Sub messages, Cloud Storage triggers, or HTTP requests; command injection through unsanitized event parameters in shell commands",
+        "misconfiguration": "Unauthenticated HTTP triggers (allUsers invoker), public source code in Cloud Storage, VPC connector misconfiguration exposing internal resources, excessive memory/timeout enabling abuse",
+        "excessive-permissions": "Default service account with Editor role, overly permissive custom service accounts, cross-project IAM bindings, unused API scopes",
+        "sensitive-data-exposure": "Secrets in environment variables or runtime configuration, sensitive data in Cloud Logging, /tmp persistence between warm starts leaking data across invocations",
+        "dos-attack": "Max instances exhaustion, recursive Pub/Sub->Function loops, cold start amplification, memory exhaustion through large event payloads"
+      },
+      "threatMitigations": {
+        "injection-attack": [
+          "Validate and sanitize all event data from Pub/Sub, Cloud Storage, and HTTP triggers before processing",
+          "Use Cloud Functions (2nd gen) with Cloud Run-based isolation for stronger request sandboxing",
+          "Avoid shell command execution in function code; use native language libraries instead"
+        ],
+        "misconfiguration": [
+          "Remove allUsers and allAuthenticatedUsers IAM bindings from function invoker role",
+          "Use VPC connectors with Serverless VPC Access for secure communication with internal resources",
+          "Configure minimum and maximum instance limits to prevent resource abuse",
+          "Use Organization Policy constraints to restrict function deployment to approved regions and runtimes"
+        ],
+        "excessive-permissions": [
+          "Create per-function service accounts with only the permissions each function requires",
+          "Use IAM Recommender to identify and remove unused permissions on function service accounts",
+          "Avoid using the default Compute Engine service account for Cloud Functions",
+          "Apply IAM Conditions to scope service account permissions to specific resources"
+        ],
+        "sensitive-data-exposure": [
+          "Store secrets in Secret Manager and access them via the Cloud Functions Secret Manager integration",
+          "Configure Cloud Logging exclusion filters to redact sensitive data from function logs",
+          "Avoid storing sensitive data in environment variables; use Secret Manager secret references instead",
+          "Enable Cloud DLP API to scan function output for sensitive data patterns"
+        ],
+        "dos-attack": [
+          "Set maximum instance limits on functions to cap resource consumption and billing exposure",
+          "Implement dead-letter topics for Pub/Sub triggers to prevent recursive retry loops",
+          "Use Cloud Armor with Cloud Functions (2nd gen) behind Cloud Load Balancing for request filtering",
+          "Configure concurrency settings on 2nd gen functions to limit per-instance load"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-run",
+      "name": "Cloud Run",
+      "provider": "gcp",
+      "category": "serverless",
+      "description": "Fully managed container platform",
+      "threatIds": ["container-escape", "misconfiguration", "unauthorized-access", "dos-attack"],
+      "threatContext": {
+        "container-escape": "Sandbox escape attempts via gVisor vulnerabilities, metadata service access for credential theft (http://metadata.google.internal), /proc filesystem access in misconfigured containers",
+        "misconfiguration": "Unauthenticated service endpoints (allUsers invoker), overly permissive ingress settings, missing VPC connector for internal resources, excessive CPU/memory limits enabling cryptomining",
+        "unauthorized-access": "Public service URLs without IAM authentication, service-to-service invocation without proper identity verification, exposed Cloud Run Admin API",
+        "dos-attack": "Max instances exhaustion, request timeout exploitation, concurrent request limit abuse, cold start amplification through traffic bursts"
+      },
+      "threatMitigations": {
+        "container-escape": [
+          "Use Cloud Run's built-in gVisor sandbox which provides kernel-level isolation by default",
+          "Run containers as non-root by specifying a USER directive in the Dockerfile",
+          "Avoid mounting sensitive paths and disable /proc access where not required",
+          "Use Artifact Analysis to scan container images for known vulnerabilities before deployment"
+        ],
+        "misconfiguration": [
+          "Remove allUsers and allAuthenticatedUsers IAM bindings from the Cloud Run invoker role",
+          "Set ingress to 'internal' or 'internal-and-cloud-load-balancing' for non-public services",
+          "Use Serverless VPC Access connectors for private communication with VPC resources",
+          "Enforce Organization Policy constraints for Cloud Run (e.g., allowed ingress settings)"
+        ],
+        "unauthorized-access": [
+          "Require IAM authentication on all Cloud Run services by removing unauthenticated invoker bindings",
+          "Use Cloud Run service-to-service authentication with ID tokens for internal calls",
+          "Place internet-facing services behind Cloud Load Balancing with Cloud Armor policies",
+          "Use Binary Authorization to ensure only trusted container images are deployed"
+        ],
+        "dos-attack": [
+          "Configure maximum instance limits to cap autoscaling and prevent billing spikes",
+          "Set request timeout and concurrency limits appropriate to the workload",
+          "Place services behind Cloud Load Balancing with Cloud Armor rate limiting and DDoS protection",
+          "Use Cloud Monitoring alerts on request count and instance count metrics to detect anomalous traffic"
+        ]
+      }
+    },
+    {
+      "id": "gcp-vertex-ai",
+      "name": "Vertex AI",
+      "provider": "gcp",
+      "category": "ai-ml",
+      "description": "Unified ML platform for training and deploying models",
+      "threatIds": ["prompt-injection", "ai-training-data-poisoning", "ai-model-extraction", "misconfiguration", "unauthorized-access", "data-exfiltration", "excessive-permissions", "sensitive-data-exposure"],
+      "threatContext": {
+        "prompt-injection": "Prompt injection against Vertex AI generative AI endpoints, PaLM/Gemini model jailbreaking via Vertex AI API, grounding configuration manipulation",
+        "misconfiguration": "Workbench instances with public IP and permissive firewall rules, Pipeline service accounts with excessive permissions, Model Registry public access, Feature Store without VPC Service Controls",
+        "unauthorized-access": "Workbench instance service account abuse via metadata server, endpoint prediction without IAM authentication, notebook runtime credential theft, pipeline step service account impersonation",
+        "data-exfiltration": "Training dataset extraction from Cloud Storage, model artifact theft via Artifact Registry, Feature Store bulk export, batch prediction output to attacker-controlled buckets",
+        "ai-training-data-poisoning": "Malicious training data in Cloud Storage datasets, compromised data labeling via Vertex AI Data Labeling, pipeline input manipulation",
+        "ai-model-extraction": "Systematic prediction endpoint querying to reconstruct model behavior, Model Registry artifact download, batch prediction output analysis for model replication",
+        "excessive-permissions": "Pipeline service accounts with broad Cloud Storage and BigQuery access, Workbench instance service accounts with project-wide roles, custom training job roles with unnecessary permissions",
+        "sensitive-data-exposure": "Training datasets containing PII in Cloud Storage, model artifacts with embedded sensitive data, prediction logs containing user inputs, Feature Store values with sensitive attributes"
+      },
+      "threatMitigations": {
+        "prompt-injection": [
+          "Enable Vertex AI Safety Settings to configure content filtering thresholds per harm category",
+          "Use Vertex AI Grounding to constrain model responses to verified data sources and reduce hallucination",
+          "Implement Vertex AI Model Monitoring to detect anomalous input patterns indicative of injection attempts",
+          "Isolate user-provided input from system instructions using structured API request formats with separate content roles"
+        ],
+        "ai-training-data-poisoning": [
+          "Use Vertex AI Data Labeling with reviewer consensus requirements to validate training data quality",
+          "Enable Cloud Audit Logs for Vertex AI Dataset operations to track all training data modifications",
+          "Restrict access to training datasets in Cloud Storage with per-dataset IAM bindings and VPC Service Controls",
+          "Validate training data integrity using checksums before initiating Vertex AI training pipelines"
+        ],
+        "ai-model-extraction": [
+          "Set Vertex AI prediction endpoint rate limits using quota policies in API Gateway or Cloud Endpoints",
+          "Monitor Vertex AI prediction endpoint usage via Cloud Monitoring for systematic querying patterns",
+          "Restrict Vertex AI Model Registry access with fine-grained IAM roles (roles/aiplatform.viewer vs roles/aiplatform.user)",
+          "Use Vertex AI private endpoints to prevent model access from outside the VPC perimeter"
+        ],
+        "misconfiguration": [
+          "Use Security Command Center to detect publicly accessible Workbench instances and permissive IAM bindings",
+          "Deploy Workbench instances with private IP only and configure authorized networks for Vertex AI APIs",
+          "Enforce Organization Policy constraints for Vertex AI (e.g., restrict regions, disable public Workbench IPs)",
+          "Use VPC Service Controls perimeters around Vertex AI, Cloud Storage, and BigQuery resources"
+        ],
+        "unauthorized-access": [
+          "Require IAM authentication on all Vertex AI prediction endpoints and disable unauthenticated access",
+          "Use VPC Service Controls to restrict Vertex AI API access to authorized projects and networks",
+          "Enforce Workbench instance access through Identity-Aware Proxy (IAP) instead of direct SSH",
+          "Configure Organization Policy to disable public IP on Vertex AI Workbench instances"
+        ],
+        "data-exfiltration": [
+          "Enforce VPC Service Controls perimeters around Vertex AI, Cloud Storage, and Artifact Registry resources",
+          "Restrict Vertex AI pipeline service accounts from writing to Cloud Storage buckets outside the perimeter",
+          "Monitor Cloud Storage access logs for training data and model artifacts accessed by unexpected principals",
+          "Use Cloud Monitoring alerts on data transfer volume from Vertex AI endpoints and batch prediction jobs"
+        ],
+        "excessive-permissions": [
+          "Create per-pipeline service accounts with only the specific Vertex AI, Cloud Storage, and BigQuery permissions needed",
+          "Use IAM Recommender to identify and remove unused permissions on Vertex AI service accounts",
+          "Avoid granting roles/aiplatform.admin broadly; use fine-grained roles like roles/aiplatform.user per resource",
+          "Apply IAM Conditions to scope Workbench and pipeline access to specific projects and resource types"
+        ],
+        "sensitive-data-exposure": [
+          "Use Cloud DLP API to scan training datasets for PII before ingesting into Vertex AI",
+          "Configure Vertex AI prediction logging to exclude request/response bodies containing sensitive user input",
+          "Encrypt model artifacts and Feature Store data with CMEK keys managed in Cloud KMS",
+          "Restrict access to Vertex AI Experiments and TensorBoard instances that may contain sensitive training metrics"
+        ]
+      }
+    },
+    {
+      "id": "gcp-gemini",
+      "name": "Gemini API",
+      "provider": "gcp",
+      "category": "ai-ml",
+      "description": "Google's generative AI models API",
+      "threatIds": ["prompt-injection", "ai-model-extraction", "sensitive-data-exposure", "excessive-permissions", "dos-attack", "misconfiguration"],
+      "threatContext": {
+        "prompt-injection": "Multimodal injection via images/video/audio containing embedded instructions, function calling manipulation to invoke unintended tools, grounding with Google Search poisoning via SEO",
+        "sensitive-data-exposure": "PII in model responses, conversation context leakage, grounded search results exposing internal URLs, file uploads containing sensitive content processed by model",
+        "ai-model-extraction": "High-volume API querying to replicate model behavior, embedding endpoint systematic sampling, output token analysis for knowledge extraction",
+        "excessive-permissions": "API keys without application/HTTP referrer restrictions, service accounts with aiplatform.googleapis.com access granted too broadly, project-wide Gemini access without fine-grained controls",
+        "dos-attack": "Quota exhaustion via high-volume API requests, large multimodal input processing consuming compute resources, context window maximization attacks",
+        "misconfiguration": "API keys without application restrictions exposed in client-side code, missing safety filter settings, unrestricted API key usage, service account impersonation configuration issues"
+      },
+      "threatMitigations": {
+        "prompt-injection": [
+          "Configure Gemini API safety settings to block harmful content categories at appropriate thresholds",
+          "Use system instructions to establish clear behavioral boundaries that resist user-supplied prompt overrides",
+          "Implement output filtering on Gemini responses to detect and redact sensitive data leakage",
+          "Use structured API request formats to isolate user-provided content from system-level instructions"
+        ],
+        "ai-model-extraction": [
+          "Enforce per-project API quota limits on Gemini API endpoints to cap request volume",
+          "Monitor Gemini API usage in Cloud Monitoring for high-frequency querying patterns from individual principals",
+          "Restrict Gemini API access to specific service accounts with IAM Conditions limiting request rates",
+          "Use API keys with HTTP referrer or IP restrictions to prevent unauthorized bulk querying"
+        ],
+        "sensitive-data-exposure": [
+          "Avoid sending PII or regulated data in Gemini API prompts; sanitize inputs at the application layer",
+          "Configure Cloud Logging exclusion filters to prevent Gemini API request/response bodies from appearing in logs",
+          "Review and restrict grounding sources to prevent accidental exposure of internal URLs or documents",
+          "Use data residency controls to ensure Gemini API processing complies with data locality requirements"
+        ],
+        "excessive-permissions": [
+          "Restrict API key usage with application restrictions (HTTP referrers, IP addresses, or API targets)",
+          "Use service accounts with roles/aiplatform.user scoped to specific projects rather than broad API access",
+          "Avoid embedding API keys in client-side code; proxy Gemini requests through a backend with IAM authentication",
+          "Audit API key usage regularly via Cloud Console and disable unused keys"
+        ],
+        "dos-attack": [
+          "Configure per-project and per-region quota limits for Gemini API to prevent cost spikes from abuse",
+          "Implement application-level rate limiting on Gemini API calls per user or session",
+          "Set up Cloud Monitoring alerts on Gemini API request counts and latency to detect usage anomalies",
+          "Use Cloud Armor with a load balancer in front of proxy services to filter abusive traffic before it reaches Gemini"
+        ],
+        "misconfiguration": [
+          "Apply HTTP referrer or IP restrictions on all Gemini API keys to prevent unauthorized usage",
+          "Configure safety filter settings explicitly for each Gemini model call rather than relying on defaults",
+          "Use Secret Manager to store API keys and rotate them regularly instead of hardcoding in applications",
+          "Enable Cloud Audit Logs for AI Platform API operations to track all Gemini API usage"
+        ]
+      }
+    },
+    {
+      "id": "gcp-workflows",
+      "name": "Workflows",
+      "provider": "gcp",
+      "category": "orchestration",
+      "description": "Serverless workflow orchestration",
+      "threatIds": ["workflow-manipulation", "misconfiguration", "excessive-permissions", "sensitive-data-exposure"],
+      "threatContext": {
+        "workflow-manipulation": "YAML definition tampering to modify execution flow, malicious step injection via dynamic arguments, unauthorized workflow execution through exposed Workflows API",
+        "misconfiguration": "Missing error handling exposing internal state, overly permissive callback endpoints, long workflow retention exposing execution history, missing audit logging",
+        "excessive-permissions": "Workflow service account with broad permissions to Cloud Functions, Cloud Run, or other services; ability to invoke any HTTP endpoint; cross-project access grants",
+        "sensitive-data-exposure": "Sensitive data in workflow arguments visible in execution logs, secrets passed between steps in workflow variables, callback URLs containing tokens"
+      },
+      "threatMitigations": {
+        "workflow-manipulation": [
+          "Store workflow definitions in version-controlled repositories and deploy via CI/CD with review gates",
+          "Restrict workflows.update and workflows.create IAM permissions to authorized CI/CD service accounts only",
+          "Use Cloud Audit Logs to monitor all workflow definition changes and execution triggers",
+          "Validate workflow callback endpoints against an allowlist of trusted services"
+        ],
+        "misconfiguration": [
+          "Implement structured error handling in workflow YAML to avoid exposing internal state in failure responses",
+          "Enable Cloud Audit Logs DATA_WRITE and DATA_READ for Workflows API operations",
+          "Configure workflow execution retention to minimize exposure window for sensitive execution data",
+          "Use VPC Service Controls to restrict Workflows API access to trusted networks"
+        ],
+        "excessive-permissions": [
+          "Create a dedicated service account per workflow with only the permissions needed for its specific steps",
+          "Use IAM Recommender to identify and remove unused permissions from workflow service accounts",
+          "Restrict HTTP connector calls to allowlisted internal endpoints via VPC connectors",
+          "Apply IAM Conditions to limit workflow service account access to specific resources or time windows"
+        ],
+        "sensitive-data-exposure": [
+          "Reference secrets from Secret Manager within workflow steps instead of passing them as arguments",
+          "Configure Cloud Logging exclusion filters to redact sensitive workflow argument data",
+          "Avoid passing sensitive data between steps via workflow variables; retrieve from Secret Manager at each step",
+          "Use Workflows connectors with built-in authentication instead of embedding tokens in callback URLs"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-sql",
+      "name": "Cloud SQL",
+      "provider": "gcp",
+      "category": "database",
+      "description": "Managed MySQL, PostgreSQL, SQL Server",
+      "threatIds": ["sql-injection", "unauthorized-access", "data-exfiltration", "misconfiguration", "backup-exposure"],
+      "threatContext": {
+        "sql-injection": "Engine-specific injection (MySQL, PostgreSQL, SQL Server) depending on instance type, stored procedure abuse, file read via LOAD_FILE/pg_read_file",
+        "unauthorized-access": "Public IP exposure with authorized networks misconfiguration, Cloud SQL Auth Proxy bypass, IAM database authentication misconfiguration",
+        "data-exfiltration": "Export to Cloud Storage abuse, cross-project instance clone, backup export to attacker-controlled buckets",
+        "backup-exposure": "Automated backup export, on-demand backup sharing, cross-project backup restore"
+      },
+      "threatMitigations": {
+        "sql-injection": [
+          "Use Cloud SQL Insights to monitor and identify anomalous query patterns that may indicate injection attempts",
+          "Configure Cloud SQL database flags to enforce strict SQL modes and disable dangerous functions like LOAD_FILE",
+          "Connect applications exclusively via Cloud SQL Auth Proxy to enforce IAM-based authentication and encrypted connections",
+          "Grant minimal database-level privileges using Cloud SQL IAM database authentication instead of built-in accounts"
+        ],
+        "unauthorized-access": [
+          "Enable Cloud SQL IAM database authentication to bind database access to GCP IAM identities instead of passwords",
+          "Remove public IP from Cloud SQL instances and use Private Service Connect or Cloud SQL Auth Proxy for access",
+          "Configure authorized networks to restrict access to specific IP ranges when public IP is required",
+          "Enable VPC Service Controls around Cloud SQL to prevent access from outside the perimeter"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Service Controls to restrict Cloud SQL export operations to authorized projects and buckets only",
+          "Enable Data Access audit logs for Cloud SQL and export to a centralized SIEM via log sinks",
+          "Use IAM Conditions to restrict cloudsql.instances.export and cloudsql.backupRuns.create to authorized principals",
+          "Restrict cross-project instance cloning by limiting cloudsql.instances.clone permissions at the organization level"
+        ],
+        "misconfiguration": [
+          "Use Security Health Analytics in Security Command Center to detect Cloud SQL instances with public IPs or no SSL enforcement",
+          "Enforce Organization Policy constraints such as constraints/sql.restrictPublicIp to prevent public IP assignment",
+          "Configure Cloud SQL database flags for security hardening (require_ssl, log_connections, log_disconnections)",
+          "Use Terraform or Deployment Manager to define Cloud SQL instances as code with security baselines"
+        ],
+        "backup-exposure": [
+          "Encrypt all Cloud SQL backups with CMEK using Cloud KMS keys with restricted IAM access",
+          "Restrict cloudsql.backupRuns.create and cloudsql.instances.restoreBackup IAM permissions to authorized administrators only",
+          "Configure backup retention policies to automatically delete backups beyond the required retention period",
+          "Enable VPC Service Controls to prevent backup export or restore to projects outside the perimeter"
+        ]
+      }
+    },
+    {
+      "id": "gcp-firestore",
+      "name": "Firestore",
+      "provider": "gcp",
+      "category": "database",
+      "description": "NoSQL document database",
+      "threatIds": ["nosql-injection", "unauthorized-access", "data-exfiltration", "misconfiguration", "backup-exposure"],
+      "threatContext": {
+        "nosql-injection": "Query manipulation via client-side where clauses, security rule bypass through malformed queries, batch operation abuse",
+        "unauthorized-access": "Overly permissive Firestore security rules (allow read, write: if true), missing authentication checks, wildcard collection access",
+        "data-exfiltration": "Bulk document enumeration via collection queries, export to BigQuery abuse, Firestore backup (PITR) access",
+        "backup-exposure": "PITR recovery exposing historical sensitive data, export to BigQuery/GCS with overly permissive IAM, scheduled exports to unprotected buckets"
+      },
+      "threatMitigations": {
+        "nosql-injection": [
+          "Enforce strict Firestore Security Rules that validate document field types and value ranges before allowing writes",
+          "Use server-side Firestore Admin SDK with parameterized queries instead of exposing client-side query construction",
+          "Implement Cloud Functions as an intermediary layer to validate and sanitize all Firestore operations from untrusted clients"
+        ],
+        "unauthorized-access": [
+          "Write granular Firestore Security Rules using request.auth to enforce per-document and per-collection access based on Firebase Authentication identity",
+          "Enable App Check to verify that requests originate from your genuine application and not from unauthorized clients",
+          "Enable VPC Service Controls around Firestore to restrict API access to authorized networks and projects",
+          "Regularly audit Firestore Security Rules using the Firebase Emulator Suite's rules testing to validate deny-by-default behavior"
+        ],
+        "data-exfiltration": [
+          "Enable Data Access audit logs for Firestore and route to Cloud Logging sinks for centralized monitoring",
+          "Use VPC Service Controls to prevent Firestore export operations to projects outside the authorized perimeter",
+          "Restrict datastore.databases.export IAM permissions to authorized service accounts only",
+          "Monitor Firestore usage metrics in Cloud Monitoring for unusual read volume spikes that may indicate bulk enumeration"
+        ],
+        "misconfiguration": [
+          "Use Firebase Emulator Suite to unit test Firestore Security Rules before deploying to production",
+          "Enable Security Command Center to detect Firestore databases with overly permissive security rules",
+          "Deploy Firestore Security Rules via CI/CD pipelines with mandatory code review gates",
+          "Enforce Organization Policy constraints to restrict Firestore database creation to approved projects"
+        ],
+        "backup-exposure": [
+          "Encrypt Firestore exports with CMEK using Cloud KMS keys with restricted IAM access",
+          "Restrict datastore.databases.export and datastore.operations.get permissions to authorized service accounts only",
+          "Configure PITR retention to the minimum period required and restrict datastore.databases.restore permissions",
+          "Ensure Firestore export destination buckets have VPC Service Controls and IAM policies limiting access"
+        ]
+      }
+    },
+    {
+      "id": "gcp-bigquery",
+      "name": "BigQuery",
+      "provider": "gcp",
+      "category": "database",
+      "description": "Serverless data warehouse and analytics",
+      "threatIds": ["sql-injection", "unauthorized-access", "data-exfiltration", "excessive-permissions", "sensitive-data-exposure"],
+      "threatContext": {
+        "sql-injection": "GoogleSQL injection via dynamic query construction, UDF (user-defined function) abuse for code execution, scripting variable injection",
+        "unauthorized-access": "Dataset sharing with allAuthenticatedUsers, overly permissive IAM roles, authorized view bypass, shared dataset enumeration",
+        "data-exfiltration": "Export to Cloud Storage, data transfer to external destinations, query result extraction, table copy to attacker-controlled projects",
+        "sensitive-data-exposure": "Column-level security bypass, data masking rule circumvention, query history containing sensitive data patterns"
+      },
+      "threatMitigations": {
+        "sql-injection": [
+          "Use BigQuery parameterized queries with the @parameter syntax to prevent injection in dynamic SQL construction",
+          "Restrict CREATE FUNCTION and CREATE PROCEDURE permissions to prevent unauthorized UDF creation for code execution",
+          "Limit BigQuery scripting (EXECUTE IMMEDIATE) permissions to trusted service accounts and administrators only"
+        ],
+        "unauthorized-access": [
+          "Use BigQuery column-level access control and data masking to restrict sensitive field access at the IAM level",
+          "Remove allAuthenticatedUsers and allUsers bindings from datasets using IAM policy auditing in Security Command Center",
+          "Enable VPC Service Controls around BigQuery to restrict data access to authorized projects and networks",
+          "Use authorized views and authorized datasets to control which users can query underlying tables"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Service Controls to block BigQuery extract jobs and table copies to projects outside the perimeter",
+          "Enable Data Access audit logs for BigQuery and monitor extract/copy operations via Cloud Logging sinks",
+          "Use BigQuery data transfer restrictions via Organization Policy to limit data movement to authorized destinations",
+          "Monitor INFORMATION_SCHEMA.JOBS to detect unusual export patterns or large data extraction queries"
+        ],
+        "excessive-permissions": [
+          "Use BigQuery column-level security and row-level security policies instead of granting broad dataset-level access",
+          "Replace primitive roles with granular predefined roles like roles/bigquery.dataViewer scoped to specific datasets",
+          "Use IAM Recommender to identify and remove unused BigQuery permissions from service accounts and users",
+          "Implement IAM Conditions to restrict BigQuery access by time, IP range, or resource attributes"
+        ],
+        "sensitive-data-exposure": [
+          "Enable BigQuery column-level security with policy tags from Data Catalog to enforce field-level access control",
+          "Use BigQuery dynamic data masking to automatically mask sensitive columns for unauthorized viewers",
+          "Run Cloud DLP inspection scans on BigQuery tables to discover and classify sensitive data automatically",
+          "Configure INFORMATION_SCHEMA.JOBS audit views to detect queries accessing sensitive tables and alert via Cloud Monitoring"
+        ]
+      }
+    },
+    {
+      "id": "gcp-spanner",
+      "name": "Cloud Spanner",
+      "provider": "gcp",
+      "category": "database",
+      "description": "Globally distributed relational database",
+      "threatIds": ["sql-injection", "unauthorized-access", "data-exfiltration", "misconfiguration", "backup-exposure"],
+      "threatContext": {
+        "sql-injection": "GoogleSQL injection via string concatenation in Spanner queries, parameterized query bypass, DML injection in mutations",
+        "unauthorized-access": "IAM role misconfiguration for database-level access, fine-grained access control bypass, service account impersonation",
+        "data-exfiltration": "Export to Cloud Storage via Dataflow, backup export abuse, cross-project database restore, change streams for data capture",
+        "backup-exposure": "Backup copy to external projects, backup retention policy abuse, cross-region backup access"
+      },
+      "threatMitigations": {
+        "sql-injection": [
+          "Use Spanner client library parameterized queries with @param bindings to prevent SQL injection in GoogleSQL statements",
+          "Restrict spanner.databases.executeSQL permissions to application service accounts and prohibit ad-hoc query access",
+          "Validate all user-supplied input at the application layer before constructing Spanner DML statements"
+        ],
+        "unauthorized-access": [
+          "Use Spanner fine-grained access control to grant table-level and column-level permissions instead of database-level roles",
+          "Enable VPC Service Controls around Spanner instances to restrict API access to authorized networks and projects",
+          "Use IAM Conditions to restrict spanner.databases.read and spanner.sessions.create by IP range or time",
+          "Restrict service account impersonation by limiting iam.serviceAccounts.actAs for accounts with Spanner access"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Service Controls to prevent Spanner backup and export operations to unauthorized projects",
+          "Enable Data Access audit logs for Spanner and route to a centralized SIEM via Cloud Logging sinks",
+          "Restrict spanner.backups.create and spanner.databases.restore IAM permissions to authorized administrators only",
+          "Monitor Spanner change streams for unexpected consumers that may be capturing data for exfiltration"
+        ],
+        "misconfiguration": [
+          "Use Security Health Analytics in Security Command Center to detect Spanner instances without CMEK encryption",
+          "Enforce Organization Policy constraints to require CMEK encryption for all Spanner databases",
+          "Define Spanner instances and IAM bindings as Terraform resources with mandatory security review in CI/CD",
+          "Regularly audit Spanner IAM policies for overly broad roles using IAM Recommender"
+        ],
+        "backup-exposure": [
+          "Encrypt all Spanner backups with CMEK using Cloud KMS keys with restricted IAM access",
+          "Use VPC Service Controls to prevent backup copy or restore operations to projects outside the perimeter",
+          "Restrict spanner.backups.copy permissions to prevent cross-project backup duplication",
+          "Configure backup retention to the minimum required period and audit backup access via Data Access audit logs"
+        ]
+      }
+    },
+    {
+      "id": "gcp-bigtable",
+      "name": "Bigtable",
+      "provider": "gcp",
+      "category": "database",
+      "description": "Wide-column NoSQL database for large workloads",
+      "threatIds": ["nosql-injection", "unauthorized-access", "data-exfiltration", "misconfiguration", "backup-exposure"],
+      "threatContext": {
+        "nosql-injection": "Row key filter manipulation, regex filter injection in ReadRows, column family/qualifier injection in read requests",
+        "unauthorized-access": "IAM role misconfiguration at instance or table level, application profile abuse, missing VPC Service Controls",
+        "data-exfiltration": "Bulk scan via ReadRows with unlimited row ranges, export to Cloud Storage via Dataflow, backup copy to external projects",
+        "backup-exposure": "Table backups accessible to unauthorized service accounts, backup copy to external projects, retention policy exposing historical data"
+      },
+      "threatMitigations": {
+        "nosql-injection": [
+          "Use Bigtable client library ReadRows filters programmatically rather than constructing filter strings from user input",
+          "Validate and sanitize all user-supplied row key prefixes and regex filter patterns at the application layer",
+          "Restrict bigtable.tables.readRows IAM permissions to dedicated application service accounts only"
+        ],
+        "unauthorized-access": [
+          "Use Bigtable IAM roles at the table level instead of instance level to enforce least-privilege access",
+          "Enable VPC Service Controls around Bigtable to restrict API access to authorized networks and projects",
+          "Restrict application profile configuration to prevent unauthorized access pattern changes via bigtable.appProfiles.update",
+          "Use IAM Conditions to restrict Bigtable access by IP range, time, or resource attributes"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Service Controls to prevent Bigtable backup and Dataflow export jobs to unauthorized projects",
+          "Enable Data Access audit logs for Bigtable and route to Cloud Logging sinks for centralized monitoring",
+          "Restrict bigtable.tables.readRows permissions and monitor for unusual scan operations via Cloud Monitoring metrics",
+          "Limit bigtable.backups.create and bigtable.backups.copy permissions to authorized administrators only"
+        ],
+        "misconfiguration": [
+          "Use Security Health Analytics to detect Bigtable instances without CMEK encryption or overly permissive IAM bindings",
+          "Enforce Organization Policy constraints to require CMEK encryption for all Bigtable instances",
+          "Define Bigtable instances, clusters, and IAM bindings as Terraform resources with mandatory security review",
+          "Regularly audit Bigtable IAM policies using IAM Recommender to identify and remove unused permissions"
+        ],
+        "backup-exposure": [
+          "Encrypt all Bigtable backups with CMEK using Cloud KMS keys with restricted IAM access",
+          "Restrict bigtable.backups.copy permissions to prevent cross-project backup duplication",
+          "Enable VPC Service Controls to prevent backup restore operations to projects outside the perimeter",
+          "Configure backup retention to the minimum required period and audit backup access via Data Access audit logs"
+        ]
+      }
+    },
+    {
+      "id": "gcp-memorystore",
+      "name": "Memorystore",
+      "provider": "gcp",
+      "category": "database",
+      "description": "Managed Redis and Memcached",
+      "threatIds": ["unauthorized-access", "cache-poisoning", "data-exfiltration", "misconfiguration"],
+      "threatContext": {
+        "unauthorized-access": "Redis AUTH password exposure, missing IAM-based authentication, VPC network allowing broad access, Memcached without SASL",
+        "cache-poisoning": "Redis command injection for key manipulation, session data tampering, SLAVEOF replication to rogue instance",
+        "data-exfiltration": "Redis BGSAVE/RDB export, key enumeration via SCAN, replication stream capture, Memcached dump via stats commands"
+      },
+      "threatMitigations": {
+        "unauthorized-access": [
+          "Enable Memorystore AUTH to require password authentication for all Redis connections",
+          "Restrict Memorystore instance access to specific VPC networks and subnets via authorized network configuration",
+          "Use IAM-based access control for Memorystore for Redis Cluster to bind access to GCP identities",
+          "Enable in-transit encryption (TLS) for Memorystore Redis to prevent credential sniffing on the network"
+        ],
+        "cache-poisoning": [
+          "Rename or disable dangerous Redis commands (SLAVEOF, REPLICAOF, CONFIG, DEBUG) via Memorystore Redis configuration",
+          "Enable in-transit encryption to prevent network-level command injection into Redis connections",
+          "Use separate Memorystore instances for different trust levels (session store vs. application cache) to limit blast radius",
+          "Monitor Redis command metrics in Cloud Monitoring for unusual write patterns or unexpected command usage"
+        ],
+        "data-exfiltration": [
+          "Disable Redis persistence (RDB/AOF) via Memorystore configuration if data durability is not required to prevent export abuse",
+          "Restrict Memorystore instance network access to specific VPC subnets and block all external connectivity",
+          "Enable Data Access audit logs for Memorystore and monitor for unusual connection patterns via Cloud Logging",
+          "Use VPC Service Controls to prevent Memorystore access from outside the authorized perimeter"
+        ],
+        "misconfiguration": [
+          "Use Security Health Analytics to detect Memorystore instances without AUTH enabled or in-transit encryption disabled",
+          "Define Memorystore instances as Terraform resources with security baselines enforced via CI/CD review",
+          "Enforce Organization Policy constraints to restrict Memorystore instance creation to approved VPC networks",
+          "Regularly review Memorystore Redis configuration flags for security-relevant settings using automated compliance checks"
+        ]
+      }
+    },
+    {
+      "id": "gcp-alloydb",
+      "name": "AlloyDB",
+      "provider": "gcp",
+      "category": "database",
+      "description": "PostgreSQL-compatible database for demanding workloads",
+      "threatIds": ["sql-injection", "unauthorized-access", "data-exfiltration", "misconfiguration", "backup-exposure"],
+      "threatContext": {
+        "sql-injection": "PostgreSQL-compatible injection, pg_read_file/COPY TO for file access, extension-based code execution, dollar-quoting bypass",
+        "unauthorized-access": "AlloyDB Auth Proxy bypass, IAM database authentication misconfiguration, public IP exposure, pg_hba.conf equivalent misrules",
+        "data-exfiltration": "pg_dump via Auth Proxy, cross-project cluster clone, backup export to Cloud Storage, logical replication to external PostgreSQL",
+        "backup-exposure": "Continuous backup access, point-in-time recovery to external cluster, backup export to attacker-controlled storage"
+      },
+      "threatMitigations": {
+        "sql-injection": [
+          "Use AlloyDB client libraries with parameterized queries to prevent SQL injection in PostgreSQL-compatible statements",
+          "Configure AlloyDB database flags to disable dangerous PostgreSQL functions (e.g., restrict COPY TO/FROM, pg_read_file)",
+          "Connect applications exclusively via AlloyDB Auth Proxy to enforce IAM-based authentication and encrypted connections",
+          "Grant minimal database-level privileges using AlloyDB IAM database authentication instead of built-in PostgreSQL accounts"
+        ],
+        "unauthorized-access": [
+          "Enable AlloyDB IAM database authentication to bind database access to GCP IAM identities",
+          "Use Private Service Connect to ensure AlloyDB clusters are accessible only from authorized VPC networks",
+          "Enable VPC Service Controls around AlloyDB to restrict API access to authorized networks and projects",
+          "Restrict alloydb.clusters.connect and alloydb.instances.connect permissions to authorized service accounts only"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Service Controls to prevent AlloyDB cluster cloning or backup access from unauthorized projects",
+          "Enable Data Access audit logs for AlloyDB and route to Cloud Logging sinks for centralized monitoring",
+          "Restrict alloydb.backups.create and alloydb.clusters.restore IAM permissions to authorized administrators only",
+          "Monitor AlloyDB query insights for unusual data extraction patterns or large result set queries"
+        ],
+        "misconfiguration": [
+          "Use Security Health Analytics to detect AlloyDB instances without CMEK encryption or with public connectivity",
+          "Enforce Organization Policy constraints to require CMEK encryption and Private Service Connect for all AlloyDB clusters",
+          "Define AlloyDB clusters and IAM bindings as Terraform resources with mandatory security review in CI/CD",
+          "Configure AlloyDB database flags for security hardening (require SSL, audit logging, connection limits)"
+        ],
+        "backup-exposure": [
+          "Encrypt all AlloyDB continuous backups and on-demand backups with CMEK using Cloud KMS keys",
+          "Restrict alloydb.backups.create and alloydb.clusters.restore permissions to authorized administrators only",
+          "Enable VPC Service Controls to prevent backup restore to clusters outside the authorized perimeter",
+          "Configure backup retention to the minimum required period and monitor backup access via Data Access audit logs"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-storage",
+      "name": "Cloud Storage",
+      "provider": "gcp",
+      "category": "storage",
+      "description": "Object storage service",
+      "threatIds": ["bucket-misconfiguration", "data-exfiltration", "unauthorized-access", "sensitive-data-exposure", "backup-exposure"],
+      "threatContext": {
+        "bucket-misconfiguration": "Public bucket enumeration via gsutil/gcloud, allUsers and allAuthenticatedUsers IAM bindings, uniform vs fine-grained ACL misconfigurations",
+        "data-exfiltration": "Bulk object downloads via gsutil rsync, cross-project copy to attacker-controlled buckets, Storage Transfer Service abuse",
+        "unauthorized-access": "Signed URL abuse with overly long expiration, overly permissive IAM policies, HMAC key exposure for interoperability access",
+        "backup-exposure": "Object versioning exposing deleted/overwritten sensitive objects, lifecycle policy misconfiguration retaining data beyond requirements, Storage Transfer Service copying to external projects"
+      },
+      "threatMitigations": {
+        "bucket-misconfiguration": [
+          "Enable Organization Policy constraint constraints/storage.publicAccessPrevention to block public access at the org or project level",
+          "Use Uniform bucket-level access to disable legacy ACLs and manage access exclusively through IAM",
+          "Run Security Health Analytics in Security Command Center to detect publicly accessible buckets",
+          "Apply VPC Service Controls perimeters to restrict bucket access to authorized networks and projects"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Service Controls around Cloud Storage to prevent data copy to projects outside the perimeter",
+          "Use Cloud DLP to scan and classify objects in buckets for sensitive content",
+          "Enable Data Access audit logs for Cloud Storage and route to a centralized SIEM via log sinks",
+          "Configure Object Access Logs and monitor for unusual bulk download patterns via Cloud Monitoring"
+        ],
+        "unauthorized-access": [
+          "Use IAM Conditions to restrict access by IP range, time, or resource attributes on bucket policies",
+          "Set short expiration times on signed URLs and scope them to specific operations and objects",
+          "Disable HMAC key creation via Organization Policy constraint constraints/storage.restrictAuthTypes",
+          "Enable Cloud Audit Logs for all Cloud Storage data access operations"
+        ],
+        "sensitive-data-exposure": [
+          "Enable default CMEK encryption with Cloud KMS for all buckets containing sensitive data",
+          "Use Cloud DLP inspection jobs to automatically discover and classify sensitive data in buckets",
+          "Configure Object Lifecycle Management to automatically delete or transition sensitive data after retention periods",
+          "Apply IAM Conditions and VPC Service Controls to restrict who and what networks can read bucket objects"
+        ],
+        "backup-exposure": [
+          "Enable Object Versioning with lifecycle rules to automatically delete noncurrent versions after a defined retention period",
+          "Use Bucket Lock with retention policies to prevent deletion or modification of backup objects",
+          "Restrict Storage Transfer Service permissions to prevent cross-project or cross-org data copies",
+          "Encrypt all backup objects with CMEK and restrict Cloud KMS key access to authorized principals only"
+        ]
+      }
+    },
+    {
+      "id": "gcp-filestore",
+      "name": "Filestore",
+      "provider": "gcp",
+      "category": "storage",
+      "description": "Managed file storage for applications",
+      "threatIds": ["unauthorized-access", "data-exfiltration", "misconfiguration", "sensitive-data-exposure", "backup-exposure"],
+      "threatContext": {
+        "unauthorized-access": "NFS mount from unauthorized Compute Engine instances, overly permissive VPC firewall rules exposing NFS ports, missing IP-based access controls",
+        "data-exfiltration": "Bulk file copy via NFS mounts to external systems, backup snapshot access from compromised service accounts",
+        "misconfiguration": "Permissive export settings, NFS access from unintended networks, disabled encryption in transit",
+        "backup-exposure": "Filestore backups accessible to unauthorized service accounts, backup restore to attacker-controlled instances, cross-project backup access"
+      },
+      "threatMitigations": {
+        "unauthorized-access": [
+          "Restrict Filestore instance access using VPC firewall rules to allow NFS traffic only from authorized Compute Engine subnets",
+          "Use IAM roles (roles/file.editor, roles/file.viewer) with least-privilege bindings to control Filestore management operations",
+          "Place Filestore instances in a Shared VPC with strict firewall rules to limit cross-project access",
+          "Enable Cloud Audit Logs for Filestore admin and data access operations"
+        ],
+        "data-exfiltration": [
+          "Apply VPC Service Controls perimeters to prevent Filestore data access from outside authorized projects",
+          "Monitor VPC Flow Logs for unusual NFS traffic volumes or connections from unexpected source IPs",
+          "Restrict Filestore backup restore permissions to prevent restoration to attacker-controlled instances",
+          "Use Cloud Monitoring alerts on Filestore read throughput to detect bulk data extraction"
+        ],
+        "misconfiguration": [
+          "Use Security Health Analytics to detect Filestore instances with overly permissive network configurations",
+          "Enable encryption in transit for all NFS connections to Filestore instances",
+          "Deploy Filestore instances using Terraform or Deployment Manager with security-hardened templates",
+          "Restrict Filestore instance creation to approved tiers and networks via Organization Policy custom constraints"
+        ],
+        "sensitive-data-exposure": [
+          "Enable CMEK encryption for Filestore instances using Cloud KMS keys with restricted access policies",
+          "Use Cloud DLP to scan data written to Filestore file shares for sensitive content",
+          "Restrict Filestore management API access to authorized personnel via IAM and VPC Service Controls"
+        ],
+        "backup-exposure": [
+          "Restrict IAM permissions for Filestore backup creation and restore (roles/file.editor) to authorized service accounts only",
+          "Use VPC Service Controls to prevent backup restore operations to projects outside the perimeter",
+          "Encrypt Filestore backups with CMEK and restrict Cloud KMS key access to backup admin principals",
+          "Enable Cloud Audit Logs for all Filestore backup operations and monitor for unauthorized restore attempts"
+        ]
+      }
+    },
+    {
+      "id": "gcp-gke",
+      "name": "GKE",
+      "provider": "gcp",
+      "category": "container",
+      "description": "Google Kubernetes Engine",
+      "threatIds": ["container-escape", "misconfiguration", "unauthorized-access", "privilege-escalation", "supply-chain-attack", "credential-theft", "lateral-movement", "kubernetes-secrets-exposure"],
+      "threatContext": {
+        "container-escape": "Privileged pod breakout to node, hostPath volume mounts exposing node filesystem, gVisor/Sandbox escape on GKE Autopilot, kernel exploit escalation via CAP_SYS_ADMIN",
+        "misconfiguration": "Workload Identity not enabled (legacy metadata API exposed), Pod Security Standards not enforced, public GKE cluster endpoint, overly permissive RBAC bindings, missing network policies",
+        "unauthorized-access": "Metadata server credential theft (http://metadata.google.internal), exposed Kubernetes Dashboard, default compute service account with broad permissions, anonymous RBAC authentication",
+        "privilege-escalation": "ServiceAccount token abuse, node service account impersonation, create pods/exec permission abuse for cluster takeover, hostPID namespace sharing for process injection",
+        "supply-chain-attack": "Malicious images from Artifact Registry, compromised Helm charts, Binary Authorization bypass, admission controller circumvention for unverified images",
+        "credential-theft": "Pod access to GCP metadata server (http://metadata.google.internal) for service account token theft, Workload Identity token extraction, GKE node service account credential abuse",
+        "lateral-movement": "Pod-to-pod communication via default-allow NetworkPolicy, VPC-level pivoting from nodes, Shared VPC cross-project access, GKE Dataplane V2 default-allow pod networking",
+        "kubernetes-secrets-exposure": "Secrets accessible via Kubernetes API, application-layer encryption for secrets not enabled by default, ServiceAccount tokens auto-mounted to pods"
+      },
+      "threatMitigations": {
+        "container-escape": [
+          "Use GKE Autopilot mode which enforces gVisor sandboxing and prevents privileged containers by default",
+          "Enable GKE Sandbox (gVisor) on Standard clusters for untrusted workloads to add kernel-level isolation",
+          "Enforce Pod Security Standards at the namespace level using GKE built-in PodSecurity admission controller",
+          "Disable hostPath volume mounts and privileged mode via GKE Policy Controller constraints"
+        ],
+        "misconfiguration": [
+          "Use Security Health Analytics in Security Command Center to detect GKE misconfigurations such as legacy ABAC, disabled network policy, and public endpoints",
+          "Enable Workload Identity on all GKE clusters to eliminate the need for node-level metadata server access",
+          "Enable GKE Dataplane V2 with network policy enforcement to restrict pod-to-pod traffic by default",
+          "Use GKE Config Sync to enforce consistent security policies across clusters from a Git repository"
+        ],
+        "unauthorized-access": [
+          "Enable authorized networks on the GKE control plane to restrict API server access to trusted CIDR ranges",
+          "Use private GKE clusters with no public endpoint and access the API server via Cloud Interconnect or Cloud VPN",
+          "Replace the default compute service account with dedicated least-privilege Workload Identity service accounts per namespace",
+          "Disable legacy ABAC and enforce RBAC-only authentication on all GKE clusters"
+        ],
+        "privilege-escalation": [
+          "Restrict iam.serviceAccounts.actAs and container.pods.create permissions using IAM Conditions scoped to specific namespaces",
+          "Use GKE Policy Controller to enforce constraints that block hostPID, hostNetwork, and hostIPC on all pods",
+          "Enable Binary Authorization to prevent deployment of unsigned or untrusted container images that may contain escalation tools",
+          "Disable automounting of ServiceAccount tokens by setting automountServiceAccountToken: false on pods that do not need API access"
+        ],
+        "supply-chain-attack": [
+          "Enable Binary Authorization to enforce container image attestation policies before GKE deployment",
+          "Configure Artifact Registry vulnerability scanning and block deployment of images with critical CVEs via Binary Authorization",
+          "Use GKE image streaming with signed images to verify integrity during pull operations",
+          "Apply GKE Policy Controller constraints to restrict allowed container registries to your organization's Artifact Registry"
+        ],
+        "credential-theft": [
+          "Enable Workload Identity to bind Kubernetes ServiceAccounts to GCP IAM service accounts and eliminate metadata server credential exposure",
+          "Enforce IMDSv2-equivalent protection by disabling legacy metadata API endpoints on GKE nodes via metadata concealment",
+          "Use GKE Secret Manager add-on to mount secrets directly from Secret Manager instead of storing credentials in cluster",
+          "Rotate GKE node pool service account keys automatically and use short-lived tokens with Workload Identity Federation"
+        ],
+        "lateral-movement": [
+          "Enable GKE Dataplane V2 and define Kubernetes NetworkPolicies to enforce default-deny ingress and egress between namespaces",
+          "Use VPC Service Controls to create a security perimeter around the GKE project and prevent cross-project pivoting",
+          "Deploy GKE clusters in dedicated VPCs with firewall rules restricting node-to-node communication to required ports only",
+          "Enable Container Threat Detection in Security Command Center to detect reverse shells, anomalous binary execution, and library loading"
+        ],
+        "kubernetes-secrets-exposure": [
+          "Enable application-layer encryption for Kubernetes secrets using a Cloud KMS key via GKE database encryption configuration",
+          "Use the GKE Secret Manager add-on to store sensitive data in Secret Manager and mount it as volumes instead of native Kubernetes secrets",
+          "Enforce RBAC policies that restrict secrets access to specific ServiceAccounts within designated namespaces",
+          "Enable GKE audit logging for all secrets operations and route to Cloud Logging with alert policies for unauthorized access attempts"
+        ]
+      }
+    },
+    {
+      "id": "gcp-artifact-registry",
+      "name": "Artifact Registry",
+      "provider": "gcp",
+      "category": "container",
+      "description": "Container and package repository",
+      "threatIds": ["supply-chain-attack", "unauthorized-access", "misconfiguration", "sensitive-data-exposure"],
+      "threatContext": {
+        "supply-chain-attack": "Malicious image push via compromised service account, image tag overwrite attacks, base image poisoning in shared repositories, dependency confusion with public Docker Hub",
+        "unauthorized-access": "Overly permissive IAM bindings (roles/artifactregistry.reader to allAuthenticatedUsers), cross-project repository access, service account key theft for registry access",
+        "misconfiguration": "Vulnerability scanning disabled, public repository exposure, missing cleanup policies causing storage bloat, remote repository caching untrusted upstream registries",
+        "sensitive-data-exposure": "Secrets embedded in image layers visible via image history, .env files in container images, service account keys baked into images, exposed Dockerfile build arguments"
+      },
+      "threatMitigations": {
+        "supply-chain-attack": [
+          "Enable Artifact Analysis vulnerability scanning on all repositories to automatically detect known CVEs in container images",
+          "Use Binary Authorization attestations to sign images after scanning and prevent deployment of unverified artifacts to GKE or Cloud Run",
+          "Configure Artifact Registry remote repositories with upstream source restrictions to proxy only trusted public registries",
+          "Pin image references to SHA256 digests in deployment manifests instead of mutable tags to prevent tag overwrite attacks"
+        ],
+        "unauthorized-access": [
+          "Use Artifact Registry repository-level IAM bindings with roles/artifactregistry.reader scoped to specific service accounts instead of project-wide access",
+          "Enable VPC Service Controls to restrict Artifact Registry API access and prevent image pull or push from outside the authorized perimeter",
+          "Remove allUsers and allAuthenticatedUsers bindings and use Organization Policy constraints to prevent public repository creation",
+          "Use Workload Identity for GKE and Cloud Run service accounts instead of service account keys to authenticate with Artifact Registry"
+        ],
+        "misconfiguration": [
+          "Enable Artifact Analysis automatic scanning on all repositories and configure alerting in Security Command Center for critical vulnerabilities",
+          "Use Organization Policy constraint constraints/artifactregistry.restrictPublicRepositories to prevent creation of public-access repositories",
+          "Configure cleanup policies on each repository to automatically delete untagged images and images older than retention thresholds",
+          "Restrict remote repository upstream sources to specific trusted registries and enable vulnerability scanning on cached artifacts"
+        ],
+        "sensitive-data-exposure": [
+          "Use Cloud Build multi-stage builds to ensure secrets used during build are not persisted in final image layers",
+          "Enable Container Analysis to scan image layers for embedded credentials, certificates, and configuration files containing secrets",
+          "Configure Artifact Registry CMEK encryption using Cloud KMS to control encryption keys for stored artifacts",
+          "Use Secret Manager references in Cloud Build instead of passing secrets as build arguments that appear in Dockerfile history"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-build",
+      "name": "Cloud Build",
+      "provider": "gcp",
+      "category": "cicd",
+      "description": "CI/CD platform for building and deploying",
+      "threatIds": ["supply-chain-attack", "injection-attack", "misconfiguration", "credential-theft", "unauthorized-access", "excessive-permissions", "privilege-escalation"],
+      "threatContext": {
+        "supply-chain-attack": "Malicious cloudbuild.yaml in source repos, compromised builder images from Artifact Registry, dependency confusion in build steps",
+        "injection-attack": "Command injection via substitution variables, malicious build triggers from untrusted repos, script injection in build steps",
+        "credential-theft": "Cloud Build service account token theft, Secret Manager secret exfiltration during builds, exposed credentials in build logs",
+        "misconfiguration": "Cloud Build service account with Project Editor role by default, build triggers on untrusted repositories, build logs containing sensitive output, missing approval steps for production deployments, worker pool network configuration exposing internal resources",
+        "unauthorized-access": "Build trigger access without proper IAM restrictions, builder image access from public Artifact Registry, API access via compromised service account keys, missing VPC Service Controls for Cloud Build",
+        "excessive-permissions": "Default Cloud Build service account with Project Editor role, overly broad IAM bindings for trigger creation, build steps running with full service account permissions, worker pools with unrestricted network access",
+        "privilege-escalation": "Cloud Build service account impersonation for higher-privilege operations, token minting from within build steps, build step accessing metadata server for project-level credentials, custom builder images with elevated permissions"
+      },
+      "threatMitigations": {
+        "supply-chain-attack": [
+          "Enable Binary Authorization to enforce container image signing and verification before deployment from Cloud Build pipelines",
+          "Use Artifact Registry vulnerability scanning to automatically scan builder images and built artifacts for known CVEs",
+          "Pin all builder image versions in cloudbuild.yaml to specific SHA256 digests instead of mutable tags",
+          "Configure Artifact Registry remote repositories with upstream source restrictions to prevent dependency confusion"
+        ],
+        "injection-attack": [
+          "Avoid using Cloud Build substitution variables directly in shell commands; validate and sanitize all substitution values",
+          "Restrict build trigger creation (cloudbuild.builds.create) to authorized CI/CD administrators via IAM",
+          "Use Cloud Build private pools to isolate build environments within your VPC and prevent network-based injection",
+          "Configure build triggers with specific branch or tag filters to prevent builds from untrusted branches"
+        ],
+        "misconfiguration": [
+          "Replace the default Cloud Build service account with a custom service account that has only the permissions needed for each pipeline",
+          "Use Cloud Build approval gates for production deployment triggers to require manual review before execution",
+          "Configure Cloud Build worker pools with VPC networking to restrict egress and prevent data leakage during builds",
+          "Enable Cloud Audit Logs for Cloud Build and monitor for trigger configuration changes or unexpected build executions"
+        ],
+        "credential-theft": [
+          "Access secrets via Secret Manager integration in cloudbuild.yaml (availableSecrets) instead of passing credentials as substitution variables",
+          "Use Workload Identity Federation for Cloud Build to access external resources without storing long-lived credentials",
+          "Enable log redaction or avoid printing sensitive values in build steps to prevent credential exposure in Cloud Build logs",
+          "Restrict secretmanager.versions.access permissions on the Cloud Build service account to only the specific secrets required"
+        ],
+        "unauthorized-access": [
+          "Use VPC Service Controls to restrict Cloud Build API access to authorized networks and prevent builds from accessing external resources",
+          "Restrict cloudbuild.builds.create and cloudbuild.triggers.run permissions to authorized CI/CD service accounts and administrators",
+          "Configure Cloud Build private pools with no public IP to prevent direct internet access from build environments",
+          "Enable Cloud Audit Logs for all Cloud Build operations and route to a centralized SIEM for monitoring"
+        ],
+        "excessive-permissions": [
+          "Create dedicated per-pipeline service accounts with minimal IAM roles instead of using the default Cloud Build service account",
+          "Remove the default Cloud Build service account's Editor role and grant only specific permissions needed for build operations",
+          "Use IAM Conditions to restrict Cloud Build service account permissions by resource, time, or IP range",
+          "Regularly audit Cloud Build service account permissions using IAM Recommender and remove unused roles"
+        ],
+        "privilege-escalation": [
+          "Restrict iam.serviceAccounts.actAs on the Cloud Build service account to prevent impersonation of higher-privilege accounts",
+          "Block metadata server access from build steps by using Cloud Build private pools with custom network configuration",
+          "Use custom builder images from your own Artifact Registry with minimal tools instead of community-maintained builders",
+          "Enforce separation of duties by requiring different service accounts for build, deploy, and infrastructure operations"
+        ]
+      }
+    },
+    {
+      "id": "gcp-secret-manager",
+      "name": "Secret Manager",
+      "provider": "gcp",
+      "category": "secrets",
+      "description": "Secure secrets storage",
+      "threatIds": ["credential-theft", "misconfiguration", "excessive-permissions", "audit-logging-bypass", "unauthorized-access", "sensitive-data-exposure", "data-exfiltration", "privilege-escalation"],
+      "threatContext": {
+        "credential-theft": "IAM binding abuse to access secretmanager.versions.access, service account impersonation to read secrets, secret version exposure via compromised Cloud Functions, organization-wide roles granting secret access",
+        "misconfiguration": "Organization-wide IAM bindings granting secret access, missing CMEK encryption, no secret rotation policy, overly broad project-level roles (Editor/Owner) granting implicit access",
+        "excessive-permissions": "Project Editor/Owner roles granting implicit secret access, service accounts with roles/secretmanager.admin, unused bindings not cleaned up, overly broad conditions on IAM policies",
+        "audit-logging-bypass": "Cloud Audit Logs DATA_READ disabled for Secret Manager, log sink deletion or filter modification, IAM permissions to modify logging configuration, audit log exclusion filters",
+        "unauthorized-access": "Secret Manager API access without VPC Service Controls, missing organization policy constraints, service account key theft enabling access from outside GCP, allAuthenticatedUsers binding on secrets",
+        "sensitive-data-exposure": "Secret values logged in Cloud Functions/Cloud Run stdout, exposed through application error messages, secret names revealing infrastructure topology, plaintext secrets in Compute Engine metadata",
+        "data-exfiltration": "Systematic ListSecrets + AccessSecretVersion enumeration to extract all secrets, cross-project service account impersonation for secret access, secret replication to attacker-controlled projects",
+        "privilege-escalation": "Stored secrets containing service account keys or database admin credentials, secret access enabling pivot to higher-privilege GCP resources, impersonation chain through stored credentials"
+      },
+      "threatMitigations": {
+        "credential-theft": [
+          "Enable automatic secret rotation using Cloud Scheduler and Cloud Functions to reduce the window for stolen credential usage",
+          "Use Workload Identity Federation instead of storing service account keys as secrets wherever possible",
+          "Restrict secretmanager.versions.access at the individual secret level using IAM rather than project-level bindings",
+          "Enable VPC Service Controls to prevent Secret Manager API access from outside the authorized perimeter"
+        ],
+        "misconfiguration": [
+          "Encrypt all secrets with CMEK using Cloud KMS keys with restricted IAM access instead of Google-managed encryption",
+          "Use Organization Policy constraints to enforce CMEK encryption and restrict secret replication regions",
+          "Implement secret rotation policies and monitor for secrets without rotation schedules via Cloud Asset Inventory",
+          "Deploy Secret Manager IAM bindings as Terraform resources with mandatory code review in CI/CD pipelines"
+        ],
+        "excessive-permissions": [
+          "Grant secretmanager.secretAccessor at the individual secret level rather than at the project level",
+          "Use IAM Recommender to identify and remove unused Secret Manager permissions from service accounts",
+          "Replace project-level Editor/Owner roles with granular Secret Manager predefined roles scoped to specific secrets",
+          "Implement IAM Conditions to restrict secret access by IP range, time, or requesting resource attributes"
+        ],
+        "audit-logging-bypass": [
+          "Enable Data Access audit logs for Secret Manager at the project or organization level and lock the configuration",
+          "Route Secret Manager audit logs to a separate project's Cloud Logging bucket with locked retention policies",
+          "Create Cloud Monitoring alerts for changes to Secret Manager audit log configurations or log sink deletions",
+          "Use Organization Policy constraints to prevent disabling of Data Access audit logs for Secret Manager"
+        ],
+        "unauthorized-access": [
+          "Enable VPC Service Controls around Secret Manager to restrict API access to authorized networks and projects only",
+          "Enforce Organization Policy constraints to prevent allAuthenticatedUsers or allUsers bindings on secrets",
+          "Use IAM Conditions to restrict Secret Manager access by source IP, device posture, or access level",
+          "Disable service account key creation via Organization Policy to prevent external access using exported keys"
+        ],
+        "sensitive-data-exposure": [
+          "Avoid logging secret values in Cloud Functions, Cloud Run, or application stdout; use structured logging that excludes secret payloads",
+          "Use Secret Manager secret version aliases to avoid exposing secret names that reveal infrastructure topology",
+          "Enable Cloud DLP scanning on application logs to detect and alert on inadvertently logged secret values",
+          "Configure Compute Engine metadata server access restrictions to prevent secrets stored in instance metadata from being exposed"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Service Controls to block secretmanager.versions.access calls from outside the authorized perimeter",
+          "Monitor Secret Manager Data Access audit logs for bulk ListSecrets and AccessSecretVersion patterns using Cloud Monitoring",
+          "Restrict secretmanager.secrets.list permissions to prevent secret enumeration by compromised service accounts",
+          "Use IAM Conditions with IP-based restrictions to prevent secret access from unexpected networks"
+        ],
+        "privilege-escalation": [
+          "Avoid storing service account keys or database admin passwords in Secret Manager; use Workload Identity Federation and IAM database authentication instead",
+          "Restrict secretmanager.versions.access for secrets containing high-privilege credentials to break-glass service accounts only",
+          "Monitor Secret Manager access patterns for unusual cross-service credential retrieval that may indicate privilege escalation attempts",
+          "Implement separation of duties so that secret creators cannot also access secret values"
+        ]
+      }
+    },
+    {
+      "id": "gcp-kms",
+      "name": "Cloud KMS",
+      "provider": "gcp",
+      "category": "secrets",
+      "description": "Cryptographic key management service",
+      "threatIds": ["credential-theft", "misconfiguration", "excessive-permissions", "unauthorized-access", "audit-logging-bypass", "sensitive-data-exposure", "data-exfiltration", "privilege-escalation"],
+      "threatContext": {
+        "credential-theft": "IAM binding abuse for cloudkms.cryptoKeyVersions.useToDecrypt, service account key theft enabling decryption, key ring level permissions granting overly broad access",
+        "misconfiguration": "Key ring IAM bindings too broad, missing automatic key rotation, CMEK keys without destroy protection, overly permissive crypto key IAM policies",
+        "excessive-permissions": "roles/cloudkms.admin granted at project level, service accounts with decrypt permissions on all key rings, encrypter/decrypter roles granted broadly",
+        "unauthorized-access": "Cloud KMS API access without VPC Service Controls, missing organization policy constraints for key usage, compromised service account keys used from external locations",
+        "audit-logging-bypass": "Cloud Audit Logs DATA_READ disabled for KMS operations, log sink deletion preventing decrypt operation visibility, audit log exclusion filters hiding key usage",
+        "sensitive-data-exposure": "Decrypted data cached in application memory, key metadata revealing encryption architecture, key names exposing resource relationships, asymmetric key public material exposure",
+        "data-exfiltration": "Bulk decryption of CMEK-encrypted data using compromised key access, cross-project key sharing enabling data decryption, asymmetric key export for offline decryption",
+        "privilege-escalation": "KMS key access enabling decryption of secrets in Secret Manager, key IAM policy modification granting persistent access, CMEK access enabling reading of encrypted resources across services"
+      },
+      "threatMitigations": {
+        "credential-theft": [
+          "Use VPC Service Controls to restrict Cloud KMS API access and prevent key operations from outside the authorized perimeter",
+          "Grant cloudkms.cryptoKeyVersions.useToDecrypt at the individual key level instead of key ring or project level",
+          "Restrict service account impersonation (iam.serviceAccounts.actAs) for accounts with KMS decrypt permissions",
+          "Monitor Cloud KMS Data Access audit logs for unusual decrypt operations that may indicate stolen credential usage"
+        ],
+        "misconfiguration": [
+          "Enable automatic key rotation with a rotation period of 90 days or less for all symmetric encryption keys",
+          "Enable key destroy protection to prevent accidental or malicious deletion of cryptographic keys",
+          "Use Organization Policy constraints to enforce CMEK usage and restrict key creation to approved projects",
+          "Define Cloud KMS key rings, keys, and IAM bindings as Terraform resources with mandatory security review"
+        ],
+        "excessive-permissions": [
+          "Grant Cloud KMS roles at the individual key level rather than key ring or project level",
+          "Separate encrypter and decrypter roles; avoid granting roles/cloudkms.cryptoKeyEncrypterDecrypter when only one operation is needed",
+          "Use IAM Recommender to identify and remove unused Cloud KMS permissions from service accounts",
+          "Replace roles/cloudkms.admin with more granular roles (cryptoKeyVersionManager, publicKeyViewer) where possible"
+        ],
+        "unauthorized-access": [
+          "Enable VPC Service Controls around Cloud KMS to prevent API access from outside the authorized perimeter",
+          "Use IAM Conditions to restrict Cloud KMS key operations by source IP, device posture, or access level",
+          "Enforce Organization Policy constraints to prevent allAuthenticatedUsers or allUsers bindings on key rings and keys",
+          "Disable service account key creation via Organization Policy to prevent external access using exported keys"
+        ],
+        "audit-logging-bypass": [
+          "Enable Data Access audit logs for Cloud KMS at the organization level to capture all encrypt/decrypt operations",
+          "Route Cloud KMS audit logs to a separate project's Cloud Logging bucket with locked retention policies",
+          "Create Cloud Monitoring alerts for changes to KMS audit log configurations, log exclusion filter creation, or log sink deletions",
+          "Use Organization Policy constraints to prevent disabling of Data Access audit logs for Cloud KMS"
+        ],
+        "sensitive-data-exposure": [
+          "Restrict cloudkms.cryptoKeys.list and cloudkms.keyRings.list permissions to prevent key enumeration revealing encryption architecture",
+          "Use Cloud KMS key names that do not expose resource relationships or application architecture",
+          "Restrict asymmetric key public key export (cloudkms.cryptoKeyVersions.viewPublicKey) to authorized principals only",
+          "Avoid caching decrypted plaintext in application memory for extended periods; decrypt on demand and clear from memory"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Service Controls to prevent Cloud KMS decrypt operations from unauthorized projects or networks",
+          "Monitor Cloud KMS audit logs for bulk decryption patterns using Cloud Monitoring alerting policies",
+          "Restrict cloudkms.cryptoKeyVersions.useToDecrypt permissions to specific service accounts with IAM Conditions",
+          "Use Cloud KMS key rotation to limit the volume of data decryptable with any single key version"
+        ],
+        "privilege-escalation": [
+          "Restrict cloudkms.cryptoKeys.setIamPolicy permissions to prevent unauthorized users from granting themselves key access",
+          "Use Organization Policy constraints to prevent key sharing across projects or organizations",
+          "Monitor Cloud KMS IAM policy changes via Admin Activity audit logs and alert on unexpected permission grants",
+          "Implement separation of duties between key administrators and key users to prevent self-service access escalation"
+        ]
+      }
+    },
+    {
+      "id": "gcp-iam",
+      "name": "Cloud IAM",
+      "provider": "gcp",
+      "category": "identity",
+      "description": "Identity and access management",
+      "threatIds": ["privilege-escalation", "credential-theft", "excessive-permissions", "misconfiguration"],
+      "threatContext": {
+        "privilege-escalation": "Service account impersonation, setIamPolicy permission abuse, organization-level role grants",
+        "credential-theft": "Service account key theft, exported JSON keys in repositories, metadata server token extraction",
+        "excessive-permissions": "Primitive roles (Owner/Editor), project-wide bindings, unused service account permissions"
+      },
+      "threatMitigations": {
+        "privilege-escalation": [
+          "Restrict iam.serviceAccounts.actAs and iam.serviceAccountKeys.create permissions to prevent service account impersonation",
+          "Use IAM Conditions to limit setIamPolicy and role-granting permissions by resource, time, or IP address",
+          "Enable Security Command Center Event Threat Detection to alert on anomalous IAM privilege grants",
+          "Implement Organization Policy constraints (e.g., iam.allowedPolicyMemberDomains) to restrict who can receive IAM bindings"
+        ],
+        "credential-theft": [
+          "Enforce Organization Policy constraint iam.disableServiceAccountKeyCreation to eliminate exported JSON keys",
+          "Use Workload Identity Federation for external workloads instead of service account keys",
+          "Enable Security Command Center to detect service account key exposure in public repositories",
+          "Rotate service account keys automatically and set short-lived credentials via IAM Credentials API"
+        ],
+        "excessive-permissions": [
+          "Use IAM Recommender to continuously identify and remove unused permissions across all IAM bindings",
+          "Replace primitive roles (Owner/Editor/Viewer) with predefined or custom roles scoped to specific services",
+          "Enforce Organization Policy iam.allowedPolicyMemberDomains to prevent external identity bindings",
+          "Implement Policy Analyzer to audit effective permissions and detect overly broad access patterns"
+        ],
+        "misconfiguration": [
+          "Use Organization Policy constraints to enforce IAM security baselines (e.g., domain restrictions, key creation limits)",
+          "Run Security Health Analytics to detect IAM misconfigurations such as primitive role usage and public bindings",
+          "Deploy IAM policies via Terraform with code review gates to prevent manual misconfigurations",
+          "Enable Cloud Audit Logs for IAM Admin Activity and monitor for policy changes in real time"
+        ]
+      }
+    },
+    {
+      "id": "gcp-identity-platform",
+      "name": "Identity Platform",
+      "provider": "gcp",
+      "category": "identity",
+      "description": "Customer identity and access management",
+      "threatIds": ["account-takeover", "token-theft", "broken-authentication", "misconfiguration", "sensitive-data-exposure"],
+      "threatContext": {
+        "account-takeover": "Credential stuffing against Firebase Auth endpoints, social provider misconfiguration, weak password policies",
+        "token-theft": "Firebase ID token interception, custom token abuse, session cookie theft from web apps",
+        "broken-authentication": "Email enumeration enabled, anonymous authentication misuse, disabled email verification"
+      },
+      "threatMitigations": {
+        "account-takeover": [
+          "Enable Identity Platform's built-in MFA support (SMS, TOTP) for all user accounts",
+          "Configure Identity Platform blocking functions to enforce custom authentication logic (e.g., IP-based, risk-based)",
+          "Enable password policy enforcement with minimum strength requirements in Identity Platform settings",
+          "Use reCAPTCHA Enterprise integration with Identity Platform to block credential stuffing and bot attacks"
+        ],
+        "token-theft": [
+          "Configure short token expiration times for Firebase ID tokens and enforce server-side token refresh",
+          "Use Identity Platform session cookies with HttpOnly and Secure flags for web applications",
+          "Implement token revocation via Identity Platform Admin SDK when suspicious activity is detected",
+          "Validate ID tokens server-side using Identity Platform's verifyIdToken() with audience and issuer checks"
+        ],
+        "broken-authentication": [
+          "Disable email enumeration protection in Identity Platform to prevent attackers from identifying valid accounts",
+          "Require email verification before allowing authenticated access to application resources",
+          "Disable anonymous authentication provider unless explicitly required for the application use case",
+          "Configure Identity Platform account linking policies to prevent account hijacking via social provider conflicts"
+        ],
+        "misconfiguration": [
+          "Review and restrict authorized domains in Identity Platform to prevent phishing via unauthorized redirect URIs",
+          "Disable unused authentication providers (e.g., anonymous, phone) to reduce attack surface",
+          "Use Identity Platform multi-tenancy to isolate authentication contexts for different applications",
+          "Enable Cloud Audit Logs for Identity Platform admin operations to track configuration changes"
+        ],
+        "sensitive-data-exposure": [
+          "Configure Identity Platform custom claims to avoid storing sensitive user data in ID tokens",
+          "Use Cloud Logging exclusion filters to prevent user PII from appearing in authentication logs",
+          "Restrict Identity Platform Admin SDK access to authorized service accounts with least-privilege IAM roles",
+          "Enable Identity Platform user data encryption with CMEK where supported for sensitive user profile data"
+        ]
+      }
+    },
+    {
+      "id": "gcp-workforce-identity",
+      "name": "Workforce Identity Federation",
+      "provider": "gcp",
+      "category": "identity",
+      "description": "Enterprise identity federation for employees",
+      "threatIds": ["account-takeover", "privilege-escalation", "credential-theft", "misconfiguration"],
+      "threatContext": {
+        "account-takeover": "Compromised external IdP, phishing workforce identity pool credentials, MFA bypass via IdP vulnerabilities",
+        "privilege-escalation": "Attribute-based access control bypass, workforce pool provider manipulation, IAM condition abuse",
+        "credential-theft": "SAML response interception, OIDC token theft, session hijacking via compromised IdP"
+      },
+      "threatMitigations": {
+        "account-takeover": [
+          "Enforce MFA at the external IdP level before federating into GCP workforce identity pools",
+          "Configure attribute conditions on workforce identity pool providers to restrict which IdP users can authenticate",
+          "Use workforce identity pool session duration limits to reduce the window of compromised credential abuse",
+          "Monitor Cloud Audit Logs for workforce identity authentication events and alert on anomalous login patterns"
+        ],
+        "privilege-escalation": [
+          "Use attribute conditions on workforce pool providers to map IdP attributes to specific GCP roles with fine-grained scoping",
+          "Apply IAM Conditions (resource, time, IP) on all workforce identity IAM bindings to limit privilege scope",
+          "Restrict workforce identity pool provider configuration changes to a small set of trusted administrators",
+          "Audit workforce identity IAM bindings regularly using Policy Analyzer to detect over-privileged mappings"
+        ],
+        "credential-theft": [
+          "Require signed SAML assertions and validate assertion signatures against the IdP's current certificate",
+          "Configure short-lived OIDC token lifetimes at the IdP and enforce session duration limits in the workforce pool",
+          "Use encrypted SAML assertions for workforce identity federation to prevent response interception",
+          "Enable Cloud Audit Logs for workforce identity pool operations and alert on token creation from unusual sources"
+        ],
+        "misconfiguration": [
+          "Restrict workforce identity pool provider creation and modification via Organization Policy or IAM role restrictions",
+          "Validate IdP metadata URLs and certificates during workforce pool provider configuration",
+          "Use Terraform or Deployment Manager to manage workforce identity pools with version-controlled, peer-reviewed configurations",
+          "Enable Security Command Center to detect workforce identity configurations with overly permissive attribute mappings"
+        ]
+      }
+    },
+    {
+      "id": "gcp-vpc",
+      "name": "VPC",
+      "provider": "gcp",
+      "category": "networking",
+      "description": "Virtual private cloud networking",
+      "threatIds": ["network-misconfiguration", "unauthorized-access", "data-exfiltration", "lateral-movement", "misconfiguration", "audit-logging-bypass"],
+      "threatContext": {
+        "network-misconfiguration": "Firewall rules allowing 0.0.0.0/0 ingress, overly permissive service account network tags, shared VPC host project misconfigurations, VPC peering with excessive routes exported",
+        "unauthorized-access": "Missing VPC Service Controls perimeter, Private Google Access exposing resources to metadata attacks, IAP tunnel bypass via firewall misrules, Cloud NAT abuse for egress",
+        "data-exfiltration": "VPC peering to attacker projects, unmonitored Cloud NAT egress, VPC Flow Logs disabled allowing stealthy exfiltration, Interconnect/VPN to untrusted networks",
+        "lateral-movement": "Flat VPC without subnet isolation, firewall rules allowing internal 0.0.0.0/0, Shared VPC enabling cross-project pivoting, service account impersonation across VPC resources",
+        "misconfiguration": "Shared VPC host project IAM misconfiguration, VPC Service Controls perimeter gaps, default network not deleted, legacy network usage, Packet Mirroring misconfiguration, missing Private Service Connect configuration",
+        "audit-logging-bypass": "VPC Flow Logs disabled or with sampling too low, Cloud Audit Logs for networking APIs not monitored, Packet Mirroring sessions deleted, firewall rules logging disabled"
+      },
+      "threatMitigations": {
+        "network-misconfiguration": [
+          "Use Security Health Analytics to detect firewall rules with 0.0.0.0/0 ingress and overly permissive configurations",
+          "Enforce Organization Policy constraints (compute.restrictVpcPeering, compute.restrictSharedVpcSubnetworks) to limit network exposure",
+          "Enable Firewall Insights to identify overly permissive, shadowed, and unused firewall rules",
+          "Deploy VPC firewall rules via Terraform with peer-reviewed pull requests to prevent manual misconfigurations"
+        ],
+        "unauthorized-access": [
+          "Deploy VPC Service Controls perimeters around sensitive projects to restrict API access to authorized networks",
+          "Use Identity-Aware Proxy (IAP) for access to VPC resources instead of exposing services directly",
+          "Restrict VPC peering and Shared VPC connections using Organization Policy constraints",
+          "Enable Private Google Access and Private Service Connect to eliminate public internet exposure for Google API calls"
+        ],
+        "data-exfiltration": [
+          "Enable VPC Flow Logs on all subnets with appropriate sampling rates and export to Cloud Logging for analysis",
+          "Configure VPC Service Controls egress policies to restrict data movement to authorized projects and services",
+          "Monitor Cloud NAT egress traffic with Cloud Monitoring alerts for unusual volume or destination patterns",
+          "Restrict VPC peering and Interconnect connections using Organization Policy to prevent unauthorized network paths"
+        ],
+        "lateral-movement": [
+          "Implement subnet-level firewall rules with service account-based targeting for micro-segmentation within the VPC",
+          "Use Hierarchical Firewall Policies at organization or folder level to enforce baseline network segmentation",
+          "Enable VPC Flow Logs and integrate with Security Command Center for lateral movement detection",
+          "Deploy Network Intelligence Center Connectivity Tests to validate intended network isolation between segments"
+        ],
+        "misconfiguration": [
+          "Delete the default VPC network in all projects and use custom-mode VPCs with explicitly configured subnets",
+          "Enforce Organization Policy constraints to prevent legacy network creation and restrict external IP assignment",
+          "Use VPC Service Controls dry-run mode to validate perimeter configurations before enforcement",
+          "Deploy Shared VPC configurations via Terraform with strict IAM bindings on the host project"
+        ],
+        "audit-logging-bypass": [
+          "Enable VPC Flow Logs on all subnets with a sampling ratio of at least 0.5 for meaningful visibility",
+          "Configure Cloud Audit Logs for networking APIs (compute.googleapis.com) with DATA_READ and DATA_WRITE logging",
+          "Set up Cloud Monitoring alerts for VPC Flow Logs or Firewall Rules Logging being disabled",
+          "Export VPC Flow Logs to an immutable log sink in a separate project to prevent tampering"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-endpoints",
+      "name": "Cloud Endpoints",
+      "provider": "gcp",
+      "category": "networking",
+      "description": "API management platform",
+      "threatIds": ["injection-attack", "dos-attack", "broken-authentication", "sensitive-data-exposure", "misconfiguration"],
+      "connectionSecurity": { "enforcesEncryption": true },
+      "threatContext": {
+        "injection-attack": "Backend service receiving unsanitized input from ESP proxy, OpenAPI spec validation bypass, gRPC message manipulation",
+        "dos-attack": "Quota limit exhaustion, ESP proxy resource consumption, backend overload through rate limit bypass",
+        "broken-authentication": "Missing API key validation, JWT validation bypass in ESP config, service account authentication misconfiguration, CORS allowing credential exposure",
+        "sensitive-data-exposure": "Cloud Logging capturing sensitive request/response data, API key exposure in URLs, error responses leaking backend details",
+        "misconfiguration": "OpenAPI specification with overly permissive endpoint access, ESP proxy configuration without proper quota/rate limiting, missing service-level IAM restrictions, CORS misconfiguration allowing credential exposure"
+      },
+      "threatMitigations": {
+        "injection-attack": [
+          "Define strict OpenAPI request schema validation in the Endpoints service configuration to reject malformed inputs",
+          "Enable ESP (Extensible Service Proxy) request validation to enforce content-type and payload size limits",
+          "Implement server-side input validation in the backend service independent of ESP proxy filtering",
+          "Use Cloud Armor security policies in front of Cloud Endpoints for additional request filtering"
+        ],
+        "dos-attack": [
+          "Configure per-API-key and per-consumer quota limits in the Endpoints service configuration",
+          "Set ESP proxy connection timeout and maximum request size limits to prevent resource exhaustion",
+          "Place Cloud Endpoints behind Cloud Load Balancing with Cloud Armor rate limiting policies",
+          "Monitor Endpoints service metrics in Cloud Monitoring and alert on request rate anomalies"
+        ],
+        "broken-authentication": [
+          "Require API key validation and JWT authentication on all Cloud Endpoints methods in the OpenAPI spec",
+          "Configure ESP to validate JWT tokens against specific issuers and audiences for each endpoint",
+          "Use service account authentication with IAM for service-to-service calls through Cloud Endpoints",
+          "Restrict CORS origins in the OpenAPI specification to prevent credential exposure to unauthorized domains"
+        ],
+        "sensitive-data-exposure": [
+          "Configure Cloud Logging exclusion filters to prevent request and response bodies from appearing in Endpoints logs",
+          "Use API keys server-side only and never expose them in client-side URLs or browser requests",
+          "Customize ESP error responses to avoid leaking backend service details or stack traces",
+          "Enable CMEK encryption for Cloud Logging log buckets containing Endpoints access logs"
+        ],
+        "misconfiguration": [
+          "Define explicit security requirements on every method in the OpenAPI specification rather than relying on defaults",
+          "Configure quota and rate limiting policies per API consumer in the Endpoints service configuration",
+          "Use gcloud endpoints services deploy with CI/CD review gates to prevent misconfigurations in OpenAPI specs",
+          "Restrict Endpoints service management IAM permissions to prevent unauthorized configuration changes"
+        ]
+      }
+    },
+    {
+      "id": "gcp-apigee",
+      "name": "Apigee",
+      "provider": "gcp",
+      "category": "networking",
+      "description": "Full-featured API management platform",
+      "threatIds": ["injection-attack", "dos-attack", "broken-authentication", "sensitive-data-exposure", "misconfiguration"],
+      "connectionSecurity": { "enforcesEncryption": true },
+      "threatContext": {
+        "injection-attack": "JavaScript policy code injection, target endpoint URL manipulation, SOAP/XML injection through message transformation policies, JSONPath injection in ExtractVariables",
+        "dos-attack": "Spike arrest policy bypass, quota exhaustion across API products, target server connection pool exhaustion, message payload attacks",
+        "broken-authentication": "OAuth token validation bypass, API key without product binding, VerifyAPIKey policy misconfiguration, HMAC signature validation flaws",
+        "sensitive-data-exposure": "Debug session data exposure, trace capturing sensitive payloads, analytics collecting PII, KVM storing secrets without encryption",
+        "misconfiguration": "Proxy deployment without security policies, overly permissive base path routing, missing TLS validation for target endpoints, API products without quota limits"
+      },
+      "threatMitigations": {
+        "injection-attack": [
+          "Apply Apigee OASValidation policy to validate incoming requests against the OpenAPI specification",
+          "Use Apigee RegularExpressionProtection policy to detect and block injection patterns in request payloads",
+          "Implement Apigee JSONThreatProtection and XMLThreatProtection policies to limit payload depth, size, and structure",
+          "Avoid dynamic JavaScript policy code that evaluates user input; use declarative Apigee policies instead"
+        ],
+        "dos-attack": [
+          "Configure Apigee SpikeArrest policy per API proxy to limit request bursts and prevent backend overload",
+          "Set quota limits on Apigee API products to cap per-developer and per-app request volume",
+          "Use Apigee ConcurrentRateLimit policy to restrict simultaneous connections to target backend servers",
+          "Monitor Apigee Analytics dashboards for traffic anomalies and configure alert conditions for unusual patterns"
+        ],
+        "broken-authentication": [
+          "Use Apigee OAuthV2 and VerifyAPIKey policies on all proxy flows with strict validation settings",
+          "Bind API keys to specific Apigee API products and restrict allowed OAuth scopes per product",
+          "Configure Apigee HMAC policy with strong algorithms (SHA-256+) and validate signatures on every request",
+          "Implement Apigee shared flows for centralized authentication logic across multiple API proxies"
+        ],
+        "sensitive-data-exposure": [
+          "Disable Apigee debug sessions in production environments or restrict them to authorized administrators via IAM",
+          "Use Apigee Data Masking configuration to redact sensitive fields from trace and analytics data",
+          "Store secrets in Apigee Encrypted KVMs and restrict KVM access to specific API proxies",
+          "Configure Apigee analytics data collection to exclude PII fields from custom analytics variables"
+        ],
+        "misconfiguration": [
+          "Enforce Apigee shared flows as flow hooks to apply security policies (auth, rate limiting) on every proxy automatically",
+          "Require TLS 1.2+ validation on all Apigee target server configurations to prevent backend traffic interception",
+          "Use Apigee API proxy revision deployment with CI/CD gates to enforce security policy presence before deployment",
+          "Set default quota and rate limiting on all Apigee API products to prevent unlimited access"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-cdn",
+      "name": "Cloud CDN",
+      "provider": "gcp",
+      "category": "networking",
+      "description": "Content delivery network",
+      "threatIds": ["cache-poisoning", "misconfiguration", "dos-attack", "sensitive-data-exposure"],
+      "connectionSecurity": { "enforcesEncryption": true },
+      "threatContext": {
+        "cache-poisoning": "Cache key manipulation via query parameters, Host header injection for cached malicious responses, cache poisoning through Vary header abuse, signed URL/cookie key compromise",
+        "misconfiguration": "Caching sensitive user-specific responses, missing cache control headers allowing stale data, origin shield misconfiguration, negative caching exposing errors",
+        "dos-attack": "Cache bypass forcing origin requests, large object requests exhausting origin bandwidth, cache invalidation abuse, origin connection pool exhaustion",
+        "sensitive-data-exposure": "Cached responses containing authorization tokens, Cloud Logging with PII in URLs, signed URL secrets exposure, error responses revealing backend architecture"
+      },
+      "threatMitigations": {
+        "cache-poisoning": [
+          "Configure Cloud CDN cache key policies to include only necessary query parameters and headers, excluding attacker-controllable values",
+          "Use Cloud CDN signed URLs or signed cookies with short expiration times and strong signing keys stored in Secret Manager",
+          "Set appropriate Cache-Control and Vary headers at the origin to prevent caching of user-specific or dynamic responses",
+          "Enable Cloud CDN cache invalidation logging and monitor for unauthorized invalidation requests via Cloud Audit Logs"
+        ],
+        "misconfiguration": [
+          "Configure Cloud CDN cache mode to USE_ORIGIN_HEADERS and set proper Cache-Control headers at the origin for sensitive content",
+          "Exclude paths serving authenticated or user-specific content from Cloud CDN caching using URL map route rules",
+          "Enable negative caching with short TTLs only for appropriate error codes (e.g., 404) and never for auth errors (401/403)",
+          "Use Cloud Monitoring dashboards to track cache hit ratios and detect unexpected caching behavior"
+        ],
+        "dos-attack": [
+          "Place Cloud CDN behind Cloud Load Balancing with Cloud Armor security policies for DDoS protection and rate limiting",
+          "Configure Cloud CDN origin shield to reduce origin load from cache misses across multiple edge locations",
+          "Set maximum object size limits and connection timeout values on the Cloud CDN backend service",
+          "Monitor Cloud CDN metrics (cache hit ratio, origin request count) in Cloud Monitoring and alert on sudden drops in hit ratio"
+        ],
+        "sensitive-data-exposure": [
+          "Configure cache key exclusion of sensitive query parameters (tokens, API keys) in Cloud CDN cache key policy",
+          "Use Cloud CDN signed URLs instead of passing authentication tokens in cacheable URL paths",
+          "Configure Cloud Logging exclusion filters to redact PII from Cloud CDN access log entries",
+          "Set Cache-Control: private or no-store on origin responses containing sensitive data to prevent CDN caching"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-load-balancing",
+      "name": "Cloud Load Balancing",
+      "provider": "gcp",
+      "category": "networking",
+      "description": "Global load balancing service",
+      "threatIds": ["misconfiguration", "dos-attack", "sensitive-data-exposure", "network-misconfiguration", "unauthorized-access"],
+      "connectionSecurity": { "enforcesEncryption": true },
+      "threatContext": {
+        "misconfiguration": "SSL policy allowing TLS 1.0/1.1, health check misconfiguration routing to unhealthy backends, URL map routing errors exposing internal services, missing Cloud Armor integration",
+        "dos-attack": "Backend service connection exhaustion, global forwarding rule abuse for amplification, health check manipulation, WebSocket connection flooding",
+        "sensitive-data-exposure": "TLS termination at load balancer with unencrypted backend traffic, access logs containing sensitive headers, custom headers exposing internal topology",
+        "network-misconfiguration": "Internal load balancer exposed via external forwarding rule, firewall rules allowing direct backend access bypassing LB, proxy-only subnet misconfiguration",
+        "unauthorized-access": "Backend service access without proper IAM authentication, URL map routing rules bypassing authentication requirements, missing Cloud Armor security policy on internet-facing load balancers"
+      },
+      "threatMitigations": {
+        "misconfiguration": [
+          "Configure SSL policies with minimum TLS 1.2 and MODERN or RESTRICTED cipher suite profiles on all HTTPS load balancers",
+          "Deploy load balancer configurations via Terraform with validated URL maps and health check settings",
+          "Use Security Health Analytics to detect load balancers without Cloud Armor security policies attached",
+          "Enable Cloud Audit Logs for Compute Engine networking APIs to track all load balancer configuration changes"
+        ],
+        "dos-attack": [
+          "Attach Cloud Armor security policies with Adaptive Protection enabled on all internet-facing load balancers",
+          "Configure backend service connection draining and timeout settings to prevent connection exhaustion",
+          "Set maximum connections per backend instance and configure rate limiting via Cloud Armor rules",
+          "Use Cloud Monitoring alerts on load balancer backend latency and error rate metrics to detect volumetric attacks"
+        ],
+        "sensitive-data-exposure": [
+          "Enable re-encryption to backends using TLS (HTTPS or HTTP/2 with TLS) to prevent unencrypted traffic between LB and backends",
+          "Configure Cloud Logging exclusion filters to redact sensitive headers from load balancer access logs",
+          "Avoid adding custom response headers that expose backend instance names, zones, or internal IP addresses",
+          "Use Google-managed SSL certificates on load balancers for automatic certificate rotation and strong TLS defaults"
+        ],
+        "network-misconfiguration": [
+          "Use internal load balancers for internal-only services and restrict access via VPC firewall rules to the proxy-only subnet",
+          "Configure firewall rules to allow traffic only from the load balancer health check ranges (35.191.0.0/16, 130.211.0.0/22) to backends",
+          "Use Security Health Analytics to detect backends accessible directly from the internet bypassing the load balancer",
+          "Deploy proxy-only subnets with correct purpose and role settings and restrict their firewall rules to load balancer traffic only"
+        ],
+        "unauthorized-access": [
+          "Attach Cloud Armor security policies with IP allowlisting and geo-restrictions on internet-facing load balancers",
+          "Use Identity-Aware Proxy (IAP) with Cloud Load Balancing to enforce authentication before traffic reaches backend services",
+          "Configure URL map routing rules carefully and audit for unintended path matches that expose internal services",
+          "Enable Cloud Audit Logs for load balancer administration and monitor for unauthorized forwarding rule or URL map changes"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-armor",
+      "name": "Cloud Armor",
+      "provider": "gcp",
+      "category": "networking",
+      "description": "DDoS protection and WAF",
+      "threatIds": ["misconfiguration", "dos-attack", "audit-logging-bypass"],
+      "connectionSecurity": { "enforcesEncryption": true },
+      "threatContext": {
+        "misconfiguration": "Security policy rules in preview mode, overly permissive IP allowlists, preconfigured WAF rules without tuning for false positives, missing rate limiting rules, default allow policy",
+        "dos-attack": "Adaptive protection threshold bypass, rate limiting evasion through distributed sources, bot management bypass via header manipulation, rule priority exploitation",
+        "audit-logging-bypass": "Security policy logging disabled, Cloud Logging for Cloud Armor not configured, adaptive protection alerts suppressed, preview-mode rules providing no enforcement visibility"
+      },
+      "threatMitigations": {
+        "misconfiguration": [
+          "Set the default Cloud Armor security policy action to deny and explicitly allow only known-good traffic patterns",
+          "Promote rules out of preview mode after validation and regularly audit for stale preview-mode rules",
+          "Tune preconfigured WAF rules (OWASP Top 10) with sensitivity levels appropriate to the application and enable logging for tuning",
+          "Deploy Cloud Armor policies via Terraform with CI/CD review gates to prevent ad-hoc rule changes"
+        ],
+        "dos-attack": [
+          "Enable Cloud Armor Adaptive Protection to automatically detect and suggest mitigations for L7 DDoS attacks",
+          "Configure rate limiting rules with appropriate thresholds per IP and per client using Cloud Armor rate-based ban",
+          "Use Cloud Armor bot management to detect and challenge automated traffic using reCAPTCHA Enterprise integration",
+          "Set up Cloud Monitoring alerts on Cloud Armor policy metrics (denied requests, adaptive protection events) for rapid response"
+        ],
+        "audit-logging-bypass": [
+          "Enable verbose logging on all Cloud Armor security policies to capture full request details for blocked and allowed traffic",
+          "Export Cloud Armor logs to a centralized log sink in a separate project with restricted IAM access",
+          "Set up Cloud Monitoring alerts for Cloud Armor policy changes (rule additions, deletions, or logging configuration updates)",
+          "Configure Adaptive Protection alert notifications and ensure they are routed to the security operations team"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-dns",
+      "name": "Cloud DNS",
+      "provider": "gcp",
+      "category": "networking",
+      "description": "Scalable DNS service",
+      "threatIds": ["misconfiguration", "dos-attack", "unauthorized-access", "sensitive-data-exposure"],
+      "threatContext": {
+        "misconfiguration": "Dangling DNS records enabling subdomain takeover, wildcard A records exposing internal services, missing CAA records for certificate issuance control, private zone records leaking internal hostnames",
+        "dos-attack": "DNS query flooding against managed zones, DNSSEC signing overhead exploitation, DNS amplification via ANY queries",
+        "unauthorized-access": "IAM permission misconfiguration allowing zone modification, DNS peering abuse for private zone access, response policy zone manipulation for DNS hijacking",
+        "sensitive-data-exposure": "DNS query logs revealing internal service names and infrastructure, Cloud DNS query logging capturing internal hostnames, private zone records exposing internal architecture"
+      },
+      "threatMitigations": {
+        "misconfiguration": [
+          "Audit DNS records regularly for dangling entries pointing to decommissioned resources to prevent subdomain takeover",
+          "Configure CAA records on all managed zones to restrict which certificate authorities can issue certificates for your domains",
+          "Avoid wildcard DNS records in public zones; use explicit A/CNAME records for each service endpoint",
+          "Deploy Cloud DNS zone configurations via Terraform with peer-reviewed changes to prevent manual errors"
+        ],
+        "dos-attack": [
+          "Use Cloud DNS managed zones which provide built-in anycast DNS with DDoS protection at Google scale",
+          "Enable DNSSEC on public managed zones to prevent DNS spoofing while monitoring signing overhead",
+          "Configure Cloud Monitoring alerts on Cloud DNS query volume metrics to detect query flooding patterns",
+          "Use response policies to block queries for known malicious domains and reduce DNS abuse"
+        ],
+        "unauthorized-access": [
+          "Restrict Cloud DNS IAM roles (dns.admin, dns.peer) to specific service accounts with least-privilege bindings",
+          "Use IAM Conditions on DNS zone management permissions to limit modifications by IP, time, or resource",
+          "Restrict DNS peering to authorized VPC networks using Organization Policy constraints on VPC peering",
+          "Enable Cloud Audit Logs for Cloud DNS and alert on zone creation, deletion, or record modification events"
+        ],
+        "sensitive-data-exposure": [
+          "Restrict Cloud DNS query logging to only the zones where it is required and configure appropriate log retention",
+          "Use Cloud Logging exclusion filters to redact or limit DNS query log details that reveal internal architecture",
+          "Place private DNS zones in Shared VPC host projects with strict IAM controls to limit zone visibility",
+          "Configure log sinks for DNS query logs to a restricted-access Cloud Storage bucket with CMEK encryption"
+        ]
+      }
+    },
+    {
+      "id": "gcp-pub-sub",
+      "name": "Pub/Sub",
+      "provider": "gcp",
+      "category": "messaging",
+      "description": "Messaging and streaming service",
+      "threatIds": ["message-tampering", "unauthorized-access", "dos-attack", "misconfiguration"],
+      "threatContext": {
+        "message-tampering": "Message body manipulation via compromised publisher service account, ordering key abuse to disrupt message sequencing, dead-letter topic message injection",
+        "unauthorized-access": "Topic/subscription IAM bindings with allUsers or allAuthenticatedUsers, cross-project publish without proper IAM conditions, push subscription endpoint hijacking",
+        "dos-attack": "Message flooding exhausting subscriber capacity, large message payloads (up to 10MB) consuming bandwidth, acknowledgment deadline manipulation causing redelivery storms",
+        "misconfiguration": "Missing CMEK encryption, push subscriptions to HTTP endpoints without authentication, overly long message retention exposing sensitive data, missing dead-letter topic losing failed messages"
+      },
+      "threatMitigations": {
+        "message-tampering": [
+          "Restrict Pub/Sub publisher IAM roles (roles/pubsub.publisher) to specific service accounts with IAM Conditions",
+          "Enable message ordering keys with application-level sequence validation to detect out-of-order injection",
+          "Implement application-level message signing using Cloud KMS before publishing to verify producer identity",
+          "Configure dead-letter topics with monitoring alerts to detect and investigate failed or suspicious messages"
+        ],
+        "unauthorized-access": [
+          "Remove allUsers and allAuthenticatedUsers bindings from topic and subscription IAM policies",
+          "Use VPC Service Controls to restrict Pub/Sub access to authorized projects and networks",
+          "Configure push subscription endpoints with Pub/Sub-generated OIDC tokens for authentication",
+          "Enable Cloud Audit Logs for Pub/Sub data access operations and monitor for unauthorized publish/subscribe activity"
+        ],
+        "dos-attack": [
+          "Configure Pub/Sub flow control settings on subscribers to limit outstanding messages and bytes",
+          "Set appropriate message retention duration to prevent unbounded message accumulation",
+          "Use Cloud Monitoring alerts on subscription/num_undelivered_messages to detect message flooding",
+          "Implement publisher-side rate limiting using Cloud Tasks or application-level throttling"
+        ],
+        "misconfiguration": [
+          "Enable CMEK encryption on topics and subscriptions using Cloud KMS for sensitive message data",
+          "Configure push subscriptions to use HTTPS endpoints with Pub/Sub OIDC authentication",
+          "Set message retention policies appropriate to use case to limit sensitive data exposure window",
+          "Configure dead-letter topics for all subscriptions to capture and monitor failed message delivery"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-tasks",
+      "name": "Cloud Tasks",
+      "provider": "gcp",
+      "category": "messaging",
+      "description": "Asynchronous task execution",
+      "threatIds": ["event-injection", "misconfiguration", "unauthorized-access", "dos-attack"],
+      "threatContext": {
+        "event-injection": "Malicious task creation via compromised service account, HTTP target payload manipulation, App Engine task queue parameter injection affecting handler logic",
+        "misconfiguration": "HTTP targets without OIDC/OAuth authentication, App Engine task queues with permissive dispatch rules, missing rate limiting allowing burst task creation",
+        "unauthorized-access": "Queue IAM bindings too permissive (cloudtasks.tasks.create to broad principals), OIDC service account impersonation, task handler endpoints accessible without Cloud Tasks headers",
+        "dos-attack": "Task queue flooding exhausting handler capacity, scheduled task storms via rate limit bypass, retry configuration abuse causing cascading failures"
+      },
+      "threatMitigations": {
+        "event-injection": [
+          "Restrict Cloud Tasks queue IAM bindings for cloudtasks.tasks.create to specific trusted service accounts only",
+          "Validate Cloud Tasks OIDC tokens in HTTP target handlers to verify task origin authenticity",
+          "Implement application-level payload schema validation in task handlers before processing",
+          "Use Cloud Audit Logs to monitor task creation events and alert on unexpected task sources"
+        ],
+        "misconfiguration": [
+          "Configure OIDC or OAuth authentication on all HTTP target tasks to prevent unauthenticated handler access",
+          "Set appropriate rate limits (maxDispatchesPerSecond, maxConcurrentDispatches) on queues to prevent handler exhaustion",
+          "Use App Engine task queue routing rules to restrict which services can receive tasks",
+          "Deploy task handlers in VPC-connected environments and restrict ingress to Cloud Tasks service IP ranges"
+        ],
+        "unauthorized-access": [
+          "Apply least-privilege IAM roles (roles/cloudtasks.enqueuer) instead of broad Cloud Tasks admin roles",
+          "Use IAM Conditions to restrict task creation by source IP, time, or resource attributes",
+          "Validate the X-CloudTasks-* headers in HTTP handlers to confirm requests originate from Cloud Tasks",
+          "Enable Cloud Audit Logs for Cloud Tasks operations and monitor for unauthorized queue or task manipulation"
+        ],
+        "dos-attack": [
+          "Configure queue-level rate limits (maxDispatchesPerSecond) and concurrency limits (maxConcurrentDispatches) to protect handlers",
+          "Set appropriate retry configurations with exponential backoff and maxAttempts to prevent retry storms",
+          "Use Cloud Monitoring alerts on queue depth (cloudtasks.googleapis.com/queue/depth) to detect flooding",
+          "Implement circuit breaker patterns in task handlers to shed load during abnormal traffic spikes"
+        ]
+      }
+    },
+    {
+      "id": "gcp-eventarc",
+      "name": "Eventarc",
+      "provider": "gcp",
+      "category": "messaging",
+      "description": "Event-driven architectures service",
+      "threatIds": ["event-injection", "misconfiguration", "unauthorized-access", "excessive-permissions"],
+      "threatContext": {
+        "event-injection": "Cloud Audit Log event spoofing via compromised service accounts, direct Pub/Sub event injection bypassing Eventarc filters, custom channel event manipulation",
+        "misconfiguration": "Triggers without proper event filtering matching unintended events, Pub/Sub channel without CMEK encryption, missing Workflow/Cloud Run authentication on destinations",
+        "unauthorized-access": "Trigger IAM bindings allowing unauthorized event publishing, cross-project trigger access without proper conditions, service account impersonation for event delivery",
+        "excessive-permissions": "Eventarc service account with broad Cloud Functions/Cloud Run invocation permissions, triggers routing events to overly privileged destinations"
+      },
+      "threatMitigations": {
+        "event-injection": [
+          "Configure Eventarc triggers with precise event filters (type, source, subject) to match only intended events",
+          "Use VPC Service Controls to restrict which projects can publish events to Eventarc channels",
+          "Enable Cloud Audit Logs for Eventarc and monitor trigger invocations for unexpected event sources",
+          "Implement event payload validation in destination Cloud Run or Cloud Functions handlers before processing"
+        ],
+        "misconfiguration": [
+          "Configure CMEK encryption on Eventarc custom channels using Cloud KMS",
+          "Require authentication on all Cloud Run and Cloud Functions destinations invoked by Eventarc triggers",
+          "Use narrow event type filters on triggers to avoid matching unintended Cloud Audit Log events",
+          "Deploy Eventarc triggers using Terraform with security-reviewed configurations to prevent drift"
+        ],
+        "unauthorized-access": [
+          "Restrict Eventarc IAM roles (roles/eventarc.publisher, roles/eventarc.admin) to specific service accounts with IAM Conditions",
+          "Use VPC Service Controls perimeters to limit cross-project event publishing to Eventarc channels",
+          "Enable Cloud Audit Logs for Eventarc admin and data access operations",
+          "Configure separate service accounts per trigger with least-privilege permissions for destination invocation"
+        ],
+        "excessive-permissions": [
+          "Create dedicated service accounts per Eventarc trigger with only the minimum roles needed to invoke the specific destination",
+          "Replace broad roles like roles/run.invoker with resource-level IAM bindings on specific Cloud Run services",
+          "Use IAM Recommender to identify and remove unused permissions from Eventarc service accounts",
+          "Audit Eventarc trigger-to-destination mappings regularly to ensure triggers route to appropriately privileged handlers"
+        ]
+      }
+    },
+    {
+      "id": "gcp-dataflow",
+      "name": "Dataflow",
+      "provider": "gcp",
+      "category": "messaging",
+      "description": "Stream and batch data processing",
+      "threatIds": ["stream-hijacking", "unauthorized-access", "data-exfiltration", "misconfiguration"],
+      "threatContext": {
+        "stream-hijacking": "Pipeline code injection via compromised template parameters, streaming insert manipulation to BigQuery sinks, Pub/Sub source credential theft for upstream interception",
+        "unauthorized-access": "Worker service account with excessive permissions, Dataflow Flex Template container image tampering, job update/drain permissions allowing pipeline disruption",
+        "data-exfiltration": "Pipeline sink modification to external GCS buckets or BigQuery datasets, Dataflow worker egress to attacker-controlled endpoints, streaming data capture via rogue transforms",
+        "misconfiguration": "Workers with public IP addresses, missing VPC Service Controls perimeter, temp location in unprotected GCS bucket, service account key file in template parameters"
+      },
+      "threatMitigations": {
+        "stream-hijacking": [
+          "Use VPC Service Controls to prevent Dataflow pipelines from reading or writing to resources outside the authorized perimeter",
+          "Implement application-level data validation and checksums in pipeline transforms to detect injected or modified records",
+          "Restrict Dataflow worker service account permissions to only the specific Pub/Sub subscriptions and BigQuery tables required",
+          "Monitor Dataflow job metrics (system lag, data freshness) via Cloud Monitoring to detect anomalous throughput patterns"
+        ],
+        "unauthorized-access": [
+          "Create dedicated service accounts per Dataflow pipeline with least-privilege IAM roles for specific source and sink resources",
+          "Disable public IPs on Dataflow workers using --usePublicIps=false and route traffic through Private Google Access",
+          "Use VPC Service Controls to restrict Dataflow job creation and data access to authorized projects and networks",
+          "Enable Cloud Audit Logs for Dataflow operations and monitor for unauthorized job creation, updates, or drain commands"
+        ],
+        "data-exfiltration": [
+          "Apply VPC Service Controls perimeters to prevent Dataflow workers from writing to Cloud Storage or BigQuery in unauthorized projects",
+          "Disable public IP addresses on Dataflow workers to prevent direct egress to attacker-controlled endpoints",
+          "Restrict Dataflow worker service account IAM bindings to only the specific sink resources required by the pipeline",
+          "Use Cloud Monitoring alerts on Dataflow output byte counts and destination changes to detect unauthorized data flows"
+        ],
+        "misconfiguration": [
+          "Use --usePublicIps=false flag on all Dataflow jobs to prevent workers from receiving public IP addresses",
+          "Configure Dataflow temp and staging locations in CMEK-encrypted Cloud Storage buckets with restricted access",
+          "Apply VPC Service Controls around Dataflow projects to enforce network-level access boundaries",
+          "Use Dataflow Flex Templates with hardened container images stored in Artifact Registry with vulnerability scanning enabled"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-logging",
+      "name": "Cloud Logging",
+      "provider": "gcp",
+      "category": "monitoring",
+      "description": "Log management and analysis",
+      "threatIds": ["log-tampering", "misconfiguration", "sensitive-data-exposure"],
+      "threatContext": {
+        "log-tampering": "Log bucket deletion, retention policy reduction via UpdateBucket, exclusion filters hiding malicious activity, log sink manipulation redirecting logs away from SIEM",
+        "misconfiguration": "Missing log sinks for security-relevant logs, _Default sink routing logs to unprotected buckets, overly permissive IAM on log buckets, CMEK not enabled for sensitive logs",
+        "sensitive-data-exposure": "Credentials/PII in application logs, Log Analytics queries exposing sensitive data, log-based metrics leaking patterns, saved queries containing sensitive filters"
+      },
+      "threatMitigations": {
+        "log-tampering": [
+          "Configure log buckets with locked retention policies to prevent early deletion or modification",
+          "Export logs to a separate GCP project with restricted IAM to isolate log data from operational teams",
+          "Enable Cloud Audit Logs for Cloud Logging admin operations to detect log sink or bucket modifications",
+          "Use Organization Policy constraints to prevent deletion of log sinks at the project level"
+        ],
+        "misconfiguration": [
+          "Create dedicated log sinks for security-relevant logs (Cloud Audit Logs, VPC Flow Logs, Access Transparency)",
+          "Configure the _Default log sink to route to a CMEK-encrypted log bucket with appropriate retention",
+          "Use Organization Policy to enforce minimum log retention periods across all projects",
+          "Restrict IAM roles for Cloud Logging (roles/logging.admin) to authorized security personnel only"
+        ],
+        "sensitive-data-exposure": [
+          "Configure Cloud Logging exclusion filters to redact known sensitive patterns (credentials, PII) from log entries",
+          "Use Cloud DLP integration with Cloud Logging to detect and redact sensitive data in logs automatically",
+          "Restrict access to Log Analytics and saved queries with IAM roles scoped to specific log buckets",
+          "Avoid logging request/response bodies; use structured logging to capture only non-sensitive metadata"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-monitoring",
+      "name": "Cloud Monitoring",
+      "provider": "gcp",
+      "category": "monitoring",
+      "description": "Infrastructure and application monitoring",
+      "threatIds": ["misconfiguration", "sensitive-data-exposure", "audit-logging-bypass"],
+      "threatContext": {
+        "misconfiguration": "Alerting policies disabled or with excessive snooze periods, notification channels not configured, uptime checks missing for critical services, missing custom metrics for security events",
+        "sensitive-data-exposure": "Custom metrics containing sensitive labels, dashboard annotations revealing internal data, Monitoring Query Language exposing metric patterns, shared dashboards with unauthorized viewers",
+        "audit-logging-bypass": "Alerting policy deletion, notification channel removal, snooze periods during attacks to suppress alerts, metric descriptor deletion hiding evidence"
+      },
+      "threatMitigations": {
+        "misconfiguration": [
+          "Use Terraform or Deployment Manager to define alerting policies as code with version control and review",
+          "Configure uptime checks for all critical externally-facing services with appropriate alert thresholds",
+          "Set up notification channels with multiple destinations (email, PagerDuty, Slack) to prevent single-point alert failure",
+          "Use Organization Policy to enforce minimum monitoring standards across all projects"
+        ],
+        "sensitive-data-exposure": [
+          "Avoid storing PII or secrets in custom metric labels; use opaque identifiers instead",
+          "Restrict dashboard sharing to authorized Google groups with roles/monitoring.viewer",
+          "Review shared dashboards and custom metric descriptors for sensitive label values before granting access",
+          "Use IAM Conditions to scope Cloud Monitoring access to specific metric types or resource labels"
+        ],
+        "audit-logging-bypass": [
+          "Enable Cloud Audit Logs for Cloud Monitoring API operations (monitoring.alertPolicies, monitoring.notificationChannels)",
+          "Set up cross-project alerting on Cloud Monitoring admin changes so modifications are detected by an independent project",
+          "Restrict roles/monitoring.admin and roles/monitoring.alertPolicyEditor to authorized security personnel only",
+          "Use Cloud Monitoring alerts on audit log entries for monitoring configuration changes"
+        ]
+      }
+    },
+    {
+      "id": "gcp-security-command-center",
+      "name": "Security Command Center",
+      "provider": "gcp",
+      "category": "monitoring",
+      "description": "Security and risk management platform",
+      "threatIds": ["misconfiguration", "audit-logging-bypass"],
+      "threatContext": {
+        "misconfiguration": "Premium tier features not enabled, Web Security Scanner not configured, Event Threat Detection disabled, container threat detection not active, BigQuery export not configured for SIEM",
+        "audit-logging-bypass": "Findings muted via SetMute, security marks manipulated to suppress alerts, notification configs deleted, continuous export sinks removed to prevent external alerting"
+      },
+      "threatMitigations": {
+        "misconfiguration": [
+          "Enable Security Command Center Premium tier for Event Threat Detection, Container Threat Detection, and VM Threat Detection",
+          "Configure Web Security Scanner to run automated scans against all externally-facing App Engine, Cloud Run, and GKE applications",
+          "Set up continuous export of SCC findings to BigQuery for SIEM integration and long-term retention",
+          "Enable all built-in Security Health Analytics detectors and review findings on a regular cadence"
+        ],
+        "audit-logging-bypass": [
+          "Restrict securitycenter.findings.setMute and securitycenter.sources.update IAM permissions to authorized security team members only",
+          "Configure continuous export sinks to an isolated project to ensure finding delivery even if the source project is compromised",
+          "Enable Cloud Audit Logs for Security Command Center API operations to track muting, mark changes, and configuration modifications",
+          "Set up Cloud Monitoring alerts on SCC notification config deletions and continuous export sink removals"
+        ]
+      }
+    },
+    {
+      "id": "gcp-chronicle",
+      "name": "Chronicle",
+      "provider": "gcp",
+      "category": "monitoring",
+      "description": "Security analytics and SIEM platform",
+      "threatIds": ["misconfiguration", "audit-logging-bypass", "log-tampering"],
+      "threatContext": {
+        "misconfiguration": "Log forwarders not configured for critical sources, YARA-L detection rules not tuned, reference lists outdated allowing IOC evasion, data feeds missing for context enrichment",
+        "audit-logging-bypass": "Detection rules disabled, alert suppressions applied broadly, forwarder configurations modified to exclude security logs, SOAR playbook responses disabled",
+        "log-tampering": "Forwarder manipulation to drop specific log types, parser configurations altered to misparse events, normalization rules modified to hide malicious indicators"
+      },
+      "threatMitigations": {
+        "misconfiguration": [
+          "Configure log forwarders for all critical GCP log sources (Cloud Audit Logs, VPC Flow Logs, Cloud Armor, SCC findings)",
+          "Tune YARA-L detection rules against known attack patterns and review false positive rates monthly",
+          "Maintain up-to-date reference lists for IOC feeds, IP allowlists, and threat intelligence sources",
+          "Enable data feeds from Cloud DNS, Identity Platform, and third-party sources for enriched detection context"
+        ],
+        "audit-logging-bypass": [
+          "Restrict Chronicle admin permissions (detection rule management, forwarder configuration) to authorized SOC analysts only",
+          "Monitor Chronicle audit logs for detection rule disablement, alert suppression, and forwarder configuration changes",
+          "Configure redundant log forwarders to ensure log delivery even if one forwarder path is compromised",
+          "Set up out-of-band alerting on Chronicle SOAR playbook disablement or critical rule deactivation"
+        ],
+        "log-tampering": [
+          "Deploy Chronicle forwarders as hardened, read-only appliances with restricted administrative access",
+          "Use version control for parser configurations and YARA-L rules with change review and approval workflows",
+          "Monitor forwarder health metrics and alert on unexpected drops in log ingestion volume per source",
+          "Validate parser output against known-good event samples to detect normalization rule tampering"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-batch",
+      "name": "Cloud Batch",
+      "provider": "gcp",
+      "category": "compute",
+      "description": "Fully managed batch processing service",
+      "threatIds": ["batch-job-tampering", "misconfiguration", "excessive-permissions", "unauthorized-access", "privilege-escalation", "dos-attack", "container-escape", "credential-theft", "supply-chain-attack", "lateral-movement", "data-exfiltration"],
+      "threatContext": {
+        "container-escape": "Container breakout from batch job containers to access host VM or other jobs",
+        "credential-theft": "Service account credential theft from job environment, metadata server access from containers",
+        "supply-chain-attack": "Malicious container images in job specifications, compromised job scripts or dependencies",
+        "lateral-movement": "Compromised batch job containers pivoting to other VPC resources, compute instances used for internal network scanning",
+        "data-exfiltration": "Job output redirection to attacker-controlled Cloud Storage buckets, batch job egress to external endpoints"
+      },
+      "threatMitigations": {
+        "batch-job-tampering": [
+          "Restrict batch.jobs.create and batch.jobs.update IAM permissions to authorized CI/CD service accounts only",
+          "Store job definitions in version-controlled repositories and deploy through reviewed CI/CD pipelines",
+          "Enable Cloud Audit Logs for the Batch API to track all job creation and modification events",
+          "Validate job specifications against an approved schema before submission"
+        ],
+        "misconfiguration": [
+          "Use Organization Policy constraints to restrict Batch job VM configurations (e.g., machine types, regions)",
+          "Configure Batch jobs to run in private VPC subnets without external IP addresses",
+          "Enable Cloud Audit Logs for all Batch API operations (ADMIN_READ, DATA_READ, DATA_WRITE)",
+          "Use Terraform or Deployment Manager to enforce consistent Batch job configuration baselines"
+        ],
+        "excessive-permissions": [
+          "Create per-job-type service accounts with only the specific Cloud Storage and API permissions each job requires",
+          "Use IAM Recommender to identify and remove unused permissions on Batch job service accounts",
+          "Avoid granting the default Compute Engine service account to Batch jobs; use dedicated accounts",
+          "Apply IAM Conditions to scope Batch service account access to specific buckets and resources"
+        ],
+        "unauthorized-access": [
+          "Restrict batch.jobs.create IAM permissions to trusted principals and service accounts",
+          "Configure Batch jobs to use private subnets with no external IP for execution VMs",
+          "Use VPC Service Controls perimeters to restrict Batch API access to authorized networks",
+          "Enable Cloud Monitoring alerts for unexpected Batch job creation or execution patterns"
+        ],
+        "privilege-escalation": [
+          "Restrict iam.serviceAccounts.actAs to prevent job submitters from using high-privilege service accounts",
+          "Use IAM permission boundaries to limit the maximum permissions attainable by Batch job service accounts",
+          "Monitor Batch job execution with Security Command Center Event Threat Detection for anomalous API calls",
+          "Run Batch job containers with non-root users and drop unnecessary Linux capabilities"
+        ],
+        "dos-attack": [
+          "Set Batch quota limits at the project level to cap the maximum number of concurrent jobs and VMs",
+          "Configure Cloud Monitoring alerts on Batch resource usage metrics to detect runaway job submissions",
+          "Use budget alerts in Cloud Billing to detect and respond to cost spikes from excessive Batch usage",
+          "Restrict Batch job submission rates via IAM policy conditions or API gateway rate limiting"
+        ],
+        "container-escape": [
+          "Run Batch job containers with non-root users and drop all unnecessary Linux capabilities",
+          "Use Container-Optimized OS for Batch job VMs to minimize the host attack surface",
+          "Enable Artifact Analysis vulnerability scanning on all container images used in Batch jobs",
+          "Avoid privileged mode and hostPath mounts in Batch container specifications"
+        ],
+        "credential-theft": [
+          "Enforce the Metadata-Flavor: Google header on metadata server requests from Batch job containers",
+          "Use dedicated service accounts per job type with short-lived credentials instead of exporting keys",
+          "Restrict Batch job container network access to prevent metadata server abuse via VPC firewall rules",
+          "Reference secrets from Secret Manager in job environment variables instead of embedding credentials directly"
+        ],
+        "supply-chain-attack": [
+          "Enable Binary Authorization to enforce deployment policies on container images used in Batch jobs",
+          "Use Artifact Analysis to scan Batch job container images for vulnerabilities before execution",
+          "Pin container image references to specific digests rather than mutable tags",
+          "Restrict Batch job image sources to approved Artifact Registry repositories via Organization Policy"
+        ],
+        "lateral-movement": [
+          "Configure restrictive VPC firewall rules for Batch job subnets to limit internal network access",
+          "Use separate VPC subnets for Batch workloads isolated from production compute resources",
+          "Enable VPC Flow Logs on Batch subnets and monitor for internal port scanning or unexpected traffic",
+          "Disable serial port access and external IP on Batch job VMs via Organization Policy"
+        ],
+        "data-exfiltration": [
+          "Enforce VPC Service Controls perimeters around Batch, Cloud Storage, and BigQuery resources",
+          "Restrict Batch job VM egress via VPC firewall rules to only required destinations",
+          "Monitor Cloud Storage access logs for Batch service accounts writing to unauthorized buckets",
+          "Use Cloud Monitoring alerts on network egress metrics from Batch VMs to detect anomalous transfers"
+        ]
+      }
+    },
+    {
+      "id": "gcp-dataplex",
+      "name": "Dataplex",
+      "provider": "gcp",
+      "category": "monitoring",
+      "description": "Intelligent data fabric for unified data management and governance",
+      "threatIds": ["data-classification-evasion", "misconfiguration", "sensitive-data-exposure", "unauthorized-access", "excessive-permissions"],
+      "threatContext": {
+        "data-classification-evasion": "Data encoding to evade data profiling, file format manipulation bypassing auto-discovery, asset exclusions hiding sensitive data lakes, tag templates modified to misclassify data",
+        "misconfiguration": "Data quality rules not enforced, auto-discovery disabled for sensitive zones, missing data lineage tracking, lake/zone IAM not properly segmented",
+        "sensitive-data-exposure": "Data profile results revealing sensitive patterns, discovery job outputs accessible to unauthorized users, metadata catalog exposing data schemas",
+        "unauthorized-access": "Lake-level IAM granting access to all zones, asset-level permissions too broad, discovery service account with excessive BigQuery/GCS access",
+        "excessive-permissions": "Dataplex admin role granted broadly, data scanning service accounts with cross-project access, task execution roles with unnecessary permissions"
+      },
+      "threatMitigations": {
+        "data-classification-evasion": [
+          "Enable Dataplex auto-discovery with comprehensive file type coverage to detect data in non-standard formats",
+          "Complement Dataplex data profiling with Cloud DLP inspection jobs for deeper PII and sensitive data detection",
+          "Monitor tag template modifications via Cloud Audit Logs to detect unauthorized data reclassification",
+          "Run Dataplex data quality rules that validate data classification labels match actual data content profiles"
+        ],
+        "misconfiguration": [
+          "Enable Dataplex auto-discovery for all lakes and zones to maintain continuous visibility into data assets",
+          "Configure data quality rules with enforcement actions to prevent non-compliant data from being published",
+          "Use Terraform or Deployment Manager to manage Dataplex lake, zone, and asset configurations with version control",
+          "Segment Dataplex lakes and zones by data sensitivity level with separate IAM policies per zone"
+        ],
+        "sensitive-data-exposure": [
+          "Restrict access to Dataplex data profile results and discovery outputs with fine-grained IAM roles (roles/dataplex.viewer)",
+          "Configure Cloud DLP inspection templates in Dataplex to automatically identify and flag sensitive data patterns",
+          "Use column-level security in BigQuery for assets managed by Dataplex to control access to sensitive fields",
+          "Restrict access to the Dataplex metadata catalog with IAM policies that limit schema visibility by role"
+        ],
+        "unauthorized-access": [
+          "Apply zone-level IAM policies in Dataplex to restrict access per data classification tier",
+          "Use VPC Service Controls perimeters around Dataplex, BigQuery, and Cloud Storage resources",
+          "Restrict Dataplex discovery service account permissions to only the specific buckets and datasets it needs to scan",
+          "Enable Cloud Audit Logs for all Dataplex API operations to track data access and configuration changes"
+        ],
+        "excessive-permissions": [
+          "Avoid granting roles/dataplex.admin broadly; use fine-grained roles like roles/dataplex.viewer and roles/dataplex.editor per lake",
+          "Create separate service accounts for Dataplex scanning tasks scoped to specific lakes and zones",
+          "Use IAM Recommender to identify and remove unused Dataplex permissions from service accounts",
+          "Apply IAM Conditions to restrict Dataplex task execution roles to specific resource types and projects"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-trace",
+      "name": "Cloud Trace",
+      "provider": "gcp",
+      "category": "monitoring",
+      "description": "Distributed tracing for application performance",
+      "threatIds": ["sensitive-data-exposure", "misconfiguration", "audit-logging-bypass"],
+      "threatContext": {
+        "sensitive-data-exposure": "Trace spans containing request/response bodies with PII, HTTP headers with auth tokens in span attributes, database queries with sensitive data visible in traces, custom labels exposing internal data",
+        "misconfiguration": "Sampling rate too low missing security-relevant traces, trace context propagation disabled losing cross-service visibility, overly permissive IAM on trace data",
+        "audit-logging-bypass": "Trace retention reduced to hide evidence, trace data deletion, span annotations modified to remove security indicators"
+      },
+      "threatMitigations": {
+        "sensitive-data-exposure": [
+          "Configure trace sampling to exclude request/response body attributes that may contain PII or credentials",
+          "Use OpenTelemetry span processors to redact sensitive HTTP headers (Authorization, Cookie) before export to Cloud Trace",
+          "Restrict access to Cloud Trace data with IAM roles (roles/cloudtrace.user) scoped to authorized SRE and security teams",
+          "Avoid adding sensitive values as custom span labels or annotations; use opaque identifiers instead"
+        ],
+        "misconfiguration": [
+          "Configure appropriate trace sampling rates to balance performance visibility with security event coverage",
+          "Enable trace context propagation (W3C Trace Context) across all services for end-to-end cross-service visibility",
+          "Restrict IAM permissions for Cloud Trace (roles/cloudtrace.admin) to prevent unauthorized trace data configuration changes",
+          "Use Terraform to manage Cloud Trace configuration as code with version control and review"
+        ],
+        "audit-logging-bypass": [
+          "Enable Cloud Audit Logs for Cloud Trace API operations to detect retention policy changes and data deletions",
+          "Set up Cloud Monitoring alerts on trace data volume drops that may indicate suppressed or deleted trace data",
+          "Restrict roles/cloudtrace.admin to authorized personnel only to prevent unauthorized retention policy modifications",
+          "Export critical trace data to BigQuery for long-term retention independent of Cloud Trace retention settings"
+        ]
+      }
+    },
+    {
+      "id": "gcp-data-fusion",
+      "name": "Data Fusion",
+      "provider": "gcp",
+      "category": "serverless",
+      "description": "Fully managed data integration service for ETL pipelines",
+      "threatIds": ["etl-pipeline-manipulation", "credential-theft", "sensitive-data-exposure", "data-exfiltration", "misconfiguration", "excessive-permissions"],
+      "threatContext": {
+        "etl-pipeline-manipulation": "Pipeline definition tampering via CDAP API, malicious plugin injection through custom plugins, Dataproc job script modification to redirect data flows",
+        "credential-theft": "Service account keys stored in CDAP namespace, JDBC connection credentials in pipeline configurations, GCS bucket credentials for data sources",
+        "sensitive-data-exposure": "PII in pipeline logs and preview data, unmasked sensitive fields during data transformation, Wrangler recipe exposing data patterns",
+        "data-exfiltration": "Pipeline sink modification to external destinations, BigQuery export to attacker-controlled datasets, GCS writes to unauthorized buckets",
+        "misconfiguration": "Public Data Fusion instance endpoints, missing private IP configuration, disabled audit logging, permissive namespace access controls",
+        "excessive-permissions": "Data Fusion service account with broad storage and BigQuery permissions, cross-project dataset access, ability to deploy arbitrary Dataproc clusters"
+      },
+      "threatMitigations": {
+        "etl-pipeline-manipulation": [
+          "Restrict CDAP API access using IAM roles and VPC Service Controls perimeters",
+          "Use version control for pipeline definitions and deploy through CI/CD with approval gates",
+          "Enable Cloud Audit Logs for Data Fusion API to track all pipeline modifications",
+          "Restrict custom plugin uploads to reviewed and approved plugins only"
+        ],
+        "credential-theft": [
+          "Use Secret Manager to store connection credentials and reference them in Data Fusion secure keys",
+          "Configure Data Fusion with a private IP instance to prevent public endpoint exposure",
+          "Use Workload Identity on the underlying Dataproc clusters instead of exported service account keys",
+          "Rotate JDBC and connection credentials regularly using automated rotation in Secret Manager"
+        ],
+        "sensitive-data-exposure": [
+          "Use Cloud DLP transforms within Data Fusion pipelines to mask or de-identify PII in transit",
+          "Configure Cloud Logging exclusion filters to prevent sensitive pipeline data from appearing in logs",
+          "Restrict access to Data Fusion Wrangler and preview features via IAM namespace-level roles",
+          "Encrypt pipeline temporary data using CMEK in the underlying Cloud Storage and Dataproc resources"
+        ],
+        "data-exfiltration": [
+          "Enforce VPC Service Controls perimeters around Data Fusion, BigQuery, and Cloud Storage resources",
+          "Restrict pipeline sink configurations to approved GCS buckets and BigQuery datasets via Organization Policy",
+          "Monitor Dataproc job egress and Data Fusion pipeline execution logs for anomalous destinations",
+          "Use Cloud Monitoring alerts on data volume metrics to detect unusual data movement patterns"
+        ],
+        "misconfiguration": [
+          "Deploy Data Fusion instances with private IP only to prevent public internet access",
+          "Enable Cloud Audit Logs for all Data Fusion API operations (ADMIN_READ, DATA_READ, DATA_WRITE)",
+          "Use namespace-level access controls to isolate pipeline environments (dev, staging, production)",
+          "Apply Organization Policy constraints to restrict Data Fusion instance creation to approved regions"
+        ],
+        "excessive-permissions": [
+          "Create separate service accounts for each Data Fusion namespace with least-privilege permissions",
+          "Restrict the Data Fusion service account from creating Dataproc clusters outside approved configurations",
+          "Use IAM Recommender to identify and remove unused permissions on Data Fusion service accounts",
+          "Scope BigQuery and Cloud Storage IAM bindings to specific datasets and buckets rather than project-level"
+        ]
+      }
+    },
+    {
+      "id": "gcp-looker",
+      "name": "Looker",
+      "provider": "gcp",
+      "category": "monitoring",
+      "description": "Business intelligence and data analytics platform",
+      "threatIds": ["sensitive-data-exposure", "unauthorized-access", "data-exfiltration", "misconfiguration", "excessive-permissions"],
+      "threatContext": {
+        "sensitive-data-exposure": "LookML models exposing raw PII fields, dashboard tiles revealing sensitive aggregations, Explore queries accessing unmasked data, scheduled looks emailing sensitive reports",
+        "unauthorized-access": "Content access controls too permissive, embed SSO misconfiguration allowing unauthorized dashboard access, model access not restricted by role, API credentials exposed",
+        "data-exfiltration": "Download permissions allowing bulk data export, scheduled deliveries to external emails, SQL Runner queries extracting sensitive data, API access to underlying data",
+        "misconfiguration": "Database connections with elevated privileges, public embed URLs without proper authentication, Git integration exposing LookML in public repos, content validator disabled",
+        "excessive-permissions": "Admin role granted too broadly, develop permission allowing LookML modification, manage_spaces permission enabling content movement, db_connection_override exposing other databases"
+      },
+      "threatMitigations": {
+        "sensitive-data-exposure": [
+          "Use LookML access_filter and access_grant parameters to enforce row-level and field-level security on sensitive data",
+          "Configure Looker model access controls to restrict Explore queries on datasets containing PII",
+          "Disable scheduled look delivery to external email addresses or non-approved destinations",
+          "Use Cloud DLP integration to scan Looker dashboard content for sensitive data exposure"
+        ],
+        "unauthorized-access": [
+          "Configure Looker SSO via Google Cloud Identity or SAML with MFA enforcement for all users",
+          "Restrict embed SSO domains and validate signed embed URLs with short expiration times",
+          "Use Looker content access controls (folder permissions) to restrict dashboard and look visibility by group",
+          "Enable Looker System Activity monitoring to track login attempts and API key usage"
+        ],
+        "data-exfiltration": [
+          "Restrict download permissions per Looker role to prevent bulk data export by unauthorized users",
+          "Disable or restrict SQL Runner access to prevent ad-hoc query extraction of sensitive data",
+          "Monitor Looker System Activity logs for large download events and scheduled deliveries to external recipients",
+          "Configure row limits on Explore queries to prevent full-table data extraction"
+        ],
+        "misconfiguration": [
+          "Configure Looker database connections with read-only service accounts scoped to specific datasets",
+          "Disable public embed URLs or restrict them to authenticated-only access",
+          "Store LookML projects in private Git repositories and enforce code review for model changes",
+          "Run Looker Content Validator regularly to detect broken references and misconfigured access controls"
+        ],
+        "excessive-permissions": [
+          "Use custom Looker roles instead of the built-in Admin role; grant develop permission only to LookML developers",
+          "Restrict manage_spaces permission to content administrators and scope it to specific folders",
+          "Disable db_connection_override for all non-admin roles to prevent unauthorized database access",
+          "Audit Looker role assignments regularly and remove permissions that violate least-privilege principles"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-composer",
+      "name": "Cloud Composer",
+      "provider": "gcp",
+      "category": "orchestration",
+      "description": "Managed Apache Airflow workflow orchestration",
+      "threatIds": ["workflow-manipulation", "credential-theft", "misconfiguration", "excessive-permissions", "unauthorized-access"],
+      "threatContext": {
+        "workflow-manipulation": "Malicious DAG file injection in GCS bucket, task callback URL manipulation, DAG parameter tampering to alter execution flow, XCom data poisoning between tasks",
+        "credential-theft": "Airflow Connections containing database credentials, GCP service account key extraction from environment, Secrets Backend credential exposure, Fernet key compromise",
+        "misconfiguration": "Public Airflow web UI without IAP, permissive GCS bucket ACLs for DAG folder, disabled RBAC in Airflow, excessive metadata database retention",
+        "excessive-permissions": "Composer service account with broad permissions to execute tasks across GCP services, ability to create/modify resources in other projects, BigQuery admin access",
+        "unauthorized-access": "Airflow web UI access without proper IAP configuration, API endpoint exposure, unauthorized DAG trigger access, task log access revealing sensitive data"
+      },
+      "threatMitigations": {
+        "workflow-manipulation": [
+          "Restrict write access to the Composer DAGs GCS bucket to authorized CI/CD service accounts only",
+          "Enable Object Versioning on the DAGs bucket to track and revert unauthorized modifications",
+          "Use Cloud Composer 2 with Airflow RBAC to restrict DAG-level access per user or group",
+          "Validate DAG files through static analysis and linting in CI/CD before syncing to the DAGs bucket"
+        ],
+        "credential-theft": [
+          "Configure Secret Manager as the Airflow Secrets Backend instead of storing credentials in Airflow Connections",
+          "Use Workload Identity on the GKE cluster backing Composer to eliminate exported service account keys",
+          "Rotate the Airflow Fernet key periodically via Composer environment updates",
+          "Restrict access to the Composer GKE cluster and metadata database via private IP and authorized networks"
+        ],
+        "misconfiguration": [
+          "Enable Identity-Aware Proxy (IAP) on the Airflow web server to enforce Google identity authentication",
+          "Deploy Cloud Composer 2 with private IP configuration to eliminate public endpoint exposure",
+          "Enable Airflow RBAC and configure role-based DAG access with the Composer IAM integration",
+          "Restrict DAGs GCS bucket ACLs to only the Composer service account and CI/CD pipelines"
+        ],
+        "excessive-permissions": [
+          "Create a dedicated service account for the Composer environment with only the permissions needed by DAG tasks",
+          "Use per-task service account impersonation in DAGs instead of granting broad permissions to the Composer service account",
+          "Apply IAM Recommender recommendations to remove unused permissions from the Composer service account",
+          "Scope BigQuery and Cloud Storage IAM bindings to specific datasets and buckets rather than project-level roles"
+        ],
+        "unauthorized-access": [
+          "Enable IAP on the Airflow web server and restrict access to authorized Google groups or users",
+          "Use Cloud Composer 2 private IP environments to prevent direct API endpoint exposure",
+          "Configure VPC Service Controls perimeters to restrict access to the Composer environment and its resources",
+          "Enable Cloud Audit Logs for all Composer API operations to monitor access and DAG execution events"
+        ]
+      }
+    },
+    {
+      "id": "gcp-cloud-scheduler",
+      "name": "Cloud Scheduler",
+      "provider": "gcp",
+      "category": "serverless",
+      "description": "Fully managed enterprise-grade cron job scheduler for triggering jobs on a schedule",
+      "threatIds": [
+        "unauthorized-access",
+        "misconfiguration",
+        "dos-attack",
+        "excessive-permissions",
+        "injection-attack"
+      ],
+      "threatContext": {
+        "unauthorized-access": "Unauthorized job creation or triggering via overly permissive IAM bindings, cross-project job invocation through service account impersonation, unauthenticated HTTP target endpoints triggered by scheduler",
+        "misconfiguration": "HTTP targets without OIDC/OAuth authentication headers, overly frequent cron schedules overwhelming downstream services, Pub/Sub targets publishing to unintended topics, retry policies causing amplification of failed requests",
+        "dos-attack": "Cron schedule abuse creating high-frequency job triggers that overwhelm target services, retry configuration amplifying request volume on failures, multiple scheduler jobs targeting the same endpoint simultaneously",
+        "injection-attack": "Malicious payloads in HTTP request body or headers passed to target endpoints, Pub/Sub message body manipulation through scheduler job configuration, App Engine HTTP target path injection"
+      },
+      "threatMitigations": {
+        "unauthorized-access": [
+          "Restrict cloudscheduler.jobs.create and cloudscheduler.jobs.run IAM permissions to authorized service accounts only",
+          "Configure OIDC or OAuth tokens on HTTP target jobs to authenticate requests to downstream services",
+          "Use dedicated service accounts per scheduler job with minimum required permissions for the target service",
+          "Enable Cloud Audit Logs for Cloud Scheduler API operations to monitor job creation and execution events"
+        ],
+        "misconfiguration": [
+          "Always configure OIDC or OAuth authentication on HTTP target jobs instead of relying on unauthenticated endpoints",
+          "Set appropriate retry limits and backoff configurations to prevent downstream service overload on failures",
+          "Validate cron schedule expressions to ensure job frequency matches intended execution patterns",
+          "Use Pub/Sub targets with topic-level IAM policies to restrict which services can consume scheduler-triggered messages"
+        ],
+        "dos-attack": [
+          "Set maximum retry attempt limits on scheduler jobs to prevent amplification of failed executions",
+          "Configure Cloud Monitoring alerts on scheduler job execution counts to detect abnormal invocation patterns",
+          "Use per-job service accounts with quota restrictions on downstream services to limit blast radius",
+          "Implement rate limiting on HTTP target endpoints to protect against high-frequency scheduler triggers"
+        ],
+        "excessive-permissions": [
+          "Create per-job service accounts with IAM roles scoped to only the target resource (specific Cloud Function, Pub/Sub topic, or HTTP endpoint)",
+          "Use IAM Recommender to identify and remove unused permissions from Cloud Scheduler service accounts",
+          "Restrict service account impersonation permissions to prevent scheduler jobs from assuming overly privileged identities"
+        ],
+        "injection-attack": [
+          "Validate and sanitize HTTP request body and header values configured in scheduler job definitions",
+          "Use structured Pub/Sub message schemas to reject malformed payloads from scheduler job triggers",
+          "Restrict who can update scheduler job configurations using IAM policies on cloudscheduler.jobs.update"
+        ]
+      }
+    },
+    {
+      "id": "gcp-vision-api",
+      "name": "Vision AI",
+      "provider": "gcp",
+      "category": "ai-ml",
+      "description": "Image analysis and recognition API",
+      "threatIds": ["sensitive-data-exposure", "misconfiguration", "dos-attack", "unauthorized-access", "excessive-permissions"],
+      "threatContext": {
+        "sensitive-data-exposure": "OCR extraction of sensitive documents (IDs, financial records), face detection revealing identity information, SafeSearch analysis results exposing content classification, image content logged to Cloud Logging",
+        "misconfiguration": "API key without application restrictions, Vision AI API enabled without monitoring, sensitive image data processed without data residency controls",
+        "unauthorized-access": "API key exposure in client-side code, service account with unrestricted Vision AI access, missing IAM conditions for API invocation",
+        "dos-attack": "Image batch processing quota exhaustion, large image submissions consuming compute resources, cost attack via high-volume API calls",
+        "excessive-permissions": "Service accounts with overly broad access to all Vision AI features including face detection and safe search, API keys without feature-level restrictions"
+      },
+      "threatMitigations": {
+        "sensitive-data-exposure": [
+          "Use Cloud DLP API to redact PII from images before sending them to the Vision AI API for processing",
+          "Configure Cloud Logging exclusion filters to prevent Vision AI API response bodies from appearing in logs",
+          "Restrict access to Vision AI output data (annotations, OCR text) with IAM policies on downstream storage",
+          "Process sensitive images using Vision AI in regions that comply with data residency requirements"
+        ],
+        "misconfiguration": [
+          "Apply HTTP referrer or IP restrictions on all Vision AI API keys to prevent unauthorized usage",
+          "Enable Cloud Monitoring alerts on Vision AI API usage to detect unexpected call volumes",
+          "Use Secret Manager to store API keys and service account credentials instead of embedding in code",
+          "Review and restrict Vision AI feature enablement to only the features needed by the application"
+        ],
+        "dos-attack": [
+          "Configure per-project quota limits for Vision AI API to cap request volume and prevent cost spikes",
+          "Implement application-level rate limiting on Vision API calls per user or session",
+          "Validate image size and format at the application layer before forwarding to Vision AI to prevent resource abuse",
+          "Set up Cloud Monitoring alerts on Vision AI API request counts and error rates"
+        ],
+        "unauthorized-access": [
+          "Restrict Vision AI API access to specific service accounts using IAM roles (roles/automl.predictor)",
+          "Avoid embedding API keys in client-side code; proxy Vision AI requests through a backend with IAM authentication",
+          "Use VPC Service Controls to restrict Vision AI API access to authorized projects and networks",
+          "Enable Cloud Audit Logs for Vision AI API operations to track all access and usage"
+        ],
+        "excessive-permissions": [
+          "Use fine-grained IAM roles for Vision AI (roles/automl.predictor) instead of broad project-level roles",
+          "Apply API key restrictions to limit which Vision AI features each key can access",
+          "Create separate service accounts for each application using Vision AI with only the required feature permissions",
+          "Use IAM Recommender to identify and remove unused Vision AI permissions from service accounts"
+        ]
+      }
+    },
+    {
+      "id": "gcp-speech-api",
+      "name": "Speech-to-Text",
+      "provider": "gcp",
+      "category": "ai-ml",
+      "description": "Speech recognition and transcription API",
+      "threatIds": ["sensitive-data-exposure", "misconfiguration", "dos-attack", "unauthorized-access", "excessive-permissions"],
+      "threatContext": {
+        "sensitive-data-exposure": "Transcription of confidential conversations (PII, financial data, health information), speaker diarization revealing identity patterns, audio files persisted in Cloud Storage without encryption",
+        "misconfiguration": "API key without application restrictions, Speech-to-Text API enabled without monitoring, audio data processed without data residency controls",
+        "unauthorized-access": "API key exposure in client-side code, service account with unrestricted Speech-to-Text access, missing IAM conditions for API invocation",
+        "dos-attack": "Long audio file processing quota exhaustion, streaming recognition resource consumption, cost attack via high-volume transcription requests",
+        "excessive-permissions": "Service accounts with overly broad access to all Speech-to-Text features, API keys without feature-level restrictions"
+      },
+      "threatMitigations": {
+        "sensitive-data-exposure": [
+          "Avoid persisting raw audio files in Cloud Storage without encryption; use CMEK for all audio data at rest",
+          "Configure Cloud Logging exclusion filters to prevent Speech-to-Text transcription results from appearing in logs",
+          "Use data residency controls to ensure audio processing stays within compliant regions",
+          "Implement application-level redaction of PII (names, account numbers) from transcription output before storage"
+        ],
+        "misconfiguration": [
+          "Apply HTTP referrer or IP restrictions on all Speech-to-Text API keys to prevent unauthorized usage",
+          "Enable Cloud Monitoring alerts on Speech-to-Text API usage to detect unexpected call volumes",
+          "Use Secret Manager to store API keys and credentials instead of embedding in application code",
+          "Review API enablement and disable Speech-to-Text in projects where it is not needed"
+        ],
+        "dos-attack": [
+          "Configure per-project quota limits for Speech-to-Text API to cap request volume and prevent cost spikes",
+          "Implement application-level rate limiting on transcription requests per user or session",
+          "Validate audio file size and duration at the application layer before forwarding to Speech-to-Text",
+          "Set up Cloud Monitoring alerts on Speech-to-Text API request counts and billing metrics"
+        ],
+        "unauthorized-access": [
+          "Restrict Speech-to-Text API access to specific service accounts using fine-grained IAM roles",
+          "Avoid embedding API keys in client-side code; proxy Speech-to-Text requests through a backend with IAM authentication",
+          "Use VPC Service Controls to restrict Speech-to-Text API access to authorized projects and networks",
+          "Enable Cloud Audit Logs for Speech-to-Text API operations to track all access and usage"
+        ],
+        "excessive-permissions": [
+          "Use fine-grained IAM roles for Speech-to-Text instead of broad project-level roles",
+          "Apply API key restrictions to limit which Speech-to-Text features each key can access",
+          "Create separate service accounts per application using Speech-to-Text with minimum required permissions",
+          "Use IAM Recommender to identify and remove unused Speech-to-Text permissions from service accounts"
+        ]
+      }
+    },
+    {
+      "id": "gcp-iap",
+      "name": "Identity-Aware Proxy (IAP)",
+      "provider": "gcp",
+      "category": "identity",
+      "description": "Zero-trust access control fronting applications and VMs based on identity and context",
+      "threatIds": [
+        "unauthorized-access",
+        "broken-authentication",
+        "excessive-permissions",
+        "misconfiguration"
+      ],
+      "threatContext": {
+        "unauthorized-access": "IAP bypass by reaching the backend directly when the load balancer/VM is exposed and the app does not verify the signed IAP JWT (X-Goog-IAP-JWT-Assertion), firewall rules allowing traffic from sources other than the Google IAP ranges, VM SSH/RDP reachable outside the IAP TCP forwarding tunnel",
+        "broken-authentication": "Backend trusting spoofable headers instead of cryptographically validating the IAP JWT (signature, audience, and issuer), missing audience check allowing token replay across services, accepting requests without an IAP assertion",
+        "excessive-permissions": "Overly broad IAM bindings for roles/iap.httpsResourceAccessor or roles/iap.tunnelResourceAccessor granted to allUsers, allAuthenticatedUsers, or a whole domain, project-level grants instead of per-resource",
+        "misconfiguration": "Access Context Manager access levels not applied or misconfigured (missing device/IP conditions), IAP not enabled on all backend services behind the load balancer, signed-header validation not implemented in the application"
+      },
+      "threatMitigations": {
+        "unauthorized-access": [
+          "Restrict firewall rules so backends only accept traffic from the Google IAP source ranges (35.235.240.0/20) and block direct ingress",
+          "Validate the signed IAP JWT (X-Goog-IAP-JWT-Assertion) in every backend and reject requests without a valid assertion",
+          "Use IAP TCP forwarding for SSH/RDP and remove public IPs from protected VMs"
+        ],
+        "broken-authentication": [
+          "Cryptographically verify the IAP JWT signature, issuer (https://cloud.google.com/iap), and expected audience in the application",
+          "Fail closed when the IAP assertion header is missing or invalid rather than trusting other headers",
+          "Rotate to the current IAP public keys and enforce short token acceptance windows to prevent replay"
+        ],
+        "excessive-permissions": [
+          "Grant roles/iap.httpsResourceAccessor and iap.tunnelResourceAccessor to specific users or groups per resource, never to allUsers or allAuthenticatedUsers",
+          "Use IAM Conditions to scope IAP access by resource, and review bindings with IAM Recommender",
+          "Enforce Organization Policy iam.allowedPolicyMemberDomains to prevent external identities gaining IAP access"
+        ],
+        "misconfiguration": [
+          "Apply Access Context Manager access levels (device posture, IP, geo) to IAP bindings for context-aware access",
+          "Enable IAP on all backend services behind the load balancer and verify no backend is directly reachable",
+          "Enable Cloud Audit Logs for IAP and alert on access-policy and IAM binding changes"
+        ]
+      }
+    }
+  ]
+}

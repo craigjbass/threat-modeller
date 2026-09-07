@@ -1,0 +1,32 @@
+{
+  "mitigations": [
+    {
+      "id": "ddos-protection",
+      "label": "DDoS Protection",
+      "description": "Mitigates: Denial of Service, Connection Flooding",
+      "mitigatesThreatIds": ["dos-attack", "connection-dos"],
+      "technologyIds": ["saas-cloudflare", "gcp-cloud-armor", "aws-cloudfront", "gcp-cloud-cdn", "azure-front-door"]
+    },
+    {
+      "id": "waf-protection",
+      "label": "WAF Protection",
+      "description": "Mitigates: Injection, SSRF attacks",
+      "mitigatesThreatIds": ["injection-attack", "sql-injection", "nosql-injection", "ssrf-attack", "connection-injection"],
+      "technologyIds": ["aws-waf", "azure-waf", "gcp-cloud-armor", "saas-cloudflare", "azure-application-gateway", "azure-front-door", "gcp-apigee"]
+    },
+    {
+      "id": "rate-limiting",
+      "label": "Rate Limiting",
+      "description": "Mitigates: Denial of Service (partial)",
+      "mitigatesThreatIds": ["dos-attack"],
+      "technologyIds": ["aws-api-gateway", "gcp-apigee", "azure-api-management", "gcp-cloud-endpoints"]
+    },
+    {
+      "id": "network-firewall",
+      "label": "Network Firewall",
+      "description": "Mitigates: Lateral Movement, Unauthorized Access",
+      "mitigatesThreatIds": ["lateral-movement", "unauthorized-access"],
+      "technologyIds": ["aws-network-firewall", "azure-firewall", "self-pfsense", "self-opnsense"]
+    }
+  ]
+}

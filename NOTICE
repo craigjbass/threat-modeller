@@ -1,0 +1,15 @@
+threatmodeller
+Copyright (c) 2026 Craig J. Bass
+Licensed under the MIT License.
+
+This application embeds the Threat Model Library catalogue
+(https://github.com/jib1337/threat-model-library), vendored at tag v1.0.1 under
+ThreatModelKit/Sources/CatalogueGateways/Resources/Library/.
+
+The catalogue is Copyright (c) 2026 Jack Nelson and is licensed under the
+Creative Commons Attribution 4.0 International Licence (CC BY 4.0).
+https://creativecommons.org/licenses/by/4.0/
+
+The catalogue includes MITRE ATT&CK(R) content, reproduced with the permission
+of The MITRE Corporation. ATT&CK(R) is a registered trademark of
+The MITRE Corporation.
