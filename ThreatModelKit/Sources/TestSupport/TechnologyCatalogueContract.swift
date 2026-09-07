@@ -20,7 +20,9 @@ public func verifyTechnologyCatalogueContract(
     #expect(subject.threatsFor(technologyId: unknownId).isEmpty)
 
     let taxonomy = subject.taxonomy()
-    #expect(taxonomy.severities.map(\.rank) == Array(1...taxonomy.severities.count))
+    #expect(taxonomy.severities.enumerated().allSatisfy { index, severity in
+        severity.rank == index + 1
+    })
     #expect(Set(taxonomy.severities.map(\.id)).count == taxonomy.severities.count)
 
     let providerIds = Set(subject.providers().map(\.id))
