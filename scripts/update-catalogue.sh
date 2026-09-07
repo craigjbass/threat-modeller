@@ -81,7 +81,12 @@ cmd_verify() {
       continue
     fi
     local expected actual
-    expected="$(grep "\"$f\"" "$LOCK" | sed 's/.*: "//; s/".*//')"
+    expected="$(grep -F "\"$f\"" "$LOCK" | sed 's/.*: "//; s/".*//' || true)"
+    if [ -z "$expected" ]; then
+      echo "NOLOCKENTRY $f" >&2
+      failed=1
+      continue
+    fi
     actual="$(checksum "$DEST/$f")"
     if [ "$expected" != "$actual" ]; then
       echo "MISMATCH $f" >&2

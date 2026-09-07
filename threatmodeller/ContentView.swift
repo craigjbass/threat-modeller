@@ -126,6 +126,13 @@ private struct TechnologyRow: View {
     }
 }
 
+private extension AssessedThreat {
+    /// Row key for the threat list. `AssessedThreat` carries no identity
+    /// field of its own, so two equal threats would collide as one row.
+    /// The pair of `threatId` and `sourceComponentId` identifies a row.
+    var rowIdentity: String { "\(threatId)#\(sourceComponentId)" }
+}
+
 private struct ThreatListView: View {
     let session: ThreatModelSession
 
@@ -144,7 +151,7 @@ private struct ThreatListView: View {
                     description: Text("Add a technology from the palette to see the threats it carries.")
                 )
             } else {
-                List(session.threats, id: \.self) { threat in
+                List(session.threats, id: \.rowIdentity) { threat in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text(threat.name).font(.headline)

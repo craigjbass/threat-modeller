@@ -54,7 +54,7 @@ struct BuildingAThreatModelTests {
         ])
     }
 
-    @Test func scoresTheSameTechnologyDifferentlyForMoreSensitiveData() throws {
+    @Test func scoresTheSameTechnologyLowerForLessSensitiveData() throws {
         _ = app.addComponent().execute(
             AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "public")
         )
@@ -64,6 +64,23 @@ struct BuildingAThreatModelTests {
 
         #expect(credentialTheft.riskScore == 4)
         #expect(credentialTheft.riskLevel == "medium")
+    }
+
+    @Test func addsATechnologyTakenFromThePalette() throws {
+        let palette = app.listTechnologies().execute(ListTechnologiesRequest())
+        let technology = try #require(palette.providers.first?.categories.first?.technologies.first)
+
+        let added = app.addComponent().execute(
+            AddComponentRequest(technologyId: technology.id, x: 0, y: 0, sensitivity: "confidential")
+        )
+
+        guard case .added(let componentId) = added else {
+            Issue.record("Expected the component to be added, got \(added)")
+            return
+        }
+
+        let assessment = app.assessThreatModel().execute(AssessThreatModelRequest())
+        #expect(assessment.threats.contains { $0.sourceComponentId == componentId })
     }
 
     @Test func refusesATechnologyTheCatalogueDoesNotHave() {

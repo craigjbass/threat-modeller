@@ -110,8 +110,9 @@ public protocol AddComponentUseCase {
 
 public struct AddComponentRequest {
     public let technologyId: String
-    public let position: Point
-    public let sensitivity: DataSensitivity
+    public let x: Double
+    public let y: Double
+    public let sensitivity: String
 }
 
 public enum AddComponentResponse {
