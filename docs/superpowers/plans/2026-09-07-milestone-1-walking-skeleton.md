@@ -381,6 +381,7 @@ Replace `.gitignore`:
 
 ```
 .DS_Store
+.superpowers/
 .build/
 DerivedData/
 xcuserdata/
@@ -2370,6 +2371,8 @@ git commit -m "feat: add the RiskScore domain object"
   - `AssessedThreat(threatId:name:description:severityId:severityLabel:stride:mitreTechniques:controls:sourceComponentId:sourceName:sourceProviderId:sensitivityId:riskScore:riskLevel:context:)`
   - `AssessedControl(description: String, isTechnologySpecific: Bool)`
   - `AssessedMitreTechnique(id: String, name: String, tactic: String)`
+  - All three of the above conform to `Hashable, Sendable`, so SwiftUI can key
+    a `List` on them in Task 11
   - `AssessThreatModel(models: ThreatModelGateway, catalogue: TechnologyCatalogue)`
 
 Rules this milestone implements: one entry per (component, threat); score is severity rank × the component's sensitivity rank; technology-specific mitigations supersede a threat's generic controls; a component with `threatsDisabled` raises nothing; entries scoring zero are dropped; results are ordered by score descending, then threat id ascending, then component id ascending.
@@ -2540,7 +2543,7 @@ public struct AssessThreatModelResponse: Equatable, Sendable {
     }
 }
 
-public struct AssessedMitreTechnique: Equatable, Sendable {
+public struct AssessedMitreTechnique: Hashable, Sendable {
     public let id: String
     public let name: String
     public let tactic: String
@@ -2552,7 +2555,7 @@ public struct AssessedMitreTechnique: Equatable, Sendable {
     }
 }
 
-public struct AssessedControl: Equatable, Sendable {
+public struct AssessedControl: Hashable, Sendable {
     public let description: String
     /// True when the control came from the technology rather than the threat.
     public let isTechnologySpecific: Bool
@@ -2563,7 +2566,7 @@ public struct AssessedControl: Equatable, Sendable {
     }
 }
 
-public struct AssessedThreat: Equatable, Sendable {
+public struct AssessedThreat: Hashable, Sendable {
     public let threatId: String
     public let name: String
     public let description: String
@@ -3154,8 +3157,8 @@ private struct ThreatListView: View {
 }
 ```
 
-`List(session.threats, id: \.self)` needs `AssessedThreat` to be `Hashable`. Add `Hashable` to its declaration and to `AssessedControl` and `AssessedMitreTechnique` in
-`ThreatModelKit/Sources/ThreatModelKit/assessment/usecase/AssessThreatModel.swift`, changing each `: Equatable, Sendable` to `: Hashable, Sendable`. `Hashable` refines `Equatable`, so no test changes.
+`List(session.threats, id: \.self)` relies on `AssessedThreat` already conforming
+to `Hashable`, which Task 9 declared. No change to the package is needed here.
 
 - [ ] **Step 6: Run the tests to verify they pass**
 
