@@ -5,6 +5,7 @@
 //  Created by Craig J. Bass on 07/09/2026.
 //
 
+import Foundation
 import XCTest
 
 final class threatmodellerUITests: XCTestCase {
@@ -18,63 +19,64 @@ final class threatmodellerUITests: XCTestCase {
     /// nothing unless the click landed on the 15-point disclosure triangle,
     /// and the category label looked interactive but was not.
     ///
-    /// This test clicks a category row on its label, not on the triangle,
-    /// and confirms the category opens. It then clicks a technology row and
-    /// confirms the threat list updates. A click that lands on a dead
-    /// control raises an `XCTest` error because `isHittable` is asserted
-    /// first, so this test fails loudly instead of passing on a frozen UI.
+    /// Walks the journey a user takes: open a category, add a technology,
+    /// see its threats.
+    ///
+    /// Each step asserts the OUTCOME of a click, not the mechanics of the
+    /// control. If a row is dead, the next thing never appears and the test
+    /// fails. That covers the defect where a category label rendered as plain
+    /// text and only a 15 point disclosure triangle responded.
     @MainActor
-    func testClickingACategoryLabelExpandsItAndClickingATechnologyAddsItsThreats() throws {
+    func testAUserOpensACategoryAddsATechnologyAndSeesItsThreats() throws {
+        let started = Date()
+        func mark(_ step: String) {
+            print(String(format: "[uitest] %5.1fs  %@", Date().timeIntervalSince(started), step))
+        }
+
         let app = XCUIApplication()
+        mark("launching")
         app.launch()
 
-        // Click the category row on its label, not on the disclosure triangle.
-        let categoryLabel = app.staticTexts["Compute"]
+        // The palette lists the catalogue, grouped by provider then category.
+        // Several providers have a "Compute" category. The first is Amazon Web
+        // Services, which holds EC2.
+        let category = app.buttons["Compute"].firstMatch
         XCTAssertTrue(
-            categoryLabel.waitForExistence(timeout: 15),
-            "The 'Compute' category row did not appear in the palette."
+            category.waitForExistence(timeout: 15),
+            "The 'Compute' category never appeared in the palette."
         )
-        XCTAssertTrue(
-            categoryLabel.isHittable,
-            "The 'Compute' category label is not hittable. Only the disclosure " +
-            "triangle would respond to a click, which is the defect this test guards against."
-        )
-        categoryLabel.click()
-
-        // The category must now be expanded: its technology row appears.
-        let technologyRow = app.buttons["EC2, Virtual servers in the cloud"]
-        XCTAssertTrue(
-            technologyRow.waitForExistence(timeout: 5),
-            "Clicking the 'Compute' category label did not expand it; the EC2 row never appeared."
-        )
-        XCTAssertTrue(
-            technologyRow.isHittable,
-            "The EC2 technology row is not hittable across its full width."
-        )
-
-        // Before adding anything, the threat list shows its empty state.
         XCTAssertTrue(
             app.staticTexts["No threats yet"].exists,
-            "Expected the empty threat list state before any technology is added."
+            "Expected the empty threat list before a technology is added."
         )
 
-        // Click the technology row anywhere on it, not on any particular sub-element.
-        technologyRow.click()
+        // Open the category by clicking the row, not the disclosure triangle.
+        mark("clicking the 'Compute' category")
+        category.click()
 
-        // The threat list must now show EC2's threats, worst first.
-        let firstThreat = app.staticTexts["Credential Theft"]
+        // If the category row were dead, this row would never appear.
+        let technology = app.buttons["EC2, Virtual servers in the cloud"].firstMatch
         XCTAssertTrue(
-            firstThreat.waitForExistence(timeout: 10),
-            "Clicking the EC2 technology row did not raise its threats; " +
-            "'Credential Theft' never appeared in the threat list."
+            technology.waitForExistence(timeout: 5),
+            "Clicking the 'Compute' category did not open it; the EC2 row never appeared."
+        )
+
+        // Add the technology.
+        mark("clicking the EC2 row")
+        technology.click()
+
+        // If the technology row were dead, these threats would never appear.
+        XCTAssertTrue(
+            app.staticTexts["Credential Theft"].firstMatch.waitForExistence(timeout: 10),
+            "Clicking the EC2 row did not raise its threats."
         )
         XCTAssertFalse(
             app.staticTexts["No threats yet"].exists,
-            "The empty threat list state is still showing after a technology was added."
+            "The empty threat list is still showing after a technology was added."
         )
+        mark("threats shown")
     }
 
-    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {

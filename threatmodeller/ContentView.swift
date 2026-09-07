@@ -60,8 +60,12 @@ private struct PaletteView: View {
     }
 }
 
-/// A category row that toggles open or closed no matter where the row is
-/// clicked, not only on the small disclosure triangle.
+/// A category row plus its technologies.
+///
+/// This does not use `DisclosureGroup`. That control treats a click anywhere in
+/// its label area as a toggle, so a button inside the label toggled the state a
+/// second time and the group never opened. Here one button owns the toggle and
+/// the rows below appear when it is open.
 private struct CategoryDisclosure: View {
     let category: ListedCategory
     let session: ThreatModelSession
@@ -69,19 +73,28 @@ private struct CategoryDisclosure: View {
     @State private var isExpanded = false
 
     var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            ForEach(category.technologies, id: \.id) { technology in
-                TechnologyRow(technology: technology, session: session)
-            }
-        } label: {
+        Group {
             Button {
                 isExpanded.toggle()
             } label: {
-                Text(category.label)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                HStack(spacing: 6) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 10)
+                    Text(category.label)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+
+            if isExpanded {
+                ForEach(category.technologies, id: \.id) { technology in
+                    TechnologyRow(technology: technology, session: session)
+                        .padding(.leading, 16)
+                }
+            }
         }
     }
 }
