@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A0000000000000000000001 /* ThreatModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000002 /* ThreatModelKit */; };
+		A0000000000000000000004 /* ThreatModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000005 /* ThreatModelKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		46EEEDD6304F3232000F014D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A0000000000000000000001 /* ThreatModelKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -59,6 +65,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A0000000000000000000004 /* ThreatModelKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +119,7 @@
 			);
 			name = threatmodeller;
 			packageProductDependencies = (
+				A0000000000000000000002 /* ThreatModelKit */,
 			);
 			productName = threatmodeller;
 			productReference = 46EEEDC6304F3231000F014D /* threatmodeller.app */;
@@ -135,6 +143,7 @@
 			);
 			name = threatmodellerTests;
 			packageProductDependencies = (
+				A0000000000000000000005 /* ThreatModelKit */,
 			);
 			productName = threatmodellerTests;
 			productReference = 46EEEDD5304F3232000F014D /* threatmodellerTests.xctest */;
@@ -195,6 +204,9 @@
 			);
 			mainGroup = 46EEEDBD304F3231000F014D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A0000000000000000000003 /* XCLocalSwiftPackageReference "ThreatModelKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 46EEEDC7304F3231000F014D /* Products */;
 			projectDirPath = "";
@@ -573,6 +585,24 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A0000000000000000000003 /* XCLocalSwiftPackageReference "ThreatModelKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ThreatModelKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A0000000000000000000002 /* ThreatModelKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ThreatModelKit;
+		};
+		A0000000000000000000005 /* ThreatModelKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ThreatModelKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 46EEEDBE304F3231000F014D /* Project object */;
 }
