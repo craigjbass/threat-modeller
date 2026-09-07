@@ -3095,7 +3095,7 @@ private struct PaletteView: View {
             ForEach(session.palette, id: \.id) { provider in
                 Section(provider.displayName) {
                     ForEach(provider.categories, id: \.id) { category in
-                        CategoryDisclosure(category: category, session: session)
+                        CategoryDisclosure(providerId: provider.id, category: category, session: session)
                     }
                 }
             }
@@ -3111,6 +3111,7 @@ private struct PaletteView: View {
 /// second time and the group never opened. Here one button owns the toggle and
 /// the rows below appear when it is open.
 private struct CategoryDisclosure: View {
+    let providerId: String
     let category: ListedCategory
     let session: ThreatModelSession
 
@@ -3132,6 +3133,7 @@ private struct CategoryDisclosure: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("category-\(providerId)-\(category.id)")
 
             if isExpanded {
                 ForEach(category.technologies, id: \.id) { technology in
@@ -3164,6 +3166,7 @@ private struct TechnologyRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("technology-\(technology.id)")
     }
 }
 
@@ -3225,6 +3228,17 @@ rows render below it when it is open. Every row carries
 `.contentShape(Rectangle())` so a click anywhere on the row registers, not
 only on the text.
 
+Each category row and technology row also carries a stable
+`.accessibilityIdentifier(...)`, built from data already on the row: a
+category row is `category-<providerId>-<categoryId>`, for example
+`category-aws-compute`; a technology row is `technology-<technologyId>`, for
+example `technology-aws-ec2`. The catalogue lists several providers with a
+`Compute` category, so a query on the visible label picks whichever one comes
+first in tree order. A stable identifier does not depend on tree order and
+does not depend on the row's visible label text, which SwiftUI builds by
+joining the name and the description. The user interface test in Step 7
+queries these identifiers.
+
 - [ ] **Step 6: Run the tests to verify they pass**
 
 ```bash
@@ -3254,18 +3268,19 @@ func testAUserOpensACategoryAddsATechnologyAndSeesItsThreats() throws {
     mark("launching")
     app.launch()
 
-    // Several providers have a "Compute" category. The first is Amazon Web
-    // Services, which holds EC2.
-    let category = app.buttons["Compute"].firstMatch
+    // Each row carries a stable accessibility identifier built from its
+    // provider id, category id, and technology id, so the query does not
+    // depend on tree order or on the row's visible label text.
+    let category = app.buttons["category-aws-compute"]
     XCTAssertTrue(category.waitForExistence(timeout: 15),
-                  "The 'Compute' category never appeared in the palette.")
+                  "The 'category-aws-compute' category never appeared in the palette.")
     XCTAssertTrue(app.staticTexts["No threats yet"].exists,
                   "Expected the empty threat list before a technology is added.")
 
     mark("clicking the 'Compute' category")
     category.click()
 
-    let technology = app.buttons["EC2, Virtual servers in the cloud"].firstMatch
+    let technology = app.buttons["technology-aws-ec2"]
     XCTAssertTrue(technology.waitForExistence(timeout: 5),
                   "Clicking the 'Compute' category did not open it; the EC2 row never appeared.")
 

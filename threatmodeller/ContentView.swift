@@ -51,7 +51,7 @@ private struct PaletteView: View {
             ForEach(session.palette, id: \.id) { provider in
                 Section(provider.displayName) {
                     ForEach(provider.categories, id: \.id) { category in
-                        CategoryDisclosure(category: category, session: session)
+                        CategoryDisclosure(providerId: provider.id, category: category, session: session)
                     }
                 }
             }
@@ -67,6 +67,7 @@ private struct PaletteView: View {
 /// second time and the group never opened. Here one button owns the toggle and
 /// the rows below appear when it is open.
 private struct CategoryDisclosure: View {
+    let providerId: String
     let category: ListedCategory
     let session: ThreatModelSession
 
@@ -88,6 +89,7 @@ private struct CategoryDisclosure: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("category-\(providerId)-\(category.id)")
 
             if isExpanded {
                 ForEach(category.technologies, id: \.id) { technology in
@@ -120,6 +122,7 @@ private struct TechnologyRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("technology-\(technology.id)")
     }
 }
 

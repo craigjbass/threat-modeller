@@ -38,12 +38,13 @@ final class threatmodellerUITests: XCTestCase {
         app.launch()
 
         // The palette lists the catalogue, grouped by provider then category.
-        // Several providers have a "Compute" category. The first is Amazon Web
-        // Services, which holds EC2.
-        let category = app.buttons["Compute"].firstMatch
+        // Each row carries a stable accessibility identifier built from its
+        // provider id, category id, and technology id, so the query does not
+        // depend on tree order or on the row's visible label text.
+        let category = app.buttons["category-aws-compute"]
         XCTAssertTrue(
             category.waitForExistence(timeout: 15),
-            "The 'Compute' category never appeared in the palette."
+            "The 'category-aws-compute' category never appeared in the palette."
         )
         XCTAssertTrue(
             app.staticTexts["No threats yet"].exists,
@@ -55,7 +56,7 @@ final class threatmodellerUITests: XCTestCase {
         category.click()
 
         // If the category row were dead, this row would never appear.
-        let technology = app.buttons["EC2, Virtual servers in the cloud"].firstMatch
+        let technology = app.buttons["technology-aws-ec2"]
         XCTAssertTrue(
             technology.waitForExistence(timeout: 5),
             "Clicking the 'Compute' category did not open it; the EC2 row never appeared."
