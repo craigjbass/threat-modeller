@@ -6,5 +6,6 @@ struct ThreatModellerApp: App {
         WindowGroup {
             ContentView()
         }
+        .defaultSize(width: 1100, height: 700)
     }
 }
