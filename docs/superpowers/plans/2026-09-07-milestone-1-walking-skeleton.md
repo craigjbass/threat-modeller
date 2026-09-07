@@ -3095,28 +3095,75 @@ private struct PaletteView: View {
             ForEach(session.palette, id: \.id) { provider in
                 Section(provider.displayName) {
                     ForEach(provider.categories, id: \.id) { category in
-                        DisclosureGroup(category.label) {
-                            ForEach(category.technologies, id: \.id) { technology in
-                                Button {
-                                    session.add(technologyId: technology.id)
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(technology.name)
-                                        Text(technology.description)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(2)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                        CategoryDisclosure(category: category, session: session)
                     }
                 }
             }
         }
         .navigationTitle("Technologies")
+    }
+}
+
+/// A category row plus its technologies.
+///
+/// This does not use `DisclosureGroup`. That control treats a click anywhere in
+/// its label area as a toggle, so a button inside the label toggled the state a
+/// second time and the group never opened. Here one button owns the toggle and
+/// the rows below appear when it is open.
+private struct CategoryDisclosure: View {
+    let category: ListedCategory
+    let session: ThreatModelSession
+
+    @State private var isExpanded = false
+
+    var body: some View {
+        Group {
+            Button {
+                isExpanded.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 10)
+                    Text(category.label)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                ForEach(category.technologies, id: \.id) { technology in
+                    TechnologyRow(technology: technology, session: session)
+                        .padding(.leading, 16)
+                }
+            }
+        }
+    }
+}
+
+/// A technology row that adds the technology when clicked anywhere on the
+/// row, including the empty space to the right of the text.
+private struct TechnologyRow: View {
+    let technology: ListedTechnology
+    let session: ThreatModelSession
+
+    var body: some View {
+        Button {
+            session.add(technologyId: technology.id)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(technology.name)
+                Text(technology.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -3170,6 +3217,14 @@ private struct ThreatListView: View {
 `List(session.threats, id: \.self)` relies on `AssessedThreat` already conforming
 to `Hashable`, which Task 9 declared. No change to the package is needed here.
 
+**Do not use `DisclosureGroup` for the category row.** It treats a click
+anywhere in its label area as a toggle, so a button placed inside the label
+toggles the state a second time and the group never opens. The palette above
+drives the expansion directly: one button owns the toggle, and the technology
+rows render below it when it is open. Every row carries
+`.contentShape(Rectangle())` so a click anywhere on the row registers, not
+only on the text.
+
 - [ ] **Step 6: Run the tests to verify they pass**
 
 ```bash
@@ -3179,15 +3234,70 @@ xcodebuild -project threatmodeller.xcodeproj -scheme threatmodeller -destination
 
 Expected: the three `ThreatModelSessionTests` pass and the run ends with `TEST SUCCEEDED`.
 
-- [ ] **Step 7: Run the app and look at it**
+- [ ] **Step 7: Prove the journey works with a user interface test**
+
+A launch check is not enough. Starting the app and confirming the process is
+alive passes even when every control is dead. Assert the journey instead.
+
+Write this into `threatmodellerUITests/threatmodellerUITests.swift`, replacing
+the template `testExample`:
+
+```swift
+@MainActor
+func testAUserOpensACategoryAddsATechnologyAndSeesItsThreats() throws {
+    let started = Date()
+    func mark(_ step: String) {
+        print(String(format: "[uitest] %5.1fs  %@", Date().timeIntervalSince(started), step))
+    }
+
+    let app = XCUIApplication()
+    mark("launching")
+    app.launch()
+
+    // Several providers have a "Compute" category. The first is Amazon Web
+    // Services, which holds EC2.
+    let category = app.buttons["Compute"].firstMatch
+    XCTAssertTrue(category.waitForExistence(timeout: 15),
+                  "The 'Compute' category never appeared in the palette.")
+    XCTAssertTrue(app.staticTexts["No threats yet"].exists,
+                  "Expected the empty threat list before a technology is added.")
+
+    mark("clicking the 'Compute' category")
+    category.click()
+
+    let technology = app.buttons["EC2, Virtual servers in the cloud"].firstMatch
+    XCTAssertTrue(technology.waitForExistence(timeout: 5),
+                  "Clicking the 'Compute' category did not open it; the EC2 row never appeared.")
+
+    mark("clicking the EC2 row")
+    technology.click()
+
+    XCTAssertTrue(app.staticTexts["Credential Theft"].firstMatch.waitForExistence(timeout: 10),
+                  "Clicking the EC2 row did not raise its threats.")
+    XCTAssertFalse(app.staticTexts["No threats yet"].exists,
+                   "The empty threat list is still showing after a technology was added.")
+    mark("threats shown")
+}
+```
+
+Assert the OUTCOME of each click, not the mechanics of the control. Do not
+assert `isHittable`: a click on a dead element already fails the test, the
+assertion only improves a message, and it costs about 2.4 seconds per call
+because it performs a real hit test.
+
+Run it:
 
 ```bash
 cd /Users/craigjbass/Projects/threat-modeller
-xcodebuild -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS' -derivedDataPath .build/xcode build
-open .build/xcode/Build/Products/Debug/threatmodeller.app
+xcodebuild -project threatmodeller.xcodeproj -scheme threatmodeller \
+  -destination 'platform=macOS' \
+  -only-testing:threatmodellerUITests/threatmodellerUITests/testAUserOpensACategoryAddsATechnologyAndSeesItsThreats \
+  test 2>&1 | grep --line-buffered -E "^\[uitest\]|Test Case.*(passed|failed)"
 ```
 
-Confirm by eye: five provider sections in the sidebar; expanding a category lists technologies; clicking EC2 fills the detail pane with ten threats, worst first, each showing a risk level and score.
+Expected: the test passes in about 5 seconds and prints a mark per step.
+Pipe through `grep --line-buffered`, never `grep | head`, which buffers and
+makes the run look stopped.
 
 - [ ] **Step 8: Run the full suite once more**
 
