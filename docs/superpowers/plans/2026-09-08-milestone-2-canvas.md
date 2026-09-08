@@ -48,7 +48,7 @@ Carry-forward items 6, 7 and 8 are tied to a catalogue tag bump. The tag stays `
 | Path | Responsibility |
 |---|---|
 | `ThreatModelKit/Sources/ThreatModelKit/UseCaseFactory.swift` | The use case set a delivery mechanism may call |
-| `.../ThreatModelKit/modelling/domain/Identifiers.swift` | `ComponentId`, `ConnectionId` |
+| `.../ThreatModelKit/modelling/domain/ModellingIdentifiers.swift` | `ComponentId`, `ConnectionId` |
 | `.../ThreatModelKit/modelling/domain/Connection.swift` | `Connection` |
 | `.../ThreatModelKit/modelling/usecase/ViewThreatModel.swift` | `ViewThreatModel`, `ViewedComponent`, `ViewedConnection` |
 | `.../ThreatModelKit/modelling/usecase/ConnectComponents.swift` | `ConnectComponents` and its Request/Response |
@@ -440,7 +440,7 @@ update no longer breaks them."
 Splits `ComponentId` out of `Component.swift` before `ConnectionId` arrives, which closes a carry-forward item, and gives the aggregate its connections.
 
 **Files:**
-- Create: `ThreatModelKit/Sources/ThreatModelKit/modelling/domain/Identifiers.swift`
+- Create: `ThreatModelKit/Sources/ThreatModelKit/modelling/domain/ModellingIdentifiers.swift`
 - Create: `ThreatModelKit/Sources/ThreatModelKit/modelling/domain/Connection.swift`
 - Modify: `ThreatModelKit/Sources/ThreatModelKit/modelling/domain/Component.swift`
 - Modify: `ThreatModelKit/Sources/ThreatModelKit/modelling/domain/ThreatModel.swift`
@@ -517,9 +517,9 @@ cd /Users/craigjbass/Projects/threat-modeller/ThreatModelKit && swift test --fil
 
 Expected: FAIL with `cannot find 'Connection' in scope`.
 
-- [ ] **Step 3: Create the identifiers file**
+- [ ] **Step 3: Create the modelling identifiers file**
 
-Create `ThreatModelKit/Sources/ThreatModelKit/modelling/domain/Identifiers.swift`:
+Create `ThreatModelKit/Sources/ThreatModelKit/modelling/domain/ModellingIdentifiers.swift`:
 
 ```swift
 public struct ComponentId: Hashable, Sendable, CustomStringConvertible {
