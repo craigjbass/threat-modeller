@@ -32,13 +32,19 @@ struct ContentView: View {
 
 private struct ModelView: View {
     let session: ThreatModelSession
+    @State private var canvas = CanvasState()
 
     var body: some View {
         NavigationSplitView {
             PaletteView(session: session)
-                .navigationSplitViewColumnWidth(min: 240, ideal: 280)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+        } content: {
+            CanvasView(session: session, canvas: canvas)
+                .navigationTitle("Diagram")
+                .navigationSplitViewColumnWidth(min: 400, ideal: 700)
         } detail: {
             ThreatListView(session: session)
+                .navigationSplitViewColumnWidth(min: 280, ideal: 360)
         }
     }
 }
