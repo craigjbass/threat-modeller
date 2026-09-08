@@ -116,17 +116,25 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     public let connections: [ViewedConnection]
     /// In drawing order. A later zone wins where two overlap.
     public let zones: [ViewedZone]
+    /// Whether there is anything to take back or put in again, so a menu item
+    /// can dim itself from the same read that draws the canvas.
+    public let canUndo: Bool
+    public let canRedo: Bool
 
     public init(
         name: String,
         components: [ViewedComponent],
         connections: [ViewedConnection],
-        zones: [ViewedZone]
+        zones: [ViewedZone],
+        canUndo: Bool = false,
+        canRedo: Bool = false
     ) {
         self.name = name
         self.components = components
         self.connections = connections
         self.zones = zones
+        self.canUndo = canUndo
+        self.canRedo = canRedo
     }
 }
 
@@ -183,7 +191,9 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     width: $0.rect.size.width,
                     height: $0.rect.size.height
                 )
-            }
+            },
+            canUndo: models.canUndo,
+            canRedo: models.canRedo
         )
     }
 }

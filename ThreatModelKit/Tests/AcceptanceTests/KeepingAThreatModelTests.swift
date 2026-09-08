@@ -84,7 +84,14 @@ struct KeepingAThreatModelTests {
 
         #expect(name == "Payments")
         #expect(drift.hasDrift == false)
-        #expect(app.viewThreatModel().execute(ViewThreatModelRequest()) == before)
+        // The model comes back, not the editing history: opening a document is
+        // not something to undo back out of.
+        let after = app.viewThreatModel().execute(ViewThreatModelRequest())
+        #expect(after.name == before.name)
+        #expect(after.components == before.components)
+        #expect(after.connections == before.connections)
+        #expect(after.zones == before.zones)
+        #expect(after.canUndo == false)
         #expect(threats() == beforeThreats)
         #expect(app.summariseRisk().execute(SummariseRiskRequest()) == beforeSummary)
     }
