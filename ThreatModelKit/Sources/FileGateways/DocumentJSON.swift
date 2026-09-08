@@ -64,3 +64,10 @@ struct PathwayMitigationConfigJSON: Codable {
     let mode: String
     let reductionPercent: Int
 }
+
+struct SelectionJSON: Codable {
+    let formatVersion: Int
+    let components: [ComponentJSON]
+    let connections: [ConnectionJSON]
+    let zones: [ZoneJSON]
+}

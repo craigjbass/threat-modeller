@@ -797,7 +797,8 @@ struct ClipboardUseCaseTests {
         #expect(componentIds.first != seeded.web)
         #expect(models.current().components.count == 3)
 
-        let pasted = try #require(models.current().component(ComponentId(try #require(componentIds.first))))
+        let pastedId = try #require(componentIds.first)
+        let pasted = try #require(models.current().component(ComponentId(pastedId)))
         let original = try #require(models.current().component(ComponentId(seeded.web)))
         #expect(pasted.position == Point(
             x: original.position.x + PasteSelection.defaultOffset,

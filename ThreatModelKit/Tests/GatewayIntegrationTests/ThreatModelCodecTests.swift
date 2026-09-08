@@ -122,4 +122,60 @@ struct ThreatModelCodecTests {
             try codec.decode(try JSONSerialization.data(withJSONObject: json))
         }
     }
+
+    private func snippet() -> SelectionSnippet {
+        SelectionSnippet(
+            components: [
+                Component(
+                    id: ComponentId("c1"),
+                    technologyId: TechnologyId("aws-ec2"),
+                    position: Point(x: 10, y: 20),
+                    sensitivity: .restricted,
+                    customName: "Web tier",
+                    threatsDisabled: true
+                )
+            ],
+            connections: [
+                Connection(id: ConnectionId("k1"), source: ComponentId("c1"), target: ComponentId("c1"))
+            ],
+            zones: [
+                Zone(id: ZoneId("z1"), rect: Rect(x: 0, y: 0, width: 400, height: 300), name: "Edge")
+            ]
+        )
+    }
+
+    @Test func carriesASelectionThroughARoundTrip() throws {
+        let original = snippet()
+
+        #expect(try codec.decodeSelection(try codec.encodeSelection(original)) == original)
+    }
+
+    @Test func carriesAnEmptySelectionThrough() throws {
+        let empty = SelectionSnippet(components: [], connections: [], zones: [])
+
+        #expect(try codec.decodeSelection(try codec.encodeSelection(empty)) == empty)
+        #expect(empty.isEmpty)
+    }
+
+    @Test func putsASelectionOnTheClipboardAsSomethingAPersonCanRead() throws {
+        let text = try codec.encodeSelection(snippet())
+
+        #expect(text.contains("\"formatVersion\""))
+        #expect(text.contains("\"aws-ec2\""))
+    }
+
+    @Test func refusesASnippetFromAVersionItDoesNotKnow() throws {
+        let text = try codec.encodeSelection(snippet())
+            .replacingOccurrences(of: "\"formatVersion\" : 1", with: "\"formatVersion\" : 99")
+
+        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 1)) {
+            try codec.decodeSelection(text)
+        }
+    }
+
+    @Test func refusesClipboardTextThatIsNotASelection() {
+        #expect(throws: (any Error).self) {
+            try codec.decodeSelection("just some words someone copied")
+        }
+    }
 }

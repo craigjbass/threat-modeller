@@ -9,6 +9,9 @@ public protocol UseCaseFactory {
     func openThreatModel() -> OpenThreatModelUseCase
     func saveThreatModel() -> SaveThreatModelUseCase
     func renameThreatModel() -> RenameThreatModelUseCase
+    func copySelection() -> CopySelectionUseCase
+    func pasteSelection() -> PasteSelectionUseCase
+    func duplicateSelection() -> DuplicateSelectionUseCase
     func undoLastChange() -> UndoLastChangeUseCase
     func redoChange() -> RedoChangeUseCase
     func listTechnologies() -> ListTechnologiesUseCase

@@ -17,4 +17,8 @@ public enum ThreatModelFileError: Error, Equatable {
 public protocol ThreatModelFileGateway: Sendable {
     func encode(_ model: ThreatModel) throws -> Data
     func decode(_ data: Data) throws -> ThreatModel
+    /// A selection as clipboard text, so it crosses documents and copies of the
+    /// application, and a person can read it.
+    func encodeSelection(_ selection: SelectionSnippet) throws -> String
+    func decodeSelection(_ text: String) throws -> SelectionSnippet
 }

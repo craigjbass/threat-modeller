@@ -34,6 +34,18 @@ nonisolated final class Dependencies: UseCaseFactory {
         RenameThreatModel(models: models, clock: clock)
     }
 
+    func copySelection() -> CopySelectionUseCase {
+        CopySelection(models: models, files: files)
+    }
+
+    func pasteSelection() -> PasteSelectionUseCase {
+        PasteSelection(models: models, ids: ids, files: files)
+    }
+
+    func duplicateSelection() -> DuplicateSelectionUseCase {
+        DuplicateSelection(models: models, ids: ids)
+    }
+
     func undoLastChange() -> UndoLastChangeUseCase {
         UndoLastChange(models: models)
     }

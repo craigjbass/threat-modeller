@@ -35,6 +35,18 @@ public final class TestDependencies: UseCaseFactory {
         RenameThreatModel(models: models, clock: clock)
     }
 
+    public func copySelection() -> CopySelectionUseCase {
+        CopySelection(models: models, files: files)
+    }
+
+    public func pasteSelection() -> PasteSelectionUseCase {
+        PasteSelection(models: models, ids: ids, files: files)
+    }
+
+    public func duplicateSelection() -> DuplicateSelectionUseCase {
+        DuplicateSelection(models: models, ids: ids)
+    }
+
     public func undoLastChange() -> UndoLastChangeUseCase {
         UndoLastChange(models: models)
     }

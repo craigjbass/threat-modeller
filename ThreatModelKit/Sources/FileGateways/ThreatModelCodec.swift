@@ -25,34 +25,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 catalogue: model.catalogueVersion.map {
                     CatalogueStampJSON(repository: $0.repository, tag: $0.tag)
                 },
-                components: model.components.map {
-                    ComponentJSON(
-                        id: $0.id.value,
-                        technologyId: $0.technologyId.value,
-                        x: $0.position.x,
-                        y: $0.position.y,
-                        sensitivity: $0.sensitivity.rawValue,
-                        customName: $0.customName,
-                        threatsDisabled: $0.threatsDisabled
-                    )
-                },
-                connections: model.connections.map {
-                    ConnectionJSON(id: $0.id.value, source: $0.source.value, target: $0.target.value)
-                },
-                zones: model.zones.map {
-                    ZoneJSON(
-                        id: $0.id.value,
-                        x: $0.rect.origin.x,
-                        y: $0.rect.origin.y,
-                        width: $0.rect.size.width,
-                        height: $0.rect.size.height,
-                        name: $0.name,
-                        networkZone: $0.networkZone.rawValue,
-                        networkType: $0.networkType.rawValue,
-                        riskReductionEnabled: $0.riskReductionEnabled,
-                        riskReductionPercent: $0.riskReductionPercent
-                    )
-                },
+                components: model.components.map(Self.json(from:)),
+                connections: model.connections.map(Self.json(from:)),
+                zones: model.zones.map(Self.json(from:)),
                 customTechnologies: [],
                 severityOverrides: Dictionary(
                     uniqueKeysWithValues: model.severityOverrides.map { ($0.key.value, $0.value) }
@@ -91,46 +66,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
 
         return ThreatModel(
             name: document.name,
-            components: try document.components.map { component in
-                ThreatModelKit.Component(
-                    id: ComponentId(component.id),
-                    technologyId: TechnologyId(component.technologyId),
-                    position: Point(x: component.x, y: component.y),
-                    sensitivity: try Self.value(
-                        DataSensitivity(rawValue: component.sensitivity),
-                        field: "sensitivity",
-                        raw: component.sensitivity
-                    ),
-                    customName: component.customName,
-                    threatsDisabled: component.threatsDisabled
-                )
-            },
-            connections: document.connections.map {
-                Connection(
-                    id: ConnectionId($0.id),
-                    source: ComponentId($0.source),
-                    target: ComponentId($0.target)
-                )
-            },
-            zones: try document.zones.map { zone in
-                Zone(
-                    id: ZoneId(zone.id),
-                    rect: Rect(x: zone.x, y: zone.y, width: zone.width, height: zone.height),
-                    name: zone.name,
-                    networkZone: try Self.value(
-                        NetworkZone(rawValue: zone.networkZone),
-                        field: "networkZone",
-                        raw: zone.networkZone
-                    ),
-                    networkType: try Self.value(
-                        ZoneNetworkType(rawValue: zone.networkType),
-                        field: "networkType",
-                        raw: zone.networkType
-                    ),
-                    riskReductionEnabled: zone.riskReductionEnabled,
-                    riskReductionPercent: zone.riskReductionPercent
-                )
-            },
+            components: try document.components.map(Self.component(from:)),
+            connections: document.connections.map(Self.connection(from:)),
+            zones: try document.zones.map(Self.zone(from:)),
             severityOverrides: Dictionary(
                 uniqueKeysWithValues: document.severityOverrides.map {
                     (SeverityOverrideKey($0.key), $0.value)
@@ -161,6 +99,118 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             catalogueVersion: document.catalogue.map {
                 CatalogueVersion(repository: $0.repository, tag: $0.tag)
             }
+        )
+    }
+
+    public func encodeSelection(_ selection: SelectionSnippet) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+        let data = try encoder.encode(
+            SelectionJSON(
+                formatVersion: Self.formatVersion,
+                components: selection.components.map(Self.json(from:)),
+                connections: selection.connections.map(Self.json(from:)),
+                zones: selection.zones.map(Self.json(from:))
+            )
+        )
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    public func decodeSelection(_ text: String) throws -> SelectionSnippet {
+        let snippet = try JSONDecoder().decode(SelectionJSON.self, from: Data(text.utf8))
+
+        guard snippet.formatVersion == Self.formatVersion else {
+            throw ThreatModelFileError.unsupportedFormatVersion(
+                found: snippet.formatVersion,
+                supported: Self.formatVersion
+            )
+        }
+
+        return SelectionSnippet(
+            components: try snippet.components.map(Self.component(from:)),
+            connections: snippet.connections.map(Self.connection(from:)),
+            zones: try snippet.zones.map(Self.zone(from:))
+        )
+    }
+
+    // MARK: one value at a time, shared by the document and the snippet
+
+    private static func json(from component: ThreatModelKit.Component) -> ComponentJSON {
+        ComponentJSON(
+            id: component.id.value,
+            technologyId: component.technologyId.value,
+            x: component.position.x,
+            y: component.position.y,
+            sensitivity: component.sensitivity.rawValue,
+            customName: component.customName,
+            threatsDisabled: component.threatsDisabled
+        )
+    }
+
+    private static func json(from connection: Connection) -> ConnectionJSON {
+        ConnectionJSON(
+            id: connection.id.value,
+            source: connection.source.value,
+            target: connection.target.value
+        )
+    }
+
+    private static func json(from zone: Zone) -> ZoneJSON {
+        ZoneJSON(
+            id: zone.id.value,
+            x: zone.rect.origin.x,
+            y: zone.rect.origin.y,
+            width: zone.rect.size.width,
+            height: zone.rect.size.height,
+            name: zone.name,
+            networkZone: zone.networkZone.rawValue,
+            networkType: zone.networkType.rawValue,
+            riskReductionEnabled: zone.riskReductionEnabled,
+            riskReductionPercent: zone.riskReductionPercent
+        )
+    }
+
+    private static func component(from json: ComponentJSON) throws -> ThreatModelKit.Component {
+        ThreatModelKit.Component(
+            id: ComponentId(json.id),
+            technologyId: TechnologyId(json.technologyId),
+            position: Point(x: json.x, y: json.y),
+            sensitivity: try value(
+                DataSensitivity(rawValue: json.sensitivity),
+                field: "sensitivity",
+                raw: json.sensitivity
+            ),
+            customName: json.customName,
+            threatsDisabled: json.threatsDisabled
+        )
+    }
+
+    private static func connection(from json: ConnectionJSON) -> Connection {
+        Connection(
+            id: ConnectionId(json.id),
+            source: ComponentId(json.source),
+            target: ComponentId(json.target)
+        )
+    }
+
+    private static func zone(from json: ZoneJSON) throws -> Zone {
+        Zone(
+            id: ZoneId(json.id),
+            rect: Rect(x: json.x, y: json.y, width: json.width, height: json.height),
+            name: json.name,
+            networkZone: try value(
+                NetworkZone(rawValue: json.networkZone),
+                field: "networkZone",
+                raw: json.networkZone
+            ),
+            networkType: try value(
+                ZoneNetworkType(rawValue: json.networkType),
+                field: "networkType",
+                raw: json.networkType
+            ),
+            riskReductionEnabled: json.riskReductionEnabled,
+            riskReductionPercent: json.riskReductionPercent
         )
     }
 
