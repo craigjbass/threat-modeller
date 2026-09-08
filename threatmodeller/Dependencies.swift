@@ -1,15 +1,9 @@
 import CatalogueGateways
 import ThreatModelKit
 
-/// Everything the delivery mechanism is allowed to know about: use cases.
-protocol UseCaseFactory {
-    func listTechnologies() -> ListTechnologiesUseCase
-    func addComponent() -> AddComponentUseCase
-    func assessThreatModel() -> AssessThreatModelUseCase
-}
-
 /// The composition root. One graph per open model; from Milestone 6 that means
-/// one per document window.
+/// one per document window. `UseCaseFactory` lives in the core so this root and
+/// `TestDependencies` cannot drift apart.
 final class Dependencies: UseCaseFactory {
     private let catalogue: TechnologyCatalogue
     private let models: ThreatModelGateway

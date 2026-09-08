@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A0000000000000000000001 /* ThreatModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000002 /* ThreatModelKit */; };
 		A0000000000000000000004 /* ThreatModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000005 /* ThreatModelKit */; };
+		A0000000000000000000006 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000007 /* TestSupport */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +67,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A0000000000000000000004 /* ThreatModelKit in Frameworks */,
+				A0000000000000000000006 /* TestSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,6 +146,7 @@
 			name = threatmodellerTests;
 			packageProductDependencies = (
 				A0000000000000000000005 /* ThreatModelKit */,
+				A0000000000000000000007 /* TestSupport */,
 			);
 			productName = threatmodellerTests;
 			productReference = 46EEEDD5304F3232000F014D /* threatmodellerTests.xctest */;
@@ -601,6 +604,10 @@
 		A0000000000000000000005 /* ThreatModelKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ThreatModelKit;
+		};
+		A0000000000000000000007 /* TestSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TestSupport;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

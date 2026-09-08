@@ -5,7 +5,10 @@ let package = Package(
     name: "ThreatModelKit",
     platforms: [.macOS(.v26)],
     products: [
-        .library(name: "ThreatModelKit", targets: ["ThreatModelKit", "CatalogueGateways"])
+        .library(name: "ThreatModelKit", targets: ["ThreatModelKit", "CatalogueGateways"]),
+        // Published so the Xcode app test target can build the same fakes and
+        // the same composition root the package's own tests use.
+        .library(name: "TestSupport", targets: ["TestSupport"])
     ],
     targets: [
         .target(name: "ThreatModelKit"),

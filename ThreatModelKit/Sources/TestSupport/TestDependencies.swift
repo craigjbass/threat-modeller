@@ -3,7 +3,7 @@ import ThreatModelKit
 /// The composition root for tests. Mirrors the application's own `Dependencies`
 /// but wires use cases to fakes. Gateways are deliberately private: an
 /// acceptance test may only speak to the use case boundary.
-public final class TestDependencies {
+public final class TestDependencies: UseCaseFactory {
     private let catalogue: InMemoryTechnologyCatalogue
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
