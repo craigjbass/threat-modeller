@@ -11,6 +11,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
+    private let projects: ProjectSourceGateway
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let samples: SampleModelGateway = BundledSampleModels()
     private let clock: Clock = SystemClock()
@@ -100,6 +101,18 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func exportArchitecture() -> ExportArchitectureUseCase {
         ExportArchitecture(models: models, sources: architectureSources)
+    }
+
+    func openProject() -> OpenProjectUseCase {
+        OpenProject(projects: projects)
+    }
+
+    func openSystem() -> OpenSystemUseCase {
+        OpenSystem(projects: projects, imports: importArchitecture())
+    }
+
+    func saveSystem() -> SaveSystemUseCase {
+        SaveSystem(projects: projects, exports: exportArchitecture())
     }
 
     func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {

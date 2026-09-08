@@ -10,6 +10,10 @@ public final class TestDependencies: UseCaseFactory {
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
+    /// The project this composition root wires, so a test can put a file in
+    /// it and then open it through the use cases.
+    public let project = InMemoryProject()
+    private var projects: ProjectSourceGateway { project }
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let samples: SampleModelGateway = FakeSampleModels()
     private let clock = FixedClock()
@@ -101,6 +105,18 @@ public final class TestDependencies: UseCaseFactory {
 
     public func exportArchitecture() -> ExportArchitectureUseCase {
         ExportArchitecture(models: models, sources: architectureSources)
+    }
+
+    public func openProject() -> OpenProjectUseCase {
+        OpenProject(projects: projects)
+    }
+
+    public func openSystem() -> OpenSystemUseCase {
+        OpenSystem(projects: projects, imports: importArchitecture())
+    }
+
+    public func saveSystem() -> SaveSystemUseCase {
+        SaveSystem(projects: projects, exports: exportArchitecture())
     }
 
     public func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {
