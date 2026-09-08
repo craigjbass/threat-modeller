@@ -129,12 +129,16 @@ struct CanvasGestures {
         for connectionId in canvas.selectedConnectionIds {
             session.removeConnection(connectionId)
         }
+        for zoneId in canvas.selectedZoneIds {
+            session.removeZone(zoneId)
+        }
         if canvas.selectedComponentIds.isEmpty == false {
             session.removeComponents(Array(canvas.selectedComponentIds))
         }
         canvas.retainOnly(
             componentIds: Set(session.canvas.components.map(\.id)),
-            connectionIds: Set(session.canvas.connections.map(\.id))
+            connectionIds: Set(session.canvas.connections.map(\.id)),
+            zoneIds: Set(session.canvas.zones.map(\.id))
         )
     }
 

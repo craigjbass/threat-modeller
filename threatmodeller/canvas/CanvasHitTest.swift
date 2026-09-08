@@ -56,4 +56,10 @@ nonisolated enum CanvasHitTest {
     static func component(under modelPoint: CGPoint, components: [ViewedComponent]) -> String? {
         components.last { ComponentBox(x: $0.x, y: $0.y).contains(modelPoint) }?.id
     }
+
+    /// The zone under the point, or nil. A later zone wins, matching
+    /// `ZoneContainment` in the core.
+    static func zone(under modelPoint: CGPoint, zones: [ViewedZone]) -> String? {
+        zones.last { ZoneBox(zone: $0).rect.contains(modelPoint) }?.id
+    }
 }

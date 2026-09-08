@@ -14,6 +14,18 @@ final class CanvasState {
 
     private(set) var selectedComponentIds: Set<String> = []
     private(set) var selectedConnectionIds: Set<String> = []
+    private(set) var selectedZoneIds: Set<String> = []
+
+    /// True while the next background drag draws a zone rather than a marquee.
+    private(set) var isDrawingZone = false
+
+    /// The two corners of the zone being drawn, in model coordinates.
+    var zoneDraft: (start: CGPoint, end: CGPoint)?
+
+    /// The zone being moved or resized, the grip the drag started from, and
+    /// how far it has moved in model units. A nil handle means the drag started
+    /// on the header, which moves the zone rather than resizing it.
+    var zoneDrag: (zoneId: String, handle: ZoneHandle?, translation: CGSize)?
 
     /// How far the selection has moved while a node drag is in flight, in
     /// model units. Nil when no drag is in flight.
@@ -36,23 +48,33 @@ final class CanvasState {
         marquee.map { MarqueeSelection.rect(from: $0.start, to: $0.end) }
     }
 
+    var zoneDraftRect: CGRect? {
+        zoneDraft.map { MarqueeSelection.rect(from: $0.start, to: $0.end) }
+    }
+
     var hasSelection: Bool {
-        selectedComponentIds.isEmpty == false || selectedConnectionIds.isEmpty == false
+        selectedComponentIds.isEmpty == false
+            || selectedConnectionIds.isEmpty == false
+            || selectedZoneIds.isEmpty == false
     }
 
     func isSelected(componentId: String) -> Bool { selectedComponentIds.contains(componentId) }
 
     func isSelected(connectionId: String) -> Bool { selectedConnectionIds.contains(connectionId) }
 
+    func isSelected(zoneId: String) -> Bool { selectedZoneIds.contains(zoneId) }
+
     func clearSelection() {
         selectedComponentIds = []
         selectedConnectionIds = []
+        selectedZoneIds = []
     }
 
     /// A plain click selects only that component. A shift-click adds it, or
     /// removes it when it is already selected.
     func select(componentId: String, addingToSelection: Bool) {
         selectedConnectionIds = []
+        selectedZoneIds = []
         guard addingToSelection else {
             selectedComponentIds = [componentId]
             return
@@ -66,6 +88,7 @@ final class CanvasState {
 
     func select(connectionId: String, addingToSelection: Bool) {
         selectedComponentIds = []
+        selectedZoneIds = []
         guard addingToSelection else {
             selectedConnectionIds = [connectionId]
             return
@@ -81,20 +104,45 @@ final class CanvasState {
     func select(componentIds: [String]) {
         selectedComponentIds = Set(componentIds)
         selectedConnectionIds = []
+        selectedZoneIds = []
+    }
+
+    /// One zone at a time. The panel edits a single zone, and a zone is a
+    /// container rather than a thing to gather into a group.
+    func select(zoneId: String) {
+        selectedComponentIds = []
+        selectedConnectionIds = []
+        selectedZoneIds = [zoneId]
+    }
+
+    func startDrawingZone() {
+        isDrawingZone = true
+        zoneDraft = nil
+    }
+
+    func stopDrawingZone() {
+        isDrawingZone = false
+        zoneDraft = nil
     }
 
     /// Drops selected rows the model no longer holds. Call after any removal.
-    func retainOnly(componentIds: Set<String>, connectionIds: Set<String>) {
+    func retainOnly(componentIds: Set<String>, connectionIds: Set<String>, zoneIds: Set<String>) {
         selectedComponentIds.formIntersection(componentIds)
         selectedConnectionIds.formIntersection(connectionIds)
+        selectedZoneIds.formIntersection(zoneIds)
     }
 
-    /// Escape: cancel a connection drag when one is in flight, else clear the
-    /// selection. Returns true when it changed something.
+    /// Escape: cancel a connection drag when one is in flight, else leave the
+    /// zone drawing mode, else clear the selection. Returns true when it
+    /// changed something.
     @discardableResult
     func cancel() -> Bool {
         if connectionDrag != nil {
             connectionDrag = nil
+            return true
+        }
+        if isDrawingZone {
+            stopDrawingZone()
             return true
         }
         if hasSelection {

@@ -73,7 +73,7 @@ struct CanvasStateTests {
         let canvas = CanvasState()
 
         canvas.select(componentIds: ["c1", "c2"])
-        canvas.retainOnly(componentIds: ["c2"], connectionIds: [])
+        canvas.retainOnly(componentIds: ["c2"], connectionIds: [], zoneIds: [])
 
         #expect(canvas.selectedComponentIds == ["c2"])
     }
@@ -92,5 +92,70 @@ struct CanvasStateTests {
         #expect(canvas.hasSelection == false)
 
         #expect(canvas.cancel() == false)
+    }
+
+    @Test func selectingAZoneDropsEveryOtherSelection() {
+        let canvas = CanvasState()
+
+        canvas.select(componentIds: ["c1", "c2"])
+        canvas.select(zoneId: "z1")
+
+        #expect(canvas.selectedZoneIds == ["z1"])
+        #expect(canvas.selectedComponentIds.isEmpty)
+        #expect(canvas.selectedConnectionIds.isEmpty)
+        #expect(canvas.hasSelection)
+    }
+
+    @Test func selectingAComponentDropsTheZoneSelection() {
+        let canvas = CanvasState()
+
+        canvas.select(zoneId: "z1")
+        canvas.select(componentId: "c1", addingToSelection: false)
+
+        #expect(canvas.selectedZoneIds.isEmpty)
+    }
+
+    @Test func dropsASelectedZoneTheModelNoLongerHolds() {
+        let canvas = CanvasState()
+
+        canvas.select(zoneId: "z1")
+        canvas.retainOnly(componentIds: [], connectionIds: [], zoneIds: [])
+
+        #expect(canvas.selectedZoneIds.isEmpty)
+    }
+
+    @Test func reportsTheZoneDraftRectangleWhileTheUserDrawsIt() {
+        let canvas = CanvasState()
+
+        #expect(canvas.zoneDraftRect == nil)
+        canvas.zoneDraft = (start: CGPoint(x: 90, y: 80), end: CGPoint(x: 10, y: 20))
+        #expect(canvas.zoneDraftRect == CGRect(x: 10, y: 20, width: 80, height: 60))
+    }
+
+    @Test func escapeLeavesTheZoneDrawingModeBeforeItClearsTheSelection() {
+        let canvas = CanvasState()
+
+        canvas.select(zoneId: "z1")
+        canvas.startDrawingZone()
+        #expect(canvas.isDrawingZone)
+
+        #expect(canvas.cancel())
+        #expect(canvas.isDrawingZone == false)
+        #expect(canvas.zoneDraft == nil)
+        #expect(canvas.selectedZoneIds == ["z1"])
+
+        #expect(canvas.cancel())
+        #expect(canvas.hasSelection == false)
+    }
+
+    @Test func cancelsAConnectionDragBeforeItLeavesTheZoneMode() {
+        let canvas = CanvasState()
+
+        canvas.startDrawingZone()
+        canvas.connectionDrag = (sourceComponentId: "c1", currentPoint: .zero)
+
+        #expect(canvas.cancel())
+        #expect(canvas.connectionDrag == nil)
+        #expect(canvas.isDrawingZone)
     }
 }

@@ -133,4 +133,72 @@ struct ThreatModelSessionTests {
         #expect(points.count == 2)
         #expect(points[0] != points[1])
     }
+
+    @Test func drawsAZoneAndReducesWhatItCaptures() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let before = try #require(session.threats.first { $0.threatId == "credential-theft" }).riskScore
+
+        let zoneId = session.addZone(x: 0, y: 0, width: 600, height: 500)
+
+        #expect(zoneId != nil)
+        #expect(session.canvas.zones.count == 1)
+        #expect(session.canvas.components.first?.zoneId == zoneId)
+        let after = try #require(session.threats.first { $0.threatId == "credential-theft" }).riskScore
+        #expect(after < before)
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func refusesAZoneDrawnTooSmall() {
+        let session = session()
+
+        #expect(session.addZone(x: 0, y: 0, width: 10, height: 10) == nil)
+        #expect(session.canvas.zones.isEmpty)
+        #expect(session.errorMessage == "That zone is too small to draw.")
+    }
+
+    @Test func movesAZoneToItsNewRectangle() throws {
+        let session = session()
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 600, height: 500))
+
+        session.resizeZone(zoneId, x: 40, y: 60, width: 700, height: 550)
+
+        let zone = try #require(session.canvas.zones.first)
+        #expect(zone.x == 40)
+        #expect(zone.width == 700)
+    }
+
+    @Test func setsAZonesPropertiesAndRescores() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 600, height: 500))
+        #expect(session.threats.contains { $0.threatId == "lateral-movement" })
+
+        session.setZoneProperties(
+            zoneId: zoneId,
+            name: "Internet",
+            networkZoneId: "public",
+            networkTypeId: "generic",
+            riskReductionEnabled: true,
+            riskReductionPercent: 20
+        )
+
+        #expect(session.canvas.zones.first?.name == "Internet")
+        #expect(session.canvas.zones.first?.networkZoneId == "public")
+        // A public zone raises no zone threats and reduces nothing.
+        #expect(session.threats.contains { $0.threatId == "lateral-movement" } == false)
+        #expect(try #require(session.threats.first { $0.threatId == "credential-theft" }).riskScore == 8)
+    }
+
+    @Test func removesAZoneAndLeavesItsComponents() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 600, height: 500))
+
+        session.removeZone(zoneId)
+
+        #expect(session.canvas.zones.isEmpty)
+        #expect(session.canvas.components.count == 1)
+        #expect(session.canvas.components.first?.zoneId == nil)
+    }
 }

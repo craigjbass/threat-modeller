@@ -130,6 +130,83 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// Returns the new zone's identifier, or nil when the drag was too small
+    /// to make a zone.
+    @discardableResult
+    func addZone(x: Double, y: Double, width: Double, height: Double) -> String? {
+        defer { refresh() }
+
+        switch useCases.addZone().execute(
+            AddZoneRequest(x: x, y: y, width: width, height: height)
+        ) {
+        case .added(let zoneId):
+            errorMessage = nil
+            return zoneId
+        case .tooSmall:
+            errorMessage = "That zone is too small to draw."
+            return nil
+        }
+    }
+
+    func resizeZone(_ zoneId: String, x: Double, y: Double, width: Double, height: Double) {
+        switch useCases.resizeZone().execute(
+            ResizeZoneRequest(zoneId: zoneId, x: x, y: y, width: width, height: height)
+        ) {
+        case .resized:
+            errorMessage = nil
+        case .unknownZone:
+            errorMessage = "That zone is no longer on the model."
+        case .tooSmall:
+            errorMessage = "That zone is too small to draw."
+        }
+
+        refresh()
+    }
+
+    func setZoneProperties(
+        zoneId: String,
+        name: String?,
+        networkZoneId: String,
+        networkTypeId: String,
+        riskReductionEnabled: Bool,
+        riskReductionPercent: Int
+    ) {
+        switch useCases.setZoneProperties().execute(
+            SetZonePropertiesRequest(
+                zoneId: zoneId,
+                name: name,
+                networkZone: networkZoneId,
+                networkType: networkTypeId,
+                riskReductionEnabled: riskReductionEnabled,
+                riskReductionPercent: riskReductionPercent
+            )
+        ) {
+        case .updated:
+            errorMessage = nil
+        case .unknownZone:
+            errorMessage = "That zone is no longer on the model."
+        case .unknownNetworkZone:
+            errorMessage = "That kind of zone is not recognised."
+        case .unknownNetworkType:
+            errorMessage = "That network type is not recognised."
+        case .reductionOutOfRange:
+            errorMessage = "Risk reduction must be between 0 and 100 per cent."
+        }
+
+        refresh()
+    }
+
+    func removeZone(_ zoneId: String) {
+        switch useCases.removeZone().execute(RemoveZoneRequest(zoneId: zoneId)) {
+        case .removed:
+            errorMessage = nil
+        case .unknownZone:
+            errorMessage = "That zone is no longer on the model."
+        }
+
+        refresh()
+    }
+
     /// Spec section 2: the delivery mechanism calls `AssessThreatModel`
     /// explicitly after each change, and reads the canvas the same way.
     private func refresh() {
