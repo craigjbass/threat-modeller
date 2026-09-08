@@ -33,6 +33,19 @@ struct ThreatModelCommands: Commands {
     @FocusedValue(\.threatModelCanvas) private var canvas
 
     var body: some Commands {
+        CommandGroup(after: .saveItem) {
+            Divider()
+
+            ForEach(ReportExporter.Kind.allCases, id: \.rawValue) { kind in
+                Button(kind.menuTitle) {
+                    guard let session else { return }
+                    ReportExporter(session: session).export(kind)
+                }
+                .disabled(session == nil)
+                .accessibilityIdentifier("export-\(kind.rawValue)")
+            }
+        }
+
         CommandGroup(replacing: .undoRedo) {
             Button("Undo") { session?.undo() }
                 .keyboardShortcut("z", modifiers: .command)

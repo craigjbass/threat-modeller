@@ -514,6 +514,41 @@ final class ThreatModelSession {
         return technology
     }
 
+    /// What a report writes, and what to call the file. Nothing here touches
+    /// the file system: the exporter asks the user where it goes.
+    func markdownExport() -> (data: Data, fileName: String) {
+        let response = useCases.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest())
+        return (Data(response.markdown.utf8), response.fileName)
+    }
+
+    func threatclExport() -> (data: Data, fileName: String) {
+        let response = useCases.exportModelAsThreatcl().execute(ExportModelAsThreatclRequest())
+        return (Data(response.hcl.utf8), response.fileName)
+    }
+
+    /// Returns nil when the renderer could not draw, and says so in
+    /// `errorMessage`.
+    func pdfExport() -> (data: Data, fileName: String)? {
+        switch useCases.exportModelAsPdf().execute(ExportModelAsPdfRequest()) {
+        case .exported(let bytes, let fileName):
+            errorMessage = nil
+            return (Data(bytes), fileName)
+        case .cannotRender(let reason):
+            errorMessage = "The report could not be drawn: \(reason)"
+            return nil
+        }
+    }
+
+    /// What the picture should draw, for the delivery mechanism's renderer.
+    func imageArea() -> ExportModelAsImageResponse {
+        useCases.exportModelAsImage().execute(ExportModelAsImageRequest())
+    }
+
+    /// Said when an export could not be written.
+    func reportExportFailed(_ reason: String) {
+        errorMessage = "The export could not be written: \(reason)"
+    }
+
     private func clipboardText() -> String? {
         NSPasteboard.general.string(forType: .string)
     }

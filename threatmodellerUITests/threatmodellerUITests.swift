@@ -280,4 +280,38 @@ final class threatmodellerUITests: XCTestCase {
             "Double-clicking the user's own technology did not put a node on the canvas."
         )
     }
+
+    /// The four exports are offered from the File menu, and each one is
+    /// enabled while a document is in front.
+    @MainActor
+    func testAUserFindsTheFourExportsInTheFileMenu() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(
+            app.windows.firstMatch.waitForExistence(timeout: 15),
+            "No document window appeared after asking for a new document."
+        )
+
+        let file = app.menuBars.menuBarItems["File"]
+        XCTAssertTrue(file.waitForExistence(timeout: 10), "There is no File menu.")
+        file.click()
+
+        for title in [
+            "Export as Markdown\u{2026}",
+            "Export as threatcl\u{2026}",
+            "Export as PDF\u{2026}",
+            "Export as Image\u{2026}"
+        ] {
+            let item = app.menuItems[title]
+            XCTAssertTrue(
+                item.waitForExistence(timeout: 5),
+                "The File menu has no '\(title)' item."
+            )
+            XCTAssertTrue(item.isEnabled, "'\(title)' is disabled with a document in front.")
+        }
+
+        // Leave the menu closed, so the next test starts on a clean window.
+        app.typeKey(.escape, modifierFlags: [])
+    }
 }

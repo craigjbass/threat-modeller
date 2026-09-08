@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 import PDFKit
 import Testing
 import ThreatModelKit
@@ -74,5 +75,63 @@ struct CanvasImageRendererTests {
         let data = try CanvasImageRenderer().png(of: canvas, area: area)
 
         #expect(NSBitmapImageRep(data: data) != nil)
+    }
+}
+
+/// The exporter writes where the user says. These tests answer the panel with
+/// a temporary file, so the whole path runs without one.
+@MainActor
+struct ReportExporterTests {
+    private func session() -> ThreatModelSession {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        return session
+    }
+
+    private func exporter(
+        _ session: ThreatModelSession,
+        writing directory: URL,
+        chosen: UnsafeMutablePointer<[String]>? = nil
+    ) -> ReportExporter {
+        ReportExporter(session: session) { suggestedName, _ in
+            chosen?.pointee.append(suggestedName)
+            return directory.appendingPathComponent(suggestedName)
+        }
+    }
+
+    @Test func writesEveryExportWhereTheUserSaid() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threat-modeller-export-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = session()
+
+        for kind in ReportExporter.Kind.allCases {
+            exporter(session, writing: directory).export(kind)
+        }
+
+        let written = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+        #expect(written == ["Untitled.hcl", "Untitled.md", "Untitled.pdf", "Untitled.png"])
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func writesNothingWhenTheUserCancels() throws {
+        let session = session()
+        let exporter = ReportExporter(session: session) { _, _ in nil }
+
+        exporter.export(.markdown)
+
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func saysSoWhenTheFileCannotBeWritten() {
+        let session = session()
+        let exporter = ReportExporter(session: session) { name, _ in
+            URL(fileURLWithPath: "/no-such-directory-on-this-machine/\(name)")
+        }
+
+        exporter.export(.markdown)
+
+        #expect(session.errorMessage?.hasPrefix("The export could not be written:") == true)
     }
 }
