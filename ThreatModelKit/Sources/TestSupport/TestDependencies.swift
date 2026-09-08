@@ -30,6 +30,10 @@ public final class TestDependencies: UseCaseFactory {
         MoveComponents(models: models)
     }
 
+    public func removeComponents() -> RemoveComponentsUseCase {
+        RemoveComponents(models: models)
+    }
+
     public func connectComponents() -> ConnectComponentsUseCase {
         ConnectComponents(models: models, ids: ids)
     }

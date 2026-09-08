@@ -31,6 +31,10 @@ final class Dependencies: UseCaseFactory {
         MoveComponents(models: models)
     }
 
+    func removeComponents() -> RemoveComponentsUseCase {
+        RemoveComponents(models: models)
+    }
+
     func connectComponents() -> ConnectComponentsUseCase {
         ConnectComponents(models: models, ids: ids)
     }
