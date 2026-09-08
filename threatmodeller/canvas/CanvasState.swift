@@ -115,6 +115,14 @@ final class CanvasState {
         selectedZoneIds = [zoneId]
     }
 
+    /// Selects exactly what is named. Used by Select All and by what a paste
+    /// just made, so the user can move it straight away.
+    func selectAll(componentIds: [String], zoneIds: [String]) {
+        selectedComponentIds = Set(componentIds)
+        selectedZoneIds = Set(zoneIds)
+        selectedConnectionIds = []
+    }
+
     func startDrawingZone() {
         isDrawingZone = true
         zoneDraft = nil

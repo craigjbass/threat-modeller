@@ -366,4 +366,94 @@ struct ThreatModelSessionTests {
 
         #expect(session.errorMessage == "Risk reduction must be between 0 and 100 per cent.")
     }
+
+    @Test func takesBackTheLastChange() {
+        let session = session()
+        #expect(session.canUndo == false)
+
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        #expect(session.canUndo)
+        #expect(session.threats.isEmpty == false)
+
+        session.undo()
+
+        #expect(session.canvas.components.isEmpty)
+        #expect(session.threats.isEmpty)
+        #expect(session.canRedo)
+
+        session.redo()
+        #expect(session.canvas.components.count == 1)
+    }
+
+    @Test func saysNothingWhenThereIsNothingToTakeBack() {
+        let session = session()
+
+        session.undo()
+
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func copiesAndPastesASelection() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let web = try #require(session.canvas.components.first).id
+
+        session.copySelection(componentIds: [web], zoneIds: [])
+        let pasted = session.paste()
+
+        #expect(pasted.componentIds.count == 1)
+        #expect(session.canvas.components.count == 2)
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func cutRemovesWhatItCopied() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let web = try #require(session.canvas.components.first).id
+
+        session.cutSelection(componentIds: [web], zoneIds: [])
+        #expect(session.canvas.components.isEmpty)
+
+        let pasted = session.paste()
+        #expect(pasted.componentIds.count == 1)
+        #expect(session.canvas.components.count == 1)
+    }
+
+    @Test func duplicatesWithoutTouchingTheClipboard() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        session.add(technologyId: "aws-rds", x: 500, y: 100)
+        let ids = session.canvas.components.map(\.id)
+
+        session.copySelection(componentIds: [ids[0]], zoneIds: [])
+        let duplicated = session.duplicate(componentIds: [ids[1]], zoneIds: [])
+
+        #expect(duplicated.componentIds.count == 1)
+        #expect(session.canvas.components.count == 3)
+
+        // The earlier copy is still what pastes.
+        _ = session.paste()
+        #expect(session.canvas.components.count == 4)
+    }
+
+    @Test func saysNothingWhenTheClipboardHoldsSomethingElse() {
+        let session = session()
+        session.putOnClipboard("a sentence someone copied from a web page")
+
+        let pasted = session.paste()
+
+        #expect(pasted.componentIds.isEmpty)
+        #expect(session.errorMessage == "There is no threat model on the clipboard.")
+    }
+
+    @Test func selectsEverythingAtOnce() {
+        let canvas = CanvasState()
+
+        canvas.select(connectionId: "k1", addingToSelection: false)
+        canvas.selectAll(componentIds: ["c1", "c2"], zoneIds: ["z1"])
+
+        #expect(canvas.selectedComponentIds == ["c1", "c2"])
+        #expect(canvas.selectedZoneIds == ["z1"])
+        #expect(canvas.selectedConnectionIds.isEmpty)
+    }
 }

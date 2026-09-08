@@ -68,6 +68,8 @@ private struct ModelView: View {
 
             columns
         }
+        .focusedSceneValue(\.threatModelSession, session)
+        .focusedSceneValue(\.threatModelCanvas, canvas)
     }
 
     private var columns: some View {

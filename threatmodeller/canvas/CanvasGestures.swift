@@ -184,6 +184,20 @@ struct CanvasGestures {
 
     // MARK: commands
 
+    /// Spec section 9: an arrow moves the selection 10 points, and shift-arrow
+    /// moves it 1. The small step is for lining things up; the large one is for
+    /// getting somewhere.
+    static let nudgeStep = 10.0
+    static let fineNudgeStep = 1.0
+
+    func nudge(dx: Double, dy: Double) {
+        let moves = session.canvas.components
+            .filter { canvas.isSelected(componentId: $0.id) }
+            .map { ComponentMove(componentId: $0.id, x: $0.x + dx, y: $0.y + dy) }
+        guard moves.isEmpty == false else { return }
+        session.move(moves)
+    }
+
     func deleteSelection() {
         for connectionId in canvas.selectedConnectionIds {
             session.removeConnection(connectionId)

@@ -58,6 +58,19 @@ struct CanvasView: View {
             gestures.deleteSelection()
             return .handled
         }
+        .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
+            let step = press.modifiers.contains(.shift)
+                ? CanvasGestures.fineNudgeStep
+                : CanvasGestures.nudgeStep
+            switch press.key {
+            case .leftArrow: gestures.nudge(dx: -step, dy: 0)
+            case .rightArrow: gestures.nudge(dx: step, dy: 0)
+            case .upArrow: gestures.nudge(dx: 0, dy: -step)
+            case .downArrow: gestures.nudge(dx: 0, dy: step)
+            default: return .ignored
+            }
+            return .handled
+        }
         .gesture(
             MagnifyGesture()
                 .onChanged { value in

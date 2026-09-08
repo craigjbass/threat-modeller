@@ -7,5 +7,6 @@ struct ThreatModellerApp: App {
             ContentView(document: file.document)
         }
         .defaultSize(width: 1400, height: 900)
+        .commands { ThreatModelCommands() }
     }
 }

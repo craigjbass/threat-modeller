@@ -1,3 +1,4 @@
+import AppKit
 import Observation
 import ThreatModelKit
 
@@ -298,6 +299,102 @@ final class ThreatModelSession {
         }
 
         refresh()
+    }
+
+    var canUndo: Bool { canvas.canUndo }
+    var canRedo: Bool { canvas.canRedo }
+
+    func undo() {
+        // Nothing to take back is not worth a message: the menu item is
+        // already dim, and a key pressed once too often is not a mistake.
+        _ = useCases.undoLastChange().execute(UndoLastChangeRequest())
+        errorMessage = nil
+        refresh()
+    }
+
+    func redo() {
+        _ = useCases.redoChange().execute(RedoChangeRequest())
+        errorMessage = nil
+        refresh()
+    }
+
+    func copySelection(componentIds: [String], zoneIds: [String]) {
+        switch useCases.copySelection().execute(
+            CopySelectionRequest(componentIds: componentIds, zoneIds: zoneIds)
+        ) {
+        case .copied(let payload, _, _):
+            putOnClipboard(payload)
+            errorMessage = nil
+        case .nothingSelected:
+            errorMessage = nil
+        }
+    }
+
+    /// Cut is copy then delete, and the delete is what can be taken back.
+    func cutSelection(componentIds: [String], zoneIds: [String]) {
+        copySelection(componentIds: componentIds, zoneIds: zoneIds)
+        for zoneId in zoneIds { removeZone(zoneId) }
+        if componentIds.isEmpty == false { removeComponents(componentIds) }
+    }
+
+    @discardableResult
+    func paste() -> (componentIds: [String], zoneIds: [String]) {
+        defer { refresh() }
+
+        guard let payload = clipboardText() else {
+            errorMessage = "There is no threat model on the clipboard."
+            return ([], [])
+        }
+
+        switch useCases.pasteSelection().execute(
+            PasteSelectionRequest(
+                payload: payload,
+                offsetX: PasteSelection.defaultOffset,
+                offsetY: PasteSelection.defaultOffset
+            )
+        ) {
+        case .pasted(let componentIds, let zoneIds):
+            errorMessage = nil
+            return (componentIds, zoneIds)
+        case .nothingToPaste:
+            errorMessage = nil
+            return ([], [])
+        case .unreadable:
+            errorMessage = "There is no threat model on the clipboard."
+            return ([], [])
+        }
+    }
+
+    @discardableResult
+    func duplicate(componentIds: [String], zoneIds: [String]) -> (componentIds: [String], zoneIds: [String]) {
+        defer { refresh() }
+
+        switch useCases.duplicateSelection().execute(
+            DuplicateSelectionRequest(
+                componentIds: componentIds,
+                zoneIds: zoneIds,
+                offsetX: PasteSelection.defaultOffset,
+                offsetY: PasteSelection.defaultOffset
+            )
+        ) {
+        case .duplicated(let componentIds, let zoneIds):
+            errorMessage = nil
+            return (componentIds, zoneIds)
+        case .nothingSelected:
+            errorMessage = nil
+            return ([], [])
+        }
+    }
+
+    /// The pasteboard is an IO mechanism, so it lives here and not in the core.
+    /// The payload is a string, so any other application can read it.
+    func putOnClipboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func clipboardText() -> String? {
+        NSPasteboard.general.string(forType: .string)
     }
 
     /// Spec section 2: the delivery mechanism calls `AssessThreatModel`
