@@ -85,5 +85,30 @@ final class threatmodellerUITests: XCTestCase {
             "The empty threat list is still showing after a technology was added."
         )
         mark("threats shown")
+
+        // Draw a zone around the node, and read the threat the zone raises.
+        mark("turning on the zone drawing mode")
+        let drawZone = app.descendants(matching: .any)["draw-zone"].firstMatch
+        XCTAssertTrue(
+            drawZone.waitForExistence(timeout: 5),
+            "The 'Draw zone' control never appeared in the canvas toolbar."
+        )
+        drawZone.click()
+
+        mark("dragging a zone across the canvas")
+        let canvas = app.descendants(matching: .any)["canvas"].firstMatch
+        XCTAssertTrue(canvas.exists, "The canvas background was not found.")
+        canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.05))
+            .press(
+                forDuration: 0.2,
+                thenDragTo: canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.85))
+            )
+
+        // The zone captures the node, so the zone's own threats appear.
+        XCTAssertTrue(
+            app.staticTexts["Lateral Movement"].firstMatch.waitForExistence(timeout: 10),
+            "Drawing a zone did not raise the zone's own threats."
+        )
+        mark("zone threats shown")
     }
 }
