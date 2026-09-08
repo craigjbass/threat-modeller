@@ -125,6 +125,7 @@ final class threatmodellerUITests: XCTestCase {
         )
         mark("zone threats shown")
 
+
         // Tick a control on a card and see the summary follow.
         mark("ticking a control")
         let summaryStrip = window.descendants(matching: .any)["risk-summary"].firstMatch

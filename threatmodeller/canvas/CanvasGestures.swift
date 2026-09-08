@@ -164,6 +164,11 @@ struct CanvasGestures {
     func zoneDragEnded(_ zoneId: String, handle: ZoneHandle?, translation: CGSize) {
         defer { canvas.zoneDrag = nil }
 
+        // Only commit a move the user actually made. A gesture that ends on a
+        // zone without ever having reported a change — the release of the drag
+        // that drew it, for one — would otherwise move it the moment it
+        // appeared.
+        guard canvas.zoneDrag?.zoneId == zoneId else { return }
         guard let zone = session.canvas.zones.first(where: { $0.id == zoneId }) else { return }
         let rect = CanvasHitTest.rect(
             for: zone,
