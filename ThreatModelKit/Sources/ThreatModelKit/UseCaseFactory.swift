@@ -27,12 +27,16 @@ public protocol UseCaseFactory {
     func layOutModel() -> LayOutModelUseCase
     func importArchitecture() -> ImportArchitectureUseCase
     func exportArchitecture() -> ExportArchitectureUseCase
+    func setControlStatus() -> SetControlStatusUseCase
+    func setCompensatingControl() -> SetCompensatingControlUseCase
     func compileControls() -> CompileControlsUseCase
     func applyControlAnswers() -> ApplyControlAnswersUseCase
     func checkControlAnswers() -> CheckControlAnswersUseCase
     func openProject() -> OpenProjectUseCase
     func openSystem() -> OpenSystemUseCase
     func saveSystem() -> SaveSystemUseCase
+    func saveSystemAnswers() -> SaveSystemAnswersUseCase
+    func compileSystemReport() -> CompileSystemReportUseCase
     func viewCatalogueVersion() -> ViewCatalogueVersionUseCase
     func listSampleModels() -> ListSampleModelsUseCase
     func loadSampleModel() -> LoadSampleModelUseCase

@@ -104,6 +104,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         ExportArchitecture(models: models, sources: architectureSources)
     }
 
+    func setControlStatus() -> SetControlStatusUseCase {
+        SetControlStatus(models: models)
+    }
+
+    func setCompensatingControl() -> SetCompensatingControlUseCase {
+        SetCompensatingControl(models: models)
+    }
+
     func compileControls() -> CompileControlsUseCase {
         CompileControls(
             catalogue: catalogue,
@@ -126,7 +134,26 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func openSystem() -> OpenSystemUseCase {
-        OpenSystem(projects: projects, imports: importArchitecture())
+        OpenSystem(
+            projects: projects,
+            imports: importArchitecture(),
+            applies: applyControlAnswers()
+        )
+    }
+
+    func saveSystemAnswers() -> SaveSystemAnswersUseCase {
+        SaveSystemAnswers(
+            projects: projects,
+            models: models,
+            catalogue: catalogue,
+            exports: exportArchitecture(),
+            compiles: compileControls(),
+            controlsSources: controlsSources
+        )
+    }
+
+    func compileSystemReport() -> CompileSystemReportUseCase {
+        CompileSystemReport(projects: projects, markdown: exportModelAsMarkdown())
     }
 
     func saveSystem() -> SaveSystemUseCase {

@@ -41,6 +41,10 @@ struct ThreatModellerApp: App {
                 Button("Save Project System") { project?.save() }
                     .keyboardShortcut("s", modifiers: [.command, .option])
                     .disabled(project?.chosenSystem == nil)
+
+                Button("Compile Report") { project?.compileReport() }
+                    .keyboardShortcut("r", modifiers: [.command, .option])
+                    .disabled(project?.chosenSystem == nil)
             }
             ThreatModelCommands()
         }

@@ -121,3 +121,102 @@ struct ProjectSessionTests {
         #expect(ProjectLaunchArgument.path(in: ["app", "-project"]) == nil)
     }
 }
+
+/// What a project window writes back: the architecture, the answers, and the
+/// report when a person asks for it.
+@MainActor
+struct ProjectAnswerTests {
+    private let payments = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+    }
+
+    """
+
+    private func aProject() -> (ProjectSession, TestDependencies) {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        let session = ProjectSession(useCases: useCases)
+        session.open(root: "/work")
+        return (session, useCases)
+    }
+
+    @Test func writesTheAnswersBesideTheArchitecture() throws {
+        let (session, useCases) = aProject()
+
+        session.save()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.controls"))
+        #expect(written.hasPrefix("controls for \"Payments\" {"))
+        #expect(written.contains("status = \"not_implemented\""))
+        #expect(session.unansweredThreats > 0)
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func carriesAnAnswerFromTheSidebarIntoTheFile() throws {
+        let (session, useCases) = aProject()
+        let control = try #require(session.model?.threats.first?.controls.first)
+
+        session.model?.setControlStatus(key: control.key, statusId: "accepted")
+        session.save()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.controls"))
+        #expect(written.contains("status = \"accepted\""))
+    }
+
+    @Test func carriesACompensatingControlIntoTheFile() throws {
+        let (session, useCases) = aProject()
+        let threat = try #require(session.model?.threats.first)
+
+        session.model?.setCompensatingControl(
+            threatKey: "\(threat.threatId)@\(threat.source.id)",
+            label: "Watched by the SIEM",
+            reducesRiskBy: 50,
+            rationale: "It alerts on use."
+        )
+        session.save()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.controls"))
+        #expect(written.contains("compensating \"Watched by the SIEM\" {"))
+        #expect(written.contains("reduces_risk_by = 50"))
+        #expect(written.contains("rationale       = \"It alerts on use.\""))
+        // The score on screen followed.
+        let after = try #require(session.model?.threats.first { $0.threatId == threat.threatId })
+        #expect(after.riskScore < threat.riskScore)
+    }
+
+    @Test func writesTheReportOnlyWhenAsked() throws {
+        let (session, useCases) = aProject()
+
+        session.save()
+        #expect(useCases.project.text(at: "/work/threatmodel/payments.md") == nil)
+
+        session.compileReport()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.md"))
+        #expect(written.hasPrefix("# Payments\n"))
+        #expect(session.reportPath == "/work/threatmodel/payments.md")
+    }
+
+    @Test func readsBackTheAnswersItWrote() throws {
+        let (session, useCases) = aProject()
+        let control = try #require(session.model?.threats.first?.controls.first)
+        session.model?.setControlStatus(key: control.key, statusId: "implemented")
+        session.save()
+
+        // A second application, reading only what is on disk.
+        let reader = TestDependencies()
+        reader.project.put(payments, at: "/work/threatmodel/payments.arch")
+        reader.project.put(
+            try #require(useCases.project.text(at: "/work/threatmodel/payments.controls")),
+            at: "/work/threatmodel/payments.controls"
+        )
+        let second = ProjectSession(useCases: reader)
+        second.open(root: "/work")
+
+        #expect(second.model?.summary.controlsRecorded == 1)
+    }
+}

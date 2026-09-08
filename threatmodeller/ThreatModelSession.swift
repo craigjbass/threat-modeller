@@ -576,6 +576,33 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// Writes what the four-way status control says. `implemented` records the
+    /// control, exactly as the checkbox did.
+    func setControlStatus(key: String, statusId: String) {
+        useCases.setControlStatus().execute(
+            SetControlStatusRequest(controlKey: key, statusId: statusId)
+        ).describe(into: &errorMessage)
+        refresh()
+    }
+
+    /// Adds or replaces what compensates one threat. An empty label removes it.
+    func setCompensatingControl(
+        threatKey: String,
+        label: String,
+        reducesRiskBy: Int,
+        rationale: String
+    ) {
+        useCases.setCompensatingControl().execute(
+            SetCompensatingControlRequest(
+                threatKey: threatKey,
+                label: label,
+                reducesRiskBy: reducesRiskBy,
+                rationale: rationale
+            )
+        ).describe(into: &errorMessage)
+        refresh()
+    }
+
     /// The examples the File menu offers.
     var samples: [ListedSample] {
         useCases.listSampleModels().execute(ListSampleModelsRequest()).samples

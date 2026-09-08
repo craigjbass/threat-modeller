@@ -20,6 +20,10 @@ final class ProjectSession {
     /// The file the diagnostics belong to, for the sheet's heading.
     private(set) var diagnosticsFileName: String?
     private(set) var errorMessage: String?
+    /// How many threats the last save left with no answer.
+    private(set) var unansweredThreats = 0
+    /// Where the last report was written.
+    private(set) var reportPath: String?
 
     /// The session drawing the chosen system, or nil while nothing is drawn.
     private(set) var model: ThreatModelSession?
@@ -78,7 +82,8 @@ final class ProjectSession {
         }
     }
 
-    /// Writes the drawn system back to the file it came from.
+    /// Writes the drawn system back to the file it came from, and merges the
+    /// answers on screen into its controls file.
     func save() {
         guard let root, let chosenSystem else { return }
 
@@ -87,10 +92,45 @@ final class ProjectSession {
         ) {
         case .saved:
             errorMessage = nil
+            saveAnswers(root: root, systemName: chosenSystem)
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(chosenSystem)\"."
         case .cannotWrite(let reason):
             errorMessage = "That system could not be written: \(reason)"
+        }
+    }
+
+    private func saveAnswers(root: String, systemName: String) {
+        switch useCases.saveSystemAnswers().execute(
+            SaveSystemAnswersRequest(root: root, systemName: systemName)
+        ) {
+        case .saved(_, _, let unanswered, _):
+            unansweredThreats = unanswered
+        case .noSuchSystem:
+            errorMessage = "This project no longer holds \"\(systemName)\"."
+        case .refused(let faults):
+            diagnostics = faults
+            diagnosticsFileName = "\(systemName).controls"
+            errorMessage = "\(systemName).controls did not parse."
+        case .cannotWrite(let reason):
+            errorMessage = "The answers could not be written: \(reason)"
+        }
+    }
+
+    /// Writes the Markdown report for the drawn system.
+    func compileReport() {
+        guard let root, let chosenSystem else { return }
+
+        switch useCases.compileSystemReport().execute(
+            CompileSystemReportRequest(root: root, systemName: chosenSystem)
+        ) {
+        case .written(let path):
+            errorMessage = nil
+            reportPath = path
+        case .noSuchSystem:
+            errorMessage = "This project no longer holds \"\(chosenSystem)\"."
+        case .cannotWrite(let reason):
+            errorMessage = "The report could not be written: \(reason)"
         }
     }
 

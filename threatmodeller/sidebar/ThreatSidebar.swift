@@ -9,8 +9,18 @@ private extension AssessedThreat {
 }
 
 /// The threat list: a summary, then one group per source, worst first.
+/// `sheet(item:)` needs identity, and a threat is named by itself and by what
+/// raised it.
+struct CompensatedThreat: Identifiable {
+    let threat: AssessedThreat
+    var id: String { "\(threat.threatId)@\(threat.source.id)" }
+}
+
 struct ThreatSidebar: View {
     let session: ThreatModelSession
+
+    /// The threat whose compensating control the user is editing.
+    @State private var compensating: CompensatedThreat?
 
     @State private var collapsed: Set<String> = []
 
@@ -36,6 +46,13 @@ struct ThreatSidebar: View {
     }
 
     var body: some View {
+        sidebar
+            .sheet(item: $compensating) { chosen in
+                CompensatingControlSheet(threat: chosen.threat, session: session)
+            }
+    }
+
+    private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let errorMessage = session.errorMessage {
                 Text(errorMessage)
@@ -67,6 +84,10 @@ struct ThreatSidebar: View {
                                             onSetControl: { key, implemented in
                                                 session.setControl(key: key, implemented: implemented)
                                             },
+                                            onSetControlStatus: { key, statusId in
+                                                session.setControlStatus(key: key, statusId: statusId)
+                                            },
+                                            onCompensate: { compensating = CompensatedThreat(threat: threat) },
                                             onOverride: { severityId in
                                                 session.overrideSeverity(
                                                     overrideKey: threat.overrideKey,

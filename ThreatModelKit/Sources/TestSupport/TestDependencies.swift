@@ -111,6 +111,14 @@ public final class TestDependencies: UseCaseFactory {
         ExportArchitecture(models: models, sources: architectureSources)
     }
 
+    public func setControlStatus() -> SetControlStatusUseCase {
+        SetControlStatus(models: models)
+    }
+
+    public func setCompensatingControl() -> SetCompensatingControlUseCase {
+        SetCompensatingControl(models: models)
+    }
+
     public func compileControls() -> CompileControlsUseCase {
         CompileControls(
             catalogue: catalogue,
@@ -133,7 +141,26 @@ public final class TestDependencies: UseCaseFactory {
     }
 
     public func openSystem() -> OpenSystemUseCase {
-        OpenSystem(projects: projects, imports: importArchitecture())
+        OpenSystem(
+            projects: projects,
+            imports: importArchitecture(),
+            applies: applyControlAnswers()
+        )
+    }
+
+    public func saveSystemAnswers() -> SaveSystemAnswersUseCase {
+        SaveSystemAnswers(
+            projects: projects,
+            models: models,
+            catalogue: catalogue,
+            exports: exportArchitecture(),
+            compiles: compileControls(),
+            controlsSources: controlsSources
+        )
+    }
+
+    public func compileSystemReport() -> CompileSystemReportUseCase {
+        CompileSystemReport(projects: projects, markdown: exportModelAsMarkdown())
     }
 
     public func saveSystem() -> SaveSystemUseCase {

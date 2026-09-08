@@ -23,10 +23,16 @@ public enum OpenSystemResponse: Equatable, Sendable {
 public struct OpenSystem: OpenSystemUseCase {
     private let projects: ProjectSourceGateway
     private let imports: ImportArchitectureUseCase
+    private let applies: ApplyControlAnswersUseCase
 
-    public init(projects: ProjectSourceGateway, imports: ImportArchitectureUseCase) {
+    public init(
+        projects: ProjectSourceGateway,
+        imports: ImportArchitectureUseCase,
+        applies: ApplyControlAnswersUseCase
+    ) {
         self.projects = projects
         self.imports = imports
+        self.applies = applies
     }
 
     public func execute(_ request: OpenSystemRequest) -> OpenSystemResponse {
@@ -50,7 +56,22 @@ public struct OpenSystem: OpenSystemUseCase {
 
         switch imports.execute(ImportArchitectureRequest(text: text)) {
         case .imported(let name, let warnings):
-            return .opened(name: name, warnings: warnings)
+            // The answers beside the architecture are part of the system, so
+            // opening one reads both.
+            var everyWarning = warnings
+            if projects.exists(path: system.controlsPath),
+               let controlsText = try? projects.read(path: system.controlsPath) {
+                switch applies.execute(ApplyControlAnswersRequest(text: controlsText)) {
+                case .applied(_, let controlWarnings):
+                    everyWarning += controlWarnings
+                case .refused(let diagnostics):
+                    return .refused(
+                        fileName: fileName(of: system.controlsPath),
+                        diagnostics: diagnostics
+                    )
+                }
+            }
+            return .opened(name: name, warnings: everyWarning)
         case .refused(let diagnostics):
             return .refused(
                 fileName: fileName(of: system.architecturePath),

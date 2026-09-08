@@ -6,6 +6,8 @@ struct ThreatCard: View {
     let threat: AssessedThreat
     let severityChoices: [AssessedSeverity]
     let onSetControl: (_ key: String, _ implemented: Bool) -> Void
+    let onSetControlStatus: (_ key: String, _ statusId: String) -> Void
+    let onCompensate: () -> Void
     let onOverride: (_ severityId: String) -> Void
     let onClearOverride: () -> Void
 
@@ -27,18 +29,11 @@ struct ThreatCard: View {
             if threat.controls.isEmpty == false {
                 Divider()
                 ForEach(threat.controls, id: \.key) { control in
-                    Toggle(isOn: Binding(
-                        get: { control.isImplemented },
-                        set: { onSetControl(control.key, $0) }
-                    )) {
-                        Text(control.description)
-                            .font(.caption)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .toggleStyle(.checkbox)
-                    .accessibilityIdentifier("control-\(control.key)")
+                    controlRow(control)
                 }
             }
+
+            compensation
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
@@ -46,6 +41,69 @@ struct ThreatCard: View {
             RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25), lineWidth: 1)
         )
         .accessibilityIdentifier("threat-card-\(threat.threatId)#\(threat.source.id)")
+    }
+
+    /// A control carries a status, not a tick: a person may say a control is
+    /// not applicable or that the risk is accepted, and a report reads both.
+    private func controlRow(_ control: AssessedControl) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Toggle(isOn: Binding(
+                get: { control.isImplemented },
+                set: { onSetControl(control.key, $0) }
+            )) {
+                Text(control.description)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .toggleStyle(.checkbox)
+            .accessibilityIdentifier("control-\(control.key)")
+
+            Spacer(minLength: 4)
+
+            Picker("Status", selection: Binding(
+                get: { control.statusId },
+                set: { onSetControlStatus(control.key, $0) }
+            )) {
+                ForEach(Self.statuses, id: \.0) { Text($0.1).tag($0.0) }
+            }
+            .labelsHidden()
+            .frame(width: 140)
+            .accessibilityIdentifier("control-status-\(control.key)")
+        }
+    }
+
+    private static let statuses = [
+        ("implemented", "Implemented"),
+        ("not_implemented", "Not implemented"),
+        ("not_applicable", "Not applicable"),
+        ("accepted", "Accepted")
+    ]
+
+    @ViewBuilder
+    private var compensation: some View {
+        Divider()
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            if threat.compensatingLabels.isEmpty {
+                Text("Nothing compensates this threat.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(threat.compensatingLabels, id: \.self) { label in
+                        Text(label).font(.caption)
+                    }
+                    Text("\(threat.scoreBeforeCompensation) \u{2192} \(threat.riskScore)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 4)
+            Button(threat.compensatingLabels.isEmpty ? "Compensate\u{2026}" : "Edit\u{2026}") {
+                onCompensate()
+            }
+            .font(.caption)
+            .accessibilityIdentifier("compensate-\(threat.threatId)#\(threat.source.id)")
+        }
     }
 
     private var header: some View {
