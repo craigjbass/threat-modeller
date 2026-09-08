@@ -121,8 +121,8 @@ struct ControlIdentityTests {
 
     @Test func matchesTheDjb2AlgorithmTheSpecStates() {
         // hash = 5381; hash = hash * 33 + byte, unsigned 32-bit.
-        // "a" -> 5381 * 33 + 97 = 177670 = 0x0002B646
-        #expect(ControlIdentity.fingerprint(of: "a") == "0002b646")
+        // "a" -> 5381 * 33 + 97 = 177670 = 0x0002b606
+        #expect(ControlIdentity.fingerprint(of: "a") == "0002b606")
         // "" -> 5381 = 0x00001505
         #expect(ControlIdentity.fingerprint(of: "") == "00001505")
     }

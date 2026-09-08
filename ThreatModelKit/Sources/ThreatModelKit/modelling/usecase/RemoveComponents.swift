@@ -55,6 +55,15 @@ public struct RemoveComponents: RemoveComponentsUseCase {
 
         model.components.removeAll { doomed.contains($0.id) }
         model.connections.removeAll { connection in doomed.contains(where: connection.touches) }
+
+        // Spec section 5.3: removing a component prunes every key scoped to it.
+        // A severity override is keyed by technology, not by component, so
+        // nothing prunes one of those.
+        let prefixes = doomed.map(ControlIdentity.componentPrefix)
+        model.implementedControls = model.implementedControls.filter { key in
+            prefixes.contains(where: key.value.hasPrefix) == false
+        }
+
         models.save(model)
 
         return .removed(componentIds: removedComponents, connectionIds: removedConnections)

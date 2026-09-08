@@ -65,4 +65,49 @@ struct RemoveComponentsTests {
         #expect(remove([]) == .removed(componentIds: [], connectionIds: []))
         #expect(models.current().components.count == 3)
     }
+
+    @Test func prunesTheRemovedComponentsControlKeys() {
+        let mine = ControlIdentity.componentControl(
+            componentId: ComponentId("c1"),
+            threatId: ThreatId("credential-theft"),
+            description: "Rotate credentials",
+            isTechnologySpecific: false
+        )
+        let theirs = ControlIdentity.componentControl(
+            componentId: ComponentId("c2"),
+            threatId: ThreatId("credential-theft"),
+            description: "Rotate credentials",
+            isTechnologySpecific: false
+        )
+        let shared = ControlIdentity.connectionControl(
+            threatId: ThreatId("connection-mitm"),
+            description: "Enforce TLS"
+        )
+        let models = InMemoryThreatModelGateway(
+            ThreatModel(
+                components: [Self.component("c1"), Self.component("c2")],
+                implementedControls: [mine, theirs, shared]
+            )
+        )
+
+        _ = RemoveComponents(models: models).execute(RemoveComponentsRequest(componentIds: ["c1"]))
+
+        #expect(models.current().implementedControls == [theirs, shared])
+    }
+
+    @Test func leavesEverySeverityOverrideAlone() {
+        // An override is keyed by technology, so removing one component of that
+        // technology must not clear it.
+        let key = SeverityOverrideKey.forComponent(
+            technologyId: TechnologyId("aws-ec2"),
+            threatId: ThreatId("credential-theft")
+        )
+        let models = InMemoryThreatModelGateway(
+            ThreatModel(components: [Self.component("c1")], severityOverrides: [key: "low"])
+        )
+
+        _ = RemoveComponents(models: models).execute(RemoveComponentsRequest(componentIds: ["c1"]))
+
+        #expect(models.current().severityOverrides == [key: "low"])
+    }
 }
