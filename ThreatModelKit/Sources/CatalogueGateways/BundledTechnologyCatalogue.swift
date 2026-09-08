@@ -17,6 +17,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     private let technologiesById: [TechnologyId: Technology]
     private let threatsById: [ThreatId: Threat]
     private let connectionThreatsValue: [Threat]
+    private let zoneThreatsValue: [Threat]
 
     public init() throws {
         let decoder = JSONDecoder()
@@ -47,6 +48,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
         )
         var threats: [ThreatId: Threat] = [:]
         var connectionThreatList: [Threat] = []
+        var zoneThreatList: [Threat] = []
         for entry in threatsJSON.threats {
             guard let severity = taxonomyValue.severity(id: entry.severity) else {
                 throw CatalogueLoadError.unknownSeverity(threatId: entry.id, severity: entry.severity)
@@ -72,9 +74,13 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
             if threat.isConnectionThreat {
                 connectionThreatList.append(threat)
             }
+            if threat.isZoneThreat {
+                zoneThreatList.append(threat)
+            }
         }
         threatsById = threats
         connectionThreatsValue = connectionThreatList
+        zoneThreatsValue = zoneThreatList
 
         var providers: [Provider] = []
         var loaded: [Technology] = []
@@ -122,6 +128,8 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     }
 
     public func connectionThreats() -> [Threat] { connectionThreatsValue }
+
+    public func zoneThreats() -> [Threat] { zoneThreatsValue }
 
     public func taxonomy() -> Taxonomy { taxonomyValue }
 

@@ -114,7 +114,9 @@ public enum CatalogueFixture {
                 description: "Insecure defaults or drift leave the service exposed",
                 severity: medium,
                 stride: [StrideId("tampering")],
-                controls: [Control(id: "ctrl-misc-1", description: "Scan configuration continuously")]
+                controls: [Control(id: "ctrl-misc-1", description: "Scan configuration continuously")],
+                isZoneThreat: true,
+                zoneContext: "Insecure zone-level configuration such as permissive defaults"
             ),
             Threat(
                 id: ThreatId("dos-attack"),
@@ -157,10 +159,30 @@ public enum CatalogueFixture {
         ]
     }
 
+    /// One zone-only threat. `misconfiguration` in `ec2Threats()` is a zone
+    /// threat too, so a test can tell a threat raised by a component from the
+    /// same threat raised by a zone.
+    public static func zoneThreats() -> [Threat] {
+        [
+            Threat(
+                id: ThreatId("lateral-movement"),
+                name: "Lateral Movement",
+                description: "Attacker pivots between resources inside the network zone",
+                severity: high,
+                stride: [StrideId("elevation-of-privilege")],
+                controls: [
+                    Control(id: "ctrl-zone-1", description: "Segment the network and restrict east-west traffic")
+                ],
+                isZoneThreat: true,
+                zoneContext: "Pivoting between resources inside the network zone"
+            )
+        ]
+    }
+
     public static func catalogue() -> InMemoryTechnologyCatalogue {
         InMemoryTechnologyCatalogue(
             technologies: [ec2(), rds(), bigQuery()],
-            threats: ec2Threats() + connectionThreats(),
+            threats: ec2Threats() + connectionThreats() + zoneThreats(),
             taxonomy: taxonomy(),
             providers: providers()
         )

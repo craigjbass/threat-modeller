@@ -53,4 +53,22 @@ public func verifyTechnologyCatalogueContract(
     for technology in subject.all() {
         #expect(Set(technology.threatIds).isDisjoint(with: connectionThreatIds))
     }
+
+    let zoneThreats = subject.zoneThreats()
+    #expect(zoneThreats.isEmpty == false)
+    #expect(zoneThreats.allSatisfy { $0.isZoneThreat })
+    #expect(Set(zoneThreats.map(\.id)).count == zoneThreats.count)
+    for threat in zoneThreats {
+        #expect(taxonomy.severity(id: threat.severity.id) == threat.severity)
+        #expect(threat.controls.isEmpty == false)
+        // A zone threat carries its own wording, because the same threat read
+        // against a whole network zone says something different from the same
+        // threat read against one service.
+        #expect(threat.zoneContext?.isEmpty == false)
+    }
+
+    // A zone threat MAY also be a technology's own threat. `misconfiguration`
+    // is both. The two sets are deliberately not disjoint, unlike connection
+    // threats, which belong to the link alone.
+    #expect(zoneThreats.allSatisfy { $0.isConnectionThreat == false })
 }

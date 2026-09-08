@@ -99,4 +99,17 @@ struct BundledTechnologyCatalogueTests {
             "connection-dos"
         ])
     }
+
+    @Test func listsTheZoneThreatsTheVendoredDataFlags() throws {
+        let catalogue = try BundledTechnologyCatalogue()
+
+        #expect(catalogue.zoneThreats().map(\.id.value) == [
+            "unauthorized-access",
+            "misconfiguration",
+            "data-exfiltration",
+            "audit-logging-bypass",
+            "network-misconfiguration",
+            "lateral-movement"
+        ])
+    }
 }

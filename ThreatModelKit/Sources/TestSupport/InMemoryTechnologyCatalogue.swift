@@ -38,6 +38,10 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue {
         orderedThreats.filter(\.isConnectionThreat)
     }
 
+    public func zoneThreats() -> [Threat] {
+        orderedThreats.filter(\.isZoneThreat)
+    }
+
     public func taxonomy() -> Taxonomy { taxonomyValue }
 
     public func providers() -> [Provider] { providersValue }
