@@ -33,7 +33,7 @@ shared.
 | Diagram canvas | Pure SwiftUI, hand-rolled node graph |
 | Catalogue | Vendored JSON committed to this repo, refreshed by a pinned script |
 | Persistence | Document-based app, own file format, no interoperability with the web app |
-| Undo/redo | Core use cases over a history gateway, not NSUndoManager |
+| Undo/redo | Core use cases over a history gateway, not NSUndoManager. The gateway takes a snapshot inside every change, so one use case is one undo step and no use case can forget to record one |
 | Assessment refresh | Delivery mechanism calls `AssessThreatModel` explicitly after each mutation |
 | Dependency wiring | One `Dependencies` graph per open document |
 
@@ -380,8 +380,9 @@ Removing a component prunes every `node:{componentId}:` key.
 | Port | Responsibility |
 |---|---|
 | `TechnologyCatalogue` | `all()`, `findById(_:)`, `threatsFor(technologyId:)`, `connectionThreats()`, `zoneThreats()`, `taxonomy()`, `pathwayMitigations()`, `version()` |
-| `ThreatModelGateway` | `current()`, `save(_:)`, `mutate(_:)`, `pushHistory()`, `undo()`, `redo()` |
+| `ThreatModelGateway` | `current()`, `save(_:)`, `mutate(_:)`, `undo()`, `redo()`, `canUndo`, `canRedo` |
 | `SampleModelGateway` | list and load bundled sample models |
+| `ThreatModelFileGateway` | a model to and from document bytes; a selection to and from clipboard text |
 | `ReportRenderer` | accept a `Report` value tree, write PDF |
 | `CanvasImageRenderer` | produce a PNG of the current canvas (delivery-mechanism gateway) |
 | `IdentityGenerator` | component, connection and zone ids |
@@ -497,6 +498,14 @@ Keyboard parity: select all, shift-click add/remove from selection, escape to
 deselect or cancel zone drawing, copy, cut, paste, duplicate, delete, arrow
 nudge 10pt, shift-arrow nudge 1pt, double-click a palette item to add and a
 connection to edit its label, undo, redo.
+
+Undo and redo replace the document's own menu items rather than sitting beside
+them: `DocumentGroup` installs `NSUndoManager`'s pair, and two undo stacks that
+disagree is worse than one.
+
+The clipboard carries text, not a private type, so a selection can be pasted
+into another document, into another copy of the application, or read by a
+person.
 
 ## 10. Testing
 
