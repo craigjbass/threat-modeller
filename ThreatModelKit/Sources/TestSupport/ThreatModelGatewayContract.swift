@@ -57,4 +57,54 @@ public func verifyThreatModelGatewayContract(_ make: () -> ThreatModelGateway) {
         }
     }
     #expect(read.current().name.isEmpty == false)
+
+    // MARK: history
+
+    let history = make()
+    #expect(history.canUndo == false)
+    #expect(history.canRedo == false)
+    #expect(history.undo() == false)
+    #expect(history.redo() == false)
+
+    history.mutate { $0.name = "one" }
+    history.mutate { $0.name = "two" }
+    #expect(history.canUndo)
+
+    #expect(history.undo())
+    #expect(history.current().name == "one")
+    #expect(history.canRedo)
+
+    #expect(history.undo())
+    #expect(history.current().name == "Untitled")
+    #expect(history.canUndo == false)
+
+    #expect(history.redo())
+    #expect(history.current().name == "one")
+    #expect(history.redo())
+    #expect(history.current().name == "two")
+    #expect(history.canRedo == false)
+
+    // A change after an undo drops what was redoable: the user has taken a
+    // different branch, and offering to redo the abandoned one would be a lie.
+    #expect(history.undo())
+    history.mutate { $0.name = "three" }
+    #expect(history.canRedo == false)
+    #expect(history.current().name == "three")
+
+    // A change that changes nothing is not a step to take back.
+    let noChange = make()
+    noChange.mutate { $0.name = "one" }
+    noChange.mutate { _ in }
+    noChange.mutate { model in model.name = model.name }
+    #expect(noChange.undo())
+    #expect(noChange.current().name == "Untitled")
+    #expect(noChange.canUndo == false)
+
+    // Replacing the model outright — opening a different document — is not
+    // something to undo back out of.
+    let replaced = make()
+    replaced.mutate { $0.name = "one" }
+    replaced.save(ThreatModel(name: "another document"))
+    #expect(replaced.canUndo == false)
+    #expect(replaced.canRedo == false)
 }

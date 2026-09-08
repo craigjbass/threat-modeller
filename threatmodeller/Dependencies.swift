@@ -34,6 +34,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         RenameThreatModel(models: models, clock: clock)
     }
 
+    func undoLastChange() -> UndoLastChangeUseCase {
+        UndoLastChange(models: models)
+    }
+
+    func redoChange() -> RedoChangeUseCase {
+        RedoChange(models: models)
+    }
+
     func listTechnologies() -> ListTechnologiesUseCase {
         ListTechnologies(catalogue: catalogue)
     }

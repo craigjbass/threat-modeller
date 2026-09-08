@@ -35,6 +35,14 @@ public final class TestDependencies: UseCaseFactory {
         RenameThreatModel(models: models, clock: clock)
     }
 
+    public func undoLastChange() -> UndoLastChangeUseCase {
+        UndoLastChange(models: models)
+    }
+
+    public func redoChange() -> RedoChangeUseCase {
+        RedoChange(models: models)
+    }
+
     public func listTechnologies() -> ListTechnologiesUseCase {
         ListTechnologies(catalogue: catalogue)
     }
