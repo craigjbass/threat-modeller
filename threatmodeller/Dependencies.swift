@@ -27,6 +27,10 @@ final class Dependencies: UseCaseFactory {
         AddComponent(models: models, catalogue: catalogue, ids: ids)
     }
 
+    func connectComponents() -> ConnectComponentsUseCase {
+        ConnectComponents(models: models, ids: ids)
+    }
+
     func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }

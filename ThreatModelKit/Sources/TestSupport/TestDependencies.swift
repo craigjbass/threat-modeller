@@ -26,6 +26,10 @@ public final class TestDependencies: UseCaseFactory {
         AddComponent(models: models, catalogue: catalogue, ids: ids)
     }
 
+    public func connectComponents() -> ConnectComponentsUseCase {
+        ConnectComponents(models: models, ids: ids)
+    }
+
     public func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }

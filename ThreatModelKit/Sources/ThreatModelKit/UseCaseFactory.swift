@@ -8,5 +8,6 @@ public protocol UseCaseFactory {
     func listTechnologies() -> ListTechnologiesUseCase
     func viewThreatModel() -> ViewThreatModelUseCase
     func addComponent() -> AddComponentUseCase
+    func connectComponents() -> ConnectComponentsUseCase
     func assessThreatModel() -> AssessThreatModelUseCase
 }
