@@ -581,7 +581,13 @@ is complete.
    - **6B** — undo/redo over the history gateway, copy, cut, paste, duplicate,
      menu commands and keyboard shortcuts.
 7. **Custom technologies and external actors.**
-8. **Reporting** — Markdown, threatcl HCL, PDF, PNG.
+8. **Reporting** — Markdown, threatcl HCL, PDF, PNG. One report value tree,
+   four outputs: `BuildThreatModelReport` decides what a report says, and
+   Markdown, threatcl and the PDF renderer decide how it looks. The report
+   carries the assessment, not the positions. The PNG is the canvas as drawn,
+   so the delivery mechanism renders it and no use case holds a bitmap. Every
+   export writes through a save panel, so nothing writes a file the user did
+   not name.
 9. **Samples, About and attribution, theming, app icon, polish.**
 
 ## 12. Risks
