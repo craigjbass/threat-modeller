@@ -17,6 +17,9 @@ public struct ThreatModel: Equatable, Sendable {
     /// How the user has set the pathway mitigations. Starts with the master
     /// toggle off, so nothing is mitigated until they say so.
     public var pathwayMitigations: PathwayMitigationSettings
+    /// Technologies this model defines for itself. Spec section 8: they travel
+    /// in the document.
+    public var customTechnologies: [CustomTechnology]
     /// When the model was first created, and when it last changed. A document
     /// carries both. Spec section 8.
     public var createdAt: Date
@@ -33,6 +36,7 @@ public struct ThreatModel: Equatable, Sendable {
         severityOverrides: [SeverityOverrideKey: String] = [:],
         implementedControls: Set<ControlKey> = [],
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
+        customTechnologies: [CustomTechnology] = [],
         createdAt: Date = Date(timeIntervalSince1970: 0),
         updatedAt: Date = Date(timeIntervalSince1970: 0),
         catalogueVersion: CatalogueVersion? = nil
@@ -44,6 +48,7 @@ public struct ThreatModel: Equatable, Sendable {
         self.severityOverrides = severityOverrides
         self.implementedControls = implementedControls
         self.pathwayMitigations = pathwayMitigations
+        self.customTechnologies = customTechnologies
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.catalogueVersion = catalogueVersion
@@ -57,5 +62,9 @@ public struct ThreatModel: Equatable, Sendable {
 
     public func zone(_ id: ZoneId) -> Zone? {
         zones.first { $0.id == id }
+    }
+
+    public func customTechnology(_ id: TechnologyId) -> CustomTechnology? {
+        customTechnologies.first { $0.id == id }
     }
 }
