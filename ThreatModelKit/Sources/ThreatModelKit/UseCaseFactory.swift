@@ -5,6 +5,10 @@
 /// The protocol keeps the two in step. A use case added here does not compile
 /// until both roots vend it.
 public protocol UseCaseFactory {
+    func createThreatModel() -> CreateThreatModelUseCase
+    func openThreatModel() -> OpenThreatModelUseCase
+    func saveThreatModel() -> SaveThreatModelUseCase
+    func renameThreatModel() -> RenameThreatModelUseCase
     func listTechnologies() -> ListTechnologiesUseCase
     func viewThreatModel() -> ViewThreatModelUseCase
     func addComponent() -> AddComponentUseCase

@@ -1,4 +1,5 @@
 import ThreatModelKit
+import FileGateways
 
 /// The composition root for tests. Mirrors the application's own `Dependencies`
 /// but wires use cases to fakes. Gateways are deliberately private: an
@@ -7,11 +8,31 @@ public final class TestDependencies: UseCaseFactory {
     private let catalogue: InMemoryTechnologyCatalogue
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
+    private let files: ThreatModelFileGateway = ThreatModelCodec()
+    private let clock = FixedClock()
+    /// The clock this root runs on, so an acceptance test can move time.
+    public var time: FixedClock { clock }
 
     public init() {
         self.catalogue = CatalogueFixture.catalogue()
         self.models = InMemoryThreatModelGateway()
         self.ids = SequentialIdentityGenerator()
+    }
+
+    public func createThreatModel() -> CreateThreatModelUseCase {
+        CreateThreatModel(models: models, catalogue: catalogue, clock: clock)
+    }
+
+    public func openThreatModel() -> OpenThreatModelUseCase {
+        OpenThreatModel(models: models, catalogue: catalogue, files: files)
+    }
+
+    public func saveThreatModel() -> SaveThreatModelUseCase {
+        SaveThreatModel(models: models, catalogue: catalogue, clock: clock, files: files)
+    }
+
+    public func renameThreatModel() -> RenameThreatModelUseCase {
+        RenameThreatModel(models: models, clock: clock)
     }
 
     public func listTechnologies() -> ListTechnologiesUseCase {

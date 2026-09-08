@@ -1,4 +1,5 @@
 import CatalogueGateways
+import FileGateways
 import ThreatModelKit
 
 /// The composition root. One graph per open model; from Milestone 6 that means
@@ -8,11 +9,29 @@ final class Dependencies: UseCaseFactory {
     private let catalogue: TechnologyCatalogue
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
+    private let files: ThreatModelFileGateway = ThreatModelCodec()
+    private let clock: Clock = SystemClock()
 
     init() throws {
         catalogue = try BundledTechnologyCatalogue()
         models = InMemoryThreatModelGateway()
         ids = UUIDIdentityGenerator()
+    }
+
+    func createThreatModel() -> CreateThreatModelUseCase {
+        CreateThreatModel(models: models, catalogue: catalogue, clock: clock)
+    }
+
+    func openThreatModel() -> OpenThreatModelUseCase {
+        OpenThreatModel(models: models, catalogue: catalogue, files: files)
+    }
+
+    func saveThreatModel() -> SaveThreatModelUseCase {
+        SaveThreatModel(models: models, catalogue: catalogue, clock: clock, files: files)
+    }
+
+    func renameThreatModel() -> RenameThreatModelUseCase {
+        RenameThreatModel(models: models, clock: clock)
     }
 
     func listTechnologies() -> ListTechnologiesUseCase {
