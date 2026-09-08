@@ -2970,6 +2970,8 @@ refused, and removing a component takes its link and the link's threats."
 
 Five plain structs in the app target. They import `CoreGraphics` and `Foundation`, never `SwiftUI`, so every one is testable without a view. Spec §9 requires canvas geometry to live outside a `View` body.
 
+WARNING: the app target sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so every type declared there is main-actor isolated unless it says otherwise. Declare all five types, and `ConnectionAnchor`, `nonisolated`. Without it the test suites fail to compile with "main actor-isolated default value in a nonisolated context".
+
 **Files:**
 - Create: `threatmodeller/canvas/CanvasTransform.swift`
 - Create: `threatmodeller/canvas/ComponentBox.swift`
@@ -3175,13 +3177,16 @@ struct ConnectionPathTests {
         #expect(straight.containsClick(at: CGPoint(x: 600, y: 0)) == false)
     }
 
-    @Test func curvesAwayFromTheStraightLineBetweenTwoOffsetPoints() {
+    @Test func bulgesHorizontallyBetweenTwoOffsetPoints() {
         let curved = ConnectionPath(from: CGPoint(x: 0, y: 0), to: CGPoint(x: 200, y: 200))
 
-        // The midpoint of the curve does not sit on the straight line, so a
-        // click on the straight line's midpoint misses it.
-        #expect(curved.containsClick(at: CGPoint(x: 100, y: 100)) == false)
-        #expect(curved.containsClick(at: curved.point(at: 0.5)))
+        // The straight line between the two ends has x equal to y at every
+        // point. The curve leaves the source horizontally, so a quarter of the
+        // way along it has run ahead in x.
+        let quarter = curved.point(at: 0.25)
+        #expect(quarter.x > quarter.y)
+        #expect(curved.containsClick(at: quarter))
+        #expect(curved.containsClick(at: CGPoint(x: 0, y: 200)) == false)
     }
 
     @Test func pointsTheArrowheadAlongTheFinalDirection() {
