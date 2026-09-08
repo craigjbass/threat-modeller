@@ -12,6 +12,9 @@ public struct ThreatModel: Equatable, Sendable {
     public var severityOverrides: [SeverityOverrideKey: String]
     /// Every control the user has recorded as in place.
     public var implementedControls: Set<ControlKey>
+    /// How the user has set the pathway mitigations. Starts with the master
+    /// toggle off, so nothing is mitigated until they say so.
+    public var pathwayMitigations: PathwayMitigationSettings
 
     public init(
         name: String = "Untitled",
@@ -19,7 +22,8 @@ public struct ThreatModel: Equatable, Sendable {
         connections: [Connection] = [],
         zones: [Zone] = [],
         severityOverrides: [SeverityOverrideKey: String] = [:],
-        implementedControls: Set<ControlKey> = []
+        implementedControls: Set<ControlKey> = [],
+        pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings()
     ) {
         self.name = name
         self.components = components
@@ -27,6 +31,7 @@ public struct ThreatModel: Equatable, Sendable {
         self.zones = zones
         self.severityOverrides = severityOverrides
         self.implementedControls = implementedControls
+        self.pathwayMitigations = pathwayMitigations
     }
 
     /// The component with that identifier, or nil. Every write use case checks
