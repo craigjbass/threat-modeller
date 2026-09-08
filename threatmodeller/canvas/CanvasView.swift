@@ -67,6 +67,11 @@ struct CanvasView: View {
                     )
                 }
         )
+        .safeAreaInset(edge: .bottom) {
+            if let zone = selectedZone {
+                ZonePanel(session: session, zone: zone)
+            }
+        }
         .dropDestination(for: String.self) { technologyIds, location in
             guard let technologyId = technologyIds.first else { return false }
             let point = canvas.transform.modelPoint(location)
@@ -123,7 +128,8 @@ struct CanvasView: View {
                     onDragChanged: { gestures.nodeDragChanged(component.id, $0) },
                     onDragEnded: { gestures.nodeDragEnded($0) },
                     onAnchorDragChanged: { gestures.anchorDragChanged(component.id, $0) },
-                    onAnchorDragEnded: { gestures.anchorDragEnded(component.id, $0) }
+                    onAnchorDragEnded: { gestures.anchorDragEnded(component.id, $0) },
+                    zoneName: session.canvas.zones.first { $0.id == component.zoneId }?.name
                 )
                 .position(x: componentBox.centre.x, y: componentBox.centre.y)
             }
@@ -166,6 +172,14 @@ struct CanvasView: View {
         }
         .buttonStyle(.bordered)
         .padding(8)
+    }
+
+    /// The panel edits one zone at a time, so it appears only when exactly one
+    /// is selected.
+    private var selectedZone: ViewedZone? {
+        guard canvas.selectedZoneIds.count == 1,
+              let zoneId = canvas.selectedZoneIds.first else { return nil }
+        return session.canvas.zones.first { $0.id == zoneId }
     }
 
     private var previewLine: (start: CGPoint, end: CGPoint)? {

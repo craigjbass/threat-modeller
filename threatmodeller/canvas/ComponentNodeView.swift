@@ -11,6 +11,10 @@ struct ComponentNodeView: View {
     let onDragEnded: (CGSize) -> Void
     let onAnchorDragChanged: (CGPoint) -> Void
     let onAnchorDragEnded: (CGPoint) -> Void
+    /// The display name of the zone holding this component, or nil. The rule
+    /// is the component's centre inside the zone below its header, which is
+    /// invisible without this badge.
+    let zoneName: String?
 
     @State private var isHovering = false
 
@@ -40,6 +44,14 @@ struct ComponentNodeView: View {
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                    if let zoneName {
+                        Text(zoneName)
+                            .font(.caption2)
+                            .lineLimit(1)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(Color.green.opacity(0.18)))
+                    }
                 }
             }
             .frame(width: ComponentBox.size.width - 24, alignment: .leading)

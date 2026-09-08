@@ -201,4 +201,39 @@ struct ThreatModelSessionTests {
         #expect(session.canvas.components.count == 1)
         #expect(session.canvas.components.first?.zoneId == nil)
     }
+
+    @Test func showsTheZoneBadgeNameForACapturedComponent() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 600, height: 500))
+        session.setZoneProperties(
+            zoneId: zoneId,
+            name: "Payments",
+            networkZoneId: "private",
+            networkTypeId: "vpc",
+            riskReductionEnabled: true,
+            riskReductionPercent: 20
+        )
+
+        let captured = try #require(session.canvas.components.first)
+        #expect(captured.zoneId == zoneId)
+        #expect(session.canvas.zones.first?.name == "Payments")
+    }
+
+    @Test func reportsAReductionOutsideTheRange() throws {
+        let session = session()
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 600, height: 500))
+
+        session.setZoneProperties(
+            zoneId: zoneId,
+            name: nil,
+            networkZoneId: "private",
+            networkTypeId: "generic",
+            riskReductionEnabled: true,
+            riskReductionPercent: 200
+        )
+
+        #expect(session.errorMessage == "Risk reduction must be between 0 and 100 per cent.")
+        #expect(session.canvas.zones.first?.riskReductionPercent == 20)
+    }
 }
