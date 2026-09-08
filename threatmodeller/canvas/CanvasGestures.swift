@@ -30,6 +30,8 @@ struct CanvasGestures {
                 boxes: boxes
             ) {
                 canvas.select(connectionId: connectionId, addingToSelection: false)
+            } else if let zoneId = CanvasHitTest.zone(under: point, zones: session.canvas.zones) {
+                canvas.select(zoneId: zoneId)
             } else {
                 canvas.clearSelection()
             }
@@ -57,12 +59,37 @@ struct CanvasGestures {
     private var marqueeDrag: some Gesture {
         DragGesture(minimumDistance: 2, coordinateSpace: .named("canvas"))
             .onChanged { value in
-                canvas.marquee = (
+                let corners = (
                     start: canvas.transform.modelPoint(value.startLocation),
                     end: canvas.transform.modelPoint(value.location)
                 )
+                if canvas.isDrawingZone {
+                    canvas.zoneDraft = corners
+                } else {
+                    canvas.marquee = corners
+                }
             }
-            .onEnded { _ in commitMarquee() }
+            .onEnded { _ in
+                if canvas.isDrawingZone {
+                    commitDraftZone()
+                } else {
+                    commitMarquee()
+                }
+            }
+    }
+
+    private func commitDraftZone() {
+        let rect = canvas.zoneDraftRect
+        canvas.stopDrawingZone()
+        guard let rect else { return }
+        if let zoneId = session.addZone(
+            x: rect.minX,
+            y: rect.minY,
+            width: rect.width,
+            height: rect.height
+        ) {
+            canvas.select(zoneId: zoneId)
+        }
     }
 
     private func commitMarquee() {
@@ -121,6 +148,38 @@ struct CanvasGestures {
             components: session.canvas.components
         ) else { return }
         session.connect(sourceComponentId: componentId, targetComponentId: targetId)
+    }
+
+    // MARK: zones
+
+    func zoneDragChanged(_ zoneId: String, handle: ZoneHandle?, translation: CGSize) {
+        canvas.select(zoneId: zoneId)
+        canvas.zoneDrag = (
+            zoneId: zoneId,
+            handle: handle,
+            translation: canvas.transform.modelDistance(translation)
+        )
+    }
+
+    func zoneDragEnded(_ zoneId: String, handle: ZoneHandle?, translation: CGSize) {
+        defer { canvas.zoneDrag = nil }
+
+        guard let zone = session.canvas.zones.first(where: { $0.id == zoneId }) else { return }
+        let rect = CanvasHitTest.rect(
+            for: zone,
+            drag: (
+                zoneId: zoneId,
+                handle: handle,
+                translation: canvas.transform.modelDistance(translation)
+            )
+        )
+        session.resizeZone(
+            zoneId,
+            x: rect.minX,
+            y: rect.minY,
+            width: rect.width,
+            height: rect.height
+        )
     }
 
     // MARK: commands

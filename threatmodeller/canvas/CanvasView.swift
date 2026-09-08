@@ -46,6 +46,9 @@ struct CanvasView: View {
         }
         .coordinateSpace(.named("canvas"))
         .clipped()
+        // SwiftUI has no crosshair pointer; rectSelection is the one macOS
+        // shows while a rectangle is being drawn.
+        .pointerStyle(canvas.isDrawingZone ? .rectSelection : nil)
         .focusable()
         .focusEffectDisabled()
         .onKeyPress(.escape) {
@@ -78,6 +81,31 @@ struct CanvasView: View {
 
     private var content: some View {
         ZStack(alignment: .topLeading) {
+            ForEach(session.canvas.zones, id: \.id) { zone in
+                let rect = CanvasHitTest.rect(for: zone, drag: canvas.zoneDrag)
+                ZoneView(
+                    zone: zone,
+                    size: rect.size,
+                    isSelected: canvas.isSelected(zoneId: zone.id),
+                    onSelect: { canvas.select(zoneId: zone.id) },
+                    onDragChanged: { gestures.zoneDragChanged(zone.id, handle: $0, translation: $1) },
+                    onDragEnded: { gestures.zoneDragEnded(zone.id, handle: $0, translation: $1) }
+                )
+                .position(x: rect.midX, y: rect.midY)
+            }
+
+            if let draft = canvas.zoneDraftRect {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.green.opacity(0.07))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                    )
+                    .frame(width: draft.width, height: draft.height)
+                    .position(x: draft.midX, y: draft.midY)
+                    .allowsHitTesting(false)
+            }
+
             ConnectionsLayer(
                 connections: session.canvas.connections,
                 boxes: boxes,
@@ -112,7 +140,17 @@ struct CanvasView: View {
     }
 
     private var canvasToolbar: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
+            Button {
+                canvas.isDrawingZone ? canvas.stopDrawingZone() : canvas.startDrawingZone()
+            } label: {
+                Label("Draw zone", systemImage: "rectangle.dashed")
+            }
+            .tint(canvas.isDrawingZone ? Color.accentColor : nil)
+            .accessibilityIdentifier("draw-zone")
+
+            Divider().frame(height: 16)
+
             Button { gestures.zoom(by: 1 / 1.25, about: CGPoint(x: 400, y: 300)) } label: {
                 Image(systemName: "minus.magnifyingglass")
             }

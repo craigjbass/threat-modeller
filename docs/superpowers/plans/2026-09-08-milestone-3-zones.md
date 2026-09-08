@@ -4446,7 +4446,9 @@ In `CanvasView.zoomControls`, put the toggle first and rename the group:
 Rename the use in `body` from `zoomControls` to `canvasToolbar`, and show the crosshair while the mode is on:
 
 ```swift
-        .pointerStyle(canvas.isDrawingZone ? .crosshair : nil)
+        // SwiftUI has no crosshair pointer; rectSelection is the one macOS
+        // shows while a rectangle is being drawn.
+        .pointerStyle(canvas.isDrawingZone ? .rectSelection : nil)
 ```
 
 - [ ] **Step 6: Run the tests to verify they pass**

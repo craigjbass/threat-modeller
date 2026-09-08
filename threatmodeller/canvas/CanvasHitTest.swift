@@ -62,4 +62,17 @@ nonisolated enum CanvasHitTest {
     static func zone(under modelPoint: CGPoint, zones: [ViewedZone]) -> String? {
         zones.last { ZoneBox(zone: $0).rect.contains(modelPoint) }?.id
     }
+
+    /// Where a zone is drawn, with a move or resize in flight applied.
+    static func rect(
+        for zone: ViewedZone,
+        drag: (zoneId: String, handle: ZoneHandle?, translation: CGSize)?
+    ) -> CGRect {
+        let box = ZoneBox(zone: zone)
+        guard let drag, drag.zoneId == zone.id else { return box.rect }
+        guard let handle = drag.handle else {
+            return box.rect.offsetBy(dx: drag.translation.width, dy: drag.translation.height)
+        }
+        return box.resized(by: drag.translation, from: handle)
+    }
 }

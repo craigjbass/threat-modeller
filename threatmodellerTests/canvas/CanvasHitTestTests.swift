@@ -105,4 +105,61 @@ struct CanvasHitTestTests {
             boxes: boxes
         ) == "k2")
     }
+
+    private func viewedZone(_ id: String, x: Double = 0, y: Double = 0) -> ViewedZone {
+        ViewedZone(
+            id: id,
+            name: "Private Zone",
+            customName: nil,
+            networkZoneId: "private",
+            networkTypeId: "generic",
+            riskReductionEnabled: true,
+            riskReductionPercent: 20,
+            x: x,
+            y: y,
+            width: 600,
+            height: 400
+        )
+    }
+
+    @Test func drawsAZoneAtItsOwnRectangleWhenNothingIsDragging() {
+        #expect(CanvasHitTest.rect(for: viewedZone("z1", x: 10, y: 20), drag: nil)
+                == CGRect(x: 10, y: 20, width: 600, height: 400))
+    }
+
+    @Test func movesTheZoneBeingDraggedByItsHeader() {
+        let rect = CanvasHitTest.rect(
+            for: viewedZone("z1", x: 10, y: 20),
+            drag: (zoneId: "z1", handle: nil, translation: CGSize(width: 30, height: -5))
+        )
+
+        #expect(rect == CGRect(x: 40, y: 15, width: 600, height: 400))
+    }
+
+    @Test func resizesTheZoneBeingDraggedByAGrip() {
+        let rect = CanvasHitTest.rect(
+            for: viewedZone("z1"),
+            drag: (zoneId: "z1", handle: .bottomRight, translation: CGSize(width: 50, height: 40))
+        )
+
+        #expect(rect == CGRect(x: 0, y: 0, width: 650, height: 440))
+    }
+
+    @Test func leavesEveryOtherZoneWhereItIs() {
+        let rect = CanvasHitTest.rect(
+            for: viewedZone("z2", x: 900),
+            drag: (zoneId: "z1", handle: nil, translation: CGSize(width: 30, height: 30))
+        )
+
+        #expect(rect == CGRect(x: 900, y: 0, width: 600, height: 400))
+    }
+
+    @Test func findsTheZoneUnderAPoint() {
+        let zones = [viewedZone("z1"), viewedZone("z2", x: 100, y: 100)]
+
+        #expect(CanvasHitTest.zone(under: CGPoint(x: 50, y: 50), zones: zones) == "z1")
+        // A later zone wins where two overlap, matching the core's rule.
+        #expect(CanvasHitTest.zone(under: CGPoint(x: 200, y: 200), zones: zones) == "z2")
+        #expect(CanvasHitTest.zone(under: CGPoint(x: 5000, y: 5000), zones: zones) == nil)
+    }
 }
