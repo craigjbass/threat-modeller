@@ -37,6 +37,9 @@ final class ThreatModelSession {
         mitigations: []
     )
     private(set) var errorMessage: String?
+    /// The threats the technology editor offers. Read once: the catalogue does
+    /// not change while the application runs.
+    private(set) var threatChoices: [ThreatChoice] = []
 
     /// Where a double-click on a palette row puts a component, in model
     /// coordinates. A drag from the palette uses the drop point instead.
@@ -44,7 +47,7 @@ final class ThreatModelSession {
 
     init(useCases: UseCaseFactory) {
         self.useCases = useCases
-        palette = useCases.listTechnologies().execute(ListTechnologiesRequest()).providers
+        threatChoices = useCases.listThreatChoices().execute(ListThreatChoicesRequest()).threats
         refresh()
     }
 
@@ -393,6 +396,124 @@ final class ThreatModelSession {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
+    /// Returns the new technology's identifier, or nil when the model refused
+    /// the values.
+    @discardableResult
+    func createCustomTechnology(
+        name: String,
+        categoryId: String,
+        description: String,
+        threatIds: [String],
+        enforcesEncryption: Bool
+    ) -> String? {
+        let response = useCases.createCustomTechnology().execute(
+            CreateCustomTechnologyRequest(
+                name: name,
+                categoryId: categoryId,
+                description: description,
+                threatIds: threatIds,
+                enforcesEncryption: enforcesEncryption
+            )
+        )
+
+        defer { refresh() }
+
+        switch response {
+        case .created(let technologyId):
+            errorMessage = nil
+            return technologyId
+        case .emptyName:
+            errorMessage = "A technology needs a name."
+            return nil
+        case .unknownCategory:
+            errorMessage = "That category is not one this application holds."
+            return nil
+        }
+    }
+
+    /// Returns true when the model took every value.
+    @discardableResult
+    func editCustomTechnology(
+        technologyId: String,
+        name: String,
+        categoryId: String,
+        description: String,
+        threatIds: [String],
+        enforcesEncryption: Bool
+    ) -> Bool {
+        let response = useCases.editCustomTechnology().execute(
+            EditCustomTechnologyRequest(
+                technologyId: technologyId,
+                name: name,
+                categoryId: categoryId,
+                description: description,
+                threatIds: threatIds,
+                enforcesEncryption: enforcesEncryption
+            )
+        )
+
+        defer { refresh() }
+
+        switch response {
+        case .updated:
+            errorMessage = nil
+            return true
+        case .emptyName:
+            errorMessage = "A technology needs a name."
+            return false
+        case .unknownCategory:
+            errorMessage = "That category is not one this application holds."
+            return false
+        case .unknownTechnology:
+            errorMessage = "This model no longer defines that technology."
+            return false
+        }
+    }
+
+    /// Returns what left the model so the canvas can drop those rows from its
+    /// selection. Deleting a technology deletes the components using it.
+    @discardableResult
+    func deleteCustomTechnology(
+        _ technologyId: String
+    ) -> (componentIds: [String], connectionIds: [String]) {
+        let response = useCases.deleteCustomTechnology().execute(
+            DeleteCustomTechnologyRequest(technologyId: technologyId)
+        )
+
+        defer { refresh() }
+
+        switch response {
+        case .deleted(let removedComponents, let removedConnections):
+            errorMessage = nil
+            return (removedComponents, removedConnections)
+        case .unknownTechnology:
+            errorMessage = "This model no longer defines that technology."
+            return ([], [])
+        }
+    }
+
+    /// What the technology editor offers as a category, taken from the
+    /// palette so the editor names exactly what the palette can show.
+    var categoryChoices: [(id: String, label: String)] {
+        var seen: Set<String> = []
+        var choices: [(id: String, label: String)] = []
+        for provider in palette {
+            for category in provider.categories where seen.contains(category.id) == false {
+                seen.insert(category.id)
+                choices.append((id: category.id, label: category.label))
+            }
+        }
+        return choices.sorted { $0.label < $1.label }
+    }
+
+    /// The technology this model defines with that identifier, or nil.
+    func customTechnology(_ technologyId: String) -> ViewedCustomTechnology? {
+        guard case .found(let technology) = useCases.viewCustomTechnology().execute(
+            ViewCustomTechnologyRequest(technologyId: technologyId)
+        ) else { return nil }
+        return technology
+    }
+
     private func clipboardText() -> String? {
         NSPasteboard.general.string(forType: .string)
     }
@@ -400,6 +521,7 @@ final class ThreatModelSession {
     /// Spec section 2: the delivery mechanism calls `AssessThreatModel`
     /// explicitly after each change, and reads the canvas the same way.
     private func refresh() {
+        palette = useCases.listTechnologies().execute(ListTechnologiesRequest()).providers
         canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
         let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
         threats = assessment.threats

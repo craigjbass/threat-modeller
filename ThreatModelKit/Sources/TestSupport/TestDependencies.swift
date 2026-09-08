@@ -67,6 +67,10 @@ public final class TestDependencies: UseCaseFactory {
         DeleteCustomTechnology(models: models)
     }
 
+    public func viewCustomTechnology() -> ViewCustomTechnologyUseCase {
+        ViewCustomTechnology(models: models)
+    }
+
     public func listThreatChoices() -> ListThreatChoicesUseCase {
         ListThreatChoices(catalogue: catalogue)
     }

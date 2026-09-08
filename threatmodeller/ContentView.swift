@@ -74,7 +74,7 @@ private struct ModelView: View {
 
     private var columns: some View {
         NavigationSplitView {
-            PaletteView(session: session)
+            PaletteView(session: session, canvas: canvas)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } content: {
             CanvasView(session: session, canvas: canvas)
@@ -89,19 +89,52 @@ private struct ModelView: View {
 
 private struct PaletteView: View {
     let session: ThreatModelSession
+    /// Deleting a technology deletes the components using it, so the canvas
+    /// must drop those rows from its selection.
+    let canvas: CanvasState
+
+    /// nil when no sheet is open, .some(nil) for a new technology, and
+    /// .some(id) to change one.
+    @State private var editing: EditedTechnology?
 
     var body: some View {
         List {
             ForEach(session.palette, id: \.id) { provider in
                 Section(provider.displayName) {
                     ForEach(provider.categories, id: \.id) { category in
-                        CategoryDisclosure(providerId: provider.id, category: category, session: session)
+                        CategoryDisclosure(
+                            providerId: provider.id,
+                            category: category,
+                            session: session,
+                            canvas: canvas,
+                            edit: { editing = EditedTechnology(value: $0) }
+                        )
                     }
                 }
             }
         }
         .navigationTitle("Technologies")
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                editing = EditedTechnology(value: nil)
+            } label: {
+                Label("New Technology\u{2026}", systemImage: "plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(8)
+            .accessibilityIdentifier("new-technology")
+        }
+        .sheet(item: $editing) { technologyId in
+            CustomTechnologyEditor(session: session, technologyId: technologyId.value)
+        }
     }
+}
+
+/// `sheet(item:)` needs something identifiable. A technology being changed is
+/// named by its identifier; a new one has no identifier yet.
+private struct EditedTechnology: Identifiable {
+    let value: String?
+    var id: String { value ?? "new" }
 }
 
 /// A category row plus its technologies.
@@ -114,6 +147,8 @@ private struct CategoryDisclosure: View {
     let providerId: String
     let category: ListedCategory
     let session: ThreatModelSession
+    let canvas: CanvasState
+    let edit: (String) -> Void
 
     @State private var isExpanded = false
 
@@ -137,8 +172,14 @@ private struct CategoryDisclosure: View {
 
             if isExpanded {
                 ForEach(category.technologies, id: \.id) { technology in
-                    TechnologyRow(technology: technology, session: session)
-                        .padding(.leading, 16)
+                    TechnologyRow(
+                        technology: technology,
+                        session: session,
+                        canvas: canvas,
+                        isDefinedByThisModel: providerId == CustomTechnology.provider.value,
+                        edit: edit
+                    )
+                    .padding(.leading, 16)
                 }
             }
         }
@@ -150,6 +191,11 @@ private struct CategoryDisclosure: View {
 private struct TechnologyRow: View {
     let technology: ListedTechnology
     let session: ThreatModelSession
+    let canvas: CanvasState
+    /// Only a technology this model defines can be changed or deleted. The
+    /// catalogue is a library, and this application does not edit it.
+    let isDefinedByThisModel: Bool
+    let edit: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -170,5 +216,20 @@ private struct TechnologyRow: View {
         .onTapGesture(count: 2) {
             session.addAtDefaultPoint(technologyId: technology.id)
         }
+        .contextMenu {
+            if isDefinedByThisModel {
+                Button("Edit\u{2026}") { edit(technology.id) }
+                Button("Delete", role: .destructive) { delete() }
+            }
+        }
+    }
+
+    private func delete() {
+        session.deleteCustomTechnology(technology.id)
+        canvas.retainOnly(
+            componentIds: Set(session.canvas.components.map(\.id)),
+            connectionIds: Set(session.canvas.connections.map(\.id)),
+            zoneIds: Set(session.canvas.zones.map(\.id))
+        )
     }
 }

@@ -66,6 +66,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         DeleteCustomTechnology(models: models)
     }
 
+    func viewCustomTechnology() -> ViewCustomTechnologyUseCase {
+        ViewCustomTechnology(models: models)
+    }
+
     func listThreatChoices() -> ListThreatChoicesUseCase {
         ListThreatChoices(catalogue: catalogue)
     }
