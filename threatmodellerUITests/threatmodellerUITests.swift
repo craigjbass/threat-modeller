@@ -314,4 +314,82 @@ final class threatmodellerUITests: XCTestCase {
         // Leave the menu closed, so the next test starts on a clean window.
         app.typeKey(.escape, modifierFlags: [])
     }
+
+    /// A user starts from an example and reads its nodes.
+    @MainActor
+    func testAUserOpensAnExample() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(
+            app.windows.firstMatch.waitForExistence(timeout: 15),
+            "No document window appeared after asking for a new document."
+        )
+
+        app.typeKey("o", modifierFlags: [.command, .shift])
+
+        let sample = app.descendants(matching: .any)["sample-public-web"].firstMatch
+        XCTAssertTrue(
+            sample.waitForExistence(timeout: 10),
+            "The samples browser did not list the public web example."
+        )
+        // A double-click opens the example, the way a double-click on a
+        // palette row places a technology.
+        sample.doubleClick()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["node-aws-rds"].firstMatch
+                .waitForExistence(timeout: 15),
+            "Opening the example did not put its nodes on the canvas."
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["zone-z1"].firstMatch.exists,
+            "Opening the example did not draw its zones."
+        )
+        XCTAssertTrue(
+            app.staticTexts["Lateral Movement"].firstMatch.waitForExistence(timeout: 10),
+            "Opening the example did not raise the threats its zones carry."
+        )
+    }
+
+    /// Selecting one node opens the node panel, where a user says what the
+    /// node holds.
+    @MainActor
+    func testAUserSelectsANodeAndReadsItsPanel() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(
+            app.windows.firstMatch.waitForExistence(timeout: 15),
+            "No document window appeared after asking for a new document."
+        )
+        let window = app.windows.firstMatch
+
+        let category = window.buttons["category-aws-compute"]
+        XCTAssertTrue(category.waitForExistence(timeout: 15), "The palette never appeared.")
+        category.click()
+
+        let technology = window.descendants(matching: .any)["technology-aws-ec2"].firstMatch
+        XCTAssertTrue(technology.waitForExistence(timeout: 5), "The EC2 row never appeared.")
+        technology.doubleClick()
+
+        let node = window.descendants(matching: .any)["node-aws-ec2"].firstMatch
+        XCTAssertTrue(node.waitForExistence(timeout: 10), "No node appeared on the canvas.")
+        node.click()
+
+        let sensitivity = window.descendants(matching: .any)["component-sensitivity"].firstMatch
+        XCTAssertTrue(
+            sensitivity.waitForExistence(timeout: 10),
+            "Selecting a node did not open the node panel."
+        )
+        XCTAssertTrue(
+            window.descendants(matching: .any)["component-name"].firstMatch.exists,
+            "The node panel has no name field."
+        )
+
+        let threatsRaised = window.descendants(matching: .any)["component-threats-raised"]
+            .firstMatch
+        XCTAssertTrue(threatsRaised.exists, "The node panel has no threats switch.")
+        XCTAssertEqual(threatsRaised.value as? Int, 1, "The node started with its threats off.")
+    }
 }
