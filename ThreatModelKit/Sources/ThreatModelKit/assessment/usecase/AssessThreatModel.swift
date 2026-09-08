@@ -6,11 +6,26 @@ public struct AssessThreatModelRequest: Equatable, Sendable {
     public init() {}
 }
 
+/// A severity the user can override a threat to. In taxonomy order, weakest
+/// first, which is the order the ranks run in.
+public struct AssessedSeverity: Equatable, Sendable {
+    public let id: String
+    public let label: String
+
+    public init(id: String, label: String) {
+        self.id = id
+        self.label = label
+    }
+}
+
 public struct AssessThreatModelResponse: Equatable, Sendable {
     public let threats: [AssessedThreat]
+    /// Every severity the override menu offers, in taxonomy order.
+    public let severities: [AssessedSeverity]
 
-    public init(threats: [AssessedThreat]) {
+    public init(threats: [AssessedThreat], severities: [AssessedSeverity] = []) {
         self.threats = threats
+        self.severities = severities
     }
 }
 
@@ -30,10 +45,15 @@ public struct AssessedControl: Hashable, Sendable {
     public let description: String
     /// True when the control came from the technology rather than the threat.
     public let isTechnologySpecific: Bool
+    /// The key `RecordControlImplemented` takes. Minted by the core.
+    public let key: String
+    public let isImplemented: Bool
 
-    public init(description: String, isTechnologySpecific: Bool) {
+    public init(description: String, isTechnologySpecific: Bool, key: String, isImplemented: Bool) {
         self.description = description
         self.isTechnologySpecific = isTechnologySpecific
+        self.key = key
+        self.isImplemented = isImplemented
     }
 }
 
@@ -89,6 +109,10 @@ public struct AssessedThreat: Hashable, Sendable {
     /// True when the threat is one TLS mitigates and an endpoint technology
     /// enforces encryption. Display only. It never changes `riskScore`.
     public let isTlsMitigated: Bool
+    /// The key `OverrideThreatSeverity` takes. Minted by the core.
+    public let overrideKey: String
+    /// The severity id the user overrode this threat to, or nil.
+    public let overriddenSeverityId: String?
 
     public init(
         threatId: String,
@@ -104,7 +128,9 @@ public struct AssessedThreat: Hashable, Sendable {
         riskScore: Int,
         riskLevel: String,
         context: String?,
-        isTlsMitigated: Bool
+        isTlsMitigated: Bool,
+        overrideKey: String,
+        overriddenSeverityId: String?
     ) {
         self.threatId = threatId
         self.name = name
@@ -120,6 +146,8 @@ public struct AssessedThreat: Hashable, Sendable {
         self.riskLevel = riskLevel
         self.context = context
         self.isTlsMitigated = isTlsMitigated
+        self.overrideKey = overrideKey
+        self.overriddenSeverityId = overriddenSeverityId
     }
 }
 
@@ -129,6 +157,7 @@ public struct AssessedThreat: Hashable, Sendable {
 /// come from the catalogue and belong to the link, not to either end. Zone
 /// threats and the zone multiplier arrive in Milestone 3; every score here is
 /// the base score.
+/// Lists every threat the model raises, as plain values.
 public struct AssessThreatModel: AssessThreatModelUseCase {
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
@@ -139,178 +168,52 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
     }
 
     public func execute(_ request: AssessThreatModelRequest) -> AssessThreatModelResponse {
-        let model = models.current()
-        var assessed: [AssessedThreat] = []
-        // Spec section 5.3: a duplicate threat and source pair is raised once.
-        var raised: Set<String> = []
+        let resolved = ThreatResolver(model: models.current(), catalogue: catalogue).resolve()
 
-        func raise(_ threat: AssessedThreat) {
-            let pair = "\(threat.threatId)@\(threat.source.id)"
-            guard raised.contains(pair) == false else { return }
-            raised.insert(pair)
-            assessed.append(threat)
-        }
-
-        // Derived, never stored. Spec section 5.2.
-        var zonesByComponent: [ComponentId: Zone] = [:]
-        for component in model.components {
-            zonesByComponent[component.id] = ZoneContainment.zone(
-                holding: component.centre,
-                in: model.zones
-            )
-        }
-
-        for component in model.components {
-            guard component.threatsDisabled == false else { continue }
-            guard let technology = catalogue.findById(component.technologyId) else { continue }
-
-            let multiplier = ZoneMultiplier.value(for: zonesByComponent[component.id])
-
-            for threat in catalogue.threatsFor(technologyId: component.technologyId) {
-                let base = RiskScore(severity: threat.severity, sensitivity: component.sensitivity)
-                let score = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
-                guard score.value > 0 else { continue }
-
-                raise(
-                    AssessedThreat(
-                        threatId: threat.id.value,
-                        name: threat.name,
-                        description: threat.description,
-                        severityId: threat.severity.id,
-                        severityLabel: threat.severity.label,
-                        stride: threat.stride.map(\.value),
-                        mitreTechniques: threat.mitreTechniques.map {
-                            AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
-                        },
-                        controls: Self.controls(for: threat, on: technology),
-                        source: .component(
-                            id: component.id.value,
-                            name: component.customName ?? technology.name,
-                            providerId: technology.provider.value
-                        ),
-                        sensitivityId: component.sensitivity.rawValue,
-                        riskScore: score.value,
-                        riskLevel: score.level.rawValue,
-                        context: technology.threatContext[threat.id],
-                        isTlsMitigated: false
-                    )
-                )
-            }
-        }
-
-        for connection in model.connections {
-            guard let source = model.component(connection.source),
-                  let target = model.component(connection.target) else { continue }
-            guard source.threatsDisabled == false, target.threatsDisabled == false else { continue }
-
-            let sourceTechnology = catalogue.findById(source.technologyId)
-            let targetTechnology = catalogue.findById(target.technologyId)
-            let sensitivity = SensitivityLadder.higher(source.sensitivity, target.sensitivity)
-            let multiplier = ZoneMultiplier.valueForConnection(
-                sourceZone: zonesByComponent[source.id],
-                targetZone: zonesByComponent[target.id]
-            )
-
-            for threat in catalogue.connectionThreats() {
-                let base = RiskScore(severity: threat.severity, sensitivity: sensitivity)
-                let score = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
-                guard score.value > 0 else { continue }
-
-                raise(
-                    AssessedThreat(
-                        threatId: threat.id.value,
-                        name: threat.name,
-                        description: threat.description,
-                        severityId: threat.severity.id,
-                        severityLabel: threat.severity.label,
-                        stride: threat.stride.map(\.value),
-                        mitreTechniques: threat.mitreTechniques.map {
-                            AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
-                        },
-                        // Spec section 5.3: a link always uses the threat's own
-                        // controls, never a technology's mitigations.
-                        controls: threat.controls.map {
-                            AssessedControl(description: $0.description, isTechnologySpecific: false)
-                        },
-                        source: .connection(
-                            id: connection.id.value,
-                            sourceName: Self.name(of: source, as: sourceTechnology),
-                            targetName: Self.name(of: target, as: targetTechnology)
-                        ),
-                        sensitivityId: sensitivity.rawValue,
-                        riskScore: score.value,
-                        riskLevel: score.level.rawValue,
-                        context: nil,
-                        isTlsMitigated: ConnectionEncryption.isTlsMitigated(
-                            threat: threat,
-                            source: sourceTechnology,
-                            target: targetTechnology
+        return AssessThreatModelResponse(
+            threats: resolved.map { threat in
+                AssessedThreat(
+                    threatId: threat.threat.id.value,
+                    name: threat.threat.name,
+                    description: threat.threat.description,
+                    severityId: threat.severity.id,
+                    severityLabel: threat.severity.label,
+                    stride: threat.threat.stride.map(\.value),
+                    mitreTechniques: threat.threat.mitreTechniques.map {
+                        AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
+                    },
+                    controls: threat.controls.map {
+                        AssessedControl(
+                            description: $0.description,
+                            isTechnologySpecific: $0.isTechnologySpecific,
+                            key: $0.key.value,
+                            isImplemented: $0.isImplemented
                         )
-                    )
+                    },
+                    source: Self.source(threat.source),
+                    sensitivityId: threat.sensitivity.rawValue,
+                    riskScore: threat.score.value,
+                    riskLevel: threat.score.level.rawValue,
+                    context: threat.context,
+                    isTlsMitigated: threat.isTlsMitigated,
+                    overrideKey: threat.overrideKey.value,
+                    overriddenSeverityId: threat.overriddenSeverityId
                 )
+            },
+            severities: catalogue.taxonomy().severities.map {
+                AssessedSeverity(id: $0.id, label: $0.label)
             }
-        }
-
-        // Spec section 5.3: raised once per private zone, scored against a
-        // fixed internal sensitivity, and reduced by that zone's own
-        // multiplier. A public zone raises none.
-        for zone in model.zones where zone.networkZone == .privateZone {
-            let multiplier = ZoneMultiplier.value(for: zone)
-
-            for threat in catalogue.zoneThreats() {
-                let base = RiskScore(severity: threat.severity, sensitivity: .internalData)
-                let score = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
-                guard score.value > 0 else { continue }
-
-                raise(
-                    AssessedThreat(
-                        threatId: threat.id.value,
-                        name: threat.name,
-                        description: threat.description,
-                        severityId: threat.severity.id,
-                        severityLabel: threat.severity.label,
-                        stride: threat.stride.map(\.value),
-                        mitreTechniques: threat.mitreTechniques.map {
-                            AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
-                        },
-                        // Spec section 5.3: a zone always uses the threat's own
-                        // controls, never a technology's mitigations.
-                        controls: threat.controls.map {
-                            AssessedControl(description: $0.description, isTechnologySpecific: false)
-                        },
-                        source: .zone(id: zone.id.value, name: zone.displayName),
-                        sensitivityId: DataSensitivity.internalData.rawValue,
-                        riskScore: score.value,
-                        riskLevel: score.level.rawValue,
-                        context: threat.zoneContext,
-                        isTlsMitigated: false
-                    )
-                )
-            }
-        }
-
-        return AssessThreatModelResponse(threats: assessed.sorted(by: Self.ordering))
+        )
     }
 
-    /// A link still raises its threats when an end's technology has left the
-    /// catalogue: the threats belong to the link, and the sensitivity is stored
-    /// on the component. The technology id stands in for the missing name.
-    private static func name(of component: Component, as technology: Technology?) -> String {
-        component.customName ?? technology?.name ?? component.technologyId.value
-    }
-
-    private static func controls(for threat: Threat, on technology: Technology) -> [AssessedControl] {
-        if let specific = technology.threatMitigations[threat.id], specific.isEmpty == false {
-            return specific.map { AssessedControl(description: $0, isTechnologySpecific: true) }
+    private static func source(_ source: ResolvedSource) -> AssessedThreatSource {
+        switch source {
+        case .component(let id, let name, let providerId):
+            .component(id: id.value, name: name, providerId: providerId.value)
+        case .connection(let id, let sourceName, let targetName):
+            .connection(id: id.value, sourceName: sourceName, targetName: targetName)
+        case .zone(let id, let name):
+            .zone(id: id.value, name: name)
         }
-        return threat.controls.map {
-            AssessedControl(description: $0.description, isTechnologySpecific: false)
-        }
-    }
-
-    private static func ordering(_ a: AssessedThreat, _ b: AssessedThreat) -> Bool {
-        if a.riskScore != b.riskScore { return a.riskScore > b.riskScore }
-        if a.threatId != b.threatId { return a.threatId < b.threatId }
-        return a.source.id < b.source.id
     }
 }

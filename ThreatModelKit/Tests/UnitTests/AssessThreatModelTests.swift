@@ -516,4 +516,153 @@ struct AssessThreatModelTests {
         let rows = response.threats.filter { $0.threatId == "misconfiguration" }
         #expect(rows.map(\.source.id).sorted() == ["component:c1", "zone:z1"])
     }
+
+    @Test func givesEveryComponentControlItsOwnKey() throws {
+        let response = assess(ThreatModel(components: [ec2(id: "c1")]))
+
+        let theft = try #require(response.threats.first { $0.threatId == "credential-theft" })
+        // EC2 declares its own mitigations for this threat, so they are marked
+        // technology-specific and keyed apart from a generic control.
+        #expect(theft.controls.allSatisfy { $0.key.hasPrefix("node:c1:credential-theft:tech::") })
+        #expect(theft.controls.allSatisfy { $0.isImplemented == false })
+        #expect(Set(theft.controls.map(\.key)).count == theft.controls.count)
+
+        let misconfiguration = try #require(response.threats.first {
+            $0.threatId == "misconfiguration" && $0.source.id == "component:c1"
+        })
+        #expect(misconfiguration.controls.allSatisfy {
+            $0.key.hasPrefix("node:c1:misconfiguration::")
+        })
+    }
+
+    @Test func consolidatesALinkControlAndAZoneControlAcrossTheirOwners() throws {
+        let response = assess(
+            ThreatModel(
+                components: [ec2(id: "c1", sensitivity: .internalData), rds(sensitivity: .internalData)],
+                connections: [link("k1", "c1", "c2")],
+                zones: [privateZone("z1")]
+            )
+        )
+
+        let mitm = try #require(response.threats.first { $0.threatId == "connection-mitm" })
+        #expect(mitm.controls.allSatisfy { $0.key.hasPrefix("connection:connection-mitm::") })
+
+        let lateral = try #require(response.threats.first { $0.threatId == "lateral-movement" })
+        #expect(lateral.controls.allSatisfy { $0.key.hasPrefix("zone:lateral-movement::") })
+    }
+
+    @Test func marksAControlTheModelRecords() throws {
+        let key = ControlIdentity.componentControl(
+            componentId: ComponentId("c1"),
+            threatId: ThreatId("credential-theft"),
+            description: "Use IAM roles with minimal permissions",
+            isTechnologySpecific: true
+        )
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1")], implementedControls: [key])
+        )
+
+        let theft = try #require(response.threats.first { $0.threatId == "credential-theft" })
+        let recorded = try #require(theft.controls.first { $0.key == key.value })
+        #expect(recorded.isImplemented)
+        #expect(theft.controls.filter(\.isImplemented).count == 1)
+    }
+
+    @Test func namesTheOverrideKeyForEachKindOfSource() throws {
+        let response = assess(
+            ThreatModel(
+                components: [ec2(id: "c1", sensitivity: .internalData), rds(sensitivity: .internalData)],
+                connections: [link("k1", "c1", "c2")],
+                zones: [privateZone("z1")]
+            )
+        )
+
+        // Keyed by technology, not by component. Spec section 5.3.
+        #expect(try #require(response.threats.first { $0.threatId == "credential-theft" }).overrideKey
+                == "aws-ec2::credential-theft")
+        #expect(try #require(response.threats.first { $0.threatId == "connection-mitm" }).overrideKey
+                == "connection::connection-mitm")
+        #expect(try #require(response.threats.first { $0.threatId == "lateral-movement" }).overrideKey
+                == "zone::lateral-movement")
+    }
+
+    @Test func offersEverySeverityTheTaxonomyHas() {
+        let response = assess(ThreatModel())
+
+        #expect(response.severities.map(\.id) == ["low", "medium", "high", "critical"])
+        #expect(response.severities.map(\.label) == ["Low", "Medium", "High", "Critical"])
+    }
+
+    @Test func scoresAThreatWithTheSeverityTheUserOverrodeItTo() throws {
+        let key = SeverityOverrideKey.forComponent(
+            technologyId: TechnologyId("aws-ec2"),
+            threatId: ThreatId("credential-theft")
+        )
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1")], severityOverrides: [key: "low"])
+        )
+
+        // Low (1) against confidential data (3) is 3, not critical's 12.
+        let theft = try #require(response.threats.first { $0.threatId == "credential-theft" })
+        #expect(theft.severityId == "low")
+        #expect(theft.severityLabel == "Low")
+        #expect(theft.riskScore == 3)
+        #expect(theft.riskLevel == "low")
+        #expect(theft.overriddenSeverityId == "low")
+    }
+
+    @Test func leavesAThreatWithoutAnOverrideAlone() throws {
+        let response = assess(ThreatModel(components: [ec2(id: "c1")]))
+
+        let theft = try #require(response.threats.first { $0.threatId == "credential-theft" })
+        #expect(theft.severityId == "critical")
+        #expect(theft.overriddenSeverityId == nil)
+    }
+
+    @Test func appliesOneOverrideToEveryComponentOfThatTechnology() {
+        // Spec section 5.3 keys a component override by technology.
+        let key = SeverityOverrideKey.forComponent(
+            technologyId: TechnologyId("aws-ec2"),
+            threatId: ThreatId("credential-theft")
+        )
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1"), ec2(id: "c2")], severityOverrides: [key: "low"])
+        )
+
+        let theft = response.threats.filter { $0.threatId == "credential-theft" }
+        #expect(theft.count == 2)
+        #expect(theft.allSatisfy { $0.severityId == "low" })
+    }
+
+    @Test func appliesTheZoneMultiplierAfterTheOverride() throws {
+        let key = SeverityOverrideKey.forComponent(
+            technologyId: TechnologyId("aws-ec2"),
+            threatId: ThreatId("credential-theft")
+        )
+        let response = assess(
+            ThreatModel(
+                components: [ec2(id: "c1")],
+                zones: [privateZone(reduction: 50)],
+                severityOverrides: [key: "high"]
+            )
+        )
+
+        // High (3) against confidential (3) is 9; a half reduction leaves 4.5,
+        // which rounds away from zero to 5.
+        #expect(try #require(response.threats.first { $0.threatId == "credential-theft" }).riskScore == 5)
+    }
+
+    @Test func ignoresAnOverrideToASeverityTheTaxonomyDoesNotHave() throws {
+        let key = SeverityOverrideKey.forComponent(
+            technologyId: TechnologyId("aws-ec2"),
+            threatId: ThreatId("credential-theft")
+        )
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1")], severityOverrides: [key: "catastrophic"])
+        )
+
+        let theft = try #require(response.threats.first { $0.threatId == "credential-theft" })
+        #expect(theft.severityId == "critical")
+        #expect(theft.overriddenSeverityId == nil)
+    }
 }

@@ -1,8 +1,17 @@
-public enum RiskLevel: String, Equatable, Sendable {
+public enum RiskLevel: String, CaseIterable, Equatable, Sendable {
     case low
     case medium
     case high
     case critical
+
+    public var label: String {
+        switch self {
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        case .critical: "Critical"
+        }
+    }
 }
 
 /// Severity rank multiplied by data sensitivity rank, giving 1–16.
