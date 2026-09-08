@@ -94,7 +94,7 @@ private struct ModelView: View {
     }
 }
 
-private struct PaletteView: View {
+struct PaletteView: View {
     let session: ThreatModelSession
     /// Deleting a technology deletes the components using it, so the canvas
     /// must drop those rows from its selection.

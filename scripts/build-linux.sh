@@ -20,12 +20,13 @@ mkdir -p "$OUT"
 
 for TRIPLE in x86_64-swift-linux-musl aarch64-swift-linux-musl; do
     echo "Building $TRIPLE"
-    (cd ThreatModelKit && swift build --swift-sdk "$TRIPLE" -c release --product threatmodeller)
+    (cd ThreatModelKit && swift build --swift-sdk "$TRIPLE" -c release --product threatmodeller-cli)
 
     ARCH_OUT="$OUT/$TRIPLE"
     rm -rf "$ARCH_OUT"
     mkdir -p "$ARCH_OUT"
-    cp "ThreatModelKit/.build/$TRIPLE/release/threatmodeller" "$ARCH_OUT/"
+    # Installed under the name a user types.
+    cp "ThreatModelKit/.build/$TRIPLE/release/threatmodeller-cli" "$ARCH_OUT/threatmodeller"
     cp -R ThreatModelKit/Sources/CatalogueGateways/Resources/Library "$ARCH_OUT/"
     cp -R ThreatModelKit/Sources/CatalogueGateways/Resources/Actors "$ARCH_OUT/"
 

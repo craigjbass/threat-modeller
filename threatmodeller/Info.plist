@@ -36,6 +36,42 @@
 				</array>
 			</dict>
 		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.plain-text</string>
+				<string>public.source-code</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Threat Model Architecture</string>
+			<key>UTTypeIdentifier</key>
+			<string>io.threatmodeller.architecture</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>arch</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.plain-text</string>
+				<string>public.source-code</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Threat Model Control Answers</string>
+			<key>UTTypeIdentifier</key>
+			<string>io.threatmodeller.controls</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>controls</string>
+				</array>
+			</dict>
+		</dict>
 	</array>
 </dict>
 </plist>

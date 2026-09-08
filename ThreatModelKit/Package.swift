@@ -11,7 +11,10 @@ let package = Package(
         .library(name: "TestSupport", targets: ["TestSupport"]),
         .library(name: "FileGateways", targets: ["FileGateways"]),
         .library(name: "ArchitectureDSL", targets: ["ArchitectureDSL"]),
-        .executable(name: "threatmodeller", targets: ["threatmodeller-cli"])
+        // Named -cli so the binary does not sit beside threatmodeller.app in
+        // one build directory, where the test runner reads the wrong one.
+        // scripts/build-linux.sh installs it as `threatmodeller`.
+        .executable(name: "threatmodeller-cli", targets: ["threatmodeller-cli"])
     ],
     targets: [
         .target(name: "ThreatModelKit"),

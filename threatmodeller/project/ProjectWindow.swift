@@ -1,0 +1,115 @@
+import SwiftUI
+import ThreatModelKit
+
+/// A project root, drawn.
+///
+/// The three columns are the ones a document window uses. What this window adds
+/// is the systems picker, the save that writes text back, and the diagnostics.
+struct ProjectWindow: View {
+    let session: ProjectSession
+
+    @State private var isShowingDiagnostics = false
+    @State private var canvas = CanvasState()
+
+    var body: some View {
+        Group {
+            if let model = session.model {
+                ProjectColumns(session: model, canvas: canvas)
+                    .focusedSceneValue(\.threatModelSession, model)
+                    .focusedSceneValue(\.threatModelCanvas, canvas)
+            } else {
+                ContentUnavailableView(
+                    session.root == nil ? "No project is open" : "Nothing is drawn",
+                    systemImage: "folder",
+                    description: Text(
+                        session.errorMessage ?? "Open a project with File \u{25B8} Open Project."
+                    )
+                )
+            }
+        }
+        .safeAreaInset(edge: .top) { chrome }
+        .sheet(isPresented: $isShowingDiagnostics) {
+            DiagnosticsSheet(
+                fileName: session.diagnosticsFileName ?? "",
+                diagnostics: session.diagnostics,
+                dismiss: { isShowingDiagnostics = false }
+            )
+        }
+        .onChange(of: session.diagnostics.count) {
+            // Errors stop the picture, so they interrupt. Warnings sit in the
+            // strip until the user asks for them.
+            if session.hasErrors { isShowingDiagnostics = true }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Picker("System", selection: chosen) {
+                    ForEach(session.systems, id: \.self) { name in
+                        Text(name).tag(name as String?)
+                    }
+                }
+                .labelsHidden()
+                .frame(minWidth: 160)
+                .disabled(session.systems.isEmpty)
+                .accessibilityIdentifier("system-picker")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var chrome: some View {
+        if session.diagnostics.isEmpty == false || session.errorMessage != nil {
+            HStack(spacing: 8) {
+                Image(systemName: session.hasErrors ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                Text(noticeText)
+                    .font(.callout)
+                Spacer(minLength: 8)
+                if session.diagnostics.isEmpty == false {
+                    Button("Show") { isShowingDiagnostics = true }
+                        .accessibilityIdentifier("show-diagnostics")
+                }
+                Button("Dismiss") { session.dismissDiagnostics() }
+            }
+            .padding(8)
+            .background(session.hasErrors ? Color.red.opacity(0.2) : Color.yellow.opacity(0.25))
+            .accessibilityIdentifier("project-notice")
+        }
+    }
+
+    private var noticeText: String {
+        if let errorMessage = session.errorMessage { return errorMessage }
+        let count = session.diagnostics.count
+        return count == 1
+            ? "1 thing worth knowing about \(session.diagnosticsFileName ?? "this file")."
+            : "\(count) things worth knowing about \(session.diagnosticsFileName ?? "this file")."
+    }
+
+    private var chosen: Binding<String?> {
+        Binding(
+            get: { session.chosenSystem },
+            set: { name in
+                guard let name else { return }
+                session.choose(name)
+                canvas.clearSelection()
+            }
+        )
+    }
+}
+
+private struct ProjectColumns: View {
+    let session: ThreatModelSession
+    let canvas: CanvasState
+
+    var body: some View {
+        NavigationSplitView {
+            PaletteView(session: session, canvas: canvas)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+        } content: {
+            CanvasView(session: session, canvas: canvas)
+                .navigationTitle("Diagram")
+                .navigationSplitViewColumnWidth(min: 400, ideal: 700)
+        } detail: {
+            ThreatSidebar(session: session)
+                .navigationSplitViewColumnWidth(min: 300, ideal: 380)
+        }
+    }
+}

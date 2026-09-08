@@ -392,4 +392,87 @@ final class threatmodellerUITests: XCTestCase {
         XCTAssertTrue(threatsRaised.exists, "The node panel has no threats switch.")
         XCTAssertEqual(threatsRaised.value as? Int, 1, "The node started with its threats off.")
     }
+
+    /// A project directory a team commits, opened in the application.
+    ///
+    /// The application takes `-project <path>` because an open panel cannot be
+    /// driven from an interface test.
+    @MainActor
+    func testAUserOpensAProjectDirectory() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threat-modeller-journey-\(UUID().uuidString)")
+        let directory = root.appendingPathComponent("threatmodel")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try """
+        system "Payments" {
+          zone "app" {
+            kind    = "private"
+            network = "vpc"
+
+            component "api" {
+              technology = "aws-ec2"
+              name       = "Application Server"
+              data       = "confidential"
+            }
+
+            component "db" {
+              technology = "aws-rds"
+              data       = "restricted"
+            }
+          }
+
+          flow api -> db
+        }
+
+        """.write(
+            to: directory.appendingPathComponent("payments.arch"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let app = XCUIApplication()
+        app.launchArguments = ["-project", root.path]
+        app.launch()
+
+        // The project window is a scene of its own, opened from the File menu.
+        let file = app.menuBars.menuBarItems["File"]
+        XCTAssertTrue(file.waitForExistence(timeout: 15), "There is no File menu.")
+        file.click()
+        let openProject = app.menuItems["Open Project\u{2026}"]
+        XCTAssertTrue(
+            openProject.waitForExistence(timeout: 5),
+            "The File menu has no 'Open Project' item."
+        )
+        app.typeKey(.escape, modifierFlags: [])
+
+        // The window the launch argument filled is already open behind the
+        // document window, so the picker names the system the file describes.
+        let picker = app.descendants(matching: .any)["system-picker"].firstMatch
+        if picker.waitForExistence(timeout: 5) == false {
+            // The project scene opens on demand; ask for it by its keyboard
+            // shortcut and cancel the panel the command shows.
+            app.typeKey("o", modifierFlags: [.command, .option])
+            app.typeKey(.escape, modifierFlags: [])
+        }
+        XCTAssertTrue(
+            picker.waitForExistence(timeout: 15),
+            "The project window never showed its systems picker."
+        )
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["node-aws-ec2"].firstMatch
+                .waitForExistence(timeout: 15),
+            "The project window did not draw the components the file describes."
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["node-aws-rds"].firstMatch.exists,
+            "The project window drew one component and not the other."
+        )
+        XCTAssertTrue(
+            app.staticTexts["Credential Theft"].firstMatch.waitForExistence(timeout: 10),
+            "The project window did not raise the threats the file's components carry."
+        )
+    }
 }

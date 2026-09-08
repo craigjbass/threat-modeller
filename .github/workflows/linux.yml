@@ -33,7 +33,7 @@ jobs:
           component "api" { technology = "aws-ec2" } }
           }
           ARCH
-          swift run threatmodeller format /tmp/sample
+          swift run threatmodeller-cli format /tmp/sample
           cat /tmp/sample/threatmodel/payments.arch
 
       - name: Refuse a file that does not parse
@@ -43,7 +43,7 @@ jobs:
           printf 'system "P" {\n  zone "z" { kind = "secret" }\n}\n' \
             > /tmp/broken/threatmodel/p.arch
           set +e
-          swift run threatmodeller format /tmp/broken
+          swift run threatmodeller-cli format /tmp/broken
           code=$?
           set -e
           test "$code" -eq 2 || { echo "expected exit 2, got $code"; exit 1; }
