@@ -260,7 +260,7 @@ Each of these owns a rule that is already valid across more than one use case.
 | `ZoneContainment` | a component belongs to a zone when its centre lies within the zone rect, offset by 40pt of header padding; later zones win over earlier ones | `AssessThreatModel`, `ViewThreatModel` |
 | `UpstreamGraph` | reverse breadth-first traversal of connections to the set of components upstream of a given component | `AssessThreatModel`, pathway settings preview |
 | `SensitivityLadder` | higher-of two sensitivities; maximum sensitivity across directly downstream components | `AssessThreatModel` |
-| `ControlIdentity` | djb2 hash of the whitespace-normalised control description, scoped by owner; pruning a component's keys on delete | `RecordControlImplemented`, `RemoveComponents`, `SaveThreatModel` |
+| `ControlIdentity` | djb2 hash of the whitespace-normalised control description, scoped by owner; pruning a component's keys on delete | `AssessThreatModel`, `RecordControlImplemented`, `RemoveComponents`, `SaveThreatModel` |
 
 ### 5.3 Scoring rules to reproduce exactly
 
@@ -329,6 +329,10 @@ Keyed as:
 - zone threat: `zone::{threatId}`
 
 **Control identity**
+
+`AssessThreatModel` mints every control key and every severity override key and
+returns them on the response. A write use case takes a key the response handed
+out, so no delivery mechanism ever builds one.
 
 djb2 (`hash = 5381`, `hash = hash*33 + byte`, unsigned 32-bit, 8 hex digits) over
 the description trimmed and with runs of whitespace collapsed to a single space.
