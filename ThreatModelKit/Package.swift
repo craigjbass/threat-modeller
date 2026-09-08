@@ -8,7 +8,8 @@ let package = Package(
         .library(name: "ThreatModelKit", targets: ["ThreatModelKit", "CatalogueGateways"]),
         // Published so the Xcode app test target can build the same fakes and
         // the same composition root the package's own tests use.
-        .library(name: "TestSupport", targets: ["TestSupport"])
+        .library(name: "TestSupport", targets: ["TestSupport"]),
+        .library(name: "FileGateways", targets: ["FileGateways"])
     ],
     targets: [
         .target(name: "ThreatModelKit"),
@@ -17,7 +18,8 @@ let package = Package(
             dependencies: ["ThreatModelKit"],
             resources: [.copy("Resources/Library")]
         ),
-        .target(name: "TestSupport", dependencies: ["ThreatModelKit"]),
+        .target(name: "FileGateways", dependencies: ["ThreatModelKit"]),
+        .target(name: "TestSupport", dependencies: ["ThreatModelKit", "FileGateways"]),
         .testTarget(name: "UnitTests", dependencies: ["ThreatModelKit", "TestSupport"]),
         .testTarget(name: "AcceptanceTests", dependencies: ["ThreatModelKit", "TestSupport"]),
         .testTarget(
@@ -26,7 +28,7 @@ let package = Package(
         ),
         .testTarget(
             name: "GatewayIntegrationTests",
-            dependencies: ["ThreatModelKit", "CatalogueGateways"]
+            dependencies: ["ThreatModelKit", "CatalogueGateways", "FileGateways"]
         )
     ]
 )
