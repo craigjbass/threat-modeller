@@ -113,6 +113,12 @@ public struct AssessedThreat: Hashable, Sendable {
     public let overrideKey: String
     /// The severity id the user overrode this threat to, or nil.
     public let overriddenSeverityId: String?
+    /// The pathway mitigations that answered this threat, by label. Empty when
+    /// none did.
+    public let pathwayMitigationLabels: [String]
+    /// The score before any pathway mitigation. Equal to `riskScore` when none
+    /// applied, so a card can show what the mitigation bought.
+    public let scoreBeforePathwayMitigation: Int
 
     public init(
         threatId: String,
@@ -130,7 +136,9 @@ public struct AssessedThreat: Hashable, Sendable {
         context: String?,
         isTlsMitigated: Bool,
         overrideKey: String,
-        overriddenSeverityId: String?
+        overriddenSeverityId: String?,
+        pathwayMitigationLabels: [String] = [],
+        scoreBeforePathwayMitigation: Int = 0
     ) {
         self.threatId = threatId
         self.name = name
@@ -148,6 +156,8 @@ public struct AssessedThreat: Hashable, Sendable {
         self.isTlsMitigated = isTlsMitigated
         self.overrideKey = overrideKey
         self.overriddenSeverityId = overriddenSeverityId
+        self.pathwayMitigationLabels = pathwayMitigationLabels
+        self.scoreBeforePathwayMitigation = scoreBeforePathwayMitigation
     }
 }
 
@@ -197,7 +207,9 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     context: threat.context,
                     isTlsMitigated: threat.isTlsMitigated,
                     overrideKey: threat.overrideKey.value,
-                    overriddenSeverityId: threat.overriddenSeverityId
+                    overriddenSeverityId: threat.overriddenSeverityId,
+                    pathwayMitigationLabels: threat.mitigatedBy.map(\.label),
+                    scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation
                 )
             },
             severities: catalogue.taxonomy().severities.map {

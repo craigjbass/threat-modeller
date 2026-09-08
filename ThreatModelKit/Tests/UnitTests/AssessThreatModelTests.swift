@@ -665,4 +665,252 @@ struct AssessThreatModelTests {
         #expect(theft.severityId == "critical")
         #expect(theft.overriddenSeverityId == nil)
     }
+
+    private func waf(_ id: String = "w1", sensitivity: DataSensitivity = .internalData) -> Component {
+        Component(
+            id: ComponentId(id),
+            technologyId: TechnologyId("aws-waf"),
+            position: Point(x: 0, y: 0),
+            sensitivity: sensitivity
+        )
+    }
+
+    private func mitigationsOn(
+        mode: PathwayMitigationMode = .reduce,
+        percent: Int = 50,
+        enabled: Bool = true
+    ) -> PathwayMitigationSettings {
+        PathwayMitigationSettings(
+            isMasterEnabled: true,
+            configs: [
+                PathwayMitigationId("waf-protection"):
+                    PathwayMitigationConfig(isEnabled: enabled, mode: mode, reductionPercent: percent)
+            ]
+        )
+    }
+
+    @Test func escalatesAPathwayThreatToTheDataItFeeds() throws {
+        // EC2 holds public data (1) and feeds RDS holding restricted (4).
+        // Credential theft is a pathway threat and is critical (4), so it
+        // scores 4 x 4 = 16 rather than 4 x 1 = 4.
+        let response = assess(
+            ThreatModel(
+                components: [ec2(id: "c1", sensitivity: .publicData), rds(sensitivity: .restricted)],
+                connections: [link("k1", "c1", "c2")]
+            )
+        )
+
+        let theft = try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        })
+        #expect(theft.sensitivityId == "restricted")
+        #expect(theft.riskScore == 16)
+    }
+
+    @Test func leavesAThreatThatIsNotAPathwayThreatAlone() throws {
+        let response = assess(
+            ThreatModel(
+                components: [ec2(id: "c1", sensitivity: .publicData), rds(sensitivity: .restricted)],
+                connections: [link("k1", "c1", "c2")]
+            )
+        )
+
+        // Misconfiguration is not a pathway threat, so it stays on public data.
+        let misconfiguration = try #require(response.threats.first {
+            $0.threatId == "misconfiguration" && $0.source.id == "component:c1"
+        })
+        #expect(misconfiguration.sensitivityId == "public")
+        #expect(misconfiguration.riskScore == 2)
+    }
+
+    @Test func neverEscalatesDownwards() throws {
+        let response = assess(
+            ThreatModel(
+                components: [ec2(id: "c1", sensitivity: .restricted), rds(sensitivity: .publicData)],
+                connections: [link("k1", "c1", "c2")]
+            )
+        )
+
+        #expect(try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        }).sensitivityId == "restricted")
+    }
+
+    @Test func escalatesOnlyOneHopForward() throws {
+        // a -> b -> c. The threat on a escalates to b's data, not to c's.
+        let response = assess(
+            ThreatModel(
+                components: [
+                    ec2(id: "c1", sensitivity: .publicData),
+                    rds(id: "c2", sensitivity: .internalData),
+                    ec2(id: "c3", sensitivity: .restricted)
+                ],
+                connections: [link("k1", "c1", "c2"), link("k2", "c2", "c3")]
+            )
+        )
+
+        #expect(try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        }).sensitivityId == "internal")
+    }
+
+    @Test func escalatesToTheHighestOfSeveralBranches() throws {
+        let response = assess(
+            ThreatModel(
+                components: [
+                    ec2(id: "c1", sensitivity: .publicData),
+                    rds(id: "c2", sensitivity: .internalData),
+                    rds(id: "c3", sensitivity: .confidential)
+                ],
+                connections: [link("k1", "c1", "c2"), link("k2", "c1", "c3")]
+            )
+        )
+
+        #expect(try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        }).sensitivityId == "confidential")
+    }
+
+    @Test func lowersAThreatAnUpstreamMitigationAnswers() throws {
+        // WAF -> EC2. The fixture's waf-protection answers credential-theft.
+        let response = assess(
+            ThreatModel(
+                components: [waf(), ec2(id: "c1")],
+                connections: [link("k1", "w1", "c1")],
+                pathwayMitigations: mitigationsOn()
+            )
+        )
+
+        let theft = try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        })
+        #expect(theft.riskScore == 6)
+        #expect(theft.scoreBeforePathwayMitigation == 12)
+        #expect(theft.pathwayMitigationLabels == ["WAF Protection"])
+    }
+
+    @Test func dropsAThreatEntirelyInRemoveMode() {
+        let response = assess(
+            ThreatModel(
+                components: [waf(), ec2(id: "c1")],
+                connections: [link("k1", "w1", "c1")],
+                pathwayMitigations: mitigationsOn(mode: .remove)
+            )
+        )
+
+        #expect(response.threats.contains {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        } == false)
+    }
+
+    @Test func leavesAThreatAloneWhileTheMasterToggleIsOff() throws {
+        let response = assess(
+            ThreatModel(
+                components: [waf(), ec2(id: "c1")],
+                connections: [link("k1", "w1", "c1")],
+                pathwayMitigations: PathwayMitigationSettings(isMasterEnabled: false)
+            )
+        )
+
+        let theft = try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        })
+        #expect(theft.riskScore == 12)
+        #expect(theft.pathwayMitigationLabels.isEmpty)
+    }
+
+    @Test func leavesAThreatAloneWhileThatMitigationIsOff() throws {
+        let response = assess(
+            ThreatModel(
+                components: [waf(), ec2(id: "c1")],
+                connections: [link("k1", "w1", "c1")],
+                pathwayMitigations: mitigationsOn(enabled: false)
+            )
+        )
+
+        #expect(try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        }).riskScore == 12)
+    }
+
+    @Test func leavesAThreatAloneWhenTheMitigationIsNotUpstream() throws {
+        // EC2 -> WAF. The WAF is downstream, so it answers nothing here.
+        let response = assess(
+            ThreatModel(
+                components: [waf(), ec2(id: "c1")],
+                connections: [link("k1", "c1", "w1")],
+                pathwayMitigations: mitigationsOn()
+            )
+        )
+
+        #expect(try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        }).riskScore == 12)
+    }
+
+    @Test func leavesAThreatTheMitigationDoesNotAnswerAlone() throws {
+        let response = assess(
+            ThreatModel(
+                components: [waf(), ec2(id: "c1")],
+                connections: [link("k1", "w1", "c1")],
+                pathwayMitigations: mitigationsOn()
+            )
+        )
+
+        #expect(try #require(response.threats.first {
+            $0.threatId == "misconfiguration" && $0.source.id == "component:c1"
+        }).riskScore == 6)
+    }
+
+    @Test func reachesThroughEveryHop() throws {
+        // WAF -> RDS -> EC2. The WAF is still upstream of EC2.
+        let response = assess(
+            ThreatModel(
+                components: [waf(), rds(id: "c2"), ec2(id: "c1")],
+                connections: [link("k1", "w1", "c2"), link("k2", "c2", "c1")],
+                pathwayMitigations: mitigationsOn()
+            )
+        )
+
+        #expect(try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        }).riskScore == 6)
+    }
+
+    @Test func usesTheSourcesUpstreamForALinksThreats() throws {
+        // WAF -> EC2 -> RDS. The link EC2 to RDS takes the WAF, because the
+        // WAF is upstream of the link's source. Spec section 5.3.
+        let response = assess(
+            ThreatModel(
+                components: [
+                    waf(),
+                    ec2(id: "c1", sensitivity: .internalData),
+                    rds(id: "c2", sensitivity: .internalData)
+                ],
+                connections: [link("k1", "w1", "c1"), link("k2", "c1", "c2")],
+                pathwayMitigations: mitigationsOn()
+            )
+        )
+
+        let flood = try #require(response.threats.first {
+            $0.threatId == "connection-dos" && $0.source.id == "connection:k2"
+        })
+        #expect(flood.riskScore == 1)
+        #expect(flood.scoreBeforePathwayMitigation == 2)
+    }
+
+    @Test func neverMitigatesAZoneThreat() {
+        // A zone sits nowhere in the connection graph, so nothing is upstream
+        // of it.
+        let response = assess(
+            ThreatModel(
+                components: [waf(), ec2(id: "c1")],
+                connections: [link("k1", "w1", "c1")],
+                zones: [privateZone("z1")],
+                pathwayMitigations: mitigationsOn(mode: .remove)
+            )
+        )
+
+        #expect(response.threats.contains { $0.source.id == "zone:z1" })
+    }
 }
