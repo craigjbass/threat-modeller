@@ -137,5 +137,33 @@ final class threatmodellerUITests: XCTestCase {
             "Clicking the control did not record it."
         )
         mark("control recorded")
+
+        // Open the pathway mitigations and switch them on.
+        mark("opening the pathway mitigations")
+        let pathwayHeader = app.descendants(matching: .any)["pathway-mitigations"].firstMatch
+        XCTAssertTrue(
+            pathwayHeader.waitForExistence(timeout: 5),
+            "The pathway mitigations control never appeared in the sidebar."
+        )
+        pathwayHeader.click()
+
+        let master = app.descendants(matching: .any)["pathway-master"].firstMatch
+        XCTAssertTrue(
+            master.waitForExistence(timeout: 5),
+            "Opening the pathway mitigations did not reveal the master switch."
+        )
+        XCTAssertEqual(master.value as? Int, 0, "Pathway mitigations started on.")
+        master.click()
+
+        let switchedOn = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == 1"),
+            object: master
+        )
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [switchedOn], timeout: 10),
+            .completed,
+            "Clicking the master switch did not turn the pathway mitigations on."
+        )
+        mark("pathway mitigations on")
     }
 }
