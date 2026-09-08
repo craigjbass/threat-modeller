@@ -1,0 +1,273 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-notarize:
+    runs-on: macos-26
+    permissions:
+      id-token: write      # required for GitHub attestation
+      contents: write      # required to upload release assets
+      attestations: write  # required for attest-build-provenance
+    env:
+      TAG_NAME: ${{ github.ref_name }}
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+      release_name: ${{ github.ref_name }}
+      provenance_name: threatmodeller-${{ github.ref_name }}.intoto.jsonl
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test the package
+        working-directory: ThreatModelKit
+        run: swift test
+
+      - name: Test the application
+        run: |
+          xcodebuild test \
+            -project threatmodeller.xcodeproj \
+            -scheme threatmodeller \
+            -destination 'platform=macOS'
+
+      - name: Import Developer ID certificate
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          echo "$P12_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 \
+            -k build.keychain \
+            -P "$P12_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/productbuild
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
+
+      - name: Install provisioning profile
+        env:
+          PP_APP_BASE64: ${{ secrets.PROVISIONING_PROFILE_APP }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PP_APP_BASE64" | base64 --decode \
+            > ~/Library/MobileDevice/Provisioning\ Profiles/threatmodeller.provisionprofile
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project threatmodeller.xcodeproj \
+            -scheme threatmodeller \
+            -configuration Release \
+            -archivePath build/threatmodeller.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=37KMK6XFTT
+
+      - name: Export
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/threatmodeller.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Build and sign the command line executable
+        env:
+          VERSION_NAME: ${{ github.ref_name }}
+        run: |
+          # The executable ships beside the application: the same use cases run
+          # in continuous integration through it.
+          cd ThreatModelKit
+          swift build -c release --product threatmodeller-cli --arch arm64 --arch x86_64
+          cd ..
+
+          mkdir -p "build/cli/threatmodeller-${VERSION_NAME}"
+          CLI_OUT="build/cli/threatmodeller-${VERSION_NAME}"
+          cp ThreatModelKit/.build/apple/Products/Release/threatmodeller-cli "$CLI_OUT/threatmodeller"
+          cp -R ThreatModelKit/Sources/CatalogueGateways/Resources/Library "$CLI_OUT/"
+          cp -R ThreatModelKit/Sources/CatalogueGateways/Resources/Actors "$CLI_OUT/"
+
+          codesign --force --options runtime --timestamp \
+            --sign "Developer ID Application" \
+            "$CLI_OUT/threatmodeller"
+
+          tar czf "build/threatmodeller-cli-${VERSION_NAME}-macos.tar.gz" \
+            -C build/cli "threatmodeller-${VERSION_NAME}"
+
+      - name: Package DMG
+        env:
+          VERSION_NAME: ${{ github.ref_name }}
+        run: |
+          # Create a writable staging image large enough to hold the app + layout metadata
+          hdiutil create \
+            -volname "threatmodeller" \
+            -size 200m \
+            -fs HFS+ \
+            -layout SPUD \
+            -ov \
+            build/threatmodeller-staging.dmg
+
+          # Mount it and copy in the app + an Applications symlink
+          hdiutil attach -readwrite -noverify build/threatmodeller-staging.dmg
+          MOUNT="/Volumes/threatmodeller"
+          cp -R "build/export/threatmodeller.app" "$MOUNT/"
+          ln -s /Applications "$MOUNT/Applications"
+
+          # Set Finder window size, background colour, and icon positions via osascript
+          osascript <<APPLESCRIPT
+          tell application "Finder"
+            tell disk "threatmodeller"
+              open
+              set current view of container window to icon view
+              set toolbar visible of container window to false
+              set statusbar visible of container window to false
+              set the bounds of container window to {400, 100, 1000, 500}
+              set viewOptions to the icon view options of container window
+              set arrangement of viewOptions to not arranged
+              set icon size of viewOptions to 128
+              set background color of viewOptions to {61166, 61166, 61166}
+              set position of item "threatmodeller.app" of container window to {175, 190}
+              set position of item "Applications" of container window to {425, 190}
+              close
+              open
+              update without registering applications
+              delay 2
+              close
+            end tell
+          end tell
+          APPLESCRIPT
+
+          hdiutil detach "$MOUNT"
+
+          # Convert to a compressed, read-only final image
+          hdiutil convert build/threatmodeller-staging.dmg \
+            -format UDZO \
+            -o "build/threatmodeller-${VERSION_NAME}.dmg"
+          rm build/threatmodeller-staging.dmg
+
+      - name: Notarize DMG and command line executable
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_API_PRIVATE_KEY }}
+          VERSION_NAME: ${{ github.ref_name }}
+        run: |
+          echo "$ASC_PRIVATE_KEY" > AuthKey.p8
+
+          xcrun notarytool submit \
+            "build/threatmodeller-${VERSION_NAME}.dmg" \
+            --key AuthKey.p8 \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --wait \
+            --timeout 30m
+
+          # A tar archive cannot be stapled, so the executable inside it is
+          # notarized and Gatekeeper checks it online on first run.
+          xcrun notarytool submit \
+            "build/threatmodeller-cli-${VERSION_NAME}-macos.tar.gz" \
+            --key AuthKey.p8 \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --wait \
+            --timeout 30m
+
+          rm AuthKey.p8
+          xcrun stapler staple "build/threatmodeller-${VERSION_NAME}.dmg"
+
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            build/threatmodeller-${{ github.ref_name }}.dmg
+            build/threatmodeller-cli-${{ github.ref_name }}-macos.tar.gz
+
+      - name: Stage Sigstore bundle as release asset
+        env:
+          VERSION_NAME: ${{ github.ref_name }}
+        run: |
+          cp "${{ steps.attest.outputs.bundle-path }}" \
+             "build/threatmodeller-${VERSION_NAME}.sigstore"
+
+      - name: Compute artifact hashes for SLSA provenance
+        id: hash
+        env:
+          VERSION_NAME: ${{ github.ref_name }}
+        run: |
+          cd build
+          HASHES=$(shasum -a 256 \
+            "threatmodeller-${VERSION_NAME}.dmg" \
+            "threatmodeller-cli-${VERSION_NAME}-macos.tar.gz" \
+            | base64 | tr -d '\n')
+          echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release assets as workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-assets
+          path: |
+            build/threatmodeller-${{ github.ref_name }}.dmg
+            build/threatmodeller-cli-${{ github.ref_name }}-macos.tar.gz
+            build/threatmodeller-${{ github.ref_name }}.sigstore
+          if-no-files-found: error
+          retention-days: 1
+
+  provenance:
+    needs: build-and-notarize
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
+    with:
+      base64-subjects: ${{ needs.build-and-notarize.outputs.hashes }}
+      provenance-name: ${{ needs.build-and-notarize.outputs.provenance_name }}
+      compile-generator: true
+
+  publish:
+    needs: [build-and-notarize, provenance]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG_NAME: ${{ github.ref_name }}
+      PROVENANCE_NAME: ${{ needs.build-and-notarize.outputs.provenance_name }}
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-assets
+          path: artifacts
+
+      - name: Download SLSA provenance
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build-and-notarize.outputs.provenance_name }}
+          path: artifacts
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG_NAME" \
+            "artifacts/threatmodeller-${TAG_NAME}.dmg" \
+            "artifacts/threatmodeller-cli-${TAG_NAME}-macos.tar.gz" \
+            "artifacts/threatmodeller-${TAG_NAME}.sigstore" \
+            "artifacts/${PROVENANCE_NAME}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --generate-notes \
+            --title "$TAG_NAME"
