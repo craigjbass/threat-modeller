@@ -75,4 +75,29 @@ nonisolated enum CanvasHitTest {
         }
         return box.resized(by: drag.translation, from: handle)
     }
+
+    /// A canvas with nothing on it is still somewhere to draw.
+    static let minimumContentSize = CGSize(width: 4000, height: 3000)
+    /// Room past the farthest thing, so a node can always be dragged further
+    /// out than whatever is currently farthest.
+    static let contentMargin: CGFloat = 1000
+
+    /// How big the drawing layer has to be to hold everything, with room to
+    /// spare. A fixed square either wastes memory or clips a saved model that
+    /// reaches past it.
+    static func contentSize(components: [ViewedComponent], zones: [ViewedZone]) -> CGSize {
+        var width = minimumContentSize.width - contentMargin
+        var height = minimumContentSize.height - contentMargin
+
+        for component in components {
+            width = max(width, component.x + ComponentBox.size.width)
+            height = max(height, component.y + ComponentBox.size.height)
+        }
+        for zone in zones {
+            width = max(width, zone.x + zone.width)
+            height = max(height, zone.y + zone.height)
+        }
+
+        return CGSize(width: width + contentMargin, height: height + contentMargin)
+    }
 }

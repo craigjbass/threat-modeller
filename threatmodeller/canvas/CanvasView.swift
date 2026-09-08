@@ -24,8 +24,8 @@ struct CanvasView: View {
 
     var body: some View {
         // A GeometryReader takes the space the split view offers and never
-        // reports its children's size back up. Without it the 20000 point
-        // drawing layer sizes the whole window.
+        // reports its children's size back up. Without it the drawing layer,
+        // which is thousands of points across, sizes the whole window.
         GeometryReader { _ in
             ZStack(alignment: .topLeading) {
                 Color(nsColor: .textBackgroundColor)
@@ -117,7 +117,7 @@ struct CanvasView: View {
                 selectedConnectionIds: canvas.selectedConnectionIds,
                 preview: previewLine
             )
-            .frame(width: 20000, height: 20000)
+            .frame(width: contentSize.width, height: contentSize.height)
 
             ForEach(session.canvas.components, id: \.id) { component in
                 let componentBox = boxes[component.id] ?? ComponentBox(x: component.x, y: component.y)
@@ -180,6 +180,15 @@ struct CanvasView: View {
         guard canvas.selectedZoneIds.count == 1,
               let zoneId = canvas.selectedZoneIds.first else { return nil }
         return session.canvas.zones.first { $0.id == zoneId }
+    }
+
+    /// The drawing layer follows the model, so a saved diagram that reaches
+    /// far from the origin still draws its links.
+    private var contentSize: CGSize {
+        CanvasHitTest.contentSize(
+            components: session.canvas.components,
+            zones: session.canvas.zones
+        )
     }
 
     private var previewLine: (start: CGPoint, end: CGPoint)? {

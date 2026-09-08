@@ -162,4 +162,41 @@ struct CanvasHitTestTests {
         #expect(CanvasHitTest.zone(under: CGPoint(x: 200, y: 200), zones: zones) == "z2")
         #expect(CanvasHitTest.zone(under: CGPoint(x: 5000, y: 5000), zones: zones) == nil)
     }
+
+    @Test func givesAnEmptyModelARoomySquare() {
+        let size = CanvasHitTest.contentSize(components: [], zones: [])
+
+        #expect(size.width == CanvasHitTest.minimumContentSize.width)
+        #expect(size.height == CanvasHitTest.minimumContentSize.height)
+    }
+
+    @Test func growsToHoldTheFarthestComponent() {
+        let size = CanvasHitTest.contentSize(
+            components: [component("c1", x: 9000, y: 40)],
+            zones: []
+        )
+
+        #expect(size.width > 9000 + ComponentBox.size.width)
+        #expect(size.height == CanvasHitTest.minimumContentSize.height)
+    }
+
+    @Test func growsToHoldTheFarthestZone() {
+        let size = CanvasHitTest.contentSize(
+            components: [],
+            zones: [viewedZone("z1", x: 0, y: 8000)]
+        )
+
+        #expect(size.height > 8000)
+    }
+
+    @Test func leavesRoomToDragPastTheFarthestThing() {
+        let size = CanvasHitTest.contentSize(
+            components: [component("c1", x: 3000, y: 3000)],
+            zones: []
+        )
+
+        // The user has to be able to drag a node past whatever is currently
+        // farthest out, so the layer is bigger than what it holds.
+        #expect(size.width >= 3000 + ComponentBox.size.width + CanvasHitTest.contentMargin)
+    }
 }
