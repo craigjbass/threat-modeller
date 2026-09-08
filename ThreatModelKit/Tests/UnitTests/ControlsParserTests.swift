@@ -79,7 +79,7 @@ struct ControlsParserTests {
     @Test func readsWhatRaisedEachThreat() throws {
         let source = try #require(gateway.read(golden).source)
 
-        #expect(source.answer(for: ThreatKey("man-in-the-middle@flow:api->db")) != nil)
+        #expect(source.answer(for: ThreatKey("man-in-the-middle@connection:api->db")) != nil)
         #expect(source.answer(for: ThreatKey("lateral-movement@zone:app")) != nil)
     }
 

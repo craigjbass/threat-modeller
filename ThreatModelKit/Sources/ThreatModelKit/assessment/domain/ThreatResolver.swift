@@ -6,12 +6,26 @@ public struct ResolvedControl: Equatable, Sendable {
     public let key: ControlKey
     /// True when the model records this control as in place.
     public let isImplemented: Bool
+    /// What the user said about it. A control nobody has answered is
+    /// `not_implemented`.
+    public let status: ControlStatus
+    /// What the user wrote beside the answer, or nil.
+    public let note: String?
 
-    public init(description: String, isTechnologySpecific: Bool, key: ControlKey, isImplemented: Bool) {
+    public init(
+        description: String,
+        isTechnologySpecific: Bool,
+        key: ControlKey,
+        isImplemented: Bool,
+        status: ControlStatus? = nil,
+        note: String? = nil
+    ) {
         self.description = description
         self.isTechnologySpecific = isTechnologySpecific
         self.key = key
         self.isImplemented = isImplemented
+        self.status = status ?? (isImplemented ? .implemented : .notImplemented)
+        self.note = note
     }
 }
 
@@ -66,6 +80,11 @@ public struct ResolvedThreat: Equatable, Sendable {
     public let overriddenSeverityId: String?
     /// The mitigations that answered this threat. Empty when none did.
     public let mitigatedBy: [PathwayMitigationDefinition]
+    /// What compensates this threat, from the controls file.
+    public let compensating: [CompensatingControl]
+    /// The score before the compensating control was applied. Equal to
+    /// `score.value` when none was.
+    public let scoreBeforeCompensation: Int
     /// The score before any pathway mitigation. Equal to `score.value` when
     /// none applied.
     public let scoreBeforePathwayMitigation: Int
@@ -82,8 +101,12 @@ public struct ResolvedThreat: Equatable, Sendable {
         overrideKey: SeverityOverrideKey,
         overriddenSeverityId: String?,
         mitigatedBy: [PathwayMitigationDefinition],
-        scoreBeforePathwayMitigation: Int
+        scoreBeforePathwayMitigation: Int,
+        compensating: [CompensatingControl] = [],
+        scoreBeforeCompensation: Int? = nil
     ) {
+        self.compensating = compensating
+        self.scoreBeforeCompensation = scoreBeforeCompensation ?? score.value
         self.threat = threat
         self.severity = severity
         self.source = source
@@ -126,7 +149,7 @@ public struct ThreatResolver {
             let pair = "\(threat.threat.id.value)@\(threat.source.id)"
             guard raised.contains(pair) == false else { return }
             raised.insert(pair)
-            resolved.append(threat)
+            resolved.append(compensated(threat))
         }
 
         // Derived, never stored. Spec section 5.2.
@@ -296,6 +319,36 @@ public struct ThreatResolver {
         return resolved.sorted(by: Self.ordering)
     }
 
+    /// Spec section 5: a compensating control is applied last, after the zone
+    /// reduction and after the pathway mitigation. Two on one threat give the
+    /// stronger, not the sum, which is the rule the pathway mitigations follow.
+    private func compensated(_ threat: ResolvedThreat) -> ResolvedThreat {
+        let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
+        guard let controls = model.compensatingControls[key], controls.isEmpty == false else {
+            return threat
+        }
+
+        let strongest = controls.map(\.reducesRiskBy).max() ?? 0
+        let reduced = max(1, Int((Double(threat.score.value) * (1 - Double(strongest) / 100)).rounded()))
+
+        return ResolvedThreat(
+            threat: threat.threat,
+            severity: threat.severity,
+            source: threat.source,
+            sensitivity: threat.sensitivity,
+            score: RiskScore(value: reduced),
+            controls: threat.controls,
+            context: threat.context,
+            isTlsMitigated: threat.isTlsMitigated,
+            overrideKey: threat.overrideKey,
+            overriddenSeverityId: threat.overriddenSeverityId,
+            mitigatedBy: threat.mitigatedBy,
+            scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
+            compensating: controls,
+            scoreBeforeCompensation: threat.score.value
+        )
+    }
+
     /// The severity a threat is scored with: the one the user overrode it to
     /// when the taxonomy knows that id, else the threat's own. An override to
     /// an id the taxonomy has never heard of is ignored rather than trusted;
@@ -399,7 +452,8 @@ public struct ThreatResolver {
                 description: description,
                 isTechnologySpecific: isTechnologySpecific,
                 key: key,
-                isImplemented: model.implementedControls.contains(key)
+                isImplemented: model.controlStatuses[key]?.isRecorded == true,
+                status: model.controlStatuses[key] ?? .notImplemented
             )
         }
     }
@@ -414,7 +468,8 @@ public struct ThreatResolver {
                 description: control.description,
                 isTechnologySpecific: false,
                 key: key,
-                isImplemented: model.implementedControls.contains(key)
+                isImplemented: model.controlStatuses[key]?.isRecorded == true,
+                status: model.controlStatuses[key] ?? .notImplemented
             )
         }
     }

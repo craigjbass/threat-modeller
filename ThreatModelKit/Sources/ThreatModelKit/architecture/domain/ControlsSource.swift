@@ -54,9 +54,20 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         self.isStale = isStale
     }
 
-    /// The source id the resolver mints: the kind, then the identifier.
+    /// The source id the resolver mints. The file says `flow`, and the
+    /// resolver says `connection`; this is the one place that maps them.
     public var key: ThreatKey {
-        ThreatKey(threatId: threatId, sourceId: "\(sourceKind):\(sourceId)")
+        ThreatKey(threatId: threatId, sourceId: "\(Self.resolverKind(sourceKind)):\(sourceId)")
+    }
+
+    /// The word the resolver uses for what a file calls `sourceKind`.
+    public static func resolverKind(_ sourceKind: String) -> String {
+        sourceKind == "flow" ? "connection" : sourceKind
+    }
+
+    /// The word a file uses for what the resolver calls `resolverKind`.
+    public static func fileKind(_ resolverKind: String) -> String {
+        resolverKind == "connection" ? "flow" : resolverKind
     }
 
     public var isAnswered: Bool {

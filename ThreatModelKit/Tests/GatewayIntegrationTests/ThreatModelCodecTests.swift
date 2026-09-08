@@ -77,7 +77,7 @@ struct ThreatModelCodecTests {
         )
 
         #expect(json["formatVersion"] as? Int == ThreatModelCodec.formatVersion)
-        #expect(ThreatModelCodec.formatVersion == 2)
+        #expect(ThreatModelCodec.formatVersion == 3)
         let catalogue = try #require(json["catalogue"] as? [String: Any])
         #expect(catalogue["tag"] as? String == "v1.0.1")
         #expect(json["customTechnologies"] as? [Any] != nil)
@@ -122,6 +122,49 @@ struct ThreatModelCodecTests {
         #expect(try codec.decode(data).name == "Payments")
     }
 
+    @Test func carriesTheAnswersAndWhatCompensatesAThreat() throws {
+        let key = ControlKey("component:c1:t:x")
+        let model = ThreatModel(
+            controlStatuses: [key: .accepted],
+            compensatingControls: [
+                ThreatKey("t@component:c1"): [
+                    CompensatingControl(
+                        label: "Watched by the SIEM",
+                        reducesRiskBy: 40,
+                        rationale: "It alerts on use."
+                    )
+                ]
+            ]
+        )
+
+        let read = try codec.decode(try codec.encode(model))
+
+        #expect(read.controlStatuses == model.controlStatuses)
+        #expect(read.compensatingControls == model.compensatingControls)
+        #expect(read.implementedControls.isEmpty)
+    }
+
+    /// A version 2 file has no statuses. Its recorded controls become
+    /// `implemented`, so a user's saved work does not stop opening.
+    @Test func readsAVersionTwoFileAsImplementedStatuses() throws {
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: try codec.encode(fullModel())) as? [String: Any]
+        )
+        json["formatVersion"] = 2
+        json["controlStatuses"] = nil
+        json["compensatingControls"] = nil
+        json.removeValue(forKey: "controlStatuses")
+        json.removeValue(forKey: "compensatingControls")
+        json["implementedControls"] = ["component:c1:t:x"]
+        let data = try JSONSerialization.data(withJSONObject: json)
+
+        let read = try codec.decode(data)
+
+        #expect(read.implementedControls == [ControlKey("component:c1:t:x")])
+        #expect(read.controlStatuses == [ControlKey("component:c1:t:x"): .implemented])
+        #expect(read.compensatingControls.isEmpty)
+    }
+
     @Test func refusesAFormatVersionItDoesNotKnow() throws {
         var json = try #require(
             try JSONSerialization.jsonObject(with: try codec.encode(ThreatModel())) as? [String: Any]
@@ -129,7 +172,7 @@ struct ThreatModelCodecTests {
         json["formatVersion"] = 99
         let data = try JSONSerialization.data(withJSONObject: json)
 
-        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 2)) {
+        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 3)) {
             try codec.decode(data)
         }
     }
@@ -196,9 +239,9 @@ struct ThreatModelCodecTests {
 
     @Test func refusesASnippetFromAVersionItDoesNotKnow() throws {
         let text = try codec.encodeSelection(snippet())
-            .replacingOccurrences(of: "\"formatVersion\" : 2", with: "\"formatVersion\" : 99")
+            .replacingOccurrences(of: "\"formatVersion\" : 3", with: "\"formatVersion\" : 99")
 
-        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 2)) {
+        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 3)) {
             try codec.decodeSelection(text)
         }
     }

@@ -12,8 +12,28 @@ public struct ThreatModel: Equatable, Sendable {
     /// A severity the user has overridden, keyed as spec section 5.3 states.
     /// The value is a severity id the taxonomy resolves.
     public var severityOverrides: [SeverityOverrideKey: String]
+    /// What the user said about each control. A control nobody has answered
+    /// is not in here.
+    public var controlStatuses: [ControlKey: ControlStatus]
+    /// What compensates a threat the catalogue's own controls do not answer.
+    /// Spec section 5: the one thing in a controls file that moves a score.
+    public var compensatingControls: [ThreatKey: [CompensatingControl]]
+
     /// Every control the user has recorded as in place.
-    public var implementedControls: Set<ControlKey>
+    ///
+    /// Derived from the statuses, and written by setting them, so everything
+    /// that read this before Milestone 10B still reads it.
+    public var implementedControls: Set<ControlKey> {
+        get { Set(controlStatuses.filter { $0.value.isRecorded }.keys) }
+        set {
+            for key in controlStatuses.keys where controlStatuses[key]?.isRecorded == true {
+                controlStatuses[key] = .notImplemented
+            }
+            for key in newValue {
+                controlStatuses[key] = .implemented
+            }
+        }
+    }
     /// How the user has set the pathway mitigations. Starts with the master
     /// toggle off, so nothing is mitigated until they say so.
     public var pathwayMitigations: PathwayMitigationSettings
@@ -35,6 +55,8 @@ public struct ThreatModel: Equatable, Sendable {
         zones: [Zone] = [],
         severityOverrides: [SeverityOverrideKey: String] = [:],
         implementedControls: Set<ControlKey> = [],
+        controlStatuses: [ControlKey: ControlStatus] = [:],
+        compensatingControls: [ThreatKey: [CompensatingControl]] = [:],
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
         createdAt: Date = Date(timeIntervalSince1970: 0),
@@ -46,7 +68,13 @@ public struct ThreatModel: Equatable, Sendable {
         self.connections = connections
         self.zones = zones
         self.severityOverrides = severityOverrides
-        self.implementedControls = implementedControls
+        self.controlStatuses = controlStatuses
+        self.compensatingControls = compensatingControls
+        // The two ways of saying the same thing meet here: a caller may pass
+        // either, and a recorded control is a status.
+        for key in implementedControls {
+            self.controlStatuses[key] = .implemented
+        }
         self.pathwayMitigations = pathwayMitigations
         self.customTechnologies = customTechnologies
         self.createdAt = createdAt

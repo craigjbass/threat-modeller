@@ -15,6 +15,10 @@ struct DocumentJSON: Codable {
     let customTechnologies: [CustomTechnologyJSON]
     let severityOverrides: [String: String]
     let implementedControls: [String]
+    /// Version 3 adds these. A version 1 or 2 file has neither, and its
+    /// `implementedControls` become `implemented` statuses.
+    let controlStatuses: [String: String]?
+    let compensatingControls: [String: [CompensatingControlJSON]]?
     let pathwayMitigations: PathwayMitigationsJSON
 }
 
@@ -59,6 +63,12 @@ struct ZoneJSON: Codable {
     let networkType: String
     let riskReductionEnabled: Bool
     let riskReductionPercent: Int
+}
+
+struct CompensatingControlJSON: Codable {
+    let label: String
+    let reducesRiskBy: Int
+    let rationale: String
 }
 
 struct PathwayMitigationsJSON: Codable {

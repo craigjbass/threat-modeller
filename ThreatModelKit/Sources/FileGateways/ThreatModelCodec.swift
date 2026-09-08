@@ -8,10 +8,12 @@ import ThreatModelKit
 public struct ThreatModelCodec: ThreatModelFileGateway {
     /// This application's own format version, separate from the catalogue's.
     ///
-    /// Version 2 adds the technologies a model defines for itself. Version 1
-    /// wrote that field as an empty list, so this application reads both.
-    public static let formatVersion = 2
-    private static let readableFormatVersions: Set<Int> = [1, 2]
+    /// Version 2 adds the technologies a model defines for itself. Version 3
+    /// adds a status per control and the compensating controls. An older file
+    /// has neither, and its recorded controls become `implemented` statuses,
+    /// so a user's saved work does not stop opening.
+    public static let formatVersion = 3
+    private static let readableFormatVersions: Set<Int> = [1, 2, 3]
 
     public init() {}
 
@@ -37,6 +39,23 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     uniqueKeysWithValues: model.severityOverrides.map { ($0.key.value, $0.value) }
                 ),
                 implementedControls: model.implementedControls.map(\.value).sorted(),
+                controlStatuses: Dictionary(
+                    uniqueKeysWithValues: model.controlStatuses.map { ($0.key.value, $0.value.rawValue) }
+                ),
+                compensatingControls: Dictionary(
+                    uniqueKeysWithValues: model.compensatingControls.map { key, controls in
+                        (
+                            key.value,
+                            controls.map {
+                                CompensatingControlJSON(
+                                    label: $0.label,
+                                    reducesRiskBy: $0.reducesRiskBy,
+                                    rationale: $0.rationale
+                                )
+                            }
+                        )
+                    }
+                ),
                 pathwayMitigations: PathwayMitigationsJSON(
                     isMasterEnabled: model.pathwayMitigations.isMasterEnabled,
                     configs: Dictionary(
@@ -79,6 +98,25 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 }
             ),
             implementedControls: Set(document.implementedControls.map(ControlKey.init)),
+            controlStatuses: Dictionary(
+                uniqueKeysWithValues: (document.controlStatuses ?? [:]).compactMap { key, raw in
+                    ControlStatus(rawValue: raw).map { (ControlKey(key), $0) }
+                }
+            ),
+            compensatingControls: Dictionary(
+                uniqueKeysWithValues: (document.compensatingControls ?? [:]).map { key, controls in
+                    (
+                        ThreatKey(key),
+                        controls.map {
+                            CompensatingControl(
+                                label: $0.label,
+                                reducesRiskBy: $0.reducesRiskBy,
+                                rationale: $0.rationale
+                            )
+                        }
+                    )
+                }
+            ),
             pathwayMitigations: PathwayMitigationSettings(
                 isMasterEnabled: document.pathwayMitigations.isMasterEnabled,
                 configs: Dictionary(

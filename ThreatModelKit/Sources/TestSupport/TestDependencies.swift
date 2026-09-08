@@ -8,6 +8,9 @@ import FileGateways
 public final class TestDependencies: UseCaseFactory {
     private let catalogue: InMemoryTechnologyCatalogue
     private let models: ThreatModelGateway
+    /// The store, so a test can state domain facts a use case does not yet
+    /// write. Every other test goes through the use cases.
+    public var modelStore: ThreatModelGateway { models }
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
     /// The project this composition root wires, so a test can put a file in
