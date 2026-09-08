@@ -73,6 +73,7 @@ public struct ListPathwayMitigations: ListPathwayMitigationsUseCase {
         let model = models.current()
         let settings = model.pathwayMitigations
         let present = Set(model.components.map(\.technologyId))
+        let lookup = TechnologyLookup(model: model, catalogue: catalogue)
 
         // Every threat the catalogue knows, so a mitigation can be named after
         // what it answers rather than after threat ids.
@@ -98,7 +99,7 @@ public struct ListPathwayMitigations: ListPathwayMitigationsUseCase {
                     mode: config.mode.rawValue,
                     reductionPercent: config.reductionPercent,
                     providedByTechnologyNames: definition.technologyIds.compactMap {
-                        catalogue.findById($0)?.name
+                        lookup.findById($0)?.name
                     },
                     mitigatedThreatNames: definition.mitigatesThreatIds.compactMap { threatNames[$0] },
                     isProvidedOnThisModel: definition.technologyIds.contains(where: present.contains)

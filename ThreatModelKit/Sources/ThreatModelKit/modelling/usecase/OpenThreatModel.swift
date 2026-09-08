@@ -67,9 +67,12 @@ public struct OpenThreatModel: OpenThreatModelUseCase {
 
         models.save(model)
 
+        // A technology the model defines travels in the file, so it is
+        // never drift, however old the catalogue is.
+        let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         let unknown = model.components
             .map(\.technologyId)
-            .filter { catalogue.findById($0) == nil }
+            .filter { lookup.findById($0) == nil }
             .map(\.value)
 
         return .opened(

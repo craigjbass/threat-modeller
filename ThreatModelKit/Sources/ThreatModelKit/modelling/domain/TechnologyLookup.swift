@@ -41,6 +41,16 @@ public struct TechnologyLookup {
             + catalogue.all().filter { ownIds.contains($0.id) == false }
     }
 
+    /// The model's own provider first, when the model defines anything.
+    public func providers() -> [Provider] {
+        let own = Provider(
+            id: CustomTechnology.provider,
+            displayName: CustomTechnology.providerDisplayName
+        )
+        let rest = catalogue.providers().filter { $0.id != own.id }
+        return customOrder.isEmpty ? rest : [own] + rest
+    }
+
     /// Every threat the catalogue defines, wherever it defines it.
     ///
     /// WARNING: this walks every technology. At 277 technologies that is

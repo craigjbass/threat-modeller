@@ -35,7 +35,8 @@ public struct AddComponent: AddComponentUseCase {
 
     public func execute(_ request: AddComponentRequest) -> AddComponentResponse {
         let technologyId = TechnologyId(request.technologyId)
-        guard catalogue.findById(technologyId) != nil else {
+        let lookup = TechnologyLookup(model: models.current(), catalogue: catalogue)
+        guard lookup.findById(technologyId) != nil else {
             return .unknownTechnology
         }
         guard let sensitivity = DataSensitivity(rawValue: request.sensitivity) else {

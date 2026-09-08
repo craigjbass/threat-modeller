@@ -3,7 +3,7 @@ import ThreatModelKit
 import TestSupport
 
 struct ListTechnologiesTests {
-    private let useCase = ListTechnologies(catalogue: CatalogueFixture.catalogue())
+    private let useCase = ListTechnologies(models: InMemoryThreatModelGateway(), catalogue: CatalogueFixture.catalogue())
 
     @Test func groupsTechnologiesUnderTheirProvider() {
         let response = useCase.execute(ListTechnologiesRequest())
@@ -47,7 +47,7 @@ struct ListTechnologiesTests {
             providers: CatalogueFixture.providers()
         )
 
-        let response = ListTechnologies(catalogue: catalogue).execute(ListTechnologiesRequest())
+        let response = ListTechnologies(models: InMemoryThreatModelGateway(), catalogue: catalogue).execute(ListTechnologiesRequest())
         let compute = try #require(response.providers.first?.categories.first)
         #expect(compute.technologies.map(\.name) == ["alpha", "Zeta"])
         #expect(compute.technologies.first?.id == "aws-alpha")
@@ -61,7 +61,7 @@ struct ListTechnologiesTests {
             taxonomy: CatalogueFixture.taxonomy(),
             providers: CatalogueFixture.providers()
         )
-        let response = ListTechnologies(catalogue: catalogue).execute(ListTechnologiesRequest())
+        let response = ListTechnologies(models: InMemoryThreatModelGateway(), catalogue: catalogue).execute(ListTechnologiesRequest())
         #expect(response.providers.isEmpty)
     }
 }

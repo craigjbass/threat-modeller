@@ -14,6 +14,10 @@ public protocol UseCaseFactory {
     func duplicateSelection() -> DuplicateSelectionUseCase
     func undoLastChange() -> UndoLastChangeUseCase
     func redoChange() -> RedoChangeUseCase
+    func createCustomTechnology() -> CreateCustomTechnologyUseCase
+    func editCustomTechnology() -> EditCustomTechnologyUseCase
+    func deleteCustomTechnology() -> DeleteCustomTechnologyUseCase
+    func listThreatChoices() -> ListThreatChoicesUseCase
     func listTechnologies() -> ListTechnologiesUseCase
     func viewThreatModel() -> ViewThreatModelUseCase
     func addComponent() -> AddComponentUseCase

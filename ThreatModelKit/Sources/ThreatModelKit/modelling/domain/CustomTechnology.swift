@@ -9,6 +9,9 @@ public struct CustomTechnology: Equatable, Sendable {
     /// group them together.
     public static let provider = ProviderId("custom")
 
+    /// What the palette calls that group.
+    public static let providerDisplayName = "This Model"
+
     public let id: TechnologyId
     public var name: String
     public var provider: ProviderId

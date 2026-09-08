@@ -54,8 +54,24 @@ nonisolated final class Dependencies: UseCaseFactory {
         RedoChange(models: models)
     }
 
+    func createCustomTechnology() -> CreateCustomTechnologyUseCase {
+        CreateCustomTechnology(models: models, catalogue: catalogue, ids: ids)
+    }
+
+    func editCustomTechnology() -> EditCustomTechnologyUseCase {
+        EditCustomTechnology(models: models, catalogue: catalogue)
+    }
+
+    func deleteCustomTechnology() -> DeleteCustomTechnologyUseCase {
+        DeleteCustomTechnology(models: models)
+    }
+
+    func listThreatChoices() -> ListThreatChoicesUseCase {
+        ListThreatChoices(catalogue: catalogue)
+    }
+
     func listTechnologies() -> ListTechnologiesUseCase {
-        ListTechnologies(catalogue: catalogue)
+        ListTechnologies(models: models, catalogue: catalogue)
     }
 
     func viewThreatModel() -> ViewThreatModelUseCase {

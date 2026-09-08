@@ -55,8 +55,24 @@ public final class TestDependencies: UseCaseFactory {
         RedoChange(models: models)
     }
 
+    public func createCustomTechnology() -> CreateCustomTechnologyUseCase {
+        CreateCustomTechnology(models: models, catalogue: catalogue, ids: ids)
+    }
+
+    public func editCustomTechnology() -> EditCustomTechnologyUseCase {
+        EditCustomTechnology(models: models, catalogue: catalogue)
+    }
+
+    public func deleteCustomTechnology() -> DeleteCustomTechnologyUseCase {
+        DeleteCustomTechnology(models: models)
+    }
+
+    public func listThreatChoices() -> ListThreatChoicesUseCase {
+        ListThreatChoices(catalogue: catalogue)
+    }
+
     public func listTechnologies() -> ListTechnologiesUseCase {
-        ListTechnologies(catalogue: catalogue)
+        ListTechnologies(models: models, catalogue: catalogue)
     }
 
     public func viewThreatModel() -> ViewThreatModelUseCase {

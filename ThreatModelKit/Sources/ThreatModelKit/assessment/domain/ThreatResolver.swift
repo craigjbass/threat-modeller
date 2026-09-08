@@ -109,10 +109,12 @@ public struct ResolvedThreat: Equatable, Sendable {
 public struct ThreatResolver {
     private let model: ThreatModel
     private let catalogue: TechnologyCatalogue
+    private let lookup: TechnologyLookup
 
     public init(model: ThreatModel, catalogue: TechnologyCatalogue) {
         self.model = model
         self.catalogue = catalogue
+        lookup = TechnologyLookup(model: model, catalogue: catalogue)
     }
 
     public func resolve() -> [ResolvedThreat] {
@@ -143,11 +145,11 @@ public struct ThreatResolver {
 
         for component in model.components {
             guard component.threatsDisabled == false else { continue }
-            guard let technology = catalogue.findById(component.technologyId) else { continue }
+            guard let technology = lookup.findById(component.technologyId) else { continue }
 
             let multiplier = ZoneMultiplier.value(for: zonesByComponent[component.id])
 
-            for threat in catalogue.threatsFor(technologyId: component.technologyId) {
+            for threat in lookup.threatsFor(technologyId: component.technologyId) {
                 let overrideKey = SeverityOverrideKey.forComponent(
                     technologyId: component.technologyId,
                     threatId: threat.id
@@ -203,8 +205,8 @@ public struct ThreatResolver {
                   let target = model.component(connection.target) else { continue }
             guard source.threatsDisabled == false, target.threatsDisabled == false else { continue }
 
-            let sourceTechnology = catalogue.findById(source.technologyId)
-            let targetTechnology = catalogue.findById(target.technologyId)
+            let sourceTechnology = lookup.findById(source.technologyId)
+            let targetTechnology = lookup.findById(target.technologyId)
             let sensitivity = SensitivityLadder.higher(source.sensitivity, target.sensitivity)
             let multiplier = ZoneMultiplier.valueForConnection(
                 sourceZone: zonesByComponent[source.id],

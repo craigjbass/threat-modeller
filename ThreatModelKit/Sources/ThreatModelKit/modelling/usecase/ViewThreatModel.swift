@@ -151,11 +151,12 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
 
     public func execute(_ request: ViewThreatModelRequest) -> ViewThreatModelResponse {
         let model = models.current()
+        let lookup = TechnologyLookup(model: model, catalogue: catalogue)
 
         return ViewThreatModelResponse(
             name: model.name,
             components: model.components.map { component in
-                let technology = catalogue.findById(component.technologyId)
+                let technology = lookup.findById(component.technologyId)
                 return ViewedComponent(
                     id: component.id.value,
                     technologyId: component.technologyId.value,

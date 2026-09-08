@@ -53,17 +53,20 @@ public struct ListedTechnology: Equatable, Sendable {
 }
 
 public struct ListTechnologies: ListTechnologiesUseCase {
+    private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
 
-    public init(catalogue: TechnologyCatalogue) {
+    public init(models: ThreatModelGateway, catalogue: TechnologyCatalogue) {
+        self.models = models
         self.catalogue = catalogue
     }
 
     public func execute(_ request: ListTechnologiesRequest) -> ListTechnologiesResponse {
         let taxonomy = catalogue.taxonomy()
-        let byProvider = Dictionary(grouping: catalogue.all(), by: \.provider)
+        let lookup = TechnologyLookup(model: models.current(), catalogue: catalogue)
+        let byProvider = Dictionary(grouping: lookup.all(), by: \.provider)
 
-        let providers = catalogue.providers().compactMap { provider -> ListedProvider? in
+        let providers = lookup.providers().compactMap { provider -> ListedProvider? in
             let technologies = byProvider[provider.id] ?? []
             guard technologies.isEmpty == false else { return nil }
 
