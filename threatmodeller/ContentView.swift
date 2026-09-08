@@ -129,8 +129,8 @@ private struct TechnologyRow: View {
 private extension AssessedThreat {
     /// Row key for the threat list. `AssessedThreat` carries no identity
     /// field of its own, so two equal threats would collide as one row.
-    /// The pair of `threatId` and `sourceComponentId` identifies a row.
-    var rowIdentity: String { "\(threatId)#\(sourceComponentId)" }
+    /// The pair of `threatId` and the source's id identifies a row.
+    var rowIdentity: String { "\(threatId)#\(source.id)" }
 }
 
 private struct ThreatListView: View {
@@ -160,7 +160,7 @@ private struct ThreatListView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Text(threat.sourceName)
+                        Text(threat.source.displayName)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Text(threat.context ?? threat.description)

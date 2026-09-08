@@ -54,29 +54,29 @@ struct AssessThreatModelTests {
         #expect(dos.riskLevel == "low")
     }
 
-    @Test func ordersByScoreThenThreatIdThenComponentId() {
+    @Test func ordersByScoreThenThreatIdThenSource() {
         let response = assess(
             ThreatModel(components: [ec2(id: "c2"), ec2(id: "c1", sensitivity: .publicData)])
         )
-        let ordering = response.threats.map { "\($0.riskScore):\($0.threatId):\($0.sourceComponentId)" }
+        let ordering = response.threats.map { "\($0.riskScore):\($0.threatId):\($0.source.id)" }
         #expect(ordering == [
-            "12:credential-theft:c2",
-            "6:misconfiguration:c2",
-            "4:credential-theft:c1",
-            "3:dos-attack:c2",
-            "2:misconfiguration:c1",
-            "1:dos-attack:c1"
+            "12:credential-theft:component:c2",
+            "6:misconfiguration:component:c2",
+            "4:credential-theft:component:c1",
+            "3:dos-attack:component:c2",
+            "2:misconfiguration:component:c1",
+            "1:dos-attack:component:c1"
         ])
     }
 
     @Test func namesTheSourceAfterTheTechnologyUnlessRenamed() throws {
         let plain = assess(ThreatModel(components: [ec2()]))
-        #expect(plain.threats.first?.sourceName == "EC2")
-        #expect(plain.threats.first?.sourceProviderId == "aws")
-        #expect(plain.threats.first?.sourceComponentId == "c1")
+        #expect(try #require(plain.threats.first).source
+                == .component(id: "c1", name: "EC2", providerId: "aws"))
+        #expect(try #require(plain.threats.first).source.displayName == "EC2")
 
         let renamed = assess(ThreatModel(components: [ec2(customName: "Bastion host")]))
-        #expect(renamed.threats.first?.sourceName == "Bastion host")
+        #expect(try #require(renamed.threats.first).source.displayName == "Bastion host")
     }
 
     @Test func prefersTechnologySpecificMitigationsOverGenericControls() throws {

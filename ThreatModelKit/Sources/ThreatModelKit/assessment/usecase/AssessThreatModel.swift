@@ -37,6 +37,36 @@ public struct AssessedControl: Hashable, Sendable {
     }
 }
 
+/// What raised a threat.
+///
+/// Milestone 3 adds a `zone` case. Every call site handles the cases
+/// exhaustively, so a new case is a compile error rather than a silent gap.
+public enum AssessedThreatSource: Hashable, Sendable {
+    case component(id: String, name: String, providerId: String)
+    case connection(id: String, sourceName: String, targetName: String)
+
+    /// The label the user reads on the threat row.
+    public var displayName: String {
+        switch self {
+        case .component(_, let name, _):
+            name
+        case .connection(_, let sourceName, let targetName):
+            "\(sourceName) \u{2192} \(targetName)"
+        }
+    }
+
+    /// Identifies the source across kinds. Two sources of different kinds never
+    /// share one. Used to order rows and to raise a duplicate pair once.
+    public var id: String {
+        switch self {
+        case .component(let id, _, _):
+            "component:\(id)"
+        case .connection(let id, _, _):
+            "connection:\(id)"
+        }
+    }
+}
+
 public struct AssessedThreat: Hashable, Sendable {
     public let threatId: String
     public let name: String
@@ -46,9 +76,7 @@ public struct AssessedThreat: Hashable, Sendable {
     public let stride: [String]
     public let mitreTechniques: [AssessedMitreTechnique]
     public let controls: [AssessedControl]
-    public let sourceComponentId: String
-    public let sourceName: String
-    public let sourceProviderId: String
+    public let source: AssessedThreatSource
     public let sensitivityId: String
     public let riskScore: Int
     public let riskLevel: String
@@ -63,9 +91,7 @@ public struct AssessedThreat: Hashable, Sendable {
         stride: [String],
         mitreTechniques: [AssessedMitreTechnique],
         controls: [AssessedControl],
-        sourceComponentId: String,
-        sourceName: String,
-        sourceProviderId: String,
+        source: AssessedThreatSource,
         sensitivityId: String,
         riskScore: Int,
         riskLevel: String,
@@ -79,9 +105,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.stride = stride
         self.mitreTechniques = mitreTechniques
         self.controls = controls
-        self.sourceComponentId = sourceComponentId
-        self.sourceName = sourceName
-        self.sourceProviderId = sourceProviderId
+        self.source = source
         self.sensitivityId = sensitivityId
         self.riskScore = riskScore
         self.riskLevel = riskLevel
@@ -121,9 +145,11 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                             AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
                         },
                         controls: Self.controls(for: threat, on: technology),
-                        sourceComponentId: component.id.value,
-                        sourceName: component.customName ?? technology.name,
-                        sourceProviderId: technology.provider.value,
+                        source: .component(
+                            id: component.id.value,
+                            name: component.customName ?? technology.name,
+                            providerId: technology.provider.value
+                        ),
                         sensitivityId: component.sensitivity.rawValue,
                         riskScore: score.value,
                         riskLevel: score.level.rawValue,
@@ -148,6 +174,6 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
     private static func ordering(_ a: AssessedThreat, _ b: AssessedThreat) -> Bool {
         if a.riskScore != b.riskScore { return a.riskScore > b.riskScore }
         if a.threatId != b.threatId { return a.threatId < b.threatId }
-        return a.sourceComponentId < b.sourceComponentId
+        return a.source.id < b.source.id
     }
 }

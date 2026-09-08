@@ -40,7 +40,7 @@ struct BuildingAThreatModelTests {
         ])
         #expect(assessment.threats.map(\.riskScore) == [12, 6, 3])
         #expect(assessment.threats.map(\.riskLevel) == ["critical", "medium", "low"])
-        #expect(assessment.threats.allSatisfy { $0.sourceName == "EC2" })
+        #expect(assessment.threats.allSatisfy { $0.source.displayName == "EC2" })
 
         let worst = try #require(assessment.threats.first)
         #expect(worst.name == "Credential Theft")
@@ -80,7 +80,7 @@ struct BuildingAThreatModelTests {
         }
 
         let assessment = app.assessThreatModel().execute(AssessThreatModelRequest())
-        #expect(assessment.threats.contains { $0.sourceComponentId == componentId })
+        #expect(assessment.threats.contains { $0.source.id == "component:\(componentId)" })
     }
 
     @Test func refusesATechnologyTheCatalogueDoesNotHave() {
