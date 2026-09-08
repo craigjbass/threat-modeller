@@ -10,5 +10,6 @@ public protocol UseCaseFactory {
     func addComponent() -> AddComponentUseCase
     func moveComponents() -> MoveComponentsUseCase
     func connectComponents() -> ConnectComponentsUseCase
+    func removeConnection() -> RemoveConnectionUseCase
     func assessThreatModel() -> AssessThreatModelUseCase
 }

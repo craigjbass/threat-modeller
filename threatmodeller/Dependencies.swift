@@ -35,6 +35,10 @@ final class Dependencies: UseCaseFactory {
         ConnectComponents(models: models, ids: ids)
     }
 
+    func removeConnection() -> RemoveConnectionUseCase {
+        RemoveConnection(models: models)
+    }
+
     func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }

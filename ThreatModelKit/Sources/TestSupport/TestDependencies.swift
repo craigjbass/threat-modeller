@@ -34,6 +34,10 @@ public final class TestDependencies: UseCaseFactory {
         ConnectComponents(models: models, ids: ids)
     }
 
+    public func removeConnection() -> RemoveConnectionUseCase {
+        RemoveConnection(models: models)
+    }
+
     public func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }
