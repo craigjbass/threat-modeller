@@ -54,6 +54,14 @@ struct ThreatCard: View {
                 .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
+            if threat.pathwayMitigationLabels.isEmpty == false,
+               threat.scoreBeforePathwayMitigation != threat.riskScore {
+                Text("\(threat.scoreBeforePathwayMitigation)")
+                    .font(.caption.monospacedDigit())
+                    .strikethrough()
+                    .foregroundStyle(.tertiary)
+                    .help(threat.pathwayMitigationLabels.joined(separator: ", "))
+            }
             Text("\(threat.riskLevel.capitalized) · \(threat.riskScore)")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)

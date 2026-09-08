@@ -51,6 +51,8 @@ struct ThreatSidebar: View {
                     description: Text("Add a technology from the palette to see the threats it carries.")
                 )
             } else {
+                PathwayMitigationsPanel(session: session)
+                Divider()
                 RiskSummaryView(summary: session.summary)
                 Divider()
                 ScrollView {

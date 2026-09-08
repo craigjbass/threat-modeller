@@ -291,4 +291,79 @@ struct ThreatModelSessionTests {
 
         #expect(session.errorMessage == "That severity is not in the catalogue.")
     }
+
+    @Test func listsThePathwayMitigationsOnLaunch() throws {
+        let session = session()
+
+        #expect(session.pathwayMitigations.isMasterEnabled == false)
+        let waf = try #require(session.pathwayMitigations.mitigations.first)
+        #expect(waf.id == "waf-protection")
+        #expect(waf.isProvidedOnThisModel == false)
+    }
+
+    @Test func saysWhenTheModelProvidesAMitigation() throws {
+        let session = session()
+
+        session.add(technologyId: "aws-waf", x: 0, y: 0)
+
+        #expect(try #require(session.pathwayMitigations.mitigations.first).isProvidedOnThisModel)
+    }
+
+    @Test func lowersAThreatWhenTheUserSwitchesTheControlOn() throws {
+        let session = session()
+        session.add(technologyId: "aws-waf", x: 0, y: 0)
+        session.add(technologyId: "aws-ec2", x: 300, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
+
+        let before = try #require(
+            session.threats.first { $0.threatId == "credential-theft" }
+        ).riskScore
+
+        session.setPathwayMitigation(
+            id: "waf-protection",
+            isEnabled: true,
+            mode: "reduce",
+            reductionPercent: 50
+        )
+
+        let after = try #require(session.threats.first { $0.threatId == "credential-theft" })
+        #expect(after.riskScore < before)
+        #expect(after.pathwayMitigationLabels == ["WAF Protection"])
+        #expect(session.pathwayMitigations.isMasterEnabled)
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func turnsEveryMitigationOffAtOnce() throws {
+        let session = session()
+        session.add(technologyId: "aws-waf", x: 0, y: 0)
+        session.add(technologyId: "aws-ec2", x: 300, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
+        session.setPathwayMitigation(
+            id: "waf-protection",
+            isEnabled: true,
+            mode: "reduce",
+            reductionPercent: 50
+        )
+
+        session.setPathwayMaster(false)
+
+        #expect(session.pathwayMitigations.isMasterEnabled == false)
+        #expect(try #require(session.threats.first { $0.threatId == "credential-theft" })
+                .pathwayMitigationLabels.isEmpty)
+    }
+
+    @Test func reportsAReductionOutsideTheRangeOnAMitigation() {
+        let session = session()
+
+        session.setPathwayMitigation(
+            id: "waf-protection",
+            isEnabled: true,
+            mode: "reduce",
+            reductionPercent: 500
+        )
+
+        #expect(session.errorMessage == "Risk reduction must be between 0 and 100 per cent.")
+    }
 }

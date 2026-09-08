@@ -31,6 +31,10 @@ final class ThreatModelSession {
     )
     /// The severities the override menu offers.
     private(set) var severityChoices: [AssessedSeverity] = []
+    private(set) var pathwayMitigations = ListPathwayMitigationsResponse(
+        isMasterEnabled: false,
+        mitigations: []
+    )
     private(set) var errorMessage: String?
 
     /// Where a double-click on a palette row puts a component, in model
@@ -255,6 +259,47 @@ final class ThreatModelSession {
         refresh()
     }
 
+    func setPathwayMaster(_ isEnabled: Bool) {
+        apply(
+            ConfigurePathwayMitigationsRequest(
+                isMasterEnabled: isEnabled,
+                mitigationId: nil,
+                isEnabled: true,
+                mode: PathwayMitigationMode.reduce.rawValue,
+                reductionPercent: 50
+            )
+        )
+    }
+
+    /// Setting any one mitigation also turns the master toggle on: a user who
+    /// reaches for one control means it to take effect.
+    func setPathwayMitigation(id: String, isEnabled: Bool, mode: String, reductionPercent: Int) {
+        apply(
+            ConfigurePathwayMitigationsRequest(
+                isMasterEnabled: true,
+                mitigationId: id,
+                isEnabled: isEnabled,
+                mode: mode,
+                reductionPercent: reductionPercent
+            )
+        )
+    }
+
+    private func apply(_ request: ConfigurePathwayMitigationsRequest) {
+        switch useCases.configurePathwayMitigations().execute(request) {
+        case .configured:
+            errorMessage = nil
+        case .unknownMitigation:
+            errorMessage = "That mitigation is not in the catalogue."
+        case .unknownMode:
+            errorMessage = "That mitigation mode is not recognised."
+        case .reductionOutOfRange:
+            errorMessage = "Risk reduction must be between 0 and 100 per cent."
+        }
+
+        refresh()
+    }
+
     /// Spec section 2: the delivery mechanism calls `AssessThreatModel`
     /// explicitly after each change, and reads the canvas the same way.
     private func refresh() {
@@ -263,5 +308,7 @@ final class ThreatModelSession {
         threats = assessment.threats
         severityChoices = assessment.severities
         summary = useCases.summariseRisk().execute(SummariseRiskRequest())
+        pathwayMitigations = useCases.listPathwayMitigations()
+            .execute(ListPathwayMitigationsRequest())
     }
 }
