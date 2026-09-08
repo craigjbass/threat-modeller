@@ -23,6 +23,9 @@ public struct ViewedComponent: Equatable, Sendable {
     /// True when the catalogue has no entry for `technologyId`. A model saved
     /// against an older catalogue can carry one. The canvas still draws it.
     public let isUnknownTechnology: Bool
+    /// The zone whose rectangle holds this component's centre, or nil.
+    /// Derived from the geometry every time; nothing stores it.
+    public let zoneId: String?
 
     public init(
         id: String,
@@ -34,7 +37,8 @@ public struct ViewedComponent: Equatable, Sendable {
         y: Double,
         sensitivityId: String,
         threatsDisabled: Bool,
-        isUnknownTechnology: Bool
+        isUnknownTechnology: Bool,
+        zoneId: String?
     ) {
         self.id = id
         self.technologyId = technologyId
@@ -46,6 +50,7 @@ public struct ViewedComponent: Equatable, Sendable {
         self.sensitivityId = sensitivityId
         self.threatsDisabled = threatsDisabled
         self.isUnknownTechnology = isUnknownTechnology
+        self.zoneId = zoneId
     }
 }
 
@@ -61,15 +66,67 @@ public struct ViewedConnection: Equatable, Sendable {
     }
 }
 
+public struct ViewedZone: Equatable, Sendable {
+    public let id: String
+    /// What the canvas shows in the zone header: the user's own name, else the
+    /// network type, else the zone kind.
+    public let name: String
+    /// The user's own name, or nil when they have not set one. The panel edits
+    /// this, not `name`.
+    public let customName: String?
+    public let networkZoneId: String
+    public let networkTypeId: String
+    public let riskReductionEnabled: Bool
+    public let riskReductionPercent: Int
+    public let x: Double
+    public let y: Double
+    public let width: Double
+    public let height: Double
+
+    public init(
+        id: String,
+        name: String,
+        customName: String?,
+        networkZoneId: String,
+        networkTypeId: String,
+        riskReductionEnabled: Bool,
+        riskReductionPercent: Int,
+        x: Double,
+        y: Double,
+        width: Double,
+        height: Double
+    ) {
+        self.id = id
+        self.name = name
+        self.customName = customName
+        self.networkZoneId = networkZoneId
+        self.networkTypeId = networkTypeId
+        self.riskReductionEnabled = riskReductionEnabled
+        self.riskReductionPercent = riskReductionPercent
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    }
+}
+
 public struct ViewThreatModelResponse: Equatable, Sendable {
     public let name: String
     public let components: [ViewedComponent]
     public let connections: [ViewedConnection]
+    /// In drawing order. A later zone wins where two overlap.
+    public let zones: [ViewedZone]
 
-    public init(name: String, components: [ViewedComponent], connections: [ViewedConnection]) {
+    public init(
+        name: String,
+        components: [ViewedComponent],
+        connections: [ViewedConnection],
+        zones: [ViewedZone]
+    ) {
         self.name = name
         self.components = components
         self.connections = connections
+        self.zones = zones
     }
 }
 
@@ -101,7 +158,8 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     y: component.position.y,
                     sensitivityId: component.sensitivity.rawValue,
                     threatsDisabled: component.threatsDisabled,
-                    isUnknownTechnology: technology == nil
+                    isUnknownTechnology: technology == nil,
+                    zoneId: ZoneContainment.zone(holding: component.centre, in: model.zones)?.id.value
                 )
             },
             connections: model.connections.map {
@@ -109,6 +167,21 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     id: $0.id.value,
                     sourceComponentId: $0.source.value,
                     targetComponentId: $0.target.value
+                )
+            },
+            zones: model.zones.map {
+                ViewedZone(
+                    id: $0.id.value,
+                    name: $0.displayName,
+                    customName: $0.name,
+                    networkZoneId: $0.networkZone.rawValue,
+                    networkTypeId: $0.networkType.rawValue,
+                    riskReductionEnabled: $0.riskReductionEnabled,
+                    riskReductionPercent: $0.riskReductionPercent,
+                    x: $0.rect.origin.x,
+                    y: $0.rect.origin.y,
+                    width: $0.rect.size.width,
+                    height: $0.rect.size.height
                 )
             }
         )

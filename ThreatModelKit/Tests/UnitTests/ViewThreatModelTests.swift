@@ -83,4 +83,82 @@ struct ViewThreatModelTests {
         #expect(response.connections.first?.sourceComponentId == "c2")
         #expect(response.connections.first?.targetComponentId == "c3")
     }
+
+    private func zone(
+        _ id: String,
+        x: Double = 0,
+        y: Double = 0,
+        name: String? = nil,
+        networkZone: NetworkZone = .privateZone
+    ) -> Zone {
+        Zone(
+            id: ZoneId(id),
+            rect: Rect(x: x, y: y, width: 400, height: 300),
+            name: name,
+            networkZone: networkZone,
+            networkType: .vpc,
+            riskReductionEnabled: true,
+            riskReductionPercent: 35
+        )
+    }
+
+    @Test func describesAZoneForDrawing() throws {
+        let response = view(ThreatModel(zones: [zone("z1", x: 20, y: 30, name: "Payments")]))
+
+        let drawn = try #require(response.zones.first)
+        #expect(drawn.id == "z1")
+        #expect(drawn.name == "Payments")
+        #expect(drawn.customName == "Payments")
+        #expect(drawn.networkZoneId == "private")
+        #expect(drawn.networkTypeId == "vpc")
+        #expect(drawn.riskReductionEnabled)
+        #expect(drawn.riskReductionPercent == 35)
+        #expect(drawn.x == 20)
+        #expect(drawn.y == 30)
+        #expect(drawn.width == 400)
+        #expect(drawn.height == 300)
+    }
+
+    @Test func showsTheFallbackNameForAZoneWithoutOne() throws {
+        let response = view(ThreatModel(zones: [zone("z1")]))
+
+        let drawn = try #require(response.zones.first)
+        #expect(drawn.name == "VPC")
+        #expect(drawn.customName == nil)
+    }
+
+    @Test func listsZonesInDrawingOrder() {
+        let response = view(ThreatModel(zones: [zone("z1"), zone("z2", x: 500)]))
+
+        #expect(response.zones.map(\.id) == ["z1", "z2"])
+    }
+
+    @Test func tellsTheCanvasWhichZoneHoldsAComponent() throws {
+        // The component sits at 100,100 and its centre is 80 by 36 further on,
+        // so it is inside the zone rectangle below the 40 point header.
+        let response = view(
+            ThreatModel(components: [component("c1", x: 100, y: 100)], zones: [zone("z1")])
+        )
+
+        #expect(try #require(response.components.first).zoneId == "z1")
+    }
+
+    @Test func reportsNoZoneForAComponentOutsideEveryZone() throws {
+        let response = view(
+            ThreatModel(components: [component("c1", x: 900, y: 900)], zones: [zone("z1")])
+        )
+
+        #expect(try #require(response.components.first).zoneId == nil)
+    }
+
+    @Test func givesAComponentTheLaterOfTwoOverlappingZones() throws {
+        let response = view(
+            ThreatModel(
+                components: [component("c1", x: 100, y: 100)],
+                zones: [zone("z1"), zone("z2")]
+            )
+        )
+
+        #expect(try #require(response.components.first).zoneId == "z2")
+    }
 }

@@ -15,7 +15,12 @@ final class ThreatModelSession {
 
     private(set) var palette: [ListedProvider] = []
     /// What the canvas draws. Spec section 9 calls this the canvas snapshot.
-    private(set) var canvas = ViewThreatModelResponse(name: "Untitled", components: [], connections: [])
+    private(set) var canvas = ViewThreatModelResponse(
+        name: "Untitled",
+        components: [],
+        connections: [],
+        zones: []
+    )
     private(set) var threats: [AssessedThreat] = []
     private(set) var errorMessage: String?
 
