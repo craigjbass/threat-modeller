@@ -16,7 +16,9 @@ struct ThreatModelSessionTests {
     @Test func loadsThePaletteOnLaunch() {
         let session = session()
 
-        #expect(session.palette.map(\.id) == ["aws", "gcp"])
+        // The external actors are app-owned data, so they sit beside the
+        // vendored providers in the palette.
+        #expect(session.palette.map(\.id) == ["aws", "gcp", "actor"])
         #expect(session.threats.isEmpty)
         #expect(session.canvas.components.isEmpty)
     }

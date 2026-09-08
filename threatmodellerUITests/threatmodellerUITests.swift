@@ -181,4 +181,103 @@ final class threatmodellerUITests: XCTestCase {
         )
         mark("pathway mitigations on")
     }
+
+    /// The external actors are app-owned data, not part of the vendored
+    /// catalogue. A user starts a diagram with the person using the system.
+    @MainActor
+    func testAUserPlacesAnExternalActor() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(
+            app.windows.firstMatch.waitForExistence(timeout: 15),
+            "No document window appeared after asking for a new document."
+        )
+        let window = app.windows.firstMatch
+
+        let category = window.buttons["category-actor-person"]
+        XCTAssertTrue(
+            category.waitForExistence(timeout: 15),
+            "The 'category-actor-person' category never appeared in the palette."
+        )
+        category.click()
+
+        let actor = window.descendants(matching: .any)["technology-actor-user"].firstMatch
+        XCTAssertTrue(
+            actor.waitForExistence(timeout: 5),
+            "Opening the 'People' category did not show the user actor."
+        )
+        actor.doubleClick()
+
+        XCTAssertTrue(
+            window.descendants(matching: .any)["node-actor-user"].firstMatch
+                .waitForExistence(timeout: 10),
+            "Double-clicking the user actor did not put a node on the canvas."
+        )
+    }
+
+    /// A user whose service no library holds names it themselves, then places
+    /// it like any other technology.
+    @MainActor
+    func testAUserDefinesTheirOwnTechnologyAndPlacesIt() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(
+            app.windows.firstMatch.waitForExistence(timeout: 15),
+            "No document window appeared after asking for a new document."
+        )
+        let window = app.windows.firstMatch
+
+        let newTechnology = window.descendants(matching: .any)["new-technology"].firstMatch
+        XCTAssertTrue(
+            newTechnology.waitForExistence(timeout: 15),
+            "The 'New Technology' button never appeared under the palette."
+        )
+        newTechnology.click()
+
+        let nameField = app.descendants(matching: .any)["technology-name"].firstMatch
+        XCTAssertTrue(
+            nameField.waitForExistence(timeout: 10),
+            "Clicking 'New Technology' did not open the editor."
+        )
+        nameField.click()
+        nameField.typeText("Our Ledger")
+
+        let save = app.descendants(matching: .any)["technology-save"].firstMatch
+        XCTAssertTrue(save.exists, "The editor has no save button.")
+        save.click()
+
+        // Opening the editor leaves a second window in the tree, so every
+        // query after it closes reads the application rather than one window.
+        //
+        // The palette groups the model's own technologies under their own
+        // provider, and the group starts closed like every other category.
+        // The identifier carries the category the user chose.
+        let ourCategory = app.buttons
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'category-custom-'"))
+            .firstMatch
+        XCTAssertTrue(
+            ourCategory.waitForExistence(timeout: 10),
+            "Saving the technology did not add the model's own palette group."
+        )
+        ourCategory.click()
+
+        let ourRow = app.staticTexts["Our Ledger"].firstMatch
+        XCTAssertTrue(
+            ourRow.waitForExistence(timeout: 10),
+            "The technology the user defined never appeared in the palette."
+        )
+        ourRow.doubleClick()
+
+        // The identifier carries the generated technology id, so the query
+        // matches on its prefix.
+        let node = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'node-custom-'"))
+            .firstMatch
+        XCTAssertTrue(
+            node.waitForExistence(timeout: 10),
+            "Double-clicking the user's own technology did not put a node on the canvas."
+        )
+    }
 }
