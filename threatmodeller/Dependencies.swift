@@ -19,6 +19,10 @@ final class Dependencies: UseCaseFactory {
         ListTechnologies(catalogue: catalogue)
     }
 
+    func viewThreatModel() -> ViewThreatModelUseCase {
+        ViewThreatModel(models: models, catalogue: catalogue)
+    }
+
     func addComponent() -> AddComponentUseCase {
         AddComponent(models: models, catalogue: catalogue, ids: ids)
     }

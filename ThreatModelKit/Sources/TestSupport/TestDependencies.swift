@@ -18,6 +18,10 @@ public final class TestDependencies: UseCaseFactory {
         ListTechnologies(catalogue: catalogue)
     }
 
+    public func viewThreatModel() -> ViewThreatModelUseCase {
+        ViewThreatModel(models: models, catalogue: catalogue)
+    }
+
     public func addComponent() -> AddComponentUseCase {
         AddComponent(models: models, catalogue: catalogue, ids: ids)
     }

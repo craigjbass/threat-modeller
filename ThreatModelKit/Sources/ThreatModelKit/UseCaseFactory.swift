@@ -6,6 +6,7 @@
 /// until both roots vend it.
 public protocol UseCaseFactory {
     func listTechnologies() -> ListTechnologiesUseCase
+    func viewThreatModel() -> ViewThreatModelUseCase
     func addComponent() -> AddComponentUseCase
     func assessThreatModel() -> AssessThreatModelUseCase
 }
