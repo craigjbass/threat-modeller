@@ -21,5 +21,7 @@ public protocol UseCaseFactory {
     func recordControlImplemented() -> RecordControlImplementedUseCase
     func recordControlNotImplemented() -> RecordControlNotImplementedUseCase
     func summariseRisk() -> SummariseRiskUseCase
+    func listPathwayMitigations() -> ListPathwayMitigationsUseCase
+    func configurePathwayMitigations() -> ConfigurePathwayMitigationsUseCase
     func assessThreatModel() -> AssessThreatModelUseCase
 }

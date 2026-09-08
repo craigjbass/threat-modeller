@@ -78,6 +78,14 @@ public final class TestDependencies: UseCaseFactory {
         SummariseRisk(models: models, catalogue: catalogue)
     }
 
+    public func listPathwayMitigations() -> ListPathwayMitigationsUseCase {
+        ListPathwayMitigations(models: models, catalogue: catalogue)
+    }
+
+    public func configurePathwayMitigations() -> ConfigurePathwayMitigationsUseCase {
+        ConfigurePathwayMitigations(models: models, catalogue: catalogue)
+    }
+
     public func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }
