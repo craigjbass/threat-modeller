@@ -81,6 +81,9 @@ public struct AssessedThreat: Hashable, Sendable {
     public let riskScore: Int
     public let riskLevel: String
     public let context: String?
+    /// True when the threat is one TLS mitigates and an endpoint technology
+    /// enforces encryption. Display only. It never changes `riskScore`.
+    public let isTlsMitigated: Bool
 
     public init(
         threatId: String,
@@ -95,7 +98,8 @@ public struct AssessedThreat: Hashable, Sendable {
         sensitivityId: String,
         riskScore: Int,
         riskLevel: String,
-        context: String?
+        context: String?,
+        isTlsMitigated: Bool
     ) {
         self.threatId = threatId
         self.name = name
@@ -110,9 +114,16 @@ public struct AssessedThreat: Hashable, Sendable {
         self.riskScore = riskScore
         self.riskLevel = riskLevel
         self.context = context
+        self.isTlsMitigated = isTlsMitigated
     }
 }
 
+/// Resolves every threat the model raises, and scores each one.
+///
+/// Component threats come from the component's technology. Connection threats
+/// come from the catalogue and belong to the link, not to either end. Zone
+/// threats and the zone multiplier arrive in Milestone 3; every score here is
+/// the base score.
 public struct AssessThreatModel: AssessThreatModelUseCase {
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
@@ -123,9 +134,19 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
     }
 
     public func execute(_ request: AssessThreatModelRequest) -> AssessThreatModelResponse {
+        let model = models.current()
         var assessed: [AssessedThreat] = []
+        // Spec section 5.3: a duplicate threat and source pair is raised once.
+        var raised: Set<String> = []
 
-        for component in models.current().components {
+        func raise(_ threat: AssessedThreat) {
+            let pair = "\(threat.threatId)@\(threat.source.id)"
+            guard raised.contains(pair) == false else { return }
+            raised.insert(pair)
+            assessed.append(threat)
+        }
+
+        for component in model.components {
             guard component.threatsDisabled == false else { continue }
             guard let technology = catalogue.findById(component.technologyId) else { continue }
 
@@ -133,7 +154,7 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                 let score = RiskScore(severity: threat.severity, sensitivity: component.sensitivity)
                 guard score.value > 0 else { continue }
 
-                assessed.append(
+                raise(
                     AssessedThreat(
                         threatId: threat.id.value,
                         name: threat.name,
@@ -153,13 +174,69 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                         sensitivityId: component.sensitivity.rawValue,
                         riskScore: score.value,
                         riskLevel: score.level.rawValue,
-                        context: technology.threatContext[threat.id]
+                        context: technology.threatContext[threat.id],
+                        isTlsMitigated: false
+                    )
+                )
+            }
+        }
+
+        for connection in model.connections {
+            guard let source = model.component(connection.source),
+                  let target = model.component(connection.target) else { continue }
+            guard source.threatsDisabled == false, target.threatsDisabled == false else { continue }
+
+            let sourceTechnology = catalogue.findById(source.technologyId)
+            let targetTechnology = catalogue.findById(target.technologyId)
+            let sensitivity = SensitivityLadder.higher(source.sensitivity, target.sensitivity)
+
+            for threat in catalogue.connectionThreats() {
+                let score = RiskScore(severity: threat.severity, sensitivity: sensitivity)
+                guard score.value > 0 else { continue }
+
+                raise(
+                    AssessedThreat(
+                        threatId: threat.id.value,
+                        name: threat.name,
+                        description: threat.description,
+                        severityId: threat.severity.id,
+                        severityLabel: threat.severity.label,
+                        stride: threat.stride.map(\.value),
+                        mitreTechniques: threat.mitreTechniques.map {
+                            AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
+                        },
+                        // Spec section 5.3: a link always uses the threat's own
+                        // controls, never a technology's mitigations.
+                        controls: threat.controls.map {
+                            AssessedControl(description: $0.description, isTechnologySpecific: false)
+                        },
+                        source: .connection(
+                            id: connection.id.value,
+                            sourceName: Self.name(of: source, as: sourceTechnology),
+                            targetName: Self.name(of: target, as: targetTechnology)
+                        ),
+                        sensitivityId: sensitivity.rawValue,
+                        riskScore: score.value,
+                        riskLevel: score.level.rawValue,
+                        context: nil,
+                        isTlsMitigated: ConnectionEncryption.isTlsMitigated(
+                            threat: threat,
+                            source: sourceTechnology,
+                            target: targetTechnology
+                        )
                     )
                 )
             }
         }
 
         return AssessThreatModelResponse(threats: assessed.sorted(by: Self.ordering))
+    }
+
+    /// A link still raises its threats when an end's technology has left the
+    /// catalogue: the threats belong to the link, and the sensitivity is stored
+    /// on the component. The technology id stands in for the missing name.
+    private static func name(of component: Component, as technology: Technology?) -> String {
+        component.customName ?? technology?.name ?? component.technologyId.value
     }
 
     private static func controls(for threat: Threat, on technology: Technology) -> [AssessedControl] {
