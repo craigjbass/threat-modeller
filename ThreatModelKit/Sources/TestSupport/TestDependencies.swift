@@ -58,6 +58,26 @@ public final class TestDependencies: UseCaseFactory {
         RemoveZone(models: models)
     }
 
+    public func overrideThreatSeverity() -> OverrideThreatSeverityUseCase {
+        OverrideThreatSeverity(models: models, catalogue: catalogue)
+    }
+
+    public func clearSeverityOverride() -> ClearSeverityOverrideUseCase {
+        ClearSeverityOverride(models: models)
+    }
+
+    public func recordControlImplemented() -> RecordControlImplementedUseCase {
+        RecordControlImplemented(models: models)
+    }
+
+    public func recordControlNotImplemented() -> RecordControlNotImplementedUseCase {
+        RecordControlNotImplemented(models: models)
+    }
+
+    public func summariseRisk() -> SummariseRiskUseCase {
+        SummariseRisk(models: models, catalogue: catalogue)
+    }
+
     public func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }

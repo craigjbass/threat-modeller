@@ -59,6 +59,26 @@ final class Dependencies: UseCaseFactory {
         RemoveZone(models: models)
     }
 
+    func overrideThreatSeverity() -> OverrideThreatSeverityUseCase {
+        OverrideThreatSeverity(models: models, catalogue: catalogue)
+    }
+
+    func clearSeverityOverride() -> ClearSeverityOverrideUseCase {
+        ClearSeverityOverride(models: models)
+    }
+
+    func recordControlImplemented() -> RecordControlImplementedUseCase {
+        RecordControlImplemented(models: models)
+    }
+
+    func recordControlNotImplemented() -> RecordControlNotImplementedUseCase {
+        RecordControlNotImplemented(models: models)
+    }
+
+    func summariseRisk() -> SummariseRiskUseCase {
+        SummariseRisk(models: models, catalogue: catalogue)
+    }
+
     func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }

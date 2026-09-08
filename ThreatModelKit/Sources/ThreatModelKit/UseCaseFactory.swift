@@ -16,5 +16,10 @@ public protocol UseCaseFactory {
     func resizeZone() -> ResizeZoneUseCase
     func setZoneProperties() -> SetZonePropertiesUseCase
     func removeZone() -> RemoveZoneUseCase
+    func overrideThreatSeverity() -> OverrideThreatSeverityUseCase
+    func clearSeverityOverride() -> ClearSeverityOverrideUseCase
+    func recordControlImplemented() -> RecordControlImplementedUseCase
+    func recordControlNotImplemented() -> RecordControlNotImplementedUseCase
+    func summariseRisk() -> SummariseRiskUseCase
     func assessThreatModel() -> AssessThreatModelUseCase
 }
