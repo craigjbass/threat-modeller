@@ -42,6 +42,22 @@ public final class TestDependencies: UseCaseFactory {
         RemoveConnection(models: models)
     }
 
+    public func addZone() -> AddZoneUseCase {
+        AddZone(models: models, ids: ids)
+    }
+
+    public func resizeZone() -> ResizeZoneUseCase {
+        ResizeZone(models: models)
+    }
+
+    public func setZoneProperties() -> SetZonePropertiesUseCase {
+        SetZoneProperties(models: models)
+    }
+
+    public func removeZone() -> RemoveZoneUseCase {
+        RemoveZone(models: models)
+    }
+
     public func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }

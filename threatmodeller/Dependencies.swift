@@ -43,6 +43,22 @@ final class Dependencies: UseCaseFactory {
         RemoveConnection(models: models)
     }
 
+    func addZone() -> AddZoneUseCase {
+        AddZone(models: models, ids: ids)
+    }
+
+    func resizeZone() -> ResizeZoneUseCase {
+        ResizeZone(models: models)
+    }
+
+    func setZoneProperties() -> SetZonePropertiesUseCase {
+        SetZoneProperties(models: models)
+    }
+
+    func removeZone() -> RemoveZoneUseCase {
+        RemoveZone(models: models)
+    }
+
     func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }
