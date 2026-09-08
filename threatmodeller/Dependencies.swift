@@ -11,7 +11,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
-    private let projects: ProjectSourceGateway
+    private let projects: ProjectSourceGateway = FileSystemProject()
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let samples: SampleModelGateway = BundledSampleModels()
     private let clock: Clock = SystemClock()
