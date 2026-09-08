@@ -1,0 +1,49 @@
+name: Linux
+
+# The language and the executable must never import an Apple framework. This
+# job is what enforces it: it builds and tests the package on Ubuntu, then runs
+# the executable over a sample project.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the package
+        working-directory: ThreatModelKit
+        run: swift build --build-tests
+
+      - name: Run the package tests
+        working-directory: ThreatModelKit
+        run: swift test
+
+      - name: Format the sample project
+        working-directory: ThreatModelKit
+        run: |
+          mkdir -p /tmp/sample/threatmodel
+          cat > /tmp/sample/threatmodel/payments.arch <<'ARCH'
+          system "Payments" {
+          zone "app" { kind = "private"
+          component "api" { technology = "aws-ec2" } }
+          }
+          ARCH
+          swift run threatmodeller format /tmp/sample
+          cat /tmp/sample/threatmodel/payments.arch
+
+      - name: Refuse a file that does not parse
+        working-directory: ThreatModelKit
+        run: |
+          mkdir -p /tmp/broken/threatmodel
+          printf 'system "P" {\n  zone "z" { kind = "secret" }\n}\n' \
+            > /tmp/broken/threatmodel/p.arch
+          set +e
+          swift run threatmodeller format /tmp/broken
+          code=$?
+          set -e
+          test "$code" -eq 2 || { echo "expected exit 2, got $code"; exit 1; }

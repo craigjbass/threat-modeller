@@ -10,7 +10,8 @@ let package = Package(
         // the same composition root the package's own tests use.
         .library(name: "TestSupport", targets: ["TestSupport"]),
         .library(name: "FileGateways", targets: ["FileGateways"]),
-        .library(name: "ArchitectureDSL", targets: ["ArchitectureDSL"])
+        .library(name: "ArchitectureDSL", targets: ["ArchitectureDSL"]),
+        .executable(name: "threatmodeller", targets: ["threatmodeller-cli"])
     ],
     targets: [
         .target(name: "ThreatModelKit"),
@@ -26,12 +27,24 @@ let package = Package(
         ),
         .target(name: "ArchitectureDSL", dependencies: ["ThreatModelKit"]),
         .target(
+            name: "CommandLineApplication",
+            dependencies: [
+                "ThreatModelKit", "ArchitectureDSL", "FileGateways", "CatalogueGateways"
+            ]
+        ),
+        .executableTarget(
+            name: "threatmodeller-cli",
+            dependencies: ["CommandLineApplication", "ArchitectureDSL", "FileGateways"]
+        ),
+        .target(
             name: "TestSupport",
             dependencies: ["ThreatModelKit", "FileGateways", "ArchitectureDSL"]
         ),
         .testTarget(
             name: "UnitTests",
-            dependencies: ["ThreatModelKit", "ArchitectureDSL", "TestSupport"]
+            dependencies: [
+                "ThreatModelKit", "ArchitectureDSL", "CommandLineApplication", "TestSupport"
+            ]
         ),
         .testTarget(name: "AcceptanceTests", dependencies: ["ThreatModelKit", "TestSupport"]),
         .testTarget(
