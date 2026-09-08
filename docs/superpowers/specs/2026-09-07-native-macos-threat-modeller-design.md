@@ -379,8 +379,8 @@ Removing a component prunes every `node:{componentId}:` key.
 
 | Port | Responsibility |
 |---|---|
-| `TechnologyCatalogue` | `all()`, `findById(_:)`, `threatsFor(technologyId:)`, `connectionThreats()`, `zoneThreats()`, `taxonomy()`, `pathwayMitigations()` |
-| `ThreatModelGateway` | `current()`, `save(_:)`, `pushHistory()`, `undo()`, `redo()` |
+| `TechnologyCatalogue` | `all()`, `findById(_:)`, `threatsFor(technologyId:)`, `connectionThreats()`, `zoneThreats()`, `taxonomy()`, `pathwayMitigations()`, `version()` |
+| `ThreatModelGateway` | `current()`, `save(_:)`, `mutate(_:)`, `pushHistory()`, `undo()`, `redo()` |
 | `SampleModelGateway` | list and load bundled sample models |
 | `ReportRenderer` | accept a `Report` value tree, write PDF |
 | `CanvasImageRenderer` | produce a PNG of the current canvas (delivery-mechanism gateway) |
@@ -446,10 +446,14 @@ The application's own code is MIT-licensed, as the original is.
 - `FileDocument`, presented through `DocumentGroup`
 - Single JSON file
 
-Contents: model name, created/updated timestamps, components, connections,
-zones, custom technologies, severity overrides, implemented controls, pathway
-mitigation settings, and the catalogue version the model was last assessed
-against.
+Contents: a document format version, model name, created/updated timestamps,
+components, connections, zones, custom technologies, severity overrides,
+implemented controls, pathway mitigation settings, and the catalogue version the
+model was last assessed against.
+
+The format version is the application's own, separate from the catalogue
+version. A reader that meets a version it does not know refuses the file rather
+than guessing at it.
 
 The catalogue version stamp lets the application report drift when a model is
 opened against a newer catalogue — for example a technology or threat that no
@@ -542,8 +546,11 @@ is complete.
 4. **Threat sidebar** — threat cards, STRIDE, MITRE, controls, implementation
    checkboxes, severity overrides, risk summary.
 5. **Pathway mitigations** — upstream graph, per-mitigation configuration UI.
-6. **Documents** — UTType, `DocumentGroup`, save and open, undo/redo,
-   copy/paste/duplicate, menu commands and keyboard shortcuts.
+6. **Documents.** Two subsystems, planned and built as two:
+   - **6A** — the document format, UTType, `DocumentGroup`, save and open, and
+     the drift report when a saved model meets a newer catalogue.
+   - **6B** — undo/redo over the history gateway, copy, cut, paste, duplicate,
+     menu commands and keyboard shortcuts.
 7. **Custom technologies and external actors.**
 8. **Reporting** — Markdown, threatcl HCL, PDF, PNG.
 9. **Samples, About and attribution, theming, app icon, polish.**
