@@ -81,7 +81,11 @@ struct CanvasView: View {
                 }
         )
         .safeAreaInset(edge: .bottom) {
-            if let zone = selectedZone {
+            // One panel at a time. A node and a zone are never both the one
+            // thing selected.
+            if let component = selectedComponent {
+                ComponentPanel(session: session, component: component)
+            } else if let zone = selectedZone {
                 ZonePanel(session: session, zone: zone)
             }
         }
@@ -189,6 +193,12 @@ struct CanvasView: View {
 
     /// The panel edits one zone at a time, so it appears only when exactly one
     /// is selected.
+    private var selectedComponent: ViewedComponent? {
+        guard canvas.selectedComponentIds.count == 1,
+              let componentId = canvas.selectedComponentIds.first else { return nil }
+        return session.canvas.components.first { $0.id == componentId }
+    }
+
     private var selectedZone: ViewedZone? {
         guard canvas.selectedZoneIds.count == 1,
               let zoneId = canvas.selectedZoneIds.first else { return nil }

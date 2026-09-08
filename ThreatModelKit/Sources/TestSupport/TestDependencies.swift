@@ -80,6 +80,10 @@ public final class TestDependencies: UseCaseFactory {
         ExportModelAsMarkdown(reports: buildThreatModelReport())
     }
 
+    public func setComponentProperties() -> SetComponentPropertiesUseCase {
+        SetComponentProperties(models: models)
+    }
+
     public func listSampleModels() -> ListSampleModelsUseCase {
         ListSampleModels(samples: samples)
     }

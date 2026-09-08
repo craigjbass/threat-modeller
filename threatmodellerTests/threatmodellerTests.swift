@@ -508,3 +508,84 @@ struct ThreatModelSessionTests {
         #expect(session.errorMessage == nil)
     }
 }
+
+/// The node panel closes the gap the sensitivity left: until now every risk
+/// score acted on `internal`, because nothing could set anything else.
+@MainActor
+struct ComponentPanelSessionTests {
+    private func session() -> ThreatModelSession {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        return session
+    }
+
+    @Test func namesTheNodeAndRaisesItsScore() throws {
+        let session = session()
+        let componentId = try #require(session.canvas.components.first?.id)
+        let before = try #require(session.threats.first?.riskScore)
+
+        session.setComponentProperties(
+            componentId: componentId,
+            name: "Checkout Server",
+            sensitivityId: "restricted",
+            threatsDisabled: false
+        )
+
+        #expect(session.canvas.components.first?.name == "Checkout Server")
+        #expect(session.canvas.components.first?.customName == "Checkout Server")
+        #expect(try #require(session.threats.first?.riskScore) > before)
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func silencesTheNodeWithoutDeletingIt() throws {
+        let session = session()
+        let componentId = try #require(session.canvas.components.first?.id)
+
+        session.setComponentProperties(
+            componentId: componentId,
+            name: nil,
+            sensitivityId: "internal",
+            threatsDisabled: true
+        )
+
+        #expect(session.threats.isEmpty)
+        #expect(session.canvas.components.count == 1)
+        #expect(session.summary.totalThreats == 0)
+    }
+
+    @Test func saysSoWhenTheSensitivityIsNotOneItHolds() throws {
+        let session = session()
+        let componentId = try #require(session.canvas.components.first?.id)
+
+        session.setComponentProperties(
+            componentId: componentId,
+            name: nil,
+            sensitivityId: "top-secret",
+            threatsDisabled: false
+        )
+
+        #expect(session.errorMessage == "That sensitivity is not one this application holds.")
+    }
+}
+
+@MainActor
+struct SampleBrowserSessionTests {
+    @Test func listsAndOpensTheExamples() throws {
+        let session = ThreatModelSession(useCases: TestDependencies())
+
+        let sample = try #require(session.samples.first)
+        session.loadSample(sample.id)
+
+        #expect(session.canvas.name == sample.name)
+        #expect(session.canvas.components.isEmpty == false)
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func saysSoWhenTheExampleIsGone() {
+        let session = ThreatModelSession(useCases: TestDependencies())
+
+        session.loadSample("no-such-sample")
+
+        #expect(session.errorMessage == "This application no longer holds that example.")
+    }
+}

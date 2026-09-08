@@ -9,6 +9,7 @@ struct CanvasHitTestTests {
             id: id,
             technologyId: "aws-ec2",
             name: "EC2",
+            customName: nil,
             providerId: "aws",
             categoryId: "compute",
             x: x,

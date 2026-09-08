@@ -12,6 +12,9 @@ public struct ViewedComponent: Equatable, Sendable {
     /// The user's own name when they set one, else the technology's name, else
     /// the technology id when the catalogue no longer holds that technology.
     public let name: String
+    /// Only the user's own name, or nil. The node panel needs to tell an
+    /// empty field from a field showing the technology's name.
+    public let customName: String?
     /// Empty when the catalogue no longer holds the technology.
     public let providerId: String
     /// Empty when the catalogue no longer holds the technology.
@@ -31,6 +34,7 @@ public struct ViewedComponent: Equatable, Sendable {
         id: String,
         technologyId: String,
         name: String,
+        customName: String?,
         providerId: String,
         categoryId: String,
         x: Double,
@@ -43,6 +47,7 @@ public struct ViewedComponent: Equatable, Sendable {
         self.id = id
         self.technologyId = technologyId
         self.name = name
+        self.customName = customName
         self.providerId = providerId
         self.categoryId = categoryId
         self.x = x
@@ -161,6 +166,7 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     id: component.id.value,
                     technologyId: component.technologyId.value,
                     name: component.customName ?? technology?.name ?? component.technologyId.value,
+                    customName: component.customName,
                     providerId: technology?.provider.value ?? "",
                     categoryId: technology?.category.value ?? "",
                     x: component.position.x,

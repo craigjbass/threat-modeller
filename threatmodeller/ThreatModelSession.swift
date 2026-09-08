@@ -549,6 +549,33 @@ final class ThreatModelSession {
         errorMessage = "The export could not be written: \(reason)"
     }
 
+    /// Writes what the node panel shows. One call for the name, the
+    /// sensitivity and whether the node raises threats at all.
+    func setComponentProperties(
+        componentId: String,
+        name: String?,
+        sensitivityId: String,
+        threatsDisabled: Bool
+    ) {
+        switch useCases.setComponentProperties().execute(
+            SetComponentPropertiesRequest(
+                componentId: componentId,
+                name: name,
+                sensitivity: sensitivityId,
+                threatsDisabled: threatsDisabled
+            )
+        ) {
+        case .updated:
+            errorMessage = nil
+        case .unknownComponent:
+            errorMessage = "That component is no longer on the model."
+        case .unknownSensitivity:
+            errorMessage = "That sensitivity is not one this application holds."
+        }
+
+        refresh()
+    }
+
     /// The examples the File menu offers.
     var samples: [ListedSample] {
         useCases.listSampleModels().execute(ListSampleModelsRequest()).samples
