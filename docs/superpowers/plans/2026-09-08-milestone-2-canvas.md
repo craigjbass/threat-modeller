@@ -1764,7 +1764,9 @@ Add these clauses to the end of `verifyTechnologyCatalogueContract` in `ThreatMo
 ```swift
     let connectionThreats = subject.connectionThreats()
     #expect(connectionThreats.isEmpty == false)
-    #expect(connectionThreats.allSatisfy(\.isConnectionThreat))
+    // A key path here makes the `rethrows` on `allSatisfy` unresolvable inside
+    // the `#expect` macro expansion, so the closure form is required.
+    #expect(connectionThreats.allSatisfy { $0.isConnectionThreat })
     #expect(Set(connectionThreats.map(\.id)).count == connectionThreats.count)
     for threat in connectionThreats {
         #expect(taxonomy.severity(id: threat.severity.id) == threat.severity)

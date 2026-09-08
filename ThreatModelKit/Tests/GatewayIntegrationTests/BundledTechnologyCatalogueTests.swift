@@ -87,4 +87,16 @@ struct BundledTechnologyCatalogueTests {
     @Test func returnsNoThreatsForAnUnknownTechnology() {
         #expect(catalogue.threatsFor(technologyId: TechnologyId("aws-nope")).isEmpty)
     }
+
+    @Test func listsTheConnectionThreatsTheVendoredDataFlags() throws {
+        let catalogue = try BundledTechnologyCatalogue()
+
+        #expect(catalogue.connectionThreats().map(\.id.value) == [
+            "connection-mitm",
+            "connection-data-exposure",
+            "connection-replay",
+            "connection-injection",
+            "connection-dos"
+        ])
+    }
 }

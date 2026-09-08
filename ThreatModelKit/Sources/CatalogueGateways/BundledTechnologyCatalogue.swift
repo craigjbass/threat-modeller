@@ -16,6 +16,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     private let technologies: [Technology]
     private let technologiesById: [TechnologyId: Technology]
     private let threatsById: [ThreatId: Threat]
+    private let connectionThreatsValue: [Threat]
 
     public init() throws {
         let decoder = JSONDecoder()
@@ -45,11 +46,12 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
             from: try LibraryResources.data(named: "threats/common-threats.json")
         )
         var threats: [ThreatId: Threat] = [:]
+        var connectionThreatList: [Threat] = []
         for entry in threatsJSON.threats {
             guard let severity = taxonomyValue.severity(id: entry.severity) else {
                 throw CatalogueLoadError.unknownSeverity(threatId: entry.id, severity: entry.severity)
             }
-            threats[ThreatId(entry.id)] = Threat(
+            let threat = Threat(
                 id: ThreatId(entry.id),
                 name: entry.name,
                 description: entry.description,
@@ -66,8 +68,13 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
                 isPathwayThreat: entry.isPathwayThreat ?? false,
                 zoneContext: entry.zoneContext
             )
+            threats[threat.id] = threat
+            if threat.isConnectionThreat {
+                connectionThreatList.append(threat)
+            }
         }
         threatsById = threats
+        connectionThreatsValue = connectionThreatList
 
         var providers: [Provider] = []
         var loaded: [Technology] = []
@@ -113,6 +120,8 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
         guard let technology = technologiesById[technologyId] else { return [] }
         return technology.threatIds.compactMap { threatsById[$0] }
     }
+
+    public func connectionThreats() -> [Threat] { connectionThreatsValue }
 
     public func taxonomy() -> Taxonomy { taxonomyValue }
 

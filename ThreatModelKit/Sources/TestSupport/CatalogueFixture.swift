@@ -128,10 +128,39 @@ public enum CatalogueFixture {
         ]
     }
 
+    /// Two connection threats shaped like the vendored ones. `connection-mitm`
+    /// is one of the two threats TLS mitigates; `connection-dos` is not, so a
+    /// test can tell the flag apart from the score.
+    public static func connectionThreats() -> [Threat] {
+        [
+            Threat(
+                id: ThreatId("connection-mitm"),
+                name: "Man-in-the-Middle Attack",
+                description: "Attacker intercepts traffic between two components",
+                severity: medium,
+                stride: [StrideId("tampering"), StrideId("information-disclosure")],
+                mitreTechniques: [
+                    MitreTechnique(id: "T1557", name: "Adversary-in-the-Middle", tactic: "Collection")
+                ],
+                controls: [Control(id: "ctrl-conn-1", description: "Enforce TLS on every hop")],
+                isConnectionThreat: true
+            ),
+            Threat(
+                id: ThreatId("connection-dos"),
+                name: "Connection Flooding",
+                description: "Attacker exhausts the link between two components",
+                severity: low,
+                stride: [StrideId("denial-of-service")],
+                controls: [Control(id: "ctrl-conn-2", description: "Apply connection rate limits")],
+                isConnectionThreat: true
+            )
+        ]
+    }
+
     public static func catalogue() -> InMemoryTechnologyCatalogue {
         InMemoryTechnologyCatalogue(
             technologies: [ec2(), rds(), bigQuery()],
-            threats: ec2Threats(),
+            threats: ec2Threats() + connectionThreats(),
             taxonomy: taxonomy(),
             providers: providers()
         )

@@ -36,4 +36,21 @@ public func verifyTechnologyCatalogueContract(
     for threat in threats {
         #expect(taxonomy.severity(id: threat.severity.id) == threat.severity)
     }
+
+    let connectionThreats = subject.connectionThreats()
+    #expect(connectionThreats.isEmpty == false)
+    #expect(connectionThreats.allSatisfy { $0.isConnectionThreat })
+    #expect(Set(connectionThreats.map(\.id)).count == connectionThreats.count)
+    for threat in connectionThreats {
+        #expect(taxonomy.severity(id: threat.severity.id) == threat.severity)
+        #expect(threat.controls.isEmpty == false)
+    }
+
+    // A connection threat belongs to the link, never to a technology. No
+    // technology may declare one as its own threat, or the same threat would
+    // be raised twice from two different sources.
+    let connectionThreatIds = Set(connectionThreats.map(\.id))
+    for technology in subject.all() {
+        #expect(Set(technology.threatIds).isDisjoint(with: connectionThreatIds))
+    }
 }
