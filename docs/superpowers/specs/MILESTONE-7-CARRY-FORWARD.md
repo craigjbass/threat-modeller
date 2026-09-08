@@ -56,7 +56,9 @@ What Milestones 6A and 6B deliberately did not fix.
 10. **A zone is selected one at a time; zone drawing order cannot be changed;
     the zone name field and the mitigation slider write on every step.**
 11. **No user interface test covers node drag, marquee, connection drawing,
-    delete, zone move, zone resize, or now undo.**
+    zone move, zone resize, or now undo.** Deleting is covered by three unit
+    tests over `CanvasGestures.deleteSelection`, which is the first of the
+    canvas gestures to get one.
 12. **Nothing prunes a control key whose description has left the catalogue.**
 13. **A technology named `connection` or `zone` would collide with the override
     key shapes.**

@@ -456,4 +456,53 @@ struct ThreatModelSessionTests {
         #expect(canvas.selectedZoneIds == ["z1"])
         #expect(canvas.selectedConnectionIds.isEmpty)
     }
+
+    @Test func deletesEverythingSelectedInOneGo() throws {
+        let session = session()
+        let canvas = CanvasState()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 500, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 700, height: 600))
+
+        canvas.selectAll(componentIds: [ids[0]], zoneIds: [zoneId])
+        CanvasGestures(session: session, canvas: canvas).deleteSelection()
+
+        // The component goes, the link it carried goes with it, and the zone
+        // goes too. The other component stays.
+        #expect(session.canvas.components.map(\.id) == [ids[1]])
+        #expect(session.canvas.connections.isEmpty)
+        #expect(session.canvas.zones.isEmpty)
+        // Nothing is left selected that the model no longer holds.
+        #expect(canvas.selectedComponentIds.isEmpty)
+        #expect(canvas.selectedZoneIds.isEmpty)
+    }
+
+    @Test func deletesJustTheLinkWhenThatIsWhatIsSelected() throws {
+        let session = session()
+        let canvas = CanvasState()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 500, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
+        let link = try #require(session.canvas.connections.first).id
+
+        canvas.select(connectionId: link, addingToSelection: false)
+        CanvasGestures(session: session, canvas: canvas).deleteSelection()
+
+        #expect(session.canvas.connections.isEmpty)
+        #expect(session.canvas.components.count == 2)
+    }
+
+    @Test func deletingNothingChangesNothing() {
+        let session = session()
+        let canvas = CanvasState()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+
+        CanvasGestures(session: session, canvas: canvas).deleteSelection()
+
+        #expect(session.canvas.components.count == 1)
+        #expect(session.errorMessage == nil)
+    }
 }

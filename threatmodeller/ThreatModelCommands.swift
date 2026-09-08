@@ -71,6 +71,15 @@ struct ThreatModelCommands: Commands {
 
             Divider()
 
+            // The canvas answers the Delete key, but only while it has focus,
+            // and replacing the pasteboard group took the standard item away.
+            // A command a user cannot find is a command they do not have.
+            Button("Delete") { deleteSelection() }
+                .keyboardShortcut(.delete, modifiers: [])
+                .disabled(hasSelection == false && canvas?.selectedConnectionIds.isEmpty != false)
+
+            Divider()
+
             Button("Select All") {
                 guard let session, let canvas else { return }
                 canvas.selectAll(componentIds: session.canvas.components.map(\.id), zoneIds: [])
@@ -81,6 +90,11 @@ struct ThreatModelCommands: Commands {
 
     private var hasSelection: Bool {
         (canvas?.selectedComponentIds.isEmpty == false) || (canvas?.selectedZoneIds.isEmpty == false)
+    }
+
+    private func deleteSelection() {
+        guard let session, let canvas else { return }
+        CanvasGestures(session: session, canvas: canvas).deleteSelection()
     }
 
     private func withSelection(_ act: (_ componentIds: [String], _ zoneIds: [String]) -> Void) {
