@@ -9,7 +9,8 @@ let package = Package(
         // Published so the Xcode app test target can build the same fakes and
         // the same composition root the package's own tests use.
         .library(name: "TestSupport", targets: ["TestSupport"]),
-        .library(name: "FileGateways", targets: ["FileGateways"])
+        .library(name: "FileGateways", targets: ["FileGateways"]),
+        .library(name: "ArchitectureDSL", targets: ["ArchitectureDSL"])
     ],
     targets: [
         .target(name: "ThreatModelKit"),
@@ -23,8 +24,15 @@ let package = Package(
             dependencies: ["ThreatModelKit"],
             resources: [.copy("Resources/Samples")]
         ),
-        .target(name: "TestSupport", dependencies: ["ThreatModelKit", "FileGateways"]),
-        .testTarget(name: "UnitTests", dependencies: ["ThreatModelKit", "TestSupport"]),
+        .target(name: "ArchitectureDSL", dependencies: ["ThreatModelKit"]),
+        .target(
+            name: "TestSupport",
+            dependencies: ["ThreatModelKit", "FileGateways", "ArchitectureDSL"]
+        ),
+        .testTarget(
+            name: "UnitTests",
+            dependencies: ["ThreatModelKit", "ArchitectureDSL", "TestSupport"]
+        ),
         .testTarget(name: "AcceptanceTests", dependencies: ["ThreatModelKit", "TestSupport"]),
         .testTarget(
             name: "GatewayContractTests",
