@@ -239,6 +239,14 @@ One actor: the threat modeller.
 **modelling:** `ThreatModel` (aggregate root), `Component`, `Connection`, `Zone`,
 `Point`, `Size`, `Rect`, `DataSensitivity`, `NetworkZone`, `ZoneNetworkType`
 
+`NetworkZone` and `ZoneNetworkType` are application-owned, as `DataSensitivity`
+is. The catalogue carries no zone vocabulary.
+
+- `NetworkZone`: `public` ("Public Zone"), `private` ("Private Zone").
+- `ZoneNetworkType`: `generic` ("Generic Network"), `vpc` ("VPC"), `subnet`
+  ("Subnet"), `onPremises` ("On-Premises"), `dmz` ("DMZ"), `management`
+  ("Management Network"), `data` ("Data Network").
+
 **assessment:** `ActiveThreat`, `RiskLevel`, `PathwayMitigationSettings`,
 `PathwayMitigationConfig`
 
@@ -249,7 +257,7 @@ Each of these owns a rule that is already valid across more than one use case.
 | Domain object | Rule | Used by |
 |---|---|---|
 | `RiskScore` | severity(1–4) × sensitivity(1–4) → 1–16; thresholds ≥12 critical, ≥8 high, ≥4 medium, else low | `AssessThreatModel`, `SummariseRisk` |
-| `ZoneContainment` | a component belongs to a zone when its centre lies within the zone rect, offset by 40pt of header padding; later zones win over earlier ones | `AddComponent`, `MoveComponents`, `ResizeZone`, `AssessThreatModel` |
+| `ZoneContainment` | a component belongs to a zone when its centre lies within the zone rect, offset by 40pt of header padding; later zones win over earlier ones | `AssessThreatModel`, `ViewThreatModel` |
 | `UpstreamGraph` | reverse breadth-first traversal of connections to the set of components upstream of a given component | `AssessThreatModel`, pathway settings preview |
 | `SensitivityLadder` | higher-of two sensitivities; maximum sensitivity across directly downstream components | `AssessThreatModel` |
 | `ControlIdentity` | djb2 hash of the whitespace-normalised control description, scoped by owner; pruning a component's keys on delete | `RecordControlImplemented`, `RemoveComponents`, `SaveThreatModel` |
@@ -284,6 +292,9 @@ covered by a test ported from the original suite.
 
 - Scored against a fixed `internal` base sensitivity.
 - Raised once per private zone, for each threat flagged `isZoneThreat`.
+- The zone's own multiplier applies to its zone threats. The multiplier rule
+  above states no exception, and the reduction models controls at the zone
+  boundary, which are the controls those threats are about.
 - Zone display name: custom name, else the network type label when it is not
   `generic`, else the zone type label.
 
