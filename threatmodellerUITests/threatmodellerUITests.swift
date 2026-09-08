@@ -110,5 +110,32 @@ final class threatmodellerUITests: XCTestCase {
             "Drawing a zone did not raise the zone's own threats."
         )
         mark("zone threats shown")
+
+        // Tick a control on a card and see the summary follow.
+        mark("ticking a control")
+        let summaryStrip = app.descendants(matching: .any)["risk-summary"].firstMatch
+        XCTAssertTrue(
+            summaryStrip.waitForExistence(timeout: 5),
+            "The risk summary never appeared above the threat cards."
+        )
+
+        let firstCheckbox = app.checkBoxes.firstMatch
+        XCTAssertTrue(
+            firstCheckbox.waitForExistence(timeout: 5),
+            "No control checkbox appeared on any threat card."
+        )
+        XCTAssertEqual(firstCheckbox.value as? Int, 0, "The control started ticked.")
+        firstCheckbox.click()
+
+        let recorded = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == 1"),
+            object: firstCheckbox
+        )
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [recorded], timeout: 10),
+            .completed,
+            "Clicking the control did not record it."
+        )
+        mark("control recorded")
     }
 }
