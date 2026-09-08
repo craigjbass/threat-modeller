@@ -59,7 +59,9 @@ let package = Package(
         ),
         .testTarget(
             name: "GatewayIntegrationTests",
-            dependencies: ["ThreatModelKit", "CatalogueGateways", "FileGateways"]
+            dependencies: [
+                "ThreatModelKit", "CatalogueGateways", "FileGateways", "ArchitectureDSL"
+            ]
         )
     ]
 )

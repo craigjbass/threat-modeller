@@ -136,6 +136,15 @@ public final class TestDependencies: UseCaseFactory {
         CheckControlAnswers(compiles: compileControls(), sources: controlsSources)
     }
 
+    public func initialiseProject() -> InitialiseProjectUseCase {
+        InitialiseProject(
+            projects: projects,
+            samples: samples,
+            files: files,
+            sources: architectureSources
+        )
+    }
+
     public func openProject() -> OpenProjectUseCase {
         OpenProject(projects: projects)
     }

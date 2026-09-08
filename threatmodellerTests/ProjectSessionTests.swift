@@ -220,3 +220,86 @@ struct ProjectAnswerTests {
         #expect(second.model?.summary.controlsRecorded == 1)
     }
 }
+
+/// A project directory with nothing in it. The application offers to write an
+/// example rather than showing an empty window.
+@MainActor
+struct EmptyProjectTests {
+    private func anEmptyRoot() -> (ProjectSession, TestDependencies) {
+        let useCases = TestDependencies()
+        useCases.project.put("a readme", at: "/work/README.md")
+        let session = ProjectSession(useCases: useCases)
+        session.open(root: "/work")
+        return (session, useCases)
+    }
+
+    @Test func offersToWriteAnExample() {
+        let (session, _) = anEmptyRoot()
+
+        #expect(session.canInitialise)
+        #expect(session.examples.isEmpty == false)
+        #expect(session.errorMessage?.contains("Start from an example") == true)
+    }
+
+    @Test func writesTheExampleAndDrawsIt() throws {
+        let (session, useCases) = anEmptyRoot()
+
+        session.initialise(sampleId: FakeSampleModels.sampleId)
+
+        #expect(session.canInitialise == false)
+        #expect(session.systems == [FakeSampleModels.sampleId])
+        #expect(session.chosenSystem == FakeSampleModels.sampleId)
+        #expect(session.model?.canvas.components.isEmpty == false)
+        #expect(session.model?.threats.isEmpty == false)
+        #expect(session.errorMessage == nil)
+        let written = try #require(
+            useCases.project.text(at: "/work/threatmodel/\(FakeSampleModels.sampleId).arch")
+        )
+        #expect(written.hasPrefix("system \"One Component\" {"))
+    }
+
+    @Test func writesTheFirstExampleWhenTheUserNamesNone() {
+        let (session, _) = anEmptyRoot()
+
+        session.initialise()
+
+        #expect(session.systems.isEmpty == false)
+    }
+
+    @Test func offersNothingWhenTheProjectAlreadyHoldsASystem() {
+        let useCases = TestDependencies()
+        useCases.project.put("system \"Mine\" { }", at: "/work/threatmodel/mine.arch")
+        let session = ProjectSession(useCases: useCases)
+
+        session.open(root: "/work")
+
+        #expect(session.canInitialise == false)
+    }
+
+    @Test func neverWritesOverASystemThatIsAlreadyThere() throws {
+        let useCases = TestDependencies()
+        useCases.project.put("system \"Mine\" { }", at: "/work/threatmodel/mine.arch")
+        let session = ProjectSession(useCases: useCases)
+        session.open(root: "/work")
+
+        session.initialise()
+
+        #expect(session.errorMessage == "This project already holds mine.")
+        #expect(useCases.project.text(at: "/work/threatmodel/mine.arch") == "system \"Mine\" { }")
+    }
+
+    @Test func saysSoWhenTheExampleIsGone() {
+        let (session, _) = anEmptyRoot()
+
+        session.initialise(sampleId: "no-such-example")
+
+        #expect(session.errorMessage == "This application no longer holds that example.")
+        #expect(session.canInitialise)
+    }
+
+    @Test func offersNothingWhenNoProjectIsOpen() {
+        let session = ProjectSession(useCases: TestDependencies())
+
+        #expect(session.canInitialise == false)
+    }
+}

@@ -36,6 +36,44 @@ final class ProjectSession {
         diagnostics.contains { $0.severity == .error }
     }
 
+    /// True when the open root holds no system, so this application can offer
+    /// to write one.
+    var canInitialise: Bool {
+        root != nil && systems.isEmpty
+    }
+
+    /// The examples this application can write into an empty project.
+    var examples: [ListedSample] {
+        useCases.listSampleModels().execute(ListSampleModelsRequest()).samples
+    }
+
+    /// Writes one example into the open root, and draws it.
+    ///
+    /// It never writes over a system, so a root that already holds one says so
+    /// and changes nothing.
+    func initialise(sampleId: String? = nil) {
+        guard let root else { return }
+
+        switch useCases.initialiseProject().execute(
+            InitialiseProjectRequest(root: root, sampleId: sampleId)
+        ) {
+        case .created:
+            errorMessage = nil
+            open(root: root)
+        case .alreadyHasSystems(let names):
+            // Reading the project again is what puts those systems on screen,
+            // and it clears the message, so the message comes after it.
+            open(root: root)
+            errorMessage = "This project already holds \(names.joined(separator: ", "))." 
+        case .noSuchSample:
+            errorMessage = "This application no longer holds that example."
+        case .notAProject(let reason):
+            errorMessage = "That is not a project: \(reason)"
+        case .cannotWrite(let reason):
+            errorMessage = "The example could not be written: \(reason)"
+        }
+    }
+
     /// Opens a project root and draws its first system.
     func open(root: String) {
         switch useCases.openProject().execute(OpenProjectRequest(root: root)) {
@@ -44,7 +82,7 @@ final class ProjectSession {
             self.directory = directory
             self.systems = systems
             errorMessage = systems.isEmpty
-                ? "\(directory) holds no .arch files."
+                ? "\(directory) holds no .arch files. Start from an example, or write one."
                 : nil
             if let first = systems.first { choose(first) }
         case .notAProject(let reason):

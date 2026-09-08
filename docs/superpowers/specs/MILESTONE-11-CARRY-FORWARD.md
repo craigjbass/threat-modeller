@@ -54,6 +54,26 @@ continuous integration all read the same two files.
    project of twenty systems parses the catalogue once but resolves twenty
    times, unmeasured.
 
+## The interface journeys are gone
+
+They needed macOS Automation Mode. A machine that asks for authentication to
+enable it — this one does — fails every journey after sixty seconds with
+`Timed out while enabling automation mode`, and no journey ran here after
+19:01 on 2026-09-08.
+
+What they covered is now in two places:
+
+- `threatmodellerTests/ViewRenderTests.swift` draws every view with
+  `ImageRenderer` and reads the pixels back, so a view that fails to build, lay
+  out or paint is a failing test. One test proves the assertion has teeth by
+  drawing a flat colour and expecting it to fail.
+- The session tests state what each control does.
+
+What is no longer covered, and should be said plainly: nothing clicks a real
+control any more. A view that draws correctly but is wired to the wrong action
+would pass. `docs/TESTING.md` says how to turn Automation Mode on if that trade
+is ever worth reversing.
+
 ## Standing
 
 - The zone-drag undo defect of Milestone 6B, and the interface journey that no

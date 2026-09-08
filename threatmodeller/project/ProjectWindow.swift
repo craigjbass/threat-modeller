@@ -17,6 +17,8 @@ struct ProjectWindow: View {
                 ProjectColumns(session: model, canvas: canvas)
                     .focusedSceneValue(\.threatModelSession, model)
                     .focusedSceneValue(\.threatModelCanvas, canvas)
+            } else if session.canInitialise {
+                emptyProject
             } else {
                 ContentUnavailableView(
                     session.root == nil ? "No project is open" : "Nothing is drawn",
@@ -53,6 +55,58 @@ struct ProjectWindow: View {
                 .accessibilityIdentifier("system-picker")
             }
         }
+    }
+
+    /// A directory with nothing in it. Rather than an empty window, this
+    /// application offers to write an example the user can read and change.
+    private var emptyProject: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "folder.badge.plus")
+                .font(.system(size: 44))
+                .foregroundStyle(.secondary)
+
+            Text("This project holds no systems")
+                .font(.title3.bold())
+
+            Text(
+                "A project keeps its systems in a threatmodel directory: "
+                    + "one .arch file for the architecture, and a .controls file beside it. "
+                    + "Start from an example and change it."
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: 420)
+
+            VStack(spacing: 8) {
+                ForEach(session.examples, id: \.id) { example in
+                    Button {
+                        session.initialise(sampleId: example.id)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(example.name)
+                            Text(example.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .frame(maxWidth: 420, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier("initialise-\(example.id)")
+                }
+            }
+            .padding(.top, 4)
+
+            if let root = session.root {
+                Text("It will be written to \(root)/threatmodel.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("empty-project")
     }
 
     @ViewBuilder

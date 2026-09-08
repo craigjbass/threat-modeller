@@ -39,16 +39,6 @@
                ReferencedContainer = "container:threatmodeller.xcodeproj">
             </BuildableReference>
          </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "46EEEDDE304F3232000F014D"
-               BuildableName = "threatmodellerUITests.xctest"
-               BlueprintName = "threatmodellerUITests"
-               ReferencedContainer = "container:threatmodeller.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

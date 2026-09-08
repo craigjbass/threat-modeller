@@ -129,6 +129,15 @@ nonisolated final class Dependencies: UseCaseFactory {
         CheckControlAnswers(compiles: compileControls(), sources: controlsSources)
     }
 
+    func initialiseProject() -> InitialiseProjectUseCase {
+        InitialiseProject(
+            projects: projects,
+            samples: samples,
+            files: files,
+            sources: architectureSources
+        )
+    }
+
     func openProject() -> OpenProjectUseCase {
         OpenProject(projects: projects)
     }
