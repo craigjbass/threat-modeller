@@ -83,6 +83,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetComponentProperties(models: models)
     }
 
+    func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {
+        ViewCatalogueVersion(catalogue: catalogue)
+    }
+
     func listSampleModels() -> ListSampleModelsUseCase {
         ListSampleModels(samples: samples)
     }

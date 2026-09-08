@@ -24,6 +24,7 @@ public protocol UseCaseFactory {
     func exportModelAsImage() -> ExportModelAsImageUseCase
     func exportModelAsPdf() -> ExportModelAsPdfUseCase
     func setComponentProperties() -> SetComponentPropertiesUseCase
+    func viewCatalogueVersion() -> ViewCatalogueVersionUseCase
     func listSampleModels() -> ListSampleModelsUseCase
     func loadSampleModel() -> LoadSampleModelUseCase
     func viewCustomTechnology() -> ViewCustomTechnologyUseCase

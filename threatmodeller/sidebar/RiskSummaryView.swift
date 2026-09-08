@@ -12,7 +12,7 @@ struct RiskSummaryView: View {
                     VStack(spacing: 1) {
                         Text("\(level.count)")
                             .font(.title3.monospacedDigit())
-                            .foregroundStyle(level.count == 0 ? Color.secondary : Self.colour(level.levelId))
+                            .foregroundStyle(level.count == 0 ? Color.secondary : RiskPalette.colour(forLevelId: level.levelId))
                         Text(level.label)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -42,15 +42,6 @@ struct RiskSummaryView: View {
         }
         .padding(12)
         .accessibilityIdentifier("risk-summary")
-    }
-
-    private static func colour(_ levelId: String) -> Color {
-        switch levelId {
-        case "critical": .red
-        case "high": .orange
-        case "medium": .yellow
-        default: .secondary
-        }
     }
 
     /// STRIDE reads as six initials. The full label is on the tooltip.

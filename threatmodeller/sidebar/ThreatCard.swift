@@ -64,7 +64,11 @@ struct ThreatCard: View {
             }
             Text("\(threat.riskLevel.capitalized) · \(threat.riskScore)")
                 .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(
+                    Capsule().fill(RiskPalette.background(forLevelId: threat.riskLevel))
+                )
         }
     }
 

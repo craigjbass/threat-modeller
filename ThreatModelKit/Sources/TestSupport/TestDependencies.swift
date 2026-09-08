@@ -84,6 +84,10 @@ public final class TestDependencies: UseCaseFactory {
         SetComponentProperties(models: models)
     }
 
+    public func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {
+        ViewCatalogueVersion(catalogue: catalogue)
+    }
+
     public func listSampleModels() -> ListSampleModelsUseCase {
         ListSampleModels(samples: samples)
     }
