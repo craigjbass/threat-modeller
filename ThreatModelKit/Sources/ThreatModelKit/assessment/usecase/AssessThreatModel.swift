@@ -44,6 +44,7 @@ public struct AssessedControl: Hashable, Sendable {
 public enum AssessedThreatSource: Hashable, Sendable {
     case component(id: String, name: String, providerId: String)
     case connection(id: String, sourceName: String, targetName: String)
+    case zone(id: String, name: String)
 
     /// The label the user reads on the threat row.
     public var displayName: String {
@@ -52,6 +53,8 @@ public enum AssessedThreatSource: Hashable, Sendable {
             name
         case .connection(_, let sourceName, let targetName):
             "\(sourceName) \u{2192} \(targetName)"
+        case .zone(_, let name):
+            name
         }
     }
 
@@ -63,6 +66,8 @@ public enum AssessedThreatSource: Hashable, Sendable {
             "component:\(id)"
         case .connection(let id, _, _):
             "connection:\(id)"
+        case .zone(let id, _):
+            "zone:\(id)"
         }
     }
 }
@@ -146,12 +151,24 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
             assessed.append(threat)
         }
 
+        // Derived, never stored. Spec section 5.2.
+        var zonesByComponent: [ComponentId: Zone] = [:]
+        for component in model.components {
+            zonesByComponent[component.id] = ZoneContainment.zone(
+                holding: component.centre,
+                in: model.zones
+            )
+        }
+
         for component in model.components {
             guard component.threatsDisabled == false else { continue }
             guard let technology = catalogue.findById(component.technologyId) else { continue }
 
+            let multiplier = ZoneMultiplier.value(for: zonesByComponent[component.id])
+
             for threat in catalogue.threatsFor(technologyId: component.technologyId) {
-                let score = RiskScore(severity: threat.severity, sensitivity: component.sensitivity)
+                let base = RiskScore(severity: threat.severity, sensitivity: component.sensitivity)
+                let score = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard score.value > 0 else { continue }
 
                 raise(
@@ -189,9 +206,14 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
             let sourceTechnology = catalogue.findById(source.technologyId)
             let targetTechnology = catalogue.findById(target.technologyId)
             let sensitivity = SensitivityLadder.higher(source.sensitivity, target.sensitivity)
+            let multiplier = ZoneMultiplier.valueForConnection(
+                sourceZone: zonesByComponent[source.id],
+                targetZone: zonesByComponent[target.id]
+            )
 
             for threat in catalogue.connectionThreats() {
-                let score = RiskScore(severity: threat.severity, sensitivity: sensitivity)
+                let base = RiskScore(severity: threat.severity, sensitivity: sensitivity)
+                let score = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard score.value > 0 else { continue }
 
                 raise(
@@ -224,6 +246,44 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                             source: sourceTechnology,
                             target: targetTechnology
                         )
+                    )
+                )
+            }
+        }
+
+        // Spec section 5.3: raised once per private zone, scored against a
+        // fixed internal sensitivity, and reduced by that zone's own
+        // multiplier. A public zone raises none.
+        for zone in model.zones where zone.networkZone == .privateZone {
+            let multiplier = ZoneMultiplier.value(for: zone)
+
+            for threat in catalogue.zoneThreats() {
+                let base = RiskScore(severity: threat.severity, sensitivity: .internalData)
+                let score = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
+                guard score.value > 0 else { continue }
+
+                raise(
+                    AssessedThreat(
+                        threatId: threat.id.value,
+                        name: threat.name,
+                        description: threat.description,
+                        severityId: threat.severity.id,
+                        severityLabel: threat.severity.label,
+                        stride: threat.stride.map(\.value),
+                        mitreTechniques: threat.mitreTechniques.map {
+                            AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
+                        },
+                        // Spec section 5.3: a zone always uses the threat's own
+                        // controls, never a technology's mitigations.
+                        controls: threat.controls.map {
+                            AssessedControl(description: $0.description, isTechnologySpecific: false)
+                        },
+                        source: .zone(id: zone.id.value, name: zone.displayName),
+                        sensitivityId: DataSensitivity.internalData.rawValue,
+                        riskScore: score.value,
+                        riskLevel: score.level.rawValue,
+                        context: threat.zoneContext,
+                        isTlsMitigated: false
                     )
                 )
             }

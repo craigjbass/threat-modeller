@@ -14,12 +14,13 @@ struct AssessThreatModelTests {
         id: String = "c1",
         sensitivity: DataSensitivity = .confidential,
         customName: String? = nil,
-        threatsDisabled: Bool = false
+        threatsDisabled: Bool = false,
+        position: Point = Point(x: 0, y: 0)
     ) -> Component {
         Component(
             id: ComponentId(id),
             technologyId: TechnologyId("aws-ec2"),
-            position: Point(x: 0, y: 0),
+            position: position,
             sensitivity: sensitivity,
             customName: customName,
             threatsDisabled: threatsDisabled
@@ -29,12 +30,13 @@ struct AssessThreatModelTests {
     private func rds(
         id: String = "c2",
         sensitivity: DataSensitivity = .confidential,
-        threatsDisabled: Bool = false
+        threatsDisabled: Bool = false,
+        position: Point = Point(x: 0, y: 0)
     ) -> Component {
         Component(
             id: ComponentId(id),
             technologyId: TechnologyId("aws-rds"),
-            position: Point(x: 0, y: 0),
+            position: position,
             sensitivity: sensitivity,
             threatsDisabled: threatsDisabled
         )
@@ -297,5 +299,221 @@ struct AssessThreatModelTests {
             .execute(AssessThreatModelRequest())
 
         #expect(response.threats.map(\.threatId) == ["misconfiguration"])
+    }
+
+    /// A zone that captures a component left at the origin. Its top edge sits
+    /// above the origin, because containment ignores the top 40 points and a
+    /// component at 0,0 has its centre at 80,36.
+    private func privateZone(
+        _ id: String = "z1",
+        x: Double = -100,
+        y: Double = -100,
+        reduction: Int = 20,
+        enabled: Bool = true,
+        kind: NetworkZone = .privateZone
+    ) -> Zone {
+        Zone(
+            id: ZoneId(id),
+            rect: Rect(x: x, y: y, width: 800, height: 700),
+            networkZone: kind,
+            riskReductionEnabled: enabled,
+            riskReductionPercent: reduction
+        )
+    }
+
+    private func zoneThreats(_ response: AssessThreatModelResponse) -> [AssessedThreat] {
+        response.threats.filter {
+            if case .zone = $0.source { return true } else { return false }
+        }
+    }
+
+    @Test func reducesAComponentThreatInsideAPrivateZone() throws {
+        // Credential theft is critical (4) against confidential data (3), so 12
+        // before the zone. A 20 per cent reduction leaves 9.6, which rounds to
+        // 10 and drops the level from critical to high.
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1")], zones: [privateZone()])
+        )
+
+        let theft = try #require(response.threats.first { $0.threatId == "credential-theft" })
+        #expect(theft.riskScore == 10)
+        #expect(theft.riskLevel == "high")
+    }
+
+    @Test func leavesAComponentThreatAloneOutsideEveryZone() throws {
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1", position: Point(x: 2000, y: 2000))],
+                        zones: [privateZone()])
+        )
+
+        #expect(try #require(response.threats.first { $0.threatId == "credential-theft" }).riskScore == 12)
+    }
+
+    @Test func leavesAComponentThreatAloneInAPublicZone() throws {
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1")], zones: [privateZone(kind: .publicZone)])
+        )
+
+        #expect(try #require(response.threats.first { $0.threatId == "credential-theft" }).riskScore == 12)
+    }
+
+    @Test func leavesAComponentThreatAloneWhenReductionIsOff() throws {
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1")], zones: [privateZone(reduction: 90, enabled: false)])
+        )
+
+        #expect(try #require(response.threats.first { $0.threatId == "credential-theft" }).riskScore == 12)
+    }
+
+    @Test func dropsAComponentThreatTheZoneReducesToNothing() {
+        // Denial of service is low (1) against confidential data (3), so 3.
+        // A 90 per cent reduction leaves 0.3, which rounds to 0 and is filtered.
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1")], zones: [privateZone(reduction: 90)])
+        )
+
+        #expect(response.threats.contains {
+            $0.threatId == "dos-attack" && $0.source.id == "component:c1"
+        } == false)
+    }
+
+    @Test func usesTheLaterOfTwoOverlappingZones() throws {
+        let response = assess(
+            ThreatModel(
+                components: [ec2(id: "c1")],
+                zones: [privateZone("z1", reduction: 0), privateZone("z2", reduction: 50)]
+            )
+        )
+
+        #expect(try #require(response.threats.first { $0.threatId == "credential-theft" }).riskScore == 6)
+    }
+
+    @Test func reducesALinkOnlyWhenBothEndsAreInPrivateZones() throws {
+        // Man-in-the-middle is medium (2) against internal data (2), so 4.
+        let bothInside = assess(
+            ThreatModel(
+                components: [
+                    ec2(id: "c1", sensitivity: .internalData, position: Point(x: 0, y: 100)),
+                    rds(sensitivity: .internalData)
+                ],
+                connections: [link("k1", "c1", "c2")],
+                zones: [privateZone(reduction: 50)]
+            )
+        )
+        #expect(try #require(bothInside.threats.first { $0.threatId == "connection-mitm" }).riskScore == 2)
+
+        let oneOutside = assess(
+            ThreatModel(
+                components: [
+                    ec2(id: "c1", sensitivity: .internalData, position: Point(x: 0, y: 100)),
+                    rds(sensitivity: .internalData, position: Point(x: 3000, y: 3000))
+                ],
+                connections: [link("k1", "c1", "c2")],
+                zones: [privateZone(reduction: 50)]
+            )
+        )
+        #expect(try #require(oneOutside.threats.first { $0.threatId == "connection-mitm" }).riskScore == 4)
+    }
+
+    @Test func givesALinkTheLowerOfTheTwoZoneReductions() throws {
+        let response = assess(
+            ThreatModel(
+                components: [
+                    ec2(id: "c1", sensitivity: .internalData, position: Point(x: 0, y: 100)),
+                    rds(sensitivity: .internalData, position: Point(x: 1000, y: 100))
+                ],
+                connections: [link("k1", "c1", "c2")],
+                zones: [
+                    privateZone("z1", x: 0, y: 0, reduction: 25),
+                    privateZone("z2", x: 900, y: 0, reduction: 75)
+                ]
+            )
+        )
+
+        // 25 per cent is the lower reduction, so 4 becomes 3.
+        #expect(try #require(response.threats.first { $0.threatId == "connection-mitm" }).riskScore == 3)
+    }
+
+    @Test func givesALinkNoReductionWhenOneEndsZoneHasReductionOff() throws {
+        let response = assess(
+            ThreatModel(
+                components: [
+                    ec2(id: "c1", sensitivity: .internalData, position: Point(x: 0, y: 100)),
+                    rds(sensitivity: .internalData, position: Point(x: 1000, y: 100))
+                ],
+                connections: [link("k1", "c1", "c2")],
+                zones: [
+                    privateZone("z1", x: 0, y: 0, reduction: 90, enabled: false),
+                    privateZone("z2", x: 900, y: 0, reduction: 75)
+                ]
+            )
+        )
+
+        #expect(try #require(response.threats.first { $0.threatId == "connection-mitm" }).riskScore == 4)
+    }
+
+    @Test func raisesEveryZoneThreatOncePerPrivateZone() {
+        let response = assess(ThreatModel(zones: [privateZone("z1"), privateZone("z2", x: 2000)]))
+
+        let raised = zoneThreats(response)
+        #expect(Set(raised.map(\.threatId)) == ["misconfiguration", "lateral-movement"])
+        #expect(Set(raised.map(\.source.id)) == ["zone:z1", "zone:z2"])
+        #expect(raised.count == 4)
+    }
+
+    @Test func raisesNoZoneThreatsForAPublicZone() {
+        let response = assess(ThreatModel(zones: [privateZone(kind: .publicZone)]))
+
+        #expect(zoneThreats(response).isEmpty)
+    }
+
+    @Test func scoresAZoneThreatAgainstInternalDataAndTheZonesOwnReduction() throws {
+        // Lateral movement is high (3) against internal data (2), so 6.
+        // A 20 per cent reduction leaves 4.8, which rounds to 5.
+        let response = assess(ThreatModel(zones: [privateZone(reduction: 20)]))
+
+        let lateral = try #require(zoneThreats(response).first { $0.threatId == "lateral-movement" })
+        #expect(lateral.sensitivityId == "internal")
+        #expect(lateral.riskScore == 5)
+        #expect(lateral.riskLevel == "medium")
+
+        let unreduced = assess(ThreatModel(zones: [privateZone(enabled: false)]))
+        #expect(try #require(zoneThreats(unreduced).first { $0.threatId == "lateral-movement" }).riskScore == 6)
+    }
+
+    @Test func showsTheZonesDisplayNameAndTheThreatsZoneWording() throws {
+        let named = Zone(
+            id: ZoneId("z1"),
+            rect: Rect(x: 0, y: 0, width: 600, height: 500),
+            name: "Payments"
+        )
+        let response = assess(ThreatModel(zones: [named]))
+
+        let lateral = try #require(zoneThreats(response).first { $0.threatId == "lateral-movement" })
+        #expect(lateral.source == .zone(id: "z1", name: "Payments"))
+        #expect(lateral.source.displayName == "Payments")
+        #expect(lateral.context == "Pivoting between resources inside the network zone")
+        #expect(lateral.isTlsMitigated == false)
+    }
+
+    @Test func alwaysUsesTheThreatsOwnControlsOnAZone() throws {
+        let response = assess(ThreatModel(zones: [privateZone()]))
+
+        let misconfiguration = try #require(
+            zoneThreats(response).first { $0.threatId == "misconfiguration" }
+        )
+        #expect(misconfiguration.controls.map(\.description) == ["Scan configuration continuously"])
+        #expect(misconfiguration.controls.contains(where: \.isTechnologySpecific) == false)
+    }
+
+    @Test func tellsAComponentThreatApartFromTheSameThreatOnItsZone() {
+        // EC2 declares misconfiguration and the zone raises it too. Two rows,
+        // two sources, and the deduplication rule leaves both alone.
+        let response = assess(
+            ThreatModel(components: [ec2(id: "c1")], zones: [privateZone("z1")])
+        )
+
+        let rows = response.threats.filter { $0.threatId == "misconfiguration" }
+        #expect(rows.map(\.source.id).sorted() == ["component:c1", "zone:z1"])
     }
 }

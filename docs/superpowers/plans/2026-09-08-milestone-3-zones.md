@@ -1995,17 +1995,20 @@ be disjoint."
 Add to `ThreatModelKit/Tests/UnitTests/AssessThreatModelTests.swift`, inside the struct. A helper first:
 
 ```swift
+    /// A zone that captures a component left at the origin. Its top edge sits
+    /// above the origin, because containment ignores the top 40 points and a
+    /// component at 0,0 has its centre at 80,36.
     private func privateZone(
         _ id: String = "z1",
-        x: Double = 0,
-        y: Double = 0,
+        x: Double = -100,
+        y: Double = -100,
         reduction: Int = 20,
         enabled: Bool = true,
         kind: NetworkZone = .privateZone
     ) -> Zone {
         Zone(
             id: ZoneId(id),
-            rect: Rect(x: x, y: y, width: 600, height: 500),
+            rect: Rect(x: x, y: y, width: 800, height: 700),
             networkZone: kind,
             riskReductionEnabled: enabled,
             riskReductionPercent: reduction
