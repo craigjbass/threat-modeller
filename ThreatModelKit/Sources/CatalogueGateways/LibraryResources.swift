@@ -12,4 +12,14 @@ public enum LibraryResources {
         }
         return try Data(contentsOf: url)
     }
+
+    /// Application-owned data, outside the vendored library. No checksum, no
+    /// lock entry: it is ours, and `scripts/update-catalogue.sh` never touches
+    /// the directory it lives in.
+    public static func appOwnedData(named name: String) throws -> Data {
+        guard let url = Bundle.module.url(forResource: "Actors/\(name)", withExtension: nil) else {
+            throw LibraryResourceError.notFound(name)
+        }
+        return try Data(contentsOf: url)
+    }
 }

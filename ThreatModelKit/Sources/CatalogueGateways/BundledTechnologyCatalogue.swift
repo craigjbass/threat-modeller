@@ -24,6 +24,13 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     public init() throws {
         let decoder = JSONDecoder()
 
+        // Application-owned, and read first so the taxonomy can hold the
+        // actors' own categories.
+        let actorsJSON = try decoder.decode(
+            ActorsFileJSON.self,
+            from: try LibraryResources.appOwnedData(named: "actors.json")
+        )
+
         let taxonomyJSON = try decoder.decode(
             TaxonomyJSON.self,
             from: try LibraryResources.data(named: "taxonomy.json")
@@ -41,6 +48,8 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
                     label: $0.label,
                     presetThreatIds: $0.presetThreatIds.map(ThreatId.init)
                 )
+            } + actorsJSON.categories.map {
+                ServiceCategory(id: CategoryId($0.id), label: $0.label, presetThreatIds: [])
             }
         )
 
@@ -96,6 +105,22 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
             )
             loaded.append(contentsOf: providerJSON.services.map(Self.technology(from:)))
         }
+        // The people and systems outside the boundary. An actor raises no
+        // threats of its own; a link to one raises the connection threats like
+        // any other link.
+        let actorProvider = ProviderId(actorsJSON.provider)
+        loaded.append(contentsOf: actorsJSON.actors.map {
+            Technology(
+                id: TechnologyId($0.id),
+                name: $0.name,
+                provider: actorProvider,
+                category: CategoryId($0.category),
+                description: $0.description,
+                threatIds: []
+            )
+        })
+        providers.append(Provider(id: actorProvider, displayName: actorsJSON.displayName))
+
         providersValue = providers
         technologies = loaded
         technologiesById = Dictionary(uniqueKeysWithValues: loaded.map { ($0.id, $0) })

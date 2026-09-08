@@ -13,7 +13,8 @@ struct BuildingAThreatModelTests {
 
         #expect(palette.providers.map(\.displayName) == [
             "Amazon Web Services",
-            "Google Cloud Platform"
+            "Google Cloud Platform",
+            "External Actors"
         ])
 
         let aws = try #require(palette.providers.first { $0.id == "aws" })

@@ -9,13 +9,22 @@ struct BundledTechnologyCatalogueTests {
         catalogue = try BundledTechnologyCatalogue()
     }
 
-    @Test func loadsEveryVendoredTechnology() {
-        #expect(catalogue.all().count == 277)
+    @Test func loadsEveryVendoredTechnologyAndEveryActor() {
+        let vendored = catalogue.all().filter { $0.provider != ProviderId("actor") }
+        let actors = catalogue.all().filter { $0.provider == ProviderId("actor") }
+
+        #expect(vendored.count == 277)
+        #expect(actors.count == 9)
+        #expect(catalogue.all().count == 286)
     }
 
-    @Test func listsProvidersByIdAscending() {
-        #expect(catalogue.providers().map(\.id.value) == ["aws", "azure", "gcp", "saas", "self-hosted"])
+    @Test func listsTheVendoredProvidersFirstAndTheActorsLast() {
+        // The actors are ours, not a cloud, so they sit at the end of the
+        // palette rather than in the middle of the vendored providers.
+        #expect(catalogue.providers().map(\.id.value)
+                == ["aws", "azure", "gcp", "saas", "self-hosted", "actor"])
         #expect(catalogue.providers().first?.displayName == "Amazon Web Services")
+        #expect(catalogue.providers().last?.displayName == "External Actors")
     }
 
     @Test func ranksSeveritiesInTaxonomyOrder() {
@@ -26,7 +35,8 @@ struct BundledTechnologyCatalogueTests {
 
     @Test func loadsTheRestOfTheTaxonomy() {
         #expect(catalogue.taxonomy().stride.count == 6)
-        #expect(catalogue.taxonomy().categories.count == 14)
+        // Fourteen vendored categories, plus the four the actors bring.
+        #expect(catalogue.taxonomy().categories.count == 18)
         #expect(catalogue.taxonomy().category(id: CategoryId("compute"))?.label == "Compute")
     }
 
@@ -134,5 +144,51 @@ struct BundledTechnologyCatalogueTests {
 
         #expect(version.repository == "jib1337/threat-model-library")
         #expect(version.tag == "v1.0.1")
+    }
+
+    @Test func offersThePeopleAndSystemsOutsideTheBoundary() throws {
+        let catalogue = try BundledTechnologyCatalogue()
+
+        let actors = catalogue.all().filter { $0.provider == ProviderId("actor") }
+        #expect(actors.map(\.id.value).sorted() == [
+            "actor-admin",
+            "actor-api-client",
+            "actor-attacker",
+            "actor-browser",
+            "actor-desktop",
+            "actor-iot",
+            "actor-mobile",
+            "actor-partner",
+            "actor-user"
+        ])
+
+        // An actor raises no threats of its own. A link to one raises the
+        // connection threats like any other link.
+        #expect(actors.allSatisfy { $0.threatIds.isEmpty })
+        #expect(actors.allSatisfy { catalogue.threatsFor(technologyId: $0.id).isEmpty })
+
+        let user = try #require(catalogue.findById(TechnologyId("actor-user")))
+        #expect(user.name.isEmpty == false)
+        #expect(user.description.isEmpty == false)
+    }
+
+    @Test func widensTheProviderAndCategoryVocabularies() throws {
+        let catalogue = try BundledTechnologyCatalogue()
+
+        let actor = try #require(catalogue.providers().first { $0.id == ProviderId("actor") })
+        #expect(actor.displayName == "External Actors")
+
+        let categories = catalogue.taxonomy().categories.map(\.id.value)
+        for expected in ["person", "client", "device", "system"] {
+            #expect(categories.contains(expected))
+        }
+    }
+
+    @Test func keepsTheActorsOutOfTheVendoredLibrary() {
+        // The catalogue update script rewrites Library/. App-owned data must
+        // not live where a script overwrites it.
+        #expect(throws: (any Error).self) {
+            try LibraryResources.data(named: "actors.json")
+        }
     }
 }

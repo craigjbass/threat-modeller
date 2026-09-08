@@ -1,0 +1,30 @@
+{
+  "provider": "actor",
+  "displayName": "External Actors",
+  "categories": [
+    { "id": "person", "label": "People" },
+    { "id": "client", "label": "Client Software" },
+    { "id": "device", "label": "Devices" },
+    { "id": "system", "label": "Other Systems" }
+  ],
+  "actors": [
+    { "id": "actor-user", "name": "End User", "category": "person",
+      "description": "A person using the system for its intended purpose" },
+    { "id": "actor-admin", "name": "Administrator", "category": "person",
+      "description": "A person with privileged access to operate or configure the system" },
+    { "id": "actor-attacker", "name": "External Attacker", "category": "person",
+      "description": "A person outside the boundary trying to reach what is inside it" },
+    { "id": "actor-browser", "name": "Web Browser", "category": "client",
+      "description": "A browser running the system's own front end" },
+    { "id": "actor-mobile", "name": "Mobile App", "category": "client",
+      "description": "An application on a phone or tablet" },
+    { "id": "actor-desktop", "name": "Desktop App", "category": "client",
+      "description": "An application installed on a workstation" },
+    { "id": "actor-api-client", "name": "API Client", "category": "client",
+      "description": "A program calling the system's interface directly" },
+    { "id": "actor-iot", "name": "IoT Device", "category": "device",
+      "description": "A device in the field reporting to or driven by the system" },
+    { "id": "actor-partner", "name": "Partner System", "category": "system",
+      "description": "A system run by another organisation that exchanges data with this one" }
+  ]
+}

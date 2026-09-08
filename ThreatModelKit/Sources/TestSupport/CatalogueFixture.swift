@@ -32,7 +32,8 @@ public enum CatalogueFixture {
                     id: CategoryId("database"),
                     label: "Database",
                     presetThreatIds: [ThreatId("data-exfiltration")]
-                )
+                ),
+                ServiceCategory(id: CategoryId("person"), label: "People", presetThreatIds: [])
             ]
         )
     }
@@ -40,8 +41,21 @@ public enum CatalogueFixture {
     public static func providers() -> [Provider] {
         [
             Provider(id: ProviderId("aws"), displayName: "Amazon Web Services"),
-            Provider(id: ProviderId("gcp"), displayName: "Google Cloud Platform")
+            Provider(id: ProviderId("gcp"), displayName: "Google Cloud Platform"),
+            Provider(id: ProviderId("actor"), displayName: "External Actors")
         ]
+    }
+
+    /// An actor: no threats of its own, and a provider and category of its own.
+    public static func user() -> Technology {
+        Technology(
+            id: TechnologyId("actor-user"),
+            name: "End User",
+            provider: ProviderId("actor"),
+            category: CategoryId("person"),
+            description: "A person using the system for its intended purpose",
+            threatIds: []
+        )
     }
 
     public static func ec2() -> Technology {
@@ -208,7 +222,7 @@ public enum CatalogueFixture {
 
     public static func catalogue() -> InMemoryTechnologyCatalogue {
         InMemoryTechnologyCatalogue(
-            technologies: [ec2(), rds(), bigQuery(), waf()],
+            technologies: [ec2(), rds(), bigQuery(), waf(), user()],
             threats: ec2Threats() + connectionThreats() + zoneThreats(),
             taxonomy: taxonomy(),
             providers: providers(),

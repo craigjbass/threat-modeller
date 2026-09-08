@@ -16,7 +16,7 @@ let package = Package(
         .target(
             name: "CatalogueGateways",
             dependencies: ["ThreatModelKit"],
-            resources: [.copy("Resources/Library")]
+            resources: [.copy("Resources/Library"), .copy("Resources/Actors")]
         ),
         .target(name: "FileGateways", dependencies: ["ThreatModelKit"]),
         .target(name: "TestSupport", dependencies: ["ThreatModelKit", "FileGateways"]),

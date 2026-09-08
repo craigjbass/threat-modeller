@@ -7,7 +7,7 @@ struct ListTechnologiesTests {
 
     @Test func groupsTechnologiesUnderTheirProvider() {
         let response = useCase.execute(ListTechnologiesRequest())
-        #expect(response.providers.map(\.id) == ["aws", "gcp"])
+        #expect(response.providers.map(\.id) == ["aws", "gcp", "actor"])
         #expect(response.providers.first?.displayName == "Amazon Web Services")
     }
 
