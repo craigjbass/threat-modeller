@@ -1,14 +1,15 @@
 import CoreGraphics
+import ThreatModelKit
 
 /// The rectangle a component occupies, in model coordinates.
 ///
-/// Every component draws at one fixed size, so the rectangle follows from the
-/// component's position. The position is the rectangle's top-left corner,
-/// which is what `AddComponent` and `MoveComponents` store.
+/// The size comes from the core, because zone containment tests a component's
+/// centre and the core has to know the extent that centre comes from.
+///
 /// Declared `nonisolated`: the app target defaults every type to the main
 /// actor, and this one is a pure value with no shared state.
 nonisolated struct ComponentBox: Equatable {
-    static let size = CGSize(width: 160, height: 72)
+    static let size = CGSize(width: Component.size.width, height: Component.size.height)
 
     let origin: CGPoint
 

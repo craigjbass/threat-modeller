@@ -27,6 +27,11 @@ final class CanvasState {
     /// now, in model coordinates.
     var connectionDrag: (sourceComponentId: String, currentPoint: CGPoint)?
 
+    /// How much of a Command-drag has already been applied to the pan. A drag
+    /// reports the translation from where it started, so the pan applies the
+    /// step since the last change rather than the whole translation again.
+    var lastPanTranslation: CGSize = .zero
+
     var marqueeRect: CGRect? {
         marquee.map { MarqueeSelection.rect(from: $0.start, to: $0.end) }
     }
