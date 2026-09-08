@@ -83,3 +83,8 @@ struct PathwayMitigationJSON: Decodable {
     let mitigatesThreatIds: [String]
     let technologyIds: [String]
 }
+
+struct LockFileJSON: Decodable {
+    let repository: String
+    let tag: String
+}

@@ -1,3 +1,5 @@
+import Foundation
+
 /// The aggregate a threat model is assessed from. Overrides and implemented
 /// controls join it in later milestones.
 public struct ThreatModel: Equatable, Sendable {
@@ -15,6 +17,13 @@ public struct ThreatModel: Equatable, Sendable {
     /// How the user has set the pathway mitigations. Starts with the master
     /// toggle off, so nothing is mitigated until they say so.
     public var pathwayMitigations: PathwayMitigationSettings
+    /// When the model was first created, and when it last changed. A document
+    /// carries both. Spec section 8.
+    public var createdAt: Date
+    public var updatedAt: Date
+    /// The catalogue the model was last assessed against, or nil for a model
+    /// that has never been saved.
+    public var catalogueVersion: CatalogueVersion?
 
     public init(
         name: String = "Untitled",
@@ -23,7 +32,10 @@ public struct ThreatModel: Equatable, Sendable {
         zones: [Zone] = [],
         severityOverrides: [SeverityOverrideKey: String] = [:],
         implementedControls: Set<ControlKey> = [],
-        pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings()
+        pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
+        createdAt: Date = Date(timeIntervalSince1970: 0),
+        updatedAt: Date = Date(timeIntervalSince1970: 0),
+        catalogueVersion: CatalogueVersion? = nil
     ) {
         self.name = name
         self.components = components
@@ -32,6 +44,9 @@ public struct ThreatModel: Equatable, Sendable {
         self.severityOverrides = severityOverrides
         self.implementedControls = implementedControls
         self.pathwayMitigations = pathwayMitigations
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.catalogueVersion = catalogueVersion
     }
 
     /// The component with that identifier, or nil. Every write use case checks

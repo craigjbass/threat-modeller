@@ -128,4 +128,11 @@ struct BundledTechnologyCatalogueTests {
         #expect(waf.mitigatesThreatIds.map(\.value).contains("connection-injection"))
         #expect(waf.technologyIds.map(\.value).contains("aws-waf"))
     }
+
+    @Test func reportsTheVersionItWasVendoredAt() throws {
+        let version = try BundledTechnologyCatalogue().version()
+
+        #expect(version.repository == "jib1337/threat-model-library")
+        #expect(version.tag == "v1.0.1")
+    }
 }

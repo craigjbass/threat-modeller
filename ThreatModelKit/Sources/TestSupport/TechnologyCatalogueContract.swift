@@ -85,4 +85,8 @@ public func verifyTechnologyCatalogueContract(
             #expect(subject.findById(technologyId) != nil)
         }
     }
+
+    let version = subject.version()
+    #expect(version.repository.isEmpty == false)
+    #expect(version.tag.isEmpty == false)
 }

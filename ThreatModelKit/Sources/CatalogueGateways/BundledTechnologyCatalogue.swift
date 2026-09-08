@@ -19,6 +19,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     private let connectionThreatsValue: [Threat]
     private let zoneThreatsValue: [Threat]
     private let pathwayMitigationsValue: [PathwayMitigationDefinition]
+    private let versionValue: CatalogueVersion
 
     public init() throws {
         let decoder = JSONDecoder()
@@ -103,6 +104,12 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
             PathwayMitigationsFileJSON.self,
             from: try LibraryResources.data(named: "mitigations/pathway-mitigations.json")
         )
+        let lockJSON = try decoder.decode(
+            LockFileJSON.self,
+            from: try LibraryResources.data(named: "library.lock.json")
+        )
+        versionValue = CatalogueVersion(repository: lockJSON.repository, tag: lockJSON.tag)
+
         pathwayMitigationsValue = mitigationsJSON.mitigations.map {
             PathwayMitigationDefinition(
                 id: PathwayMitigationId($0.id),
@@ -147,6 +154,8 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     public func zoneThreats() -> [Threat] { zoneThreatsValue }
 
     public func pathwayMitigations() -> [PathwayMitigationDefinition] { pathwayMitigationsValue }
+
+    public func version() -> CatalogueVersion { versionValue }
 
     public func taxonomy() -> Taxonomy { taxonomyValue }
 

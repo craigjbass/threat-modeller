@@ -15,6 +15,8 @@ public protocol TechnologyCatalogue {
     func zoneThreats() -> [Threat]
     /// Every pathway mitigation the catalogue defines, in catalogue order.
     func pathwayMitigations() -> [PathwayMitigationDefinition]
+    /// The vendored catalogue this gateway reads.
+    func version() -> CatalogueVersion
     func taxonomy() -> Taxonomy
     func providers() -> [Provider]
 }

@@ -10,13 +10,15 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue {
     private let taxonomyValue: Taxonomy
     private let providersValue: [Provider]
     private let pathwayMitigationsValue: [PathwayMitigationDefinition]
+    private let versionValue: CatalogueVersion
 
     public init(
         technologies: [Technology],
         threats: [Threat],
         taxonomy: Taxonomy,
         providers: [Provider],
-        pathwayMitigations: [PathwayMitigationDefinition] = []
+        pathwayMitigations: [PathwayMitigationDefinition] = [],
+        version: CatalogueVersion = CatalogueVersion(repository: "fixture", tag: "v0.0.0")
     ) {
         self.technologies = technologies
         self.orderedThreats = threats
@@ -24,6 +26,7 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue {
         self.taxonomyValue = taxonomy
         self.providersValue = providers
         self.pathwayMitigationsValue = pathwayMitigations
+        self.versionValue = version
     }
 
     public func all() -> [Technology] { technologies }
@@ -46,6 +49,8 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue {
     }
 
     public func pathwayMitigations() -> [PathwayMitigationDefinition] { pathwayMitigationsValue }
+
+    public func version() -> CatalogueVersion { versionValue }
 
     public func taxonomy() -> Taxonomy { taxonomyValue }
 
