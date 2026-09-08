@@ -475,4 +475,81 @@ final class threatmodellerUITests: XCTestCase {
             "The project window did not raise the threats the file's components carry."
         )
     }
+
+    /// A project whose answers are committed beside its architecture. The
+    /// sidebar shows what the file says.
+    @MainActor
+    func testAUserOpensAProjectWithItsAnswers() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threat-modeller-answers-\(UUID().uuidString)")
+        let directory = root.appendingPathComponent("threatmodel")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try """
+        system "Payments" {
+          component "api" {
+            technology = "aws-ec2"
+            name       = "Application Server"
+            data       = "confidential"
+          }
+        }
+
+        """.write(
+            to: directory.appendingPathComponent("payments.arch"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        try """
+        controls for "Payments" {
+          threat "credential-theft" on component "api" {
+            control "Use IAM roles with minimal permissions instead of long-lived access keys" {
+              status = "implemented"
+            }
+
+            compensating "Watched by the SIEM" {
+              reduces_risk_by = 50
+              rationale       = "The one account left alerts on use."
+            }
+          }
+        }
+
+        """.write(
+            to: directory.appendingPathComponent("payments.controls"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let app = XCUIApplication()
+        app.launchArguments = ["-project", root.path]
+        app.launch()
+
+        let picker = app.descendants(matching: .any)["system-picker"].firstMatch
+        if picker.waitForExistence(timeout: 5) == false {
+            app.typeKey("o", modifierFlags: [.command, .option])
+            app.typeKey(.escape, modifierFlags: [])
+        }
+        XCTAssertTrue(
+            picker.waitForExistence(timeout: 15),
+            "The project window never showed its systems picker."
+        )
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["node-aws-ec2"].firstMatch
+                .waitForExistence(timeout: 15),
+            "The project window did not draw the component the file describes."
+        )
+
+        // The summary counts the control the committed file records. The
+        // threat cards themselves scroll, so the summary is what an interface
+        // test can read without scrolling to a card.
+        let recorded = app.progressIndicators.matching(
+            NSPredicate(format: "label BEGINSWITH '1 of '")
+        ).firstMatch
+        XCTAssertTrue(
+            recorded.waitForExistence(timeout: 15),
+            "The sidebar did not record the control the committed answers hold."
+        )
+    }
 }
