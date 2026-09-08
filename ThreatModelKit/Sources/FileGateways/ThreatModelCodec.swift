@@ -7,7 +7,11 @@ import ThreatModelKit
 /// team reviews in a pull request, and a diff of one line should be one line.
 public struct ThreatModelCodec: ThreatModelFileGateway {
     /// This application's own format version, separate from the catalogue's.
-    public static let formatVersion = 1
+    ///
+    /// Version 2 adds the technologies a model defines for itself. Version 1
+    /// wrote that field as an empty list, so this application reads both.
+    public static let formatVersion = 2
+    private static let readableFormatVersions: Set<Int> = [1, 2]
 
     public init() {}
 
@@ -28,7 +32,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 components: model.components.map(Self.json(from:)),
                 connections: model.connections.map(Self.json(from:)),
                 zones: model.zones.map(Self.json(from:)),
-                customTechnologies: [],
+                customTechnologies: model.customTechnologies.map(Self.json(from:)),
                 severityOverrides: Dictionary(
                     uniqueKeysWithValues: model.severityOverrides.map { ($0.key.value, $0.value) }
                 ),
@@ -57,7 +61,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
         decoder.dateDecodingStrategy = .iso8601
         let document = try decoder.decode(DocumentJSON.self, from: data)
 
-        guard document.formatVersion == Self.formatVersion else {
+        guard Self.readableFormatVersions.contains(document.formatVersion) else {
             throw ThreatModelFileError.unsupportedFormatVersion(
                 found: document.formatVersion,
                 supported: Self.formatVersion
@@ -94,6 +98,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     }
                 )
             ),
+            customTechnologies: document.customTechnologies.map(Self.customTechnology(from:)),
             createdAt: document.createdAt,
             updatedAt: document.updatedAt,
             catalogueVersion: document.catalogue.map {
@@ -120,7 +125,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     public func decodeSelection(_ text: String) throws -> SelectionSnippet {
         let snippet = try JSONDecoder().decode(SelectionJSON.self, from: Data(text.utf8))
 
-        guard snippet.formatVersion == Self.formatVersion else {
+        guard Self.readableFormatVersions.contains(snippet.formatVersion) else {
             throw ThreatModelFileError.unsupportedFormatVersion(
                 found: snippet.formatVersion,
                 supported: Self.formatVersion
@@ -145,6 +150,28 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             sensitivity: component.sensitivity.rawValue,
             customName: component.customName,
             threatsDisabled: component.threatsDisabled
+        )
+    }
+
+    private static func json(from technology: CustomTechnology) -> CustomTechnologyJSON {
+        CustomTechnologyJSON(
+            id: technology.id.value,
+            name: technology.name,
+            category: technology.category.value,
+            description: technology.description,
+            threatIds: technology.threatIds.map(\.value),
+            enforcesEncryption: technology.enforcesEncryption
+        )
+    }
+
+    private static func customTechnology(from json: CustomTechnologyJSON) -> CustomTechnology {
+        CustomTechnology(
+            id: TechnologyId(json.id),
+            name: json.name,
+            category: CategoryId(json.category),
+            description: json.description,
+            threatIds: json.threatIds.map(ThreatId.init),
+            enforcesEncryption: json.enforcesEncryption
         )
     }
 

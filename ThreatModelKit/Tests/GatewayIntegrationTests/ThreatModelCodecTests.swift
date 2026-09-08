@@ -77,7 +77,7 @@ struct ThreatModelCodecTests {
         )
 
         #expect(json["formatVersion"] as? Int == ThreatModelCodec.formatVersion)
-        #expect(ThreatModelCodec.formatVersion == 1)
+        #expect(ThreatModelCodec.formatVersion == 2)
         let catalogue = try #require(json["catalogue"] as? [String: Any])
         #expect(catalogue["tag"] as? String == "v1.0.1")
         #expect(json["customTechnologies"] as? [Any] != nil)
@@ -92,6 +92,36 @@ struct ThreatModelCodecTests {
         #expect(text.contains("\"name\" : \"Payments\""))
     }
 
+    @Test func carriesTheTechnologiesTheModelDefinesForItself() throws {
+        let model = ThreatModel(
+            customTechnologies: [
+                CustomTechnology(
+                    id: TechnologyId("custom-1"),
+                    name: "Our Ledger",
+                    category: CategoryId("database"),
+                    description: "Keeps the balances",
+                    threatIds: [ThreatId("t-sql-injection")],
+                    enforcesEncryption: true
+                )
+            ]
+        )
+
+        #expect(try codec.decode(try codec.encode(model)) == model)
+    }
+
+    /// A version 1 file wrote `customTechnologies` as an empty list, so it
+    /// still reads. A user's saved work does not stop opening.
+    @Test func readsAFileFromTheVersionBefore() throws {
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: try codec.encode(fullModel())) as? [String: Any]
+        )
+        json["formatVersion"] = 1
+        json["customTechnologies"] = []
+        let data = try JSONSerialization.data(withJSONObject: json)
+
+        #expect(try codec.decode(data).name == "Payments")
+    }
+
     @Test func refusesAFormatVersionItDoesNotKnow() throws {
         var json = try #require(
             try JSONSerialization.jsonObject(with: try codec.encode(ThreatModel())) as? [String: Any]
@@ -99,7 +129,7 @@ struct ThreatModelCodecTests {
         json["formatVersion"] = 99
         let data = try JSONSerialization.data(withJSONObject: json)
 
-        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 1)) {
+        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 2)) {
             try codec.decode(data)
         }
     }
@@ -166,9 +196,9 @@ struct ThreatModelCodecTests {
 
     @Test func refusesASnippetFromAVersionItDoesNotKnow() throws {
         let text = try codec.encodeSelection(snippet())
-            .replacingOccurrences(of: "\"formatVersion\" : 1", with: "\"formatVersion\" : 99")
+            .replacingOccurrences(of: "\"formatVersion\" : 2", with: "\"formatVersion\" : 99")
 
-        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 1)) {
+        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 2)) {
             try codec.decodeSelection(text)
         }
     }

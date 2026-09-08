@@ -12,12 +12,19 @@ struct DocumentJSON: Codable {
     let components: [ComponentJSON]
     let connections: [ConnectionJSON]
     let zones: [ZoneJSON]
-    /// Milestone 7 fills this. Written empty and read back ignored, so a
-    /// Milestone 6 file still reads once Milestone 7 lands.
-    let customTechnologies: [String]
+    let customTechnologies: [CustomTechnologyJSON]
     let severityOverrides: [String: String]
     let implementedControls: [String]
     let pathwayMitigations: PathwayMitigationsJSON
+}
+
+struct CustomTechnologyJSON: Codable {
+    let id: String
+    let name: String
+    let category: String
+    let description: String
+    let threatIds: [String]
+    let enforcesEncryption: Bool
 }
 
 struct CatalogueStampJSON: Codable {
