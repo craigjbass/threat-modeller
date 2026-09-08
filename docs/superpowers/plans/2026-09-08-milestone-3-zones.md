@@ -3330,9 +3330,12 @@ struct ZoneBoxTests {
     @Test func takesItsHeaderBandFromTheCore() {
         // The canvas and the core must agree, or a component would look
         // captured while scoring as though it were outside.
-        #expect(ZoneBox.headerHeight == CGFloat(ZoneContainment.headerHeight))
-        #expect(ZoneBox.minimumSize.width == Zone.minimumSize.width)
-        #expect(ZoneBox.minimumSize.height == Zone.minimumSize.height)
+        // Compared as Double on both sides: `#expect` keeps the captured
+        // operands' own types, so a CGFloat against a Double reads as unequal
+        // even when both print the same number.
+        #expect(Double(ZoneBox.headerHeight) == ZoneContainment.headerHeight)
+        #expect(Double(ZoneBox.minimumSize.width) == Zone.minimumSize.width)
+        #expect(Double(ZoneBox.minimumSize.height) == Zone.minimumSize.height)
     }
 
     @Test func splitsItselfIntoAHeaderAndAContentArea() {
