@@ -179,12 +179,40 @@ public enum CatalogueFixture {
         ]
     }
 
+    /// A technology that provides a mitigation, so a test can put one upstream
+    /// of something and watch the threat change.
+    public static func waf() -> Technology {
+        Technology(
+            id: TechnologyId("aws-waf"),
+            name: "WAF",
+            provider: ProviderId("aws"),
+            category: CategoryId("compute"),
+            description: "Web application firewall",
+            threatIds: []
+        )
+    }
+
+    /// One mitigation, answering a threat EC2 carries and one every link
+    /// carries, so a test can tell a component threat from a link threat.
+    public static func pathwayMitigations() -> [PathwayMitigationDefinition] {
+        [
+            PathwayMitigationDefinition(
+                id: PathwayMitigationId("waf-protection"),
+                label: "WAF Protection",
+                description: "Mitigates: Credential Theft, Connection Flooding",
+                mitigatesThreatIds: [ThreatId("credential-theft"), ThreatId("connection-dos")],
+                technologyIds: [TechnologyId("aws-waf")]
+            )
+        ]
+    }
+
     public static func catalogue() -> InMemoryTechnologyCatalogue {
         InMemoryTechnologyCatalogue(
-            technologies: [ec2(), rds(), bigQuery()],
+            technologies: [ec2(), rds(), bigQuery(), waf()],
             threats: ec2Threats() + connectionThreats() + zoneThreats(),
             taxonomy: taxonomy(),
-            providers: providers()
+            providers: providers(),
+            pathwayMitigations: pathwayMitigations()
         )
     }
 }

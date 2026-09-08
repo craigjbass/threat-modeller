@@ -71,4 +71,18 @@ public func verifyTechnologyCatalogueContract(
     // is both. The two sets are deliberately not disjoint, unlike connection
     // threats, which belong to the link alone.
     #expect(zoneThreats.allSatisfy { $0.isConnectionThreat == false })
+
+    let mitigations = subject.pathwayMitigations()
+    #expect(mitigations.isEmpty == false)
+    #expect(Set(mitigations.map(\.id)).count == mitigations.count)
+    for mitigation in mitigations {
+        #expect(mitigation.label.isEmpty == false)
+        #expect(mitigation.mitigatesThreatIds.isEmpty == false)
+        #expect(mitigation.technologyIds.isEmpty == false)
+        // Every technology named must be one the catalogue holds, or the
+        // settings screen would offer a mitigation nothing can provide.
+        for technologyId in mitigation.technologyIds {
+            #expect(subject.findById(technologyId) != nil)
+        }
+    }
 }

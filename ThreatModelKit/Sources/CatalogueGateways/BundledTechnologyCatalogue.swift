@@ -18,6 +18,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     private let threatsById: [ThreatId: Threat]
     private let connectionThreatsValue: [Threat]
     private let zoneThreatsValue: [Threat]
+    private let pathwayMitigationsValue: [PathwayMitigationDefinition]
 
     public init() throws {
         let decoder = JSONDecoder()
@@ -97,6 +98,20 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
         providersValue = providers
         technologies = loaded
         technologiesById = Dictionary(uniqueKeysWithValues: loaded.map { ($0.id, $0) })
+
+        let mitigationsJSON = try decoder.decode(
+            PathwayMitigationsFileJSON.self,
+            from: try LibraryResources.data(named: "mitigations/pathway-mitigations.json")
+        )
+        pathwayMitigationsValue = mitigationsJSON.mitigations.map {
+            PathwayMitigationDefinition(
+                id: PathwayMitigationId($0.id),
+                label: $0.label,
+                description: $0.description,
+                mitigatesThreatIds: $0.mitigatesThreatIds.map(ThreatId.init),
+                technologyIds: $0.technologyIds.map(TechnologyId.init)
+            )
+        }
     }
 
     private static func technology(from service: ServiceJSON) -> Technology {
@@ -130,6 +145,8 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     public func connectionThreats() -> [Threat] { connectionThreatsValue }
 
     public func zoneThreats() -> [Threat] { zoneThreatsValue }
+
+    public func pathwayMitigations() -> [PathwayMitigationDefinition] { pathwayMitigationsValue }
 
     public func taxonomy() -> Taxonomy { taxonomyValue }
 

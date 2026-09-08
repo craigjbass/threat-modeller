@@ -9,18 +9,21 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue {
     private let threats: [ThreatId: Threat]
     private let taxonomyValue: Taxonomy
     private let providersValue: [Provider]
+    private let pathwayMitigationsValue: [PathwayMitigationDefinition]
 
     public init(
         technologies: [Technology],
         threats: [Threat],
         taxonomy: Taxonomy,
-        providers: [Provider]
+        providers: [Provider],
+        pathwayMitigations: [PathwayMitigationDefinition] = []
     ) {
         self.technologies = technologies
         self.orderedThreats = threats
         self.threats = Dictionary(uniqueKeysWithValues: threats.map { ($0.id, $0) })
         self.taxonomyValue = taxonomy
         self.providersValue = providers
+        self.pathwayMitigationsValue = pathwayMitigations
     }
 
     public func all() -> [Technology] { technologies }
@@ -41,6 +44,8 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue {
     public func zoneThreats() -> [Threat] {
         orderedThreats.filter(\.isZoneThreat)
     }
+
+    public func pathwayMitigations() -> [PathwayMitigationDefinition] { pathwayMitigationsValue }
 
     public func taxonomy() -> Taxonomy { taxonomyValue }
 

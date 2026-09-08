@@ -18,7 +18,7 @@ struct BuildingAThreatModelTests {
 
         let aws = try #require(palette.providers.first { $0.id == "aws" })
         #expect(aws.categories.map(\.label) == ["Compute", "Database"])
-        #expect(aws.categories.first?.technologies.map(\.name) == ["EC2"])
+        #expect(aws.categories.first?.technologies.map(\.name) == ["EC2", "WAF"])
     }
 
     @Test func raisesNoThreatsBeforeAnythingIsAdded() {

@@ -1,7 +1,6 @@
 /// Reads the technology and threat catalogue.
 ///
-/// A later milestone extends this port with `pathwayMitigations()`. Do not add
-/// it before the milestone that needs it.
+/// This is every method the spec's section 6 lists.
 public protocol TechnologyCatalogue {
     func all() -> [Technology]
     func findById(_ id: TechnologyId) -> Technology?
@@ -14,6 +13,8 @@ public protocol TechnologyCatalogue {
     /// Every threat the catalogue flags as belonging to a network zone, in
     /// catalogue order. A zone threat may also be a technology's own threat.
     func zoneThreats() -> [Threat]
+    /// Every pathway mitigation the catalogue defines, in catalogue order.
+    func pathwayMitigations() -> [PathwayMitigationDefinition]
     func taxonomy() -> Taxonomy
     func providers() -> [Provider]
 }

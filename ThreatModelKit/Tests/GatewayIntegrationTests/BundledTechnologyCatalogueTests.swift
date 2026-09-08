@@ -112,4 +112,20 @@ struct BundledTechnologyCatalogueTests {
             "lateral-movement"
         ])
     }
+
+    @Test func listsThePathwayMitigationsTheVendoredDataHolds() throws {
+        let catalogue = try BundledTechnologyCatalogue()
+
+        #expect(catalogue.pathwayMitigations().map(\.id.value) == [
+            "ddos-protection",
+            "waf-protection",
+            "rate-limiting",
+            "network-firewall"
+        ])
+
+        let waf = try #require(catalogue.pathwayMitigations().first { $0.id.value == "waf-protection" })
+        #expect(waf.label == "WAF Protection")
+        #expect(waf.mitigatesThreatIds.map(\.value).contains("connection-injection"))
+        #expect(waf.technologyIds.map(\.value).contains("aws-waf"))
+    }
 }

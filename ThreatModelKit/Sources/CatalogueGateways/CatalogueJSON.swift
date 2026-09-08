@@ -71,3 +71,15 @@ struct ThreatJSON: Decodable {
     let isPathwayThreat: Bool?
     let zoneContext: String?
 }
+
+struct PathwayMitigationsFileJSON: Decodable {
+    let mitigations: [PathwayMitigationJSON]
+}
+
+struct PathwayMitigationJSON: Decodable {
+    let id: String
+    let label: String
+    let description: String
+    let mitigatesThreatIds: [String]
+    let technologyIds: [String]
+}
