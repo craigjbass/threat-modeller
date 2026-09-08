@@ -99,6 +99,10 @@ Fan-out across a context boundary goes through a gateway protocol owned by the
 consuming context. `assessment` declares its own `TechnologyCatalogue` port
 rather than depending on `catalogue`'s internals.
 
+A model may define technologies of its own. Everything that asks "what is this
+technology?" asks `TechnologyLookup`, which answers from the model's own
+definitions first and the catalogue second, so one rule decides it everywhere.
+
 ### 3.4 Swift shape of a use case
 
 ```swift
@@ -237,7 +241,8 @@ One actor: the threat modeller.
 `PathwayMitigationDefinition`, `Taxonomy`, `ConnectionSecurity`
 
 **modelling:** `ThreatModel` (aggregate root), `Component`, `Connection`, `Zone`,
-`Point`, `Size`, `Rect`, `DataSensitivity`, `NetworkZone`, `ZoneNetworkType`
+`CustomTechnology`, `Point`, `Size`, `Rect`, `DataSensitivity`, `NetworkZone`,
+`ZoneNetworkType`
 
 `NetworkZone` and `ZoneNetworkType` are application-owned, as `DataSensitivity`
 is. The catalogue carries no zone vocabulary.
@@ -403,9 +408,15 @@ ThreatModelKit/Sources/CatalogueGateways/Resources/Library/
   technologies/{aws,azure,gcp,saas,self-hosted}.json
   threats/common-threats.json
   mitigations/pathway-mitigations.json
-  actors.json                        app-owned; external actor components
   library.lock.json                  pinned tag + SHA-256 of each file
+
+ThreatModelKit/Sources/CatalogueGateways/Resources/Actors/
+  actors.json                        app-owned; external actor components
 ```
+
+`actors.json` sits **outside** `Library/`, because `scripts/update-catalogue.sh`
+rewrites that directory and app-owned data must not live where a script
+overwrites it. It is not in the lock file and has no checksum: it is ours.
 
 The directory is declared as an SPM resource bundle on the `CatalogueGateways`
 target, so the real gateway loads it from `Bundle.module` and the core stays
@@ -424,10 +435,19 @@ SaaS 30, self-hosted 88 services), 55 threats of which 5 are connection threats,
 6 are zone threats and 17 are pathway threats, 14 service categories, 4
 severities, 6 STRIDE categories, 4 pathway mitigation types.
 
-External actors (`actor-mobile`, `actor-desktop`, `actor-iot`,
-`actor-api-client`, and the rest) are application-owned, not part of the
-catalogue. They carry no threats of their own and widen the provider and
-category vocabularies on the application's side.
+External actors are application-owned, not part of the catalogue. They carry no
+threats of their own, and they widen the provider and category vocabularies on
+the application's side: one provider `actor` ("External Actors") and four
+categories — `person`, `client`, `device`, `system`.
+
+The set: `actor-user`, `actor-admin`, `actor-browser`, `actor-mobile`,
+`actor-desktop`, `actor-iot`, `actor-api-client`, `actor-partner`,
+`actor-attacker`.
+
+An actor raises no threats of its own, but a link to or from one raises the
+connection threats like any other link, and an actor holding restricted data
+escalates a pathway threat that feeds it. That is the whole point of drawing
+one.
 
 ### Licensing obligations
 
