@@ -22,6 +22,15 @@ final class ThreatModelSession {
         zones: []
     )
     private(set) var threats: [AssessedThreat] = []
+    private(set) var summary = SummariseRiskResponse(
+        totalThreats: 0,
+        byLevel: [],
+        byStride: [],
+        controlsOffered: 0,
+        controlsRecorded: 0
+    )
+    /// The severities the override menu offers.
+    private(set) var severityChoices: [AssessedSeverity] = []
     private(set) var errorMessage: String?
 
     /// Where a double-click on a palette row puts a component, in model
@@ -207,10 +216,52 @@ final class ThreatModelSession {
         refresh()
     }
 
+    func setControl(key: String, implemented: Bool) {
+        if implemented {
+            _ = useCases.recordControlImplemented().execute(
+                RecordControlImplementedRequest(controlKey: key)
+            )
+        } else {
+            _ = useCases.recordControlNotImplemented().execute(
+                RecordControlNotImplementedRequest(controlKey: key)
+            )
+        }
+
+        errorMessage = nil
+        refresh()
+    }
+
+    func overrideSeverity(overrideKey: String, severityId: String) {
+        switch useCases.overrideThreatSeverity().execute(
+            OverrideThreatSeverityRequest(overrideKey: overrideKey, severityId: severityId)
+        ) {
+        case .overridden:
+            errorMessage = nil
+        case .unknownSeverity:
+            errorMessage = "That severity is not in the catalogue."
+        }
+
+        refresh()
+    }
+
+    func clearOverride(overrideKey: String) {
+        // Clearing something that is not overridden is not worth a message: the
+        // card only offers the command when there is an override to clear.
+        _ = useCases.clearSeverityOverride().execute(
+            ClearSeverityOverrideRequest(overrideKey: overrideKey)
+        )
+
+        errorMessage = nil
+        refresh()
+    }
+
     /// Spec section 2: the delivery mechanism calls `AssessThreatModel`
     /// explicitly after each change, and reads the canvas the same way.
     private func refresh() {
         canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
-        threats = useCases.assessThreatModel().execute(AssessThreatModelRequest()).threats
+        let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+        threats = assessment.threats
+        severityChoices = assessment.severities
+        summary = useCases.summariseRisk().execute(SummariseRiskRequest())
     }
 }

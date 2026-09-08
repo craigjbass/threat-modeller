@@ -236,4 +236,59 @@ struct ThreatModelSessionTests {
         #expect(session.errorMessage == "Risk reduction must be between 0 and 100 per cent.")
         #expect(session.canvas.zones.first?.riskReductionPercent == 20)
     }
+
+    @Test func summarisesWhatTheSidebarLists() {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+
+        #expect(session.summary.totalThreats == session.threats.count)
+        #expect(session.summary.byLevel.map(\.levelId) == ["critical", "high", "medium", "low"])
+        #expect(session.summary.controlsOffered > 0)
+        #expect(session.summary.controlsRecorded == 0)
+    }
+
+    @Test func offersEverySeverityTheUserCanOverrideTo() {
+        let session = session()
+
+        #expect(session.severityChoices.map(\.id) == ["low", "medium", "high", "critical"])
+        #expect(session.severityChoices.map(\.label) == ["Low", "Medium", "High", "Critical"])
+    }
+
+    @Test func ticksAndUnticksAControl() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        let control = try #require(
+            session.threats.first { $0.threatId == "credential-theft" }?.controls.first
+        )
+
+        session.setControl(key: control.key, implemented: true)
+        #expect(session.summary.controlsRecorded == 1)
+        #expect(session.errorMessage == nil)
+
+        session.setControl(key: control.key, implemented: false)
+        #expect(session.summary.controlsRecorded == 0)
+    }
+
+    @Test func overridesAndRestoresASeverity() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        let key = try #require(session.threats.first { $0.threatId == "credential-theft" }).overrideKey
+
+        session.overrideSeverity(overrideKey: key, severityId: "low")
+        #expect(try #require(session.threats.first { $0.threatId == "credential-theft" }).severityId == "low")
+
+        session.clearOverride(overrideKey: key)
+        #expect(try #require(session.threats.first { $0.threatId == "credential-theft" }).severityId == "critical")
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func reportsASeverityItDoesNotKnow() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        let key = try #require(session.threats.first { $0.threatId == "credential-theft" }).overrideKey
+
+        session.overrideSeverity(overrideKey: key, severityId: "catastrophic")
+
+        #expect(session.errorMessage == "That severity is not in the catalogue.")
+    }
 }

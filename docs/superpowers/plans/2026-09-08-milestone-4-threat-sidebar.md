@@ -2791,6 +2791,14 @@ private extension AssessedThreat {
 }
 ```
 
+WARNING: the app saves its split-view arrangement in its container preferences. A saved arrangement wider than the window leaves the sidebar column collapsed, so the palette renders nothing and `XCUIApplication` reports no window at all. Milestone 2's 20000-point window defect wrote one such arrangement. If the user interface suite fails at the very first assertion, clear it and re-run:
+
+```bash
+osascript -e 'tell application "threatmodeller" to quit' 2>/dev/null
+defaults delete uk.craigbass.threatmodeller 2>/dev/null
+rm -rf ~/Library/"Saved Application State"/uk.craigbass.threatmodeller.savedState
+```
+
 - [ ] **Step 5: Build, run the suites, and look at it**
 
 ```bash

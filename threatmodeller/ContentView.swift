@@ -43,8 +43,8 @@ private struct ModelView: View {
                 .navigationTitle("Diagram")
                 .navigationSplitViewColumnWidth(min: 400, ideal: 700)
         } detail: {
-            ThreatListView(session: session)
-                .navigationSplitViewColumnWidth(min: 280, ideal: 360)
+            ThreatSidebar(session: session)
+                .navigationSplitViewColumnWidth(min: 300, ideal: 380)
         }
     }
 }
@@ -132,58 +132,5 @@ private struct TechnologyRow: View {
         .onTapGesture(count: 2) {
             session.addAtDefaultPoint(technologyId: technology.id)
         }
-    }
-}
-
-private extension AssessedThreat {
-    /// Row key for the threat list. `AssessedThreat` carries no identity
-    /// field of its own, so two equal threats would collide as one row.
-    /// The pair of `threatId` and the source's id identifies a row.
-    var rowIdentity: String { "\(threatId)#\(source.id)" }
-}
-
-private struct ThreatListView: View {
-    let session: ThreatModelSession
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let errorMessage = session.errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .padding()
-            }
-
-            if session.threats.isEmpty {
-                ContentUnavailableView(
-                    "No threats yet",
-                    systemImage: "shield",
-                    description: Text("Add a technology from the palette to see the threats it carries.")
-                )
-            } else {
-                List(session.threats, id: \.rowIdentity) { threat in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(threat.name).font(.headline)
-                            Spacer()
-                            Text("\(threat.riskLevel.capitalized) · \(threat.riskScore)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(threat.source.displayName)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text(threat.context ?? threat.description)
-                            .font(.callout)
-                        if threat.controls.isEmpty == false {
-                            Text(threat.controls.map(\.description).joined(separator: " · "))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-        }
-        .navigationTitle("Threats")
     }
 }
