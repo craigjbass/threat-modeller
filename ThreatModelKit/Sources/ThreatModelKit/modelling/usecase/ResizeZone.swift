@@ -40,23 +40,22 @@ public struct ResizeZone: ResizeZoneUseCase {
     public func execute(_ request: ResizeZoneRequest) -> ResizeZoneResponse {
         let id = ZoneId(request.zoneId)
 
-        var model = models.current()
-        guard let index = model.zones.firstIndex(where: { $0.id == id }) else {
-            return .unknownZone
-        }
-        guard request.width >= Zone.minimumSize.width,
-              request.height >= Zone.minimumSize.height else {
-            return .tooSmall
-        }
+        return models.mutate { model in
+            guard let index = model.zones.firstIndex(where: { $0.id == id }) else {
+                return .unknownZone
+            }
+            guard request.width >= Zone.minimumSize.width,
+                  request.height >= Zone.minimumSize.height else {
+                return .tooSmall
+            }
 
-        model.zones[index].rect = Rect(
-            x: request.x,
-            y: request.y,
-            width: request.width,
-            height: request.height
-        )
-        models.save(model)
-
-        return .resized
+            model.zones[index].rect = Rect(
+                x: request.x,
+                y: request.y,
+                width: request.width,
+                height: request.height
+            )
+            return .resized
+        }
     }
 }

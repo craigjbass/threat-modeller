@@ -43,26 +43,25 @@ public struct MoveComponents: MoveComponentsUseCase {
     }
 
     public func execute(_ request: MoveComponentsRequest) -> MoveComponentsResponse {
-        var model = models.current()
-        var positions: [ComponentId: Point] = [:]
+        return models.mutate { model in
+            var positions: [ComponentId: Point] = [:]
 
-        for move in request.moves {
-            let id = ComponentId(move.componentId)
-            guard model.component(id) != nil else {
-                return .unknownComponent(componentId: move.componentId)
+            for move in request.moves {
+                let id = ComponentId(move.componentId)
+                guard model.component(id) != nil else {
+                    return .unknownComponent(componentId: move.componentId)
+                }
+                positions[id] = Point(x: move.x, y: move.y)
             }
-            positions[id] = Point(x: move.x, y: move.y)
-        }
 
-        guard positions.isEmpty == false else { return .moved(count: 0) }
+            guard positions.isEmpty == false else { return .moved(count: 0) }
 
-        for index in model.components.indices {
-            if let position = positions[model.components[index].id] {
-                model.components[index].position = position
+            for index in model.components.indices {
+                if let position = positions[model.components[index].id] {
+                    model.components[index].position = position
+                }
             }
+            return .moved(count: positions.count)
         }
-        models.save(model)
-
-        return .moved(count: positions.count)
     }
 }

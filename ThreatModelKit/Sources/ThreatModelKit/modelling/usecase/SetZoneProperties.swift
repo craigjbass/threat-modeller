@@ -52,29 +52,28 @@ public struct SetZoneProperties: SetZonePropertiesUseCase {
     public func execute(_ request: SetZonePropertiesRequest) -> SetZonePropertiesResponse {
         let id = ZoneId(request.zoneId)
 
-        var model = models.current()
-        guard let index = model.zones.firstIndex(where: { $0.id == id }) else {
-            return .unknownZone
-        }
-        guard let networkZone = NetworkZone(rawValue: request.networkZone) else {
-            return .unknownNetworkZone
-        }
-        guard let networkType = ZoneNetworkType(rawValue: request.networkType) else {
-            return .unknownNetworkType
-        }
-        guard (0...100).contains(request.riskReductionPercent) else {
-            return .reductionOutOfRange
-        }
+        return models.mutate { model in
+            guard let index = model.zones.firstIndex(where: { $0.id == id }) else {
+                return .unknownZone
+            }
+            guard let networkZone = NetworkZone(rawValue: request.networkZone) else {
+                return .unknownNetworkZone
+            }
+            guard let networkType = ZoneNetworkType(rawValue: request.networkType) else {
+                return .unknownNetworkType
+            }
+            guard (0...100).contains(request.riskReductionPercent) else {
+                return .reductionOutOfRange
+            }
 
-        let trimmed = request.name?.trimmingWhitespace()
+            let trimmed = request.name?.trimmingWhitespace()
 
-        model.zones[index].name = (trimmed?.isEmpty == false) ? trimmed : nil
-        model.zones[index].networkZone = networkZone
-        model.zones[index].networkType = networkType
-        model.zones[index].riskReductionEnabled = request.riskReductionEnabled
-        model.zones[index].riskReductionPercent = request.riskReductionPercent
-        models.save(model)
-
-        return .updated
+            model.zones[index].name = (trimmed?.isEmpty == false) ? trimmed : nil
+            model.zones[index].networkZone = networkZone
+            model.zones[index].networkType = networkType
+            model.zones[index].riskReductionEnabled = request.riskReductionEnabled
+            model.zones[index].riskReductionPercent = request.riskReductionPercent
+            return .updated
+        }
     }
 }

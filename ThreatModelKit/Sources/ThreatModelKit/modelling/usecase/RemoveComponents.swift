@@ -31,41 +31,40 @@ public struct RemoveComponents: RemoveComponentsUseCase {
     }
 
     public func execute(_ request: RemoveComponentsRequest) -> RemoveComponentsResponse {
-        var model = models.current()
-        var doomed: Set<ComponentId> = []
+        return models.mutate { model in
+            var doomed: Set<ComponentId> = []
 
-        for raw in request.componentIds {
-            let id = ComponentId(raw)
-            guard model.component(id) != nil else {
-                return .unknownComponent(componentId: raw)
+            for raw in request.componentIds {
+                let id = ComponentId(raw)
+                guard model.component(id) != nil else {
+                    return .unknownComponent(componentId: raw)
+                }
+                doomed.insert(id)
             }
-            doomed.insert(id)
+
+            guard doomed.isEmpty == false else {
+                return .removed(componentIds: [], connectionIds: [])
+            }
+
+            let removedComponents = model.components
+                .filter { doomed.contains($0.id) }
+                .map(\.id.value)
+            let removedConnections = model.connections
+                .filter { connection in doomed.contains(where: connection.touches) }
+                .map(\.id.value)
+
+            model.components.removeAll { doomed.contains($0.id) }
+            model.connections.removeAll { connection in doomed.contains(where: connection.touches) }
+
+            // Spec section 5.3: removing a component prunes every key scoped to
+            // it. A severity override is keyed by technology, not by component,
+            // so nothing prunes one of those.
+            let prefixes = doomed.map(ControlIdentity.componentPrefix)
+            model.implementedControls = model.implementedControls.filter { key in
+                prefixes.contains(where: key.value.hasPrefix) == false
+            }
+
+            return .removed(componentIds: removedComponents, connectionIds: removedConnections)
         }
-
-        guard doomed.isEmpty == false else {
-            return .removed(componentIds: [], connectionIds: [])
-        }
-
-        let removedComponents = model.components
-            .filter { doomed.contains($0.id) }
-            .map(\.id.value)
-        let removedConnections = model.connections
-            .filter { connection in doomed.contains(where: connection.touches) }
-            .map(\.id.value)
-
-        model.components.removeAll { doomed.contains($0.id) }
-        model.connections.removeAll { connection in doomed.contains(where: connection.touches) }
-
-        // Spec section 5.3: removing a component prunes every key scoped to it.
-        // A severity override is keyed by technology, not by component, so
-        // nothing prunes one of those.
-        let prefixes = doomed.map(ControlIdentity.componentPrefix)
-        model.implementedControls = model.implementedControls.filter { key in
-            prefixes.contains(where: key.value.hasPrefix) == false
-        }
-
-        models.save(model)
-
-        return .removed(componentIds: removedComponents, connectionIds: removedConnections)
     }
 }

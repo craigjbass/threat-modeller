@@ -49,10 +49,9 @@ public struct AddZone: AddZoneUseCase {
             rect: Rect(x: request.x, y: request.y, width: request.width, height: request.height)
         )
 
-        var model = models.current()
-        model.zones.append(zone)
-        models.save(model)
-
-        return .added(zoneId: zone.id.value)
+        return models.mutate { model in
+            model.zones.append(zone)
+            return .added(zoneId: zone.id.value)
+        }
     }
 }

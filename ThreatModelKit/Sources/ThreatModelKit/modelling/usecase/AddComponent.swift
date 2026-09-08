@@ -49,10 +49,9 @@ public struct AddComponent: AddComponentUseCase {
             sensitivity: sensitivity
         )
 
-        var model = models.current()
-        model.components.append(component)
-        models.save(model)
-
-        return .added(componentId: component.id.value)
+        return models.mutate { model in
+            model.components.append(component)
+            return .added(componentId: component.id.value)
+        }
     }
 }

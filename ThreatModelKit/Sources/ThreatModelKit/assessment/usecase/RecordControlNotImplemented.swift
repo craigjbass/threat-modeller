@@ -28,10 +28,9 @@ public struct RecordControlNotImplemented: RecordControlNotImplementedUseCase {
     public func execute(
         _ request: RecordControlNotImplementedRequest
     ) -> RecordControlNotImplementedResponse {
-        var model = models.current()
-        model.implementedControls.remove(ControlKey(request.controlKey))
-        models.save(model)
-
-        return .recorded
+        return models.mutate { model in
+            model.implementedControls.remove(ControlKey(request.controlKey))
+            return .recorded
+        }
     }
 }

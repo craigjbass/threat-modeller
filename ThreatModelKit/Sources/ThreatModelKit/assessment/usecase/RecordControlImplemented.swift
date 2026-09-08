@@ -28,10 +28,9 @@ public struct RecordControlImplemented: RecordControlImplementedUseCase {
     }
 
     public func execute(_ request: RecordControlImplementedRequest) -> RecordControlImplementedResponse {
-        var model = models.current()
-        model.implementedControls.insert(ControlKey(request.controlKey))
-        models.save(model)
-
-        return .recorded
+        return models.mutate { model in
+            model.implementedControls.insert(ControlKey(request.controlKey))
+            return .recorded
+        }
     }
 }

@@ -26,14 +26,13 @@ public struct RemoveConnection: RemoveConnectionUseCase {
     public func execute(_ request: RemoveConnectionRequest) -> RemoveConnectionResponse {
         let id = ConnectionId(request.connectionId)
 
-        var model = models.current()
-        guard model.connections.contains(where: { $0.id == id }) else {
-            return .unknownConnection
+        return models.mutate { model in
+            guard model.connections.contains(where: { $0.id == id }) else {
+                return .unknownConnection
+            }
+
+            model.connections.removeAll { $0.id == id }
+            return .removed
         }
-
-        model.connections.removeAll { $0.id == id }
-        models.save(model)
-
-        return .removed
     }
 }

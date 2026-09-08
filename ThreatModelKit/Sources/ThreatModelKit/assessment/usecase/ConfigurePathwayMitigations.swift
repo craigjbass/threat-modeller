@@ -51,30 +51,30 @@ public struct ConfigurePathwayMitigations: ConfigurePathwayMitigationsUseCase {
     public func execute(
         _ request: ConfigurePathwayMitigationsRequest
     ) -> ConfigurePathwayMitigationsResponse {
-        var model = models.current()
+        let known = catalogue.pathwayMitigations()
 
-        if let rawId = request.mitigationId {
-            let id = PathwayMitigationId(rawId)
-            guard catalogue.pathwayMitigations().contains(where: { $0.id == id }) else {
-                return .unknownMitigation
-            }
-            guard let mode = PathwayMitigationMode(rawValue: request.mode) else {
-                return .unknownMode
-            }
-            guard (0...100).contains(request.reductionPercent) else {
-                return .reductionOutOfRange
+        return models.mutate { model in
+            if let rawId = request.mitigationId {
+                let id = PathwayMitigationId(rawId)
+                guard known.contains(where: { $0.id == id }) else {
+                    return .unknownMitigation
+                }
+                guard let mode = PathwayMitigationMode(rawValue: request.mode) else {
+                    return .unknownMode
+                }
+                guard (0...100).contains(request.reductionPercent) else {
+                    return .reductionOutOfRange
+                }
+
+                model.pathwayMitigations.configs[id] = PathwayMitigationConfig(
+                    isEnabled: request.isEnabled,
+                    mode: mode,
+                    reductionPercent: request.reductionPercent
+                )
             }
 
-            model.pathwayMitigations.configs[id] = PathwayMitigationConfig(
-                isEnabled: request.isEnabled,
-                mode: mode,
-                reductionPercent: request.reductionPercent
-            )
+            model.pathwayMitigations.isMasterEnabled = request.isMasterEnabled
+            return .configured
         }
-
-        model.pathwayMitigations.isMasterEnabled = request.isMasterEnabled
-        models.save(model)
-
-        return .configured
     }
 }

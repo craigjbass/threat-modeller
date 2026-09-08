@@ -40,25 +40,24 @@ public struct ConnectComponents: ConnectComponentsUseCase {
         let source = ComponentId(request.sourceComponentId)
         let target = ComponentId(request.targetComponentId)
 
-        var model = models.current()
+        return models.mutate { model in
+            guard model.component(source) != nil else {
+                return .unknownComponent(componentId: source.value)
+            }
+            guard model.component(target) != nil else {
+                return .unknownComponent(componentId: target.value)
+            }
+            guard source != target else {
+                return .selfConnection
+            }
+            if let existing = model.connections.first(where: { $0.source == source && $0.target == target }) {
+                return .duplicateConnection(connectionId: existing.id.value)
+            }
 
-        guard model.component(source) != nil else {
-            return .unknownComponent(componentId: source.value)
+            // The identifier is taken only once every rule has passed.
+            let connection = Connection(id: ConnectionId(ids.next()), source: source, target: target)
+            model.connections.append(connection)
+            return .connected(connectionId: connection.id.value)
         }
-        guard model.component(target) != nil else {
-            return .unknownComponent(componentId: target.value)
-        }
-        guard source != target else {
-            return .selfConnection
-        }
-        if let existing = model.connections.first(where: { $0.source == source && $0.target == target }) {
-            return .duplicateConnection(connectionId: existing.id.value)
-        }
-
-        let connection = Connection(id: ConnectionId(ids.next()), source: source, target: target)
-        model.connections.append(connection)
-        models.save(model)
-
-        return .connected(connectionId: connection.id.value)
     }
 }
