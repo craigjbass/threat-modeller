@@ -3998,6 +3998,12 @@ Decisions this task fixes, because the spec leaves them open:
 - A plain drag on the background draws the marquee. A drag on the background with the Command key held pans. Pinch zooms about the pinch centre. Three buttons give zoom in, zoom out and reset, so zoom works without a trackpad.
 - A click within `ConnectionPath.hitTolerance` of a link selects the link. A click on empty background clears the selection.
 
+Three defects this task found, recorded so a reader of the plan does not repeat them:
+
+- A `20000` point drawing layer sizes the whole window through `NavigationSplitView`. Wrap the canvas in a `GeometryReader`, which takes the space it is offered and never reports its children's size upward.
+- `.accessibilityIdentifier` on a container overwrites the identifier of every element inside it. Put `canvas` on the background layer, not on the whole view.
+- A node built from a `ZStack` of texts reports each text separately. Add `.accessibilityElement(children: .combine)` before the node's identifier.
+
 - [ ] **Step 1: Write the connections layer**
 
 Create `threatmodeller/canvas/ConnectionsLayer.swift`:

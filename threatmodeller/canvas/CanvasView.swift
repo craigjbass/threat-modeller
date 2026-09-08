@@ -19,21 +19,29 @@ struct CanvasView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            Color(nsColor: .textBackgroundColor)
-                .contentShape(Rectangle())
-                .gesture(backgroundTap)
-                .gesture(backgroundDrag)
+        // A GeometryReader takes the space the split view offers and never
+        // reports its children's size back up. Without it the 20000-point
+        // drawing layer sizes the whole window.
+        GeometryReader { _ in
+            ZStack(alignment: .topLeading) {
+                Color(nsColor: .textBackgroundColor)
+                    .contentShape(Rectangle())
+                    // The identifier sits on the background, not on the whole
+                    // canvas: an identifier on a container overwrites the
+                    // identifier of every element inside it.
+                    .accessibilityIdentifier("canvas")
+                    .gesture(backgroundTap)
+                    .gesture(backgroundDrag)
 
-            content
-                .scaleEffect(canvas.transform.zoom, anchor: .topLeading)
-                .offset(x: canvas.transform.pan.width, y: canvas.transform.pan.height)
+                content
+                    .scaleEffect(canvas.transform.zoom, anchor: .topLeading)
+                    .offset(x: canvas.transform.pan.width, y: canvas.transform.pan.height)
 
-            zoomControls
+                zoomControls
+            }
         }
         .coordinateSpace(.named("canvas"))
         .clipped()
-        .accessibilityIdentifier("canvas")
         .focusable()
         .focusEffectDisabled()
         .onKeyPress(.escape) {

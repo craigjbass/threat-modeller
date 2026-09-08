@@ -107,28 +107,31 @@ private struct CategoryDisclosure: View {
     }
 }
 
-/// A technology row that adds the technology when clicked anywhere on the
-/// row, including the empty space to the right of the text.
+/// A technology row. Drag it onto the canvas to place it where it is dropped,
+/// or double-click it to place it near the top left of the canvas.
 private struct TechnologyRow: View {
     let technology: ListedTechnology
     let session: ThreatModelSession
 
     var body: some View {
-        Button {
-            session.add(technologyId: technology.id, x: 0, y: 0)
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(technology.name)
-                Text(technology.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: 2) {
+            Text(technology.name)
+            Text(technology.description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .accessibilityIdentifier("technology-\(technology.id)")
+        .draggable(technology.id) {
+            Text(technology.name)
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.2)))
+        }
+        .onTapGesture(count: 2) {
+            session.addAtDefaultPoint(technologyId: technology.id)
+        }
     }
 }
 

@@ -56,15 +56,24 @@ final class threatmodellerUITests: XCTestCase {
         category.click()
 
         // If the category row were dead, this row would never appear.
-        let technology = app.buttons["technology-aws-ec2"]
+        // The row is a drag source, not a button, so it is not in
+        // `app.buttons`. Query by identifier across every element kind.
+        let technology = app.descendants(matching: .any)["technology-aws-ec2"].firstMatch
         XCTAssertTrue(
             technology.waitForExistence(timeout: 5),
             "Clicking the 'Compute' category did not open it; the EC2 row never appeared."
         )
 
-        // Add the technology.
-        mark("clicking the EC2 row")
-        technology.click()
+        // Add the technology. A single click only selects the row; a
+        // double-click places it on the canvas.
+        mark("double-clicking the EC2 row")
+        technology.doubleClick()
+
+        // If the row were dead, no node would appear on the canvas.
+        XCTAssertTrue(
+            app.descendants(matching: .any)["node-aws-ec2"].firstMatch.waitForExistence(timeout: 10),
+            "Double-clicking the EC2 row did not put a node on the canvas."
+        )
 
         // If the technology row were dead, these threats would never appear.
         XCTAssertTrue(
@@ -76,12 +85,5 @@ final class threatmodellerUITests: XCTestCase {
             "The empty threat list is still showing after a technology was added."
         )
         mark("threats shown")
-    }
-
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
     }
 }

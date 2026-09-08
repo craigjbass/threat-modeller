@@ -53,6 +53,10 @@ struct ComponentNodeView: View {
         .frame(width: ComponentBox.size.width, height: ComponentBox.size.height)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
+        // Without an explicit element SwiftUI reports the node's texts
+        // separately, and the identifier lands on each of them instead of the
+        // node. A user interface test queries this identifier.
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("node-\(component.technologyId)")
         .gesture(
             SpatialTapGesture().modifiers(.shift).onEnded { _ in onSelect(true) }
