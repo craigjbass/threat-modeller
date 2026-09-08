@@ -70,6 +70,18 @@ nonisolated final class Dependencies: UseCaseFactory {
         ViewCustomTechnology(models: models)
     }
 
+    func buildThreatModelReport() -> BuildThreatModelReportUseCase {
+        BuildThreatModelReport(models: models, catalogue: catalogue)
+    }
+
+    func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
+        ExportModelAsMarkdown(reports: buildThreatModelReport())
+    }
+
+    func exportModelAsThreatcl() -> ExportModelAsThreatclUseCase {
+        ExportModelAsThreatcl(reports: buildThreatModelReport())
+    }
+
     func listThreatChoices() -> ListThreatChoicesUseCase {
         ListThreatChoices(catalogue: catalogue)
     }

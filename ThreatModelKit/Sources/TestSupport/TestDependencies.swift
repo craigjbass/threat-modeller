@@ -71,6 +71,18 @@ public final class TestDependencies: UseCaseFactory {
         ViewCustomTechnology(models: models)
     }
 
+    public func buildThreatModelReport() -> BuildThreatModelReportUseCase {
+        BuildThreatModelReport(models: models, catalogue: catalogue)
+    }
+
+    public func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
+        ExportModelAsMarkdown(reports: buildThreatModelReport())
+    }
+
+    public func exportModelAsThreatcl() -> ExportModelAsThreatclUseCase {
+        ExportModelAsThreatcl(reports: buildThreatModelReport())
+    }
+
     public func listThreatChoices() -> ListThreatChoicesUseCase {
         ListThreatChoices(catalogue: catalogue)
     }

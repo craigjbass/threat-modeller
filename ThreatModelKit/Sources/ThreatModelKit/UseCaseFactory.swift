@@ -18,6 +18,9 @@ public protocol UseCaseFactory {
     func editCustomTechnology() -> EditCustomTechnologyUseCase
     func deleteCustomTechnology() -> DeleteCustomTechnologyUseCase
     func listThreatChoices() -> ListThreatChoicesUseCase
+    func buildThreatModelReport() -> BuildThreatModelReportUseCase
+    func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase
+    func exportModelAsThreatcl() -> ExportModelAsThreatclUseCase
     func viewCustomTechnology() -> ViewCustomTechnologyUseCase
     func listTechnologies() -> ListTechnologiesUseCase
     func viewThreatModel() -> ViewThreatModelUseCase
