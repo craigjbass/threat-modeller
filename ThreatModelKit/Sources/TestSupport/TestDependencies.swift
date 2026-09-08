@@ -1,3 +1,4 @@
+import ArchitectureDSL
 import ThreatModelKit
 import FileGateways
 
@@ -9,6 +10,7 @@ public final class TestDependencies: UseCaseFactory {
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
+    private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let samples: SampleModelGateway = FakeSampleModels()
     private let clock = FixedClock()
     /// The clock this root runs on, so an acceptance test can move time.
@@ -82,6 +84,23 @@ public final class TestDependencies: UseCaseFactory {
 
     public func setComponentProperties() -> SetComponentPropertiesUseCase {
         SetComponentProperties(models: models)
+    }
+
+    public func layOutModel() -> LayOutModelUseCase {
+        LayOutModel()
+    }
+
+    public func importArchitecture() -> ImportArchitectureUseCase {
+        ImportArchitecture(
+            models: models,
+            catalogue: catalogue,
+            sources: architectureSources,
+            layout: layOutModel()
+        )
+    }
+
+    public func exportArchitecture() -> ExportArchitectureUseCase {
+        ExportArchitecture(models: models, sources: architectureSources)
     }
 
     public func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {

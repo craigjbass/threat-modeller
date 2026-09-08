@@ -1,5 +1,6 @@
 import CatalogueGateways
 import FileGateways
+import ArchitectureDSL
 import ThreatModelKit
 
 /// The composition root. One graph per open model; from Milestone 6 that means
@@ -10,6 +11,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
+    private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let samples: SampleModelGateway = BundledSampleModels()
     private let clock: Clock = SystemClock()
 
@@ -81,6 +83,23 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func setComponentProperties() -> SetComponentPropertiesUseCase {
         SetComponentProperties(models: models)
+    }
+
+    func layOutModel() -> LayOutModelUseCase {
+        LayOutModel()
+    }
+
+    func importArchitecture() -> ImportArchitectureUseCase {
+        ImportArchitecture(
+            models: models,
+            catalogue: catalogue,
+            sources: architectureSources,
+            layout: layOutModel()
+        )
+    }
+
+    func exportArchitecture() -> ExportArchitectureUseCase {
+        ExportArchitecture(models: models, sources: architectureSources)
     }
 
     func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {
