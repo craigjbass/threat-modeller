@@ -40,14 +40,18 @@ public struct ReportSummary: Equatable, Sendable {
     public let byStride: [ReportCount]
     public let controlsOffered: Int
     public let controlsRecorded: Int
+    /// How many controls carry each status, worst answered first.
+    public let byControlStatus: [ReportCount]
 
     public init(
         totalThreats: Int,
         byLevel: [ReportCount],
         byStride: [ReportCount],
         controlsOffered: Int,
-        controlsRecorded: Int
+        controlsRecorded: Int,
+        byControlStatus: [ReportCount] = []
     ) {
+        self.byControlStatus = byControlStatus
         self.totalThreats = totalThreats
         self.byLevel = byLevel
         self.byStride = byStride
@@ -139,6 +143,11 @@ public struct ReportThreat: Equatable, Sendable {
     public let sourceKind: String
     public let controls: [ReportControl]
     public let pathwayMitigationLabels: [String]
+    /// What compensates this threat, and what it bought.
+    public let compensating: [ReportCompensatingControl]
+    /// The score before the compensating control. Equal to `riskScore` when
+    /// none applied.
+    public let scoreBeforeCompensation: Int
 
     public init(
         threatId: String,
@@ -152,8 +161,12 @@ public struct ReportThreat: Equatable, Sendable {
         sourceName: String,
         sourceKind: String,
         controls: [ReportControl],
-        pathwayMitigationLabels: [String]
+        pathwayMitigationLabels: [String],
+        compensating: [ReportCompensatingControl] = [],
+        scoreBeforeCompensation: Int? = nil
     ) {
+        self.compensating = compensating
+        self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
         self.threatId = threatId
         self.name = name
         self.description = description
@@ -172,9 +185,26 @@ public struct ReportThreat: Equatable, Sendable {
 public struct ReportControl: Equatable, Sendable {
     public let description: String
     public let isImplemented: Bool
+    /// What the user said about it: Implemented, Not implemented, Not
+    /// applicable or Accepted.
+    public let statusLabel: String
 
-    public init(description: String, isImplemented: Bool) {
+    public init(description: String, isImplemented: Bool, statusLabel: String? = nil) {
         self.description = description
         self.isImplemented = isImplemented
+        self.statusLabel = statusLabel ?? (isImplemented ? "Implemented" : "Not implemented")
+    }
+}
+
+/// Something a team does that answers a threat the catalogue's controls do not.
+public struct ReportCompensatingControl: Equatable, Sendable {
+    public let label: String
+    public let reducesRiskBy: Int
+    public let rationale: String
+
+    public init(label: String, reducesRiskBy: Int, rationale: String) {
+        self.label = label
+        self.reducesRiskBy = reducesRiskBy
+        self.rationale = rationale
     }
 }

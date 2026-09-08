@@ -36,6 +36,27 @@ jobs:
           swift run threatmodeller-cli format /tmp/sample
           cat /tmp/sample/threatmodel/payments.arch
 
+      - name: Compile, check and report the sample project
+        working-directory: ThreatModelKit
+        run: |
+          swift run threatmodeller-cli compile /tmp/sample
+          test -f /tmp/sample/threatmodel/payments.controls
+
+          # Nothing is answered yet, so check must fail the build.
+          set +e
+          swift run threatmodeller-cli check /tmp/sample
+          code=$?
+          set -e
+          test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
+
+          # Answer everything, and it must pass.
+          sed -i 's/"not_implemented"/"accepted"/g' /tmp/sample/threatmodel/payments.controls
+          swift run threatmodeller-cli check /tmp/sample
+
+          swift run threatmodeller-cli report /tmp/sample
+          test -f /tmp/sample/threatmodel/payments.md
+          head -20 /tmp/sample/threatmodel/payments.md
+
       - name: Refuse a file that does not parse
         working-directory: ThreatModelKit
         run: |

@@ -139,9 +139,22 @@ nonisolated struct PDFReportRenderer: ReportRenderer {
                         + " \u{00B7} \(threat.riskLevel) (\(threat.riskScore))"
                 )
             )
+            for compensating in threat.compensating {
+                text.append(
+                    body(
+                        "Compensated by \(compensating.label)"
+                            + " (\(compensating.reducesRiskBy)%,"
+                            + " \(threat.scoreBeforeCompensation) \u{2192} \(threat.riskScore)):"
+                            + " \(compensating.rationale)"
+                    )
+                )
+            }
             for control in threat.controls {
                 text.append(
-                    body("\(control.isImplemented ? "\u{2713}" : "\u{25A1}") \(control.description)")
+                    body(
+                        "\(control.isImplemented ? "\u{2713}" : "\u{25A1}") \(control.description)"
+                            + " \u{2014} \(control.statusLabel)"
+                    )
                 )
             }
             text.append(body(""))

@@ -61,7 +61,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     byLevel: summary.byLevel.map { ReportCount(label: $0.label, count: $0.count) },
                     byStride: summary.byStride.map { ReportCount(label: $0.label, count: $0.count) },
                     controlsOffered: summary.controlsOffered,
-                    controlsRecorded: summary.controlsRecorded
+                    controlsRecorded: summary.controlsRecorded,
+                    byControlStatus: Self.byStatus(assessment.threats)
                 ),
                 components: model.components.map { component in
                     ReportComponent(
@@ -95,6 +96,18 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 threats: assessment.threats.map { assessed in
                     Self.threat(
                         from: assessed,
+                        compensating: model.compensatingControls[
+                            ThreatKey(
+                                threatId: assessed.threatId,
+                                sourceId: assessed.source.id
+                            )
+                        ]?.map {
+                            ReportCompensatingControl(
+                                label: $0.label,
+                                reducesRiskBy: $0.reducesRiskBy,
+                                rationale: $0.rationale
+                            )
+                        } ?? [],
                         // The assessment names STRIDE by id. A report is read
                         // by people, so it names it by label.
                         strideLabels: assessed.stride.compactMap {
@@ -106,8 +119,30 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         )
     }
 
+    /// A control is counted once per distinct key, the way `SummariseRisk`
+    /// counts what is offered and what is recorded.
+    private static func byStatus(_ threats: [AssessedThreat]) -> [ReportCount] {
+        var statusByKey: [String: String] = [:]
+        for threat in threats {
+            for control in threat.controls {
+                statusByKey[control.key] = control.statusLabel
+            }
+        }
+
+        var counts: [String: Int] = [:]
+        for label in statusByKey.values {
+            counts[label, default: 0] += 1
+        }
+
+        return ["Implemented", "Accepted", "Not applicable", "Not implemented"]
+            .compactMap { label in
+                counts[label].map { ReportCount(label: label, count: $0) }
+            }
+    }
+
     private static func threat(
         from assessed: AssessedThreat,
+        compensating: [ReportCompensatingControl],
         strideLabels: [String]
     ) -> ReportThreat {
         ReportThreat(
@@ -122,9 +157,15 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             sourceName: assessed.source.displayName,
             sourceKind: kind(of: assessed.source),
             controls: assessed.controls.map {
-                ReportControl(description: $0.description, isImplemented: $0.isImplemented)
+                ReportControl(
+                    description: $0.description,
+                    isImplemented: $0.isImplemented,
+                    statusLabel: $0.statusLabel
+                )
             },
-            pathwayMitigationLabels: assessed.pathwayMitigationLabels
+            pathwayMitigationLabels: assessed.pathwayMitigationLabels,
+            compensating: compensating,
+            scoreBeforeCompensation: assessed.scoreBeforeCompensation
         )
     }
 

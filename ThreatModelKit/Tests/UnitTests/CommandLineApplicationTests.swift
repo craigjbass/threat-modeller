@@ -21,10 +21,25 @@ struct CommandLineApplicationTests {
 
     private func run(_ words: String...) -> (code: Int32, lines: [String]) {
         var lines: [String] = []
-        let code = CommandLineApplication(projects: project)
-            .run(arguments: ["threatmodeller"] + words, output: { lines.append($0) })
+        // The fixture catalogue, so a catalogue update never breaks a verb's
+        // test.
+        let code = CommandLineApplication(
+            projects: project,
+            catalogue: { CatalogueFixture.catalogue() }
+        )
+        .run(arguments: ["threatmodeller"] + words, output: { lines.append($0) })
         return (code, lines)
     }
+
+    private let payments = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+    }
+
+    """
 
     @Test func rewritesAFileInTheCanonicalShape() throws {
         project.put(untidy, at: "/work/threatmodel/payments.arch")
@@ -105,6 +120,89 @@ struct CommandLineApplicationTests {
 
         #expect(result.code == 0)
         #expect(result.lines.first?.contains("holds no .arch files") == true)
+    }
+
+    @Test func writesAControlsFileBesideTheArchitecture() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run("compile", "/work")
+
+        #expect(result.code == 0)
+        #expect(result.lines.first?.hasPrefix("/work/threatmodel/payments.controls: 0 answered") == true)
+        let written = try #require(project.text(at: "/work/threatmodel/payments.controls"))
+        #expect(written.hasPrefix("controls for \"Payments\" {"))
+        #expect(written.contains("status = \"not_implemented\""))
+    }
+
+    @Test func writesTheControlsFileItReadWhenNothingChanged() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        _ = run("compile", "/work")
+        let first = try #require(project.text(at: "/work/threatmodel/payments.controls"))
+
+        _ = run("compile", "/work")
+
+        #expect(project.text(at: "/work/threatmodel/payments.controls") == first)
+    }
+
+    @Test func failsTheBuildWhenAThreatHasNoAnswer() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run("check", "/work")
+
+        #expect(result.code == 1)
+        #expect(result.lines.contains { $0.contains("has no answer") })
+    }
+
+    @Test func passesWhenEveryThreatIsAnswered() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        _ = run("compile", "/work")
+        let compiled = try #require(project.text(at: "/work/threatmodel/payments.controls"))
+        project.put(
+            compiled.replacingOccurrences(of: "\"not_implemented\"", with: "\"accepted\""),
+            at: "/work/threatmodel/payments.controls"
+        )
+
+        let result = run("check", "/work")
+
+        #expect(result.code == 0)
+        #expect(result.lines.contains { $0.contains("every threat is answered") })
+    }
+
+    @Test func writesTheReportBesideTheArchitecture() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run("report", "/work")
+
+        #expect(result.code == 0)
+        #expect(result.lines == ["wrote /work/threatmodel/payments.md"])
+        let written = try #require(project.text(at: "/work/threatmodel/payments.md"))
+        #expect(written.hasPrefix("# Payments\n"))
+        #expect(written.contains("## Threats"))
+    }
+
+    @Test func writesTheReportWhereItWasTold() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run("report", "/work", "-o", "/out")
+
+        #expect(result.code == 0)
+        #expect(project.text(at: "/out/payments.md") != nil)
+    }
+
+    @Test func carriesTheAnswersIntoTheReport() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        _ = run("compile", "/work")
+        let compiled = try #require(project.text(at: "/work/threatmodel/payments.controls"))
+        project.put(
+            compiled.replacingOccurrences(of: "\"not_implemented\"", with: "\"implemented\""),
+            at: "/work/threatmodel/payments.controls"
+        )
+
+        _ = run("report", "/work")
+
+        let written = try #require(project.text(at: "/work/threatmodel/payments.md"))
+        #expect(written.contains("- [x] "))
+        #expect(written.contains("\u{2014} Implemented"))
     }
 
     @Test func refusesAVerbItDoesNotHold() {

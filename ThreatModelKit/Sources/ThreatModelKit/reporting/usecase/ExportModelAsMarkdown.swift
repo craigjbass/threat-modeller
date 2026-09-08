@@ -55,6 +55,9 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         var lines = ["## Summary", ""]
         lines.append("- Threats: \(summary.totalThreats)")
         lines.append("- Controls recorded: \(summary.controlsRecorded) of \(summary.controlsOffered)")
+        for status in summary.byControlStatus {
+            lines.append("- Controls \(status.label.lowercased()): \(status.count)")
+        }
         for level in summary.byLevel {
             lines.append("- \(level.label): \(level.count)")
         }
@@ -134,6 +137,14 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             if threat.mitreTechniqueIds.isEmpty == false {
                 lines.append("- MITRE ATT&CK: \(threat.mitreTechniqueIds.joined(separator: ", "))")
             }
+            for compensating in threat.compensating {
+                lines.append(
+                    "- Compensated by: \(compensating.label)"
+                        + " (\(compensating.reducesRiskBy)%,"
+                        + " \(threat.scoreBeforeCompensation) \u{2192} \(threat.riskScore))"
+                )
+                lines.append("  - Rationale: \(compensating.rationale)")
+            }
             if threat.pathwayMitigationLabels.isEmpty == false {
                 lines.append(
                     "- Answered upstream by: "
@@ -145,7 +156,10 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
                 lines.append("Controls:")
                 lines.append("")
                 for control in threat.controls {
-                    lines.append("- [\(control.isImplemented ? "x" : " ")] \(control.description)")
+                    lines.append(
+                        "- [\(control.isImplemented ? "x" : " ")] \(control.description)"
+                            + " \u{2014} \(control.statusLabel)"
+                    )
                 }
             }
             lines.append("")

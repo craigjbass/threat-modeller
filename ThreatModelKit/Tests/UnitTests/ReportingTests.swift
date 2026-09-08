@@ -150,7 +150,53 @@ struct MarkdownExportTests {
 
         #expect(markdown.contains("Controls:"))
         #expect(markdown.contains("- [ ] "))
+        #expect(markdown.contains("\u{2014} Not implemented"))
         #expect(markdown.contains("- [x] ") == false)
+    }
+
+    @Test func writesWhatCompensatedAThreatAndWhatItBought() throws {
+        guard case .added(let componentId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "restricted")
+        ) else {
+            Issue.record("the component was not added")
+            return
+        }
+        let threat = try #require(
+            app.assessThreatModel().execute(AssessThreatModelRequest()).threats.first
+        )
+        app.modelStore.mutate { model in
+            model.compensatingControls[
+                ThreatKey(threatId: threat.threatId, sourceId: "component:\(componentId)")
+            ] = [
+                CompensatingControl(
+                    label: "Watched by the SIEM",
+                    reducesRiskBy: 50,
+                    rationale: "It alerts on use."
+                )
+            ]
+        }
+
+        let markdown = markdown()
+
+        #expect(markdown.contains("- Compensated by: Watched by the SIEM (50%,"))
+        #expect(markdown.contains("  - Rationale: It alerts on use."))
+    }
+
+    @Test func countsTheControlsByStatus() throws {
+        _ = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "internal")
+        )
+        let control = try #require(
+            app.assessThreatModel().execute(AssessThreatModelRequest()).threats.first?.controls.first
+        )
+        _ = app.recordControlImplemented().execute(
+            RecordControlImplementedRequest(controlKey: control.key)
+        )
+
+        let markdown = markdown()
+
+        #expect(markdown.contains("- Controls implemented: 1"))
+        #expect(markdown.contains("- Controls not implemented: "))
     }
 
     @Test func countsTheThreatsInTheSummary() {
