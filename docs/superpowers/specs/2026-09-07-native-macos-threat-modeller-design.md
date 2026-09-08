@@ -182,6 +182,9 @@ One actor: the threat modeller.
 - `OpenThreatModel`
 - `SaveThreatModel`
 - `RenameThreatModel`
+- `ViewThreatModel` — the components and connections the canvas draws, as plain
+  values. This is the `CanvasSnapshot` of section 9. The canvas never reads a
+  gateway, so a read use case supplies it.
 - `AddComponent`
 - `MoveComponents`
 - `RemoveComponents`
@@ -337,6 +340,16 @@ Removing a component prunes every `node:{componentId}:` key.
   generic controls.
 - Duplicate `(threat, source)` pairs are raised once.
 - Any threat scoring 0 is filtered from the result.
+
+**Connection rules**
+
+- A connection is directed. It has a source component and a target component,
+  and the canvas draws an arrowhead at the target.
+- A component cannot connect to itself.
+- A second connection with the same source and the same target is refused.
+- A connection from B to A is a separate connection from one from A to B, and
+  both may exist.
+- Removing a component also removes every connection that touches it.
 
 ## 6. Gateways
 
