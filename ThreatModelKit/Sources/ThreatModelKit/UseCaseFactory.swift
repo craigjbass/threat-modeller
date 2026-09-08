@@ -21,6 +21,8 @@ public protocol UseCaseFactory {
     func buildThreatModelReport() -> BuildThreatModelReportUseCase
     func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase
     func exportModelAsThreatcl() -> ExportModelAsThreatclUseCase
+    func exportModelAsImage() -> ExportModelAsImageUseCase
+    func exportModelAsPdf() -> ExportModelAsPdfUseCase
     func viewCustomTechnology() -> ViewCustomTechnologyUseCase
     func listTechnologies() -> ListTechnologiesUseCase
     func viewThreatModel() -> ViewThreatModelUseCase

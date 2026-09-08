@@ -238,3 +238,101 @@ struct ThreatclExportTests {
         #expect(hcl.contains("threatmodel \"The \\\"$${env}\\\" model \\\\ 1\" {"))
     }
 }
+
+@Suite("Saying what the picture should draw")
+struct ImageExportTests {
+    private let app = TestDependencies()
+
+    private func area() -> ExportModelAsImageResponse {
+        app.exportModelAsImage().execute(ExportModelAsImageRequest())
+    }
+
+    @Test func drawsASquareWhenThereIsNothingToDraw() {
+        let area = area()
+
+        #expect(area.isEmpty)
+        #expect(area.width == 400)
+        #expect(area.height == 400)
+        #expect(area.fileName == "Untitled.png")
+    }
+
+    @Test func leavesAMarginAroundTheOneComponent() {
+        _ = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-ec2", x: 100, y: 200, sensitivity: "internal")
+        )
+
+        let area = area()
+
+        #expect(area.isEmpty == false)
+        #expect(area.x == 60)
+        #expect(area.y == 160)
+        // A node is 160 by 72, plus a 40 point margin on each side.
+        #expect(area.width == 240)
+        #expect(area.height == 152)
+    }
+
+    @Test func holdsEveryComponentAndEveryZone() {
+        _ = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "internal")
+        )
+        _ = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-rds", x: 600, y: 400, sensitivity: "internal")
+        )
+        _ = app.addZone().execute(AddZoneRequest(x: -200, y: -150, width: 300, height: 300))
+
+        let area = area()
+
+        #expect(area.x == -240)
+        #expect(area.y == -190)
+        // From the zone's left edge to the far node's right edge, plus a
+        // 40 point margin on each side.
+        #expect(area.width == 960 + 80)
+        #expect(area.height == 622 + 80)
+    }
+
+    @Test func namesTheFileAfterTheModel() {
+        _ = app.renameThreatModel().execute(RenameThreatModelRequest(name: "Payments"))
+
+        #expect(area().fileName == "Payments.png")
+    }
+}
+
+@Suite("Asking a renderer for the report as PDF")
+struct PdfExportTests {
+    private let app = TestDependencies()
+
+    @Test func handsBackWhatTheRendererDrew() throws {
+        _ = app.renameThreatModel().execute(RenameThreatModelRequest(name: "Payments"))
+
+        let response = app.exportModelAsPdf().execute(ExportModelAsPdfRequest())
+
+        guard case .exported(let bytes, let fileName) = response else {
+            Issue.record("expected .exported, got \(response)")
+            return
+        }
+        #expect(fileName == "Payments.pdf")
+        #expect(String(decoding: bytes, as: UTF8.self).hasPrefix("%PDF-"))
+        #expect(String(decoding: bytes, as: UTF8.self).contains("Payments"))
+    }
+
+    @Test func saysSoWhenTheRendererCannotDraw() {
+        let export = ExportModelAsPdf(
+            reports: app.buildThreatModelReport(),
+            renderer: RefusingReportRenderer()
+        )
+
+        let response = export.execute(ExportModelAsPdfRequest())
+
+        guard case .cannotRender(let reason) = response else {
+            Issue.record("expected .cannotRender, got \(response)")
+            return
+        }
+        #expect(reason.contains("cannotStartDocument"))
+    }
+}
+
+private struct RefusingReportRenderer: ReportRenderer {
+    func render(_ report: Report) throws -> [UInt8] {
+        throw ReportRenderError.cannotStartDocument
+    }
+}

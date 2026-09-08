@@ -78,6 +78,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         ExportModelAsMarkdown(reports: buildThreatModelReport())
     }
 
+    func exportModelAsPdf() -> ExportModelAsPdfUseCase {
+        ExportModelAsPdf(reports: buildThreatModelReport(), renderer: PDFReportRenderer())
+    }
+
+    func exportModelAsImage() -> ExportModelAsImageUseCase {
+        ExportModelAsImage(models: models)
+    }
+
     func exportModelAsThreatcl() -> ExportModelAsThreatclUseCase {
         ExportModelAsThreatcl(reports: buildThreatModelReport())
     }

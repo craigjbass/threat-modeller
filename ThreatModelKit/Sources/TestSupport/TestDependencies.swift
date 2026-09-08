@@ -79,6 +79,14 @@ public final class TestDependencies: UseCaseFactory {
         ExportModelAsMarkdown(reports: buildThreatModelReport())
     }
 
+    public func exportModelAsPdf() -> ExportModelAsPdfUseCase {
+        ExportModelAsPdf(reports: buildThreatModelReport(), renderer: FakeReportRenderer())
+    }
+
+    public func exportModelAsImage() -> ExportModelAsImageUseCase {
+        ExportModelAsImage(models: models)
+    }
+
     public func exportModelAsThreatcl() -> ExportModelAsThreatclUseCase {
         ExportModelAsThreatcl(reports: buildThreatModelReport())
     }
