@@ -258,7 +258,7 @@ Each of these owns a rule that is already valid across more than one use case.
 |---|---|---|
 | `RiskScore` | severity(1–4) × sensitivity(1–4) → 1–16; thresholds ≥12 critical, ≥8 high, ≥4 medium, else low | `AssessThreatModel`, `SummariseRisk` |
 | `ZoneContainment` | a component belongs to a zone when its centre lies within the zone rect, offset by 40pt of header padding; later zones win over earlier ones | `AssessThreatModel`, `ViewThreatModel` |
-| `UpstreamGraph` | reverse breadth-first traversal of connections to the set of components upstream of a given component | `AssessThreatModel`, pathway settings preview |
+| `UpstreamGraph` | reverse breadth-first traversal of connections to the set of components strictly upstream of a given component; a component is never upstream of itself | `AssessThreatModel`, pathway settings preview |
 | `SensitivityLadder` | higher-of two sensitivities; maximum sensitivity across directly downstream components | `AssessThreatModel` |
 | `ControlIdentity` | djb2 hash of the whitespace-normalised control description, scoped by owner; pruning a component's keys on delete | `AssessThreatModel`, `RecordControlImplemented`, `RemoveComponents`, `SaveThreatModel` |
 
@@ -308,6 +308,15 @@ covered by a test ported from the original suite.
 - Applies when the master toggle is on, the specific mitigation is enabled, an
   upstream component provides that mitigation, and the mitigation lists the
   threat id.
+- "Upstream" is strict: a component is not upstream of itself, so a component
+  never mitigates its own threats.
+- The catalogue supplies each mitigation's id, label, the threat ids it
+  mitigates and the technology ids that provide it. It supplies no mode and no
+  percentage; those are the user's settings, stored on the model.
+- Defaults, which the catalogue does not state: the master toggle is **off**, and
+  each mitigation is enabled with mode `reduce` at 50 per cent. A model must not
+  score lower than the catalogue says until the user states the mitigation is
+  real on their system.
 - Mode `remove`: the threat is dropped entirely.
 - Mode `reduce`: `max(1, floor(score − score × percent / 100))`. A reduced threat
   never reaches zero.
