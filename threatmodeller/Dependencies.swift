@@ -13,6 +13,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let files: ThreatModelFileGateway = ThreatModelCodec()
     private let projects: ProjectSourceGateway = FileSystemProject()
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
+    private let controlsSources: ControlsSourceGateway = HclControlsSource()
     private let samples: SampleModelGateway = BundledSampleModels()
     private let clock: Clock = SystemClock()
 
@@ -101,6 +102,23 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func exportArchitecture() -> ExportArchitectureUseCase {
         ExportArchitecture(models: models, sources: architectureSources)
+    }
+
+    func compileControls() -> CompileControlsUseCase {
+        CompileControls(
+            catalogue: catalogue,
+            architectureSources: architectureSources,
+            controlsSources: controlsSources,
+            layout: layOutModel()
+        )
+    }
+
+    func applyControlAnswers() -> ApplyControlAnswersUseCase {
+        ApplyControlAnswers(models: models, catalogue: catalogue, sources: controlsSources)
+    }
+
+    func checkControlAnswers() -> CheckControlAnswersUseCase {
+        CheckControlAnswers(compiles: compileControls(), sources: controlsSources)
     }
 
     func openProject() -> OpenProjectUseCase {

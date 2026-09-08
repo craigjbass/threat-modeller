@@ -18,6 +18,7 @@ public final class TestDependencies: UseCaseFactory {
     public let project = InMemoryProject()
     private var projects: ProjectSourceGateway { project }
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
+    private let controlsSources: ControlsSourceGateway = HclControlsSource()
     private let samples: SampleModelGateway = FakeSampleModels()
     private let clock = FixedClock()
     /// The clock this root runs on, so an acceptance test can move time.
@@ -108,6 +109,23 @@ public final class TestDependencies: UseCaseFactory {
 
     public func exportArchitecture() -> ExportArchitectureUseCase {
         ExportArchitecture(models: models, sources: architectureSources)
+    }
+
+    public func compileControls() -> CompileControlsUseCase {
+        CompileControls(
+            catalogue: catalogue,
+            architectureSources: architectureSources,
+            controlsSources: controlsSources,
+            layout: layOutModel()
+        )
+    }
+
+    public func applyControlAnswers() -> ApplyControlAnswersUseCase {
+        ApplyControlAnswers(models: models, catalogue: catalogue, sources: controlsSources)
+    }
+
+    public func checkControlAnswers() -> CheckControlAnswersUseCase {
+        CheckControlAnswers(compiles: compileControls(), sources: controlsSources)
     }
 
     public func openProject() -> OpenProjectUseCase {
