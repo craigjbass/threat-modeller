@@ -9,6 +9,7 @@ public final class TestDependencies: UseCaseFactory {
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
+    private let samples: SampleModelGateway = FakeSampleModels()
     private let clock = FixedClock()
     /// The clock this root runs on, so an acceptance test can move time.
     public var time: FixedClock { clock }
@@ -77,6 +78,14 @@ public final class TestDependencies: UseCaseFactory {
 
     public func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
         ExportModelAsMarkdown(reports: buildThreatModelReport())
+    }
+
+    public func listSampleModels() -> ListSampleModelsUseCase {
+        ListSampleModels(samples: samples)
+    }
+
+    public func loadSampleModel() -> LoadSampleModelUseCase {
+        LoadSampleModel(models: models, samples: samples, files: files)
     }
 
     public func exportModelAsPdf() -> ExportModelAsPdfUseCase {

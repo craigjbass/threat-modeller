@@ -18,13 +18,17 @@ let package = Package(
             dependencies: ["ThreatModelKit"],
             resources: [.copy("Resources/Library"), .copy("Resources/Actors")]
         ),
-        .target(name: "FileGateways", dependencies: ["ThreatModelKit"]),
+        .target(
+            name: "FileGateways",
+            dependencies: ["ThreatModelKit"],
+            resources: [.copy("Resources/Samples")]
+        ),
         .target(name: "TestSupport", dependencies: ["ThreatModelKit", "FileGateways"]),
         .testTarget(name: "UnitTests", dependencies: ["ThreatModelKit", "TestSupport"]),
         .testTarget(name: "AcceptanceTests", dependencies: ["ThreatModelKit", "TestSupport"]),
         .testTarget(
             name: "GatewayContractTests",
-            dependencies: ["ThreatModelKit", "CatalogueGateways", "TestSupport"]
+            dependencies: ["ThreatModelKit", "CatalogueGateways", "FileGateways", "TestSupport"]
         ),
         .testTarget(
             name: "GatewayIntegrationTests",

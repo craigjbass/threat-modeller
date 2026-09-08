@@ -35,6 +35,7 @@ private struct ModelView: View {
 
     @State private var canvas = CanvasState()
     @State private var isDriftDismissed = false
+    @State private var isSampleBrowserOpen = false
 
     /// Said once, above the diagram, and dismissible. A model that silently
     /// dropped what the catalogue no longer holds would be worse than one that
@@ -70,6 +71,12 @@ private struct ModelView: View {
         }
         .focusedSceneValue(\.threatModelSession, session)
         .focusedSceneValue(\.threatModelCanvas, canvas)
+        .focusedSceneValue(\.threatModelSampleBrowser, ShowSampleBrowser {
+            isSampleBrowserOpen = true
+        })
+        .sheet(isPresented: $isSampleBrowserOpen) {
+            SampleBrowser(session: session, canvas: canvas)
+        }
     }
 
     private var columns: some View {

@@ -1,0 +1,22 @@
+{
+  "samples": [
+    {
+      "id": "public-web",
+      "name": "Public Web Application",
+      "description": "A user reaching a web application through a content delivery network and a load balancer, with a database and a document store behind it.",
+      "file": "public-web.threatmodel"
+    },
+    {
+      "id": "card-payments",
+      "name": "Card Payments",
+      "description": "A checkout function behind an API gateway, with its order store and its secrets inside a cardholder data environment.",
+      "file": "card-payments.threatmodel"
+    },
+    {
+      "id": "internal-reporting",
+      "name": "Internal Reporting",
+      "description": "An administrator running reports against a warehouse and an extract store on a corporate network.",
+      "file": "internal-reporting.threatmodel"
+    }
+  ]
+}

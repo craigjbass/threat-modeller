@@ -1,0 +1,86 @@
+{
+  "catalogue": {
+    "repository": "jib1337/threat-model-library",
+    "tag": "v1.0.1"
+  },
+  "components": [
+    {
+      "customName": null,
+      "id": "c1",
+      "sensitivity": "internal",
+      "technologyId": "actor-admin",
+      "threatsDisabled": false,
+      "x": 40,
+      "y": 160
+    },
+    {
+      "customName": "Reporting Service",
+      "id": "c2",
+      "sensitivity": "internal",
+      "technologyId": "gcp-cloud-run",
+      "threatsDisabled": false,
+      "x": 320,
+      "y": 160
+    },
+    {
+      "customName": "Warehouse",
+      "id": "c3",
+      "sensitivity": "confidential",
+      "technologyId": "gcp-bigquery",
+      "threatsDisabled": false,
+      "x": 600,
+      "y": 160
+    },
+    {
+      "customName": "Extracts",
+      "id": "c4",
+      "sensitivity": "confidential",
+      "technologyId": "gcp-cloud-storage",
+      "threatsDisabled": false,
+      "x": 600,
+      "y": 360
+    }
+  ],
+  "connections": [
+    {
+      "id": "l1",
+      "source": "c1",
+      "target": "c2"
+    },
+    {
+      "id": "l2",
+      "source": "c2",
+      "target": "c3"
+    },
+    {
+      "id": "l3",
+      "source": "c2",
+      "target": "c4"
+    }
+  ],
+  "createdAt": "2026-09-08T09:00:00Z",
+  "customTechnologies": [],
+  "formatVersion": 2,
+  "implementedControls": [],
+  "name": "Internal Reporting",
+  "pathwayMitigations": {
+    "configs": {},
+    "isMasterEnabled": false
+  },
+  "severityOverrides": {},
+  "updatedAt": "2026-09-08T09:00:00Z",
+  "zones": [
+    {
+      "height": 420,
+      "id": "z1",
+      "name": "Corporate Network",
+      "networkType": "on-premises",
+      "networkZone": "private",
+      "riskReductionEnabled": true,
+      "riskReductionPercent": 20,
+      "width": 480,
+      "x": 280,
+      "y": 60
+    }
+  ]
+}

@@ -549,6 +549,26 @@ final class ThreatModelSession {
         errorMessage = "The export could not be written: \(reason)"
     }
 
+    /// The examples the File menu offers.
+    var samples: [ListedSample] {
+        useCases.listSampleModels().execute(ListSampleModelsRequest()).samples
+    }
+
+    /// Puts an example in front of the user. One change, so one undo takes it
+    /// back.
+    func loadSample(_ sampleId: String) {
+        switch useCases.loadSampleModel().execute(LoadSampleModelRequest(sampleId: sampleId)) {
+        case .loaded:
+            errorMessage = nil
+        case .unknownSample:
+            errorMessage = "This application no longer holds that example."
+        case .unreadable(let reason):
+            errorMessage = "That example could not be opened: \(reason)"
+        }
+
+        refresh()
+    }
+
     private func clipboardText() -> String? {
         NSPasteboard.general.string(forType: .string)
     }

@@ -11,6 +11,16 @@ struct ThreatModelCanvasKey: FocusedValueKey {
     typealias Value = CanvasState
 }
 
+/// The menu opens a sheet the document owns, so it carries the action rather
+/// than the state.
+struct ShowSampleBrowser {
+    let show: () -> Void
+}
+
+struct ThreatModelSampleBrowserKey: FocusedValueKey {
+    typealias Value = ShowSampleBrowser
+}
+
 extension FocusedValues {
     var threatModelSession: ThreatModelSession? {
         get { self[ThreatModelSessionKey.self] }
@@ -20,6 +30,11 @@ extension FocusedValues {
     var threatModelCanvas: CanvasState? {
         get { self[ThreatModelCanvasKey.self] }
         set { self[ThreatModelCanvasKey.self] = newValue }
+    }
+
+    var threatModelSampleBrowser: ShowSampleBrowser? {
+        get { self[ThreatModelSampleBrowserKey.self] }
+        set { self[ThreatModelSampleBrowserKey.self] = newValue }
     }
 }
 
@@ -31,8 +46,16 @@ extension FocusedValues {
 struct ThreatModelCommands: Commands {
     @FocusedValue(\.threatModelSession) private var session
     @FocusedValue(\.threatModelCanvas) private var canvas
+    @FocusedValue(\.threatModelSampleBrowser) private var sampleBrowser
 
     var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("Open Example\u{2026}") { sampleBrowser?.show() }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+                .disabled(sampleBrowser == nil)
+                .accessibilityIdentifier("open-example")
+        }
+
         CommandGroup(after: .saveItem) {
             Divider()
 

@@ -10,6 +10,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
+    private let samples: SampleModelGateway = BundledSampleModels()
     private let clock: Clock = SystemClock()
 
     init() throws {
@@ -76,6 +77,14 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
         ExportModelAsMarkdown(reports: buildThreatModelReport())
+    }
+
+    func listSampleModels() -> ListSampleModelsUseCase {
+        ListSampleModels(samples: samples)
+    }
+
+    func loadSampleModel() -> LoadSampleModelUseCase {
+        LoadSampleModel(models: models, samples: samples, files: files)
     }
 
     func exportModelAsPdf() -> ExportModelAsPdfUseCase {
