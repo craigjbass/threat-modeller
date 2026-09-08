@@ -109,7 +109,7 @@ private struct TechnologyRow: View {
 
     var body: some View {
         Button {
-            session.add(technologyId: technology.id)
+            session.add(technologyId: technology.id, x: 0, y: 0)
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(technology.name)
