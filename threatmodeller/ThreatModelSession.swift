@@ -3,6 +3,12 @@ import ThreatModelKit
 
 /// Translates user intent into use case calls and publishes the responses.
 /// Holds no business rules and names no gateway.
+///
+/// Main-actor isolated: every caller is a SwiftUI view, and the use cases it
+/// calls are synchronous. `ThreatModelGateway` has no atomic append, so a
+/// second concurrent caller would lose a change; the isolation keeps that
+/// impossible while the port stays as it is.
+@MainActor
 @Observable
 final class ThreatModelSession {
     private let useCases: UseCaseFactory

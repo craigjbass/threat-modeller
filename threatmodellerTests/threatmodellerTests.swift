@@ -2,6 +2,7 @@ import Testing
 import ThreatModelKit
 @testable import threatmodeller
 
+@MainActor
 struct ThreatModelSessionTests {
     @Test func loadsTheWholeCataloguePaletteOnLaunch() throws {
         let session = ThreatModelSession(useCases: try Dependencies())
