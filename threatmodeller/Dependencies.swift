@@ -5,7 +5,7 @@ import ThreatModelKit
 /// The composition root. One graph per open model; from Milestone 6 that means
 /// one per document window. `UseCaseFactory` lives in the core so this root and
 /// `TestDependencies` cannot drift apart.
-final class Dependencies: UseCaseFactory {
+nonisolated final class Dependencies: UseCaseFactory {
     private let catalogue: TechnologyCatalogue
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator

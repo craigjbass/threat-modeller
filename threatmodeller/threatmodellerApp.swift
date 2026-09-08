@@ -3,9 +3,9 @@ import SwiftUI
 @main
 struct ThreatModellerApp: App {
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        DocumentGroup(newDocument: ThreatModelDocument()) { file in
+            ContentView(document: file.document)
         }
-        .defaultSize(width: 1100, height: 700)
+        .defaultSize(width: 1400, height: 900)
     }
 }

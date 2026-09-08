@@ -8,9 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		A0000000000000000000001 /* ThreatModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000002 /* ThreatModelKit */; };
-		A0000000000000000000008 /* FileGateways in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000009 /* FileGateways */; };
 		A0000000000000000000004 /* ThreatModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000005 /* ThreatModelKit */; };
 		A0000000000000000000006 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000007 /* TestSupport */; };
+		A0000000000000000000008 /* FileGateways in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000009 /* FileGateways */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -421,6 +421,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = threatmodeller/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -453,6 +454,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = threatmodeller/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -604,10 +606,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = ThreatModelKit;
 		};
-		A0000000000000000000009 /* FileGateways */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = FileGateways;
-		};
 		A0000000000000000000005 /* ThreatModelKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ThreatModelKit;
@@ -615,6 +613,10 @@
 		A0000000000000000000007 /* TestSupport */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TestSupport;
+		};
+		A0000000000000000000009 /* FileGateways */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FileGateways;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

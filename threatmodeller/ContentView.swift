@@ -2,14 +2,15 @@ import SwiftUI
 import ThreatModelKit
 
 struct ContentView: View {
+    let document: ThreatModelDocument
+
     @State private var session: ThreatModelSession?
-    @State private var startupError: String?
 
     var body: some View {
         Group {
             if let session {
-                ModelView(session: session)
-            } else if let startupError {
+                ModelView(session: session, drift: document.drift)
+            } else if let startupError = document.store.startupError {
                 ContentUnavailableView(
                     "The catalogue could not be loaded",
                     systemImage: "exclamationmark.triangle",
@@ -20,21 +21,56 @@ struct ContentView: View {
             }
         }
         .task {
-            guard session == nil, startupError == nil else { return }
-            do {
-                session = ThreatModelSession(useCases: try Dependencies())
-            } catch {
-                startupError = String(describing: error)
-            }
+            guard session == nil, let useCases = document.store.useCases else { return }
+            session = ThreatModelSession(useCases: useCases)
         }
     }
 }
 
 private struct ModelView: View {
     let session: ThreatModelSession
+    /// What had moved under this file since it was last saved, or nil for a
+    /// new document.
+    let drift: ThreatModelDrift?
+
     @State private var canvas = CanvasState()
+    @State private var isDriftDismissed = false
+
+    /// Said once, above the diagram, and dismissible. A model that silently
+    /// dropped what the catalogue no longer holds would be worse than one that
+    /// says so.
+    private var driftMessage: String? {
+        guard isDriftDismissed == false, let drift, drift.hasDrift else { return nil }
+
+        if drift.unknownTechnologyIds.isEmpty == false {
+            return "This model uses "
+                + "\(drift.unknownTechnologyIds.joined(separator: ", ")), "
+                + "which the catalogue no longer holds. Those components raise no threats."
+        }
+        return "This model was last assessed against catalogue "
+            + "\(drift.savedCatalogueTag ?? "an earlier version"). "
+            + "This application holds \(drift.currentCatalogueTag)."
+    }
 
     var body: some View {
+        VStack(spacing: 0) {
+            if let driftMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text(driftMessage).font(.callout)
+                    Spacer(minLength: 8)
+                    Button("Dismiss") { isDriftDismissed = true }
+                }
+                .padding(8)
+                .background(Color.yellow.opacity(0.25))
+                .accessibilityIdentifier("drift-banner")
+            }
+
+            columns
+        }
+    }
+
+    private var columns: some View {
         NavigationSplitView {
             PaletteView(session: session)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260)

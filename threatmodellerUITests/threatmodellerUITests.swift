@@ -37,17 +37,31 @@ final class threatmodellerUITests: XCTestCase {
         mark("launching")
         app.launch()
 
+        // A document-based application offers to open a file on launch rather
+        // than showing a window. The journey needs a new, empty document.
+        mark("making a new document")
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(
+            app.windows.firstMatch.waitForExistence(timeout: 15),
+            "No document window appeared after asking for a new document."
+        )
+
+        // Every query below is scoped to one window. A previous suite in the
+        // same run can leave another document open, and an unscoped query then
+        // matches the same control twice.
+        let window = app.windows.firstMatch
+
         // The palette lists the catalogue, grouped by provider then category.
         // Each row carries a stable accessibility identifier built from its
         // provider id, category id, and technology id, so the query does not
         // depend on tree order or on the row's visible label text.
-        let category = app.buttons["category-aws-compute"]
+        let category = window.buttons["category-aws-compute"]
         XCTAssertTrue(
             category.waitForExistence(timeout: 15),
             "The 'category-aws-compute' category never appeared in the palette."
         )
         XCTAssertTrue(
-            app.staticTexts["No threats yet"].exists,
+            window.staticTexts["No threats yet"].exists,
             "Expected the empty threat list before a technology is added."
         )
 
@@ -58,7 +72,7 @@ final class threatmodellerUITests: XCTestCase {
         // If the category row were dead, this row would never appear.
         // The row is a drag source, not a button, so it is not in
         // `app.buttons`. Query by identifier across every element kind.
-        let technology = app.descendants(matching: .any)["technology-aws-ec2"].firstMatch
+        let technology = window.descendants(matching: .any)["technology-aws-ec2"].firstMatch
         XCTAssertTrue(
             technology.waitForExistence(timeout: 5),
             "Clicking the 'Compute' category did not open it; the EC2 row never appeared."
@@ -71,24 +85,24 @@ final class threatmodellerUITests: XCTestCase {
 
         // If the row were dead, no node would appear on the canvas.
         XCTAssertTrue(
-            app.descendants(matching: .any)["node-aws-ec2"].firstMatch.waitForExistence(timeout: 10),
+            window.descendants(matching: .any)["node-aws-ec2"].firstMatch.waitForExistence(timeout: 10),
             "Double-clicking the EC2 row did not put a node on the canvas."
         )
 
         // If the technology row were dead, these threats would never appear.
         XCTAssertTrue(
-            app.staticTexts["Credential Theft"].firstMatch.waitForExistence(timeout: 10),
+            window.staticTexts["Credential Theft"].firstMatch.waitForExistence(timeout: 10),
             "Clicking the EC2 row did not raise its threats."
         )
         XCTAssertFalse(
-            app.staticTexts["No threats yet"].exists,
+            window.staticTexts["No threats yet"].exists,
             "The empty threat list is still showing after a technology was added."
         )
         mark("threats shown")
 
         // Draw a zone around the node, and read the threat the zone raises.
         mark("turning on the zone drawing mode")
-        let drawZone = app.descendants(matching: .any)["draw-zone"].firstMatch
+        let drawZone = window.descendants(matching: .any)["draw-zone"].firstMatch
         XCTAssertTrue(
             drawZone.waitForExistence(timeout: 5),
             "The 'Draw zone' control never appeared in the canvas toolbar."
@@ -96,7 +110,7 @@ final class threatmodellerUITests: XCTestCase {
         drawZone.click()
 
         mark("dragging a zone across the canvas")
-        let canvas = app.descendants(matching: .any)["canvas"].firstMatch
+        let canvas = window.descendants(matching: .any)["canvas"].firstMatch
         XCTAssertTrue(canvas.exists, "The canvas background was not found.")
         canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.05))
             .press(
@@ -106,20 +120,20 @@ final class threatmodellerUITests: XCTestCase {
 
         // The zone captures the node, so the zone's own threats appear.
         XCTAssertTrue(
-            app.staticTexts["Lateral Movement"].firstMatch.waitForExistence(timeout: 10),
+            window.staticTexts["Lateral Movement"].firstMatch.waitForExistence(timeout: 10),
             "Drawing a zone did not raise the zone's own threats."
         )
         mark("zone threats shown")
 
         // Tick a control on a card and see the summary follow.
         mark("ticking a control")
-        let summaryStrip = app.descendants(matching: .any)["risk-summary"].firstMatch
+        let summaryStrip = window.descendants(matching: .any)["risk-summary"].firstMatch
         XCTAssertTrue(
             summaryStrip.waitForExistence(timeout: 5),
             "The risk summary never appeared above the threat cards."
         )
 
-        let firstCheckbox = app.checkBoxes.firstMatch
+        let firstCheckbox = window.checkBoxes.firstMatch
         XCTAssertTrue(
             firstCheckbox.waitForExistence(timeout: 5),
             "No control checkbox appeared on any threat card."
@@ -140,14 +154,14 @@ final class threatmodellerUITests: XCTestCase {
 
         // Open the pathway mitigations and switch them on.
         mark("opening the pathway mitigations")
-        let pathwayHeader = app.descendants(matching: .any)["pathway-mitigations"].firstMatch
+        let pathwayHeader = window.descendants(matching: .any)["pathway-mitigations"].firstMatch
         XCTAssertTrue(
             pathwayHeader.waitForExistence(timeout: 5),
             "The pathway mitigations control never appeared in the sidebar."
         )
         pathwayHeader.click()
 
-        let master = app.descendants(matching: .any)["pathway-master"].firstMatch
+        let master = window.descendants(matching: .any)["pathway-master"].firstMatch
         XCTAssertTrue(
             master.waitForExistence(timeout: 5),
             "Opening the pathway mitigations did not reveal the master switch."
