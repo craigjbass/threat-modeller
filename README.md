@@ -143,6 +143,56 @@ A library that does not load stops the project opening, rather than loading the
 libraries that do. [The language guide](docs/LANGUAGE.md#6-the-library-language)
 states the grammar and every fault.
 
+### Vendoring a library
+
+A library repository holds one or more `.lib` files at its root. Nothing else in
+it is read, and nothing in it is ever run.
+
+```
+threatmodeller library add <repository> <tag> [<root>]  # fetch and pin a library
+threatmodeller library update [<label>] [<root>]        # fetch again at the recorded tag
+threatmodeller library remove <label> [<root>]          # delete a library and its lock entry
+threatmodeller library list [<root>]                    # say what this project holds
+threatmodeller library verify [<root>]                  # check the files against the lock file
+threatmodeller library outdated [<root>]                # say which libraries have a newer tag
+```
+
+`add` writes the files into `threatmodel/library/` and writes
+`library.lock.json`, which records the repository, the tag and the `sha256` of
+each file. A team commits both, so a pull request shows what changed.
+
+```json
+{
+  "libraries" : {
+    "acme" : {
+      "files" : { "acme.lib" : "9f2c0b1e…" },
+      "repository" : "git@github.com:acme/threat-elements.git",
+      "tag" : "v2.1.0"
+    }
+  }
+}
+```
+
+`add`, `update` and `outdated` run `git` as a child process, so a team keeps the
+access it already has: an `ssh-agent` key, a `~/.ssh/config`, a credential
+helper, a self-hosted server, a private repository. **This application holds no
+credential.** It reads none, stores none and prompts for none, and a repository
+the user's own `git` cannot read is one it cannot read either. The message it
+shows is `git`'s own.
+
+`verify` runs no child process and reaches no server, so it is the command a
+continuous integration job runs:
+
+```
+threatmodeller library verify && threatmodeller check
+```
+
+`remove` refuses while a system names one of the library's technologies, and
+says which systems. `--force` removes it anyway.
+
+`update` fetches again at the tag the lock file already records and changes no
+tag. To move version, run `add` with the new tag.
+
 ## Scoring
 
 The order is fixed:
@@ -164,6 +214,7 @@ threatmodeller compile [<root>]              # writes or merges every .controls 
 threatmodeller check   [<root>]              # says what has no answer
 threatmodeller report  [<root>] [-o <dir>]   # writes every .md report
 threatmodeller format  [<root>]              # rewrites every .arch file canonically
+threatmodeller library <operation> …         # manages the shared element libraries
 threatmodeller help                          # shows the usage text
 ```
 
@@ -173,8 +224,10 @@ about a file that did not change.
 
 `<root>` is the project root, and defaults to the working directory.
 
-Exit codes: `0` success; `1` a threat is unanswered or a stale answer remains;
-`2` a file did not parse; `3` a file could not be read or written.
+Exit codes: `0` success; `1` a threat is unanswered, a stale answer remains, a
+library file does not match the lock file, a library a system names was not
+removed, or a library has a newer tag; `2` a file did not parse; `3` a file
+could not be read or written; `4` a library could not be fetched.
 
 A diagnostic prints as
 `threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0.1`,
@@ -229,6 +282,7 @@ document.
 | --- | --- |
 | [`ThreatModelKit/Sources/ArchitectureDSL`](ThreatModelKit/Sources/ArchitectureDSL) | the lexer, both parsers and both writers |
 | [`ThreatModelKit/Sources/ThreatModelKit/architecture`](ThreatModelKit/Sources/ThreatModelKit/architecture) | the project convention and the use cases over it |
-| [`ThreatModelKit/Sources/CommandLineApplication`](ThreatModelKit/Sources/CommandLineApplication) | the four verbs and their exit codes |
+| [`ThreatModelKit/Sources/CommandLineApplication`](ThreatModelKit/Sources/CommandLineApplication) | the verbs and their exit codes |
+| [`GitLibraryFetcher.swift`](ThreatModelKit/Sources/FileGateways/GitLibraryFetcher.swift) | the one place this application runs `git` |
 | [`threatmodeller/project`](threatmodeller/project) | the project window, the workflow bar and the notice strip |
 | [`scripts/update-catalogue.sh`](scripts/update-catalogue.sh) | refreshes the vendored threat catalogue |

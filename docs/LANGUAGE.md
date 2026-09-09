@@ -651,7 +651,10 @@ and `threatmodeller library add` vendors somebody else's into a project.
 
 Every `.lib` file a project holds sits in `<directory>/library`, and every
 system in the project reads every one of them. `library.lock.json` beside them
-records which repository and tag each came from, and the checksum of each file.
+records which repository and tag each came from, and the `sha256` of each file.
+The key in that file is the library's label, which is the label of the `library`
+block. `threatmodeller library verify` says the files and the lock file agree,
+and needs no network. The README states the six `library` operations.
 
 ### 6.1 Shape
 
