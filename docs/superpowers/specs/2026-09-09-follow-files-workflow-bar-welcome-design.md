@@ -93,22 +93,28 @@ that appears later changes the fingerprint.
 
 ### 2.5 The unsaved flag
 
-Every method of `ThreatModelSession` that changes the model ends with
-`refresh()`. A private method `apply()` wraps that call and increments a new
-`changeCount`.
+`ThreatModelSession.refresh()` runs once when the session is built, and once
+after every change to the model. It gains a counter:
 
 ```swift
-private(set) var changeCount = 0
+/// How many times this session has read the model back. It starts at 1, and
+/// every change raises it. `ProjectSession` compares it with the number it
+/// recorded to answer whether anything on screen is unsaved.
+private(set) var revision = 0
 
-private func apply() {
-    changeCount += 1
-    refresh()
+private func refresh() {
+    revision += 1
+    ...
 }
 ```
 
-`ProjectSession` records `model.changeCount` after each open, reload and save.
-`hasUnsavedChanges` answers true when the current count is higher than the
-recorded one.
+`ProjectSession` records `model.revision` at the end of `choose(_:)` and after
+each save. `hasUnsavedChanges` answers true when the current revision is higher
+than the recorded one.
+
+A use case that failed still calls `refresh()`, so a failed change raises the
+revision without changing the model. The cost is one notice strip the user did
+not need, and that same failure already shows an error message.
 
 ## 3. Change 2 — the workflow action bar
 
