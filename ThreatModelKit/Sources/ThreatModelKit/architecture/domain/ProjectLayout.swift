@@ -24,11 +24,20 @@ public struct ProjectLayout: Equatable, Sendable {
     public let directory: String
     /// By name, sorted, so two reads of one project list the same thing.
     public let systems: [ProjectSystem]
+    /// The `.lib` files under `<directory>/library`, sorted. Every system in
+    /// the project reads every one of them.
+    public let libraryPaths: [String]
 
-    public init(root: String, directory: String, systems: [ProjectSystem]) {
+    public init(
+        root: String,
+        directory: String,
+        systems: [ProjectSystem],
+        libraryPaths: [String] = []
+    ) {
         self.root = root
         self.directory = directory
         self.systems = systems
+        self.libraryPaths = libraryPaths
     }
 
     public func system(named name: String) -> ProjectSystem? {

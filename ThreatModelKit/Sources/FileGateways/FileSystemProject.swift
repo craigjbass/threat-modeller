@@ -29,10 +29,20 @@ public struct FileSystemProject: ProjectSourceGateway {
             throw ProjectError.cannotRead(path: directory, reason: String(describing: error))
         }
 
+        // A project that holds no library directory holds no library, which is
+        // not a fault.
+        let libraryDirectory = (directory as NSString)
+            .appendingPathComponent(ProjectConvention.libraryDirectory)
+        let libraryNames = (try? manager.contentsOfDirectory(atPath: libraryDirectory)) ?? []
+
         return ProjectLayout(
             root: root,
             directory: directory,
-            systems: ProjectConvention.systems(in: directory, fileNames: names)
+            systems: ProjectConvention.systems(in: directory, fileNames: names),
+            libraryPaths: ProjectConvention.libraries(
+                in: libraryDirectory,
+                fileNames: libraryNames
+            )
         )
     }
 

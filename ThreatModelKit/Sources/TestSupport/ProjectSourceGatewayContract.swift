@@ -46,6 +46,23 @@ public func verifyProjectSourceGatewayContract(
     #expect((try? gateway.read(path: payments.controlsPath)) == "answers")
     #expect(gateway.exists(path: payments.controlsPath))
 
+    // A project's libraries sit in a `library` directory beside its systems,
+    // and the layout lists the `.lib` files sorted and nothing else.
+    #expect(layout.libraryPaths.isEmpty)
+    let library = ProjectConvention.path(inside, ProjectConvention.libraryDirectory)
+    put("library \"beta\" { }\n", ProjectConvention.path(library, "beta.lib"))
+    put("library \"acme\" { }\n", ProjectConvention.path(library, "acme.lib"))
+    put("not a library\n", ProjectConvention.path(library, "README.md"))
+
+    guard let withLibraries = try? gateway.discover(root: root) else {
+        Issue.record("a project holding libraries did not open")
+        return
+    }
+    #expect(withLibraries.libraryPaths == [
+        ProjectConvention.path(library, "acme.lib"),
+        ProjectConvention.path(library, "beta.lib")
+    ])
+
     // A read of a file that is not there says which file.
     #expect(throws: ProjectError.self) {
         _ = try gateway.read(path: ProjectConvention.path(inside, "no-such-file.arch"))

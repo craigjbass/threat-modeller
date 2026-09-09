@@ -35,10 +35,22 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
             .filter { (($0 as NSString).deletingLastPathComponent) == directory }
             .map { ($0 as NSString).lastPathComponent }
 
+        let libraryDirectory = ProjectConvention.path(
+            directory,
+            ProjectConvention.libraryDirectory
+        )
+        let libraryNames = files.keys
+            .filter { (($0 as NSString).deletingLastPathComponent) == libraryDirectory }
+            .map { ($0 as NSString).lastPathComponent }
+
         return ProjectLayout(
             root: root,
             directory: directory,
-            systems: ProjectConvention.systems(in: directory, fileNames: names)
+            systems: ProjectConvention.systems(in: directory, fileNames: names),
+            libraryPaths: ProjectConvention.libraries(
+                in: libraryDirectory,
+                fileNames: libraryNames
+            )
         )
     }
 

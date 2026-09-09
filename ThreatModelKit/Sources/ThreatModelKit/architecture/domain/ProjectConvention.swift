@@ -6,6 +6,9 @@ public enum ProjectConvention {
     public static let architectureExtension = "arch"
     public static let controlsExtension = "controls"
     public static let reportExtension = "md"
+    /// The directory a project's shared libraries sit in.
+    public static let libraryDirectory = "library"
+    public static let libraryExtension = "lib"
 
     /// The systems a directory holds, by name, sorted.
     public static func systems(in directory: String, fileNames: [String]) -> [ProjectSystem] {
@@ -21,6 +24,15 @@ public enum ProjectConvention {
                 )
             }
             .sorted { $0.name < $1.name }
+    }
+
+    /// The library files a directory holds, sorted, so two reads of one
+    /// project list the same thing.
+    public static func libraries(in directory: String, fileNames: [String]) -> [String] {
+        fileNames
+            .filter { $0.hasSuffix(".\(libraryExtension)") }
+            .sorted()
+            .map { path(directory, $0) }
     }
 
     public static func path(_ directory: String, _ fileName: String) -> String {
