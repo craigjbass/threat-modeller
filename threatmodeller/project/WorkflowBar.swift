@@ -13,24 +13,32 @@ struct WorkflowBar: View {
                 Button {
                     session.save()
                 } label: {
-                    Label("Save System", systemImage: "square.and.arrow.down")
+                    Label("Synchronise", systemImage: "arrow.triangle.2.circlepath")
                         .frame(minWidth: 130)
                 }
                 .controlSize(.large)
                 .disabled(session.chosenSystem == nil)
-                .accessibilityIdentifier("save-system")
+                .accessibilityIdentifier("synchronise")
 
                 Button {
                     session.compileReport()
                 } label: {
-                    Label("Compile Report", systemImage: "doc.text")
+                    Label("Generate Report", systemImage: "doc.text")
                         .frame(minWidth: 150)
                 }
                 .controlSize(.large)
                 .disabled(session.chosenSystem == nil)
-                .accessibilityIdentifier("compile-report")
+                .accessibilityIdentifier("generate-report")
 
                 Spacer(minLength: 8)
+
+                Toggle("Auto Sync", isOn: autoSync)
+                    .toggleStyle(.checkbox)
+                    .help(
+                        "Redraw the diagram when a .arch or .controls file "
+                            + "changes on disk."
+                    )
+                    .accessibilityIdentifier("auto-sync")
             }
 
             if let message = session.lastActionMessage {
@@ -45,5 +53,12 @@ struct WorkflowBar: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.bar)
         .accessibilityIdentifier("workflow-bar")
+    }
+
+    private var autoSync: Binding<Bool> {
+        Binding(
+            get: { session.isAutoSyncOn },
+            set: { session.isAutoSyncOn = $0 }
+        )
     }
 }

@@ -78,7 +78,7 @@ struct ViewRenderTests {
         let useCases = TestDependencies()
         useCases.project.put("a readme", at: "/work/README.md")
         // A fake watcher, so a render test never reaches the file system.
-        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher())
+        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
         session.open(root: "/work")
         return session
     }
@@ -97,7 +97,7 @@ struct ViewRenderTests {
             """,
             at: "/work/threatmodel/payments.arch"
         )
-        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher())
+        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
         session.open(root: "/work")
         return session
     }
@@ -180,7 +180,7 @@ struct ViewRenderTests {
             at: "/work/threatmodel/payments.arch"
         )
         let watcher = FakeProjectWatcher()
-        let session = ProjectSession(useCases: useCases, watcher: watcher)
+        let session = ProjectSession(useCases: useCases, watcher: watcher, defaults: aTestDefaults())
         session.open(root: "/work")
         session.model?.addAtDefaultPoint(technologyId: "aws-rds")
         useCases.project.put(

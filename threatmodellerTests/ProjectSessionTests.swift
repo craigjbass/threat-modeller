@@ -1,7 +1,22 @@
+import Foundation
 import Testing
 import ThreatModelKit
 import TestSupport
 @testable import threatmodeller
+
+/// A defaults suite made for one test, so nothing a test writes reaches the
+/// user's own defaults.
+@MainActor
+func aTestDefaults() -> UserDefaults {
+    let suite = "project-session-test-\(testDefaultsCount)"
+    testDefaultsCount += 1
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    return defaults
+}
+
+@MainActor
+private var testDefaultsCount = 0
 
 /// A watcher a test drives by hand.
 @MainActor
@@ -53,7 +68,7 @@ struct ProjectSessionTests {
         useCases.project.put("system \"Reporting\" { component \"r\" { technology = \"aws-rds\" } }",
                              at: "/work/threatmodel/reporting.arch")
         let watcher = FakeProjectWatcher()
-        return (ProjectSession(useCases: useCases, watcher: watcher), useCases, watcher)
+        return (ProjectSession(useCases: useCases, watcher: watcher, defaults: aTestDefaults()), useCases, watcher)
     }
 
     @Test func listsTheSystemsAndDrawsTheFirst() {
@@ -95,7 +110,7 @@ struct ProjectSessionTests {
             "system \"Broken\" {\n  zone \"z\" {\n    kind = \"secret\"\n  }\n}",
             at: "/work/threatmodel/broken.arch"
         )
-        let session = ProjectSession(useCases: useCases)
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
 
         session.open(root: "/work")
 
@@ -112,7 +127,7 @@ struct ProjectSessionTests {
             "system \"P\" {\n  zone \"empty\" { }\n  component \"a\" { technology = \"aws-ec2\" }\n}",
             at: "/work/threatmodel/p.arch"
         )
-        let session = ProjectSession(useCases: useCases)
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
 
         session.open(root: "/work")
 
@@ -122,7 +137,7 @@ struct ProjectSessionTests {
     }
 
     @Test func saysSoWhenTheRootIsNotAProject() {
-        let session = ProjectSession(useCases: TestDependencies())
+        let session = ProjectSession(useCases: TestDependencies(), defaults: aTestDefaults())
 
         session.open(root: "/nowhere")
 
@@ -133,7 +148,7 @@ struct ProjectSessionTests {
     @Test func saysSoWhenAProjectHoldsNoArchitectureFiles() {
         let useCases = TestDependencies()
         useCases.project.put("a readme", at: "/work/README.md")
-        let session = ProjectSession(useCases: useCases)
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
 
         session.open(root: "/work")
 
@@ -279,6 +294,84 @@ struct ProjectSessionTests {
         #expect(session.model?.canvas.components.map(\.id) == ["r2"])
     }
 
+    // MARK: the auto sync switch
+
+    @Test func startsWithAutoSyncOn() {
+        let (session, _, _) = aWatchedProject()
+
+        #expect(session.isAutoSyncOn)
+    }
+
+    @Test func doesNotRedrawWhileAutoSyncIsOff() {
+        let (session, useCases, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        session.isAutoSyncOn = false
+        let drawn = session.model
+        useCases.project.put(
+            "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        watcher.fire()
+
+        #expect(session.model === drawn)
+        #expect(session.hasFilesChangedOnDisk)
+    }
+
+    @Test func redrawsWhenAutoSyncIsTurnedBackOn() {
+        let (session, useCases, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        session.isAutoSyncOn = false
+        useCases.project.put(
+            "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+        watcher.fire()
+
+        session.isAutoSyncOn = true
+
+        #expect(session.model?.canvas.components.map(\.id) == ["other"])
+        #expect(session.hasFilesChangedOnDisk == false)
+    }
+
+    @Test func leavesAnUnsavedModelAloneWhenAutoSyncIsTurnedBackOn() {
+        let (session, useCases, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        session.isAutoSyncOn = false
+        session.model?.addAtDefaultPoint(technologyId: "aws-rds")
+        let drawn = session.model
+        useCases.project.put(
+            "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+        watcher.fire()
+
+        session.isAutoSyncOn = true
+
+        #expect(session.model === drawn)
+        #expect(session.hasFilesChangedOnDisk)
+    }
+
+    @Test func remembersTheSwitchForTheNextSession() {
+        let defaults = aTestDefaults()
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        let first = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: defaults
+        )
+
+        first.isAutoSyncOn = false
+        let second = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: defaults
+        )
+
+        #expect(second.isAutoSyncOn == false)
+    }
+
     // MARK: what the last action did
 
     @Test func saysWhatTheSaveDid() {
@@ -327,7 +420,7 @@ struct ProjectAnswerTests {
     private func aProject() -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
         useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
-        let session = ProjectSession(useCases: useCases)
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
         session.open(root: "/work")
         return (session, useCases)
     }
@@ -402,7 +495,7 @@ struct ProjectAnswerTests {
             try #require(useCases.project.text(at: "/work/threatmodel/payments.controls")),
             at: "/work/threatmodel/payments.controls"
         )
-        let second = ProjectSession(useCases: reader)
+        let second = ProjectSession(useCases: reader, defaults: aTestDefaults())
         second.open(root: "/work")
 
         #expect(second.model?.summary.controlsRecorded == 1)
@@ -416,7 +509,7 @@ struct EmptyProjectTests {
     private func anEmptyRoot() -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
         useCases.project.put("a readme", at: "/work/README.md")
-        let session = ProjectSession(useCases: useCases)
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
         session.open(root: "/work")
         return (session, useCases)
     }
@@ -457,7 +550,7 @@ struct EmptyProjectTests {
     @Test func offersNothingWhenTheProjectAlreadyHoldsASystem() {
         let useCases = TestDependencies()
         useCases.project.put("system \"Mine\" { }", at: "/work/threatmodel/mine.arch")
-        let session = ProjectSession(useCases: useCases)
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
 
         session.open(root: "/work")
 
@@ -467,7 +560,7 @@ struct EmptyProjectTests {
     @Test func neverWritesOverASystemThatIsAlreadyThere() throws {
         let useCases = TestDependencies()
         useCases.project.put("system \"Mine\" { }", at: "/work/threatmodel/mine.arch")
-        let session = ProjectSession(useCases: useCases)
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
         session.open(root: "/work")
 
         session.initialise()
@@ -486,7 +579,7 @@ struct EmptyProjectTests {
     }
 
     @Test func offersNothingWhenNoProjectIsOpen() {
-        let session = ProjectSession(useCases: TestDependencies())
+        let session = ProjectSession(useCases: TestDependencies(), defaults: aTestDefaults())
 
         #expect(session.canInitialise == false)
     }

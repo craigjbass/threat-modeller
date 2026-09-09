@@ -335,3 +335,34 @@ of the application already existed made `TestSupport` fail to compile with
 `Cannot find type 'ReadProjectFingerprintUseCase' in scope`, although
 `swift test` in the package passed. `xcodebuild clean` cleared it. Run the clean
 after adding a file to the package, before running the application tests.
+
+## 9. What the user asked for after the first build
+
+### 9.1 The button labels
+
+`Save System` is now `Synchronise`, with the icon
+`arrow.triangle.2.circlepath`. `Compile Report` is now `Generate Report`. The
+menu items follow: `Synchronise Project System` and `Generate Report`. The two
+shortcuts do not change.
+
+The spelling is `Synchronise`, which matches `initialise` and `summarise` in
+the rest of this repository.
+
+### 9.2 The Auto Sync checkbox
+
+The workflow bar carries a checkbox named `Auto Sync`, on the right of the two
+buttons. It starts on, and `ProjectSession` writes the choice to
+`UserDefaults` under `autoSync`, so it outlives the run.
+
+`ProjectSession.filesChanged()` redraws only when auto sync is on and nothing
+on screen is unsaved. In every other case it raises the notice strip and the
+user picks.
+
+Turning the checkbox back on answers the change the user has been looking at:
+the session reloads at once, unless something on screen is unsaved, and then
+the notice stays.
+
+The notice reads `The files changed on disk. Auto Sync is off.` when nothing is
+unsaved, and its second button reads `Dismiss`. When something is unsaved it
+reads `The files changed on disk. Your unsaved changes are still on screen.`,
+and the second button reads `Keep Mine`.

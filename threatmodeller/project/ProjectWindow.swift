@@ -117,25 +117,31 @@ struct ProjectWindow: View {
         }
     }
 
-    /// A file changed on disk while something on screen was unsaved. The user
-    /// picks which one wins.
+    /// A file changed on disk and this application did not redraw, because
+    /// auto sync is off or something on screen is unsaved. The user picks.
     @ViewBuilder
     private var filesChangedNotice: some View {
         if session.hasFilesChangedOnDisk {
             HStack(spacing: 8) {
-                Image(systemName: "arrow.clockwise")
-                Text("The files changed on disk. Your unsaved changes are still on screen.")
+                Image(systemName: "arrow.triangle.2.circlepath")
+                Text(filesChangedText)
                     .font(.callout)
                 Spacer(minLength: 8)
                 Button("Reload") { session.reloadFromDisk() }
                     .accessibilityIdentifier("reload-from-disk")
-                Button("Keep Mine") { session.keepMine() }
+                Button(session.hasUnsavedChanges ? "Keep Mine" : "Dismiss") { session.keepMine() }
                     .accessibilityIdentifier("keep-mine")
             }
             .padding(8)
             .background(Color.blue.opacity(0.18))
             .accessibilityIdentifier("files-changed-notice")
         }
+    }
+
+    private var filesChangedText: String {
+        session.hasUnsavedChanges
+            ? "The files changed on disk. Your unsaved changes are still on screen."
+            : "The files changed on disk. Auto Sync is off."
     }
 
     @ViewBuilder

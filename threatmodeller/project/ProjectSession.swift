@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import ThreatModelKit
 
@@ -10,6 +11,7 @@ import ThreatModelKit
 final class ProjectSession {
     private let useCases: UseCaseFactory
     private let watcher: ProjectWatching
+    private let defaults: UserDefaults
 
     private(set) var root: String?
     private(set) var directory: String?
@@ -40,9 +42,33 @@ final class ProjectSession {
     /// the files.
     private var savedRevision = 0
 
-    init(useCases: UseCaseFactory, watcher: ProjectWatching = FSEventsProjectWatcher()) {
+    init(
+        useCases: UseCaseFactory,
+        watcher: ProjectWatching = FSEventsProjectWatcher(),
+        defaults: UserDefaults = .standard
+    ) {
         self.useCases = useCases
         self.watcher = watcher
+        self.defaults = defaults
+        if defaults.object(forKey: Self.autoSyncKey) == nil {
+            defaults.set(true, forKey: Self.autoSyncKey)
+        }
+        isAutoSyncOn = defaults.bool(forKey: Self.autoSyncKey)
+    }
+
+    private static let autoSyncKey = "autoSync"
+
+    /// True while this application redraws the project on its own when a file
+    /// changes on disk. It starts on, and the user turns it off in the
+    /// workflow bar. The choice outlives the run.
+    var isAutoSyncOn: Bool = true {
+        didSet {
+            defaults.set(isAutoSyncOn, forKey: Self.autoSyncKey)
+            // Turning it on answers the change the user has been looking at.
+            if isAutoSyncOn, hasFilesChangedOnDisk, hasUnsavedChanges == false {
+                reloadFromDisk()
+            }
+        }
     }
 
     var hasErrors: Bool {
@@ -137,14 +163,17 @@ final class ProjectSession {
 
     /// What the watcher calls. A change this application wrote itself answers
     /// the same fingerprint, so nothing happens.
+    ///
+    /// It redraws only when auto sync is on and nothing on screen is unsaved.
+    /// In every other case it raises the notice and the user picks.
     private func filesChanged() {
         let current = currentFingerprint()
         guard current != fingerprint else { return }
 
-        if hasUnsavedChanges {
-            hasFilesChangedOnDisk = true
-        } else {
+        if isAutoSyncOn && hasUnsavedChanges == false {
             reloadFromDisk()
+        } else {
+            hasFilesChangedOnDisk = true
         }
     }
 
