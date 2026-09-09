@@ -3,6 +3,26 @@ import ThreatModelKit
 import TestSupport
 @testable import threatmodeller
 
+/// A watcher a test drives by hand.
+@MainActor
+final class FakeProjectWatcher: ProjectWatching {
+    private(set) var watchedDirectory: String?
+    private var onChange: (() -> Void)?
+
+    func watch(directory: String, onChange: @escaping () -> Void) {
+        watchedDirectory = directory
+        self.onChange = onChange
+    }
+
+    func stop() {
+        watchedDirectory = nil
+        onChange = nil
+    }
+
+    /// What the real watcher calls when a file changes.
+    func fire() { onChange?() }
+}
+
 /// The project session is the translator for a project window. These tests run
 /// it over a project held in memory, so no test touches a disk.
 @MainActor
@@ -23,11 +43,17 @@ struct ProjectSessionTests {
     """
 
     private func aProject() -> (ProjectSession, TestDependencies) {
+        let (session, useCases, _) = aWatchedProject()
+        return (session, useCases)
+    }
+
+    private func aWatchedProject() -> (ProjectSession, TestDependencies, FakeProjectWatcher) {
         let useCases = TestDependencies()
         useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
         useCases.project.put("system \"Reporting\" { component \"r\" { technology = \"aws-rds\" } }",
                              at: "/work/threatmodel/reporting.arch")
-        return (ProjectSession(useCases: useCases), useCases)
+        let watcher = FakeProjectWatcher()
+        return (ProjectSession(useCases: useCases, watcher: watcher), useCases, watcher)
     }
 
     @Test func listsTheSystemsAndDrawsTheFirst() {
@@ -119,6 +145,168 @@ struct ProjectSessionTests {
         #expect(ProjectLaunchArgument.path(in: ["app", "-project", "/work"]) == "/work")
         #expect(ProjectLaunchArgument.path(in: ["app"]) == nil)
         #expect(ProjectLaunchArgument.path(in: ["app", "-project"]) == nil)
+    }
+
+    // MARK: following the files
+
+    @Test func watchesTheProjectDirectory() {
+        let (session, _, watcher) = aWatchedProject()
+
+        session.open(root: "/work")
+
+        #expect(watcher.watchedDirectory == "/work/threatmodel")
+    }
+
+    @Test func doesNothingWhenTheFilesDidNotChange() {
+        let (session, _, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        let drawn = session.model
+
+        watcher.fire()
+
+        #expect(session.model === drawn)
+        #expect(session.hasFilesChangedOnDisk == false)
+    }
+
+    @Test func redrawsWhenTheFilesChangedAndNothingIsUnsaved() {
+        let (session, useCases, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        useCases.project.put(
+            """
+            system "Payments" {
+              zone "app" {
+                kind    = "private"
+                network = "vpc"
+
+                component "api" {
+                  technology = "aws-ec2"
+                  data       = "confidential"
+                }
+
+                component "db" {
+                  technology = "aws-rds"
+                  data       = "confidential"
+                }
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        watcher.fire()
+
+        #expect(session.model?.canvas.components.map(\.id) == ["api", "db"])
+        #expect(session.hasFilesChangedOnDisk == false)
+    }
+
+    @Test func asksWhenTheFilesChangedAndSomethingIsUnsaved() {
+        let (session, useCases, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        session.model?.addAtDefaultPoint(technologyId: "aws-rds")
+        let drawn = session.model
+        useCases.project.put(
+            "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        watcher.fire()
+
+        #expect(session.hasUnsavedChanges)
+        #expect(session.hasFilesChangedOnDisk)
+        #expect(session.model === drawn)
+    }
+
+    @Test func reloadsWhenTheUserAsksForIt() {
+        let (session, useCases, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        session.model?.addAtDefaultPoint(technologyId: "aws-rds")
+        useCases.project.put(
+            "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+        watcher.fire()
+
+        session.reloadFromDisk()
+
+        #expect(session.model?.canvas.components.map(\.id) == ["other"])
+        #expect(session.hasFilesChangedOnDisk == false)
+    }
+
+    @Test func keepsWhatIsOnScreenWhenTheUserAsksForThat() {
+        let (session, useCases, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        session.model?.addAtDefaultPoint(technologyId: "aws-rds")
+        let drawn = session.model
+        useCases.project.put(
+            "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+        watcher.fire()
+
+        session.keepMine()
+
+        #expect(session.hasFilesChangedOnDisk == false)
+        #expect(session.model === drawn)
+    }
+
+    @Test func doesNotRedrawAfterItsOwnSave() {
+        let (session, _, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        session.model?.addAtDefaultPoint(technologyId: "aws-rds")
+        session.save()
+        let drawn = session.model
+
+        watcher.fire()
+
+        #expect(session.model === drawn)
+        #expect(session.hasFilesChangedOnDisk == false)
+        #expect(session.hasUnsavedChanges == false)
+    }
+
+    @Test func aReloadKeepsTheChosenSystem() {
+        let (session, useCases, watcher) = aWatchedProject()
+        session.open(root: "/work")
+        session.choose("reporting")
+        useCases.project.put(
+            "system \"Reporting\" { component \"r2\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/reporting.arch"
+        )
+
+        watcher.fire()
+
+        #expect(session.chosenSystem == "reporting")
+        #expect(session.model?.canvas.components.map(\.id) == ["r2"])
+    }
+
+    // MARK: what the last action did
+
+    @Test func saysWhatTheSaveDid() {
+        let (session, _) = aProject()
+        session.open(root: "/work")
+
+        session.save()
+
+        #expect(session.lastActionMessage?.hasPrefix("Saved") == true)
+    }
+
+    @Test func saysWhereTheReportWent() {
+        let (session, _) = aProject()
+        session.open(root: "/work")
+
+        session.compileReport()
+
+        #expect(session.lastActionMessage == "Report: \(session.reportPath ?? "")")
+    }
+
+    @Test func clearsTheMessageWhenAnotherSystemIsPicked() {
+        let (session, _) = aProject()
+        session.open(root: "/work")
+        session.compileReport()
+
+        session.choose("reporting")
+
+        #expect(session.lastActionMessage == nil)
     }
 }
 
@@ -303,3 +491,4 @@ struct EmptyProjectTests {
         #expect(session.canInitialise == false)
     }
 }
+

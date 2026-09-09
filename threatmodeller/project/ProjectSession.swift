@@ -9,6 +9,7 @@ import ThreatModelKit
 @Observable
 final class ProjectSession {
     private let useCases: UseCaseFactory
+    private let watcher: ProjectWatching
 
     private(set) var root: String?
     private(set) var directory: String?
@@ -27,13 +28,31 @@ final class ProjectSession {
 
     /// The session drawing the chosen system, or nil while nothing is drawn.
     private(set) var model: ThreatModelSession?
+    /// What the last save or compile did, for the bar above the diagram.
+    private(set) var lastActionMessage: String?
+    /// True when a file changed on disk and this session did not reload,
+    /// because something on screen is unsaved.
+    private(set) var hasFilesChangedOnDisk = false
 
-    init(useCases: UseCaseFactory) {
+    /// The numbers the last read or write of the source files answered.
+    private var fingerprint: [String: Int] = [:]
+    /// The revision the drawn model had when this session last read or wrote
+    /// the files.
+    private var savedRevision = 0
+
+    init(useCases: UseCaseFactory, watcher: ProjectWatching = FSEventsProjectWatcher()) {
         self.useCases = useCases
+        self.watcher = watcher
     }
 
     var hasErrors: Bool {
         diagnostics.contains { $0.severity == .error }
+    }
+
+    /// True when the drawn model holds a change no file holds.
+    var hasUnsavedChanges: Bool {
+        guard let model else { return false }
+        return model.revision > savedRevision
     }
 
     /// True when the open root holds no system, so this application can offer
@@ -74,8 +93,11 @@ final class ProjectSession {
         }
     }
 
-    /// Opens a project root and draws its first system.
-    func open(root: String) {
+    /// Opens a project root and draws one of its systems.
+    ///
+    /// It draws the system named in `preferring` when the project still holds
+    /// it, and the first system when it does not.
+    func open(root: String, preferring wanted: String? = nil) {
         switch useCases.openProject().execute(OpenProjectRequest(root: root)) {
         case .opened(let systems, let directory):
             self.root = root
@@ -84,12 +106,55 @@ final class ProjectSession {
             errorMessage = systems.isEmpty
                 ? "\(directory) holds no .arch files. Start from an example, or write one."
                 : nil
-            if let first = systems.first { choose(first) }
+            fingerprint = currentFingerprint()
+            watcher.stop()
+            watcher.watch(directory: directory) { [weak self] in self?.filesChanged() }
+            let chosen = systems.contains(wanted ?? "") ? wanted : systems.first
+            if let chosen { choose(chosen) }
         case .notAProject(let reason):
             self.root = nil
             systems = []
             model = nil
+            watcher.stop()
             errorMessage = "That is not a project: \(reason)"
+        }
+    }
+
+    /// Reads the files again and draws them. It keeps the chosen system when
+    /// the project still holds it.
+    func reloadFromDisk() {
+        guard let root else { return }
+        hasFilesChangedOnDisk = false
+        open(root: root, preferring: chosenSystem)
+    }
+
+    /// Leaves what is on screen alone. The notice returns when a file changes
+    /// again.
+    func keepMine() {
+        hasFilesChangedOnDisk = false
+        fingerprint = currentFingerprint()
+    }
+
+    /// What the watcher calls. A change this application wrote itself answers
+    /// the same fingerprint, so nothing happens.
+    private func filesChanged() {
+        let current = currentFingerprint()
+        guard current != fingerprint else { return }
+
+        if hasUnsavedChanges {
+            hasFilesChangedOnDisk = true
+        } else {
+            reloadFromDisk()
+        }
+    }
+
+    private func currentFingerprint() -> [String: Int] {
+        guard let root else { return [:] }
+        switch useCases.readProjectFingerprint().execute(
+            ReadProjectFingerprintRequest(root: root)
+        ) {
+        case .read(let fingerprint): return fingerprint
+        case .notAProject: return [:]
         }
     }
 
@@ -106,12 +171,18 @@ final class ProjectSession {
             diagnostics = warnings
             diagnosticsFileName = "\(systemName).arch"
             errorMessage = nil
+            lastActionMessage = nil
             model = ThreatModelSession(useCases: useCases)
+            savedRevision = model?.revision ?? 0
+            hasFilesChangedOnDisk = false
         case .refused(let fileName, let faults):
             chosenSystem = systemName
             diagnostics = faults
             diagnosticsFileName = fileName
             model = nil
+            lastActionMessage = nil
+            savedRevision = 0
+            hasFilesChangedOnDisk = false
             errorMessage = "\(fileName) did not parse."
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(systemName)\"."
@@ -131,6 +202,9 @@ final class ProjectSession {
         case .saved:
             errorMessage = nil
             saveAnswers(root: root, systemName: chosenSystem)
+            savedRevision = model?.revision ?? 0
+            fingerprint = currentFingerprint()
+            hasFilesChangedOnDisk = false
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(chosenSystem)\"."
         case .cannotWrite(let reason):
@@ -144,6 +218,9 @@ final class ProjectSession {
         ) {
         case .saved(_, _, let unanswered, _):
             unansweredThreats = unanswered
+            lastActionMessage = unanswered == 0
+                ? "Saved."
+                : "Saved. \(unanswered) threats have no answer."
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(systemName)\"."
         case .refused(let faults):
@@ -165,6 +242,7 @@ final class ProjectSession {
         case .written(let path):
             errorMessage = nil
             reportPath = path
+            lastActionMessage = "Report: \(path)"
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(chosenSystem)\"."
         case .cannotWrite(let reason):
