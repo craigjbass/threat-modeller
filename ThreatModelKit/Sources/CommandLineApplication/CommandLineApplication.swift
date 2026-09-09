@@ -467,8 +467,9 @@ public struct CommandLineApplication {
             return ExitCode.success.rawValue
         case .inUse(let systems):
             output(
-                "threatmodeller: \(systems.joined(separator: ", ")) still name "
-                    + "a technology \"\(label)\" defines. Use --force to remove it anyway."
+                "threatmodeller: these systems still name a technology \"\(label)\" "
+                    + "defines: \(systems.joined(separator: ", ")). "
+                    + "Use --force to remove it anyway."
             )
             return ExitCode.unanswered.rawValue
         case .noSuchLibrary:
