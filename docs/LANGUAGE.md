@@ -1,13 +1,13 @@
 # The threat-modeller language
 
-A reference for the two source languages this application reads: the
-architecture language, written in a `.arch` file, and the controls language,
-written in a `.controls` file.
+A reference for the three source languages this application reads: the
+architecture language, written in a `.arch` file; the controls language, written
+in a `.controls` file; and the library language, written in a `.lib` file.
 
-The two languages share one lexical structure and one block syntax. They differ
-only in their keywords and in what a block means. Sections 2 and 3 hold what is
-common. Section 4 holds the architecture language. Section 5 holds the controls
-language.
+The three languages share one lexical structure and one block syntax. They
+differ only in their keywords and in what a block means. Sections 2 and 3 hold
+what is common. Section 4 holds the architecture language, section 5 the
+controls language, and section 6 the library language.
 
 ## Contents
 
@@ -16,11 +16,12 @@ language.
 3. [Block syntax](#3-block-syntax)
 4. [The architecture language](#4-the-architecture-language)
 5. [The controls language](#5-the-controls-language)
-6. [Diagnostics](#6-diagnostics)
-7. [Canonical form](#7-canonical-form)
-8. [A worked example](#8-a-worked-example)
-9. [The grammar in full](#9-the-grammar-in-full)
-10. [Where the code is](#10-where-the-code-is)
+6. [The library language](#6-the-library-language)
+7. [Diagnostics](#7-diagnostics)
+8. [Canonical form](#8-canonical-form)
+9. [A worked example](#9-a-worked-example)
+10. [The grammar in full](#10-the-grammar-in-full)
+11. [Where the code is](#11-where-the-code-is)
 
 ## 1. Notation
 
@@ -432,6 +433,33 @@ ControlAttr  = "status" "=" String
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number
                   | "rationale"       "=" String ;
+
+(* the library language *)
+
+LibraryFile  = LibraryBlock ;
+
+LibraryBlock = "library" String "{" { LibraryEntry } "}" ;
+LibraryEntry = "name"      "=" String
+             | "catalogue" "=" String
+             | TechnologyBlock
+             | ThreatBlock ;
+
+ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
+ThreatEntry = "name"         "=" String
+            | "description"  "=" String
+            | "severity"     "=" String
+            | "stride"       "=" StringList
+            | "connection"   "=" Boolean
+            | "zone"         "=" Boolean
+            | "zone_context" "=" String
+            | MitreBlock
+            | ControlStatement ;
+
+MitreBlock = "mitre" String "{" { MitreAttr } "}" ;
+MitreAttr  = "name"   "=" String
+           | "tactic" "=" String ;
+
+ControlStatement = "control" String ;
 ```
 
 A file holds exactly one `controls for` block. Text after its closing brace is
@@ -615,9 +643,175 @@ file, then writes the `.controls` file back.
 | a control has left the catalogue | the control is dropped, and its answer is not kept |
 | a stale answer's threat is raised again | the answer moves back out of `stale`, with its statuses |
 
-## 6. Diagnostics
+## 6. The library language
 
-### 6.1 The shape
+A `.lib` file states technologies, threats and the controls those threats offer,
+so a team defines a thing once and every project reads it. A person writes it,
+and `threatmodeller library add` vendors somebody else's into a project.
+
+Every `.lib` file a project holds sits in `<directory>/library`, and every
+system in the project reads every one of them. `library.lock.json` beside them
+records which repository and tag each came from, and the checksum of each file.
+
+### 6.1 Shape
+
+```hcl
+library "acme" {
+  name      = "Acme Platform"       # the palette group's title; default is the label
+  catalogue = "v1.0.1"              # the catalogue tag this was written against
+
+  technology "cribl-stream" {
+    name        = "Cribl Stream"
+    category    = "monitoring"
+    description = "Observability pipeline"
+    threats     = ["pipeline-tamper", "credential-theft"]
+    encrypts    = true
+  }
+
+  threat "pipeline-tamper" {
+    name         = "Pipeline tampering"
+    description  = "An attacker changes a pipeline so data is dropped or rewritten."
+    severity     = "high"
+    stride       = ["tampering"]
+    connection   = false
+    zone         = false
+    zone_context = "A pipeline in a private zone is reachable only from the VPC."
+
+    mitre "T1565" {
+      name   = "Data Manipulation"
+      tactic = "impact"
+    }
+
+    control "Sign pipeline configurations"
+    control "Review every pipeline change in a pull request"
+  }
+}
+```
+
+### 6.2 Grammar
+
+```
+LibraryFile  = LibraryBlock ;
+LibraryBlock = "library" String "{" { LibraryEntry } "}" ;
+LibraryEntry = "name"      "=" String
+             | "catalogue" "=" String
+             | TechnologyBlock
+             | ThreatBlock ;
+
+ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
+ThreatEntry = "name"         "=" String
+            | "description"  "=" String
+            | "severity"     "=" String
+            | "stride"       "=" StringList
+            | "connection"   "=" Boolean
+            | "zone"         "=" Boolean
+            | "zone_context" "=" String
+            | MitreBlock
+            | ControlStatement ;
+
+MitreBlock = "mitre" String "{" { MitreAttr } "}" ;
+MitreAttr  = "name"   "=" String
+           | "tactic" "=" String ;
+
+ControlStatement = "control" String ;
+```
+
+`TechnologyBlock` is the block section 4.5's `.arch` file holds, read by the
+same code, so a technology reads the same in both files.
+
+A file holds exactly one `library` block. Text after its closing brace is not
+read.
+
+### 6.3 The blocks and the attributes
+
+| Block | Label | Attribute | Values | Default |
+| --- | --- | --- | --- | --- |
+| `library` | the provider id | `name` | string | the label |
+| | | `catalogue` | a tag string | none |
+| `technology` | the technology id | `name` | string | **required** |
+| | | `category` | a category id from the taxonomy | **required** |
+| | | `description` | string | empty |
+| | | `threats` | a list of threat ids | empty |
+| | | `encrypts` | `true` or `false` | `false` |
+| `threat` | the threat id | `name` | string | **required** |
+| | | `description` | string | empty |
+| | | `severity` | a severity id from the taxonomy | **required** |
+| | | `stride` | a list of stride ids | empty |
+| | | `connection` | `true` or `false` | `false` |
+| | | `zone` | `true` or `false` | `false` |
+| | | `zone_context` | string | none |
+| `mitre` | the technique id | `name` | string | **required** |
+| | | `tactic` | string | **required** |
+| `control` | the control's description | none | | |
+
+`connection = true` makes the threat one a link between two components raises.
+`zone = true` makes it one a network zone raises. A library cannot define a
+pathway mitigation, and cannot mark a threat as a pathway threat.
+
+A `control` is a statement with a label and no body, because a library states
+what a control is and a `.controls` file states its status. Its key is minted
+from its description, which is the rule the vendored catalogue follows.
+
+### 6.4 Identity
+
+The label of the `library` block is a provider id. Every technology id and every
+threat id the file declares is minted `<label>-<id>`, so two teams can both
+define `cribl-stream` and neither clashes:
+
+```hcl
+component "ingest" {
+  technology = "acme-cribl-stream"
+}
+```
+
+Inside a library, a threat id in a `threats` list resolves against the library
+first and the vendored catalogue second. So `["pipeline-tamper",
+"credential-theft"]` takes the first from the library and the second from the
+catalogue.
+
+The palette shows one group for each library, beside AWS, Azure and SaaS.
+
+### 6.5 What the parser refuses
+
+Errors, which stop the project opening:
+
+| Check | Message |
+| --- | --- |
+| a file that does not start with `library` | `this file starts with library, not "<word>"` |
+| a duplicate technology id | `the technology "<id>" is declared twice` |
+| a duplicate threat id | `the threat "<id>" is declared twice` |
+| a technology with no `name` or no `category` | `the technology "<id>" has no name` |
+| a threat with no `name` or no `severity` | `the threat "<id>" has no severity` |
+| a `mitre` block with no `name` or no `tactic` | `the technique "<id>" has no tactic` |
+| a block or an attribute the grammar does not hold | `a library holds name, catalogue, technology and threat, not "<word>"` |
+
+Warnings, which do not:
+
+| Check | Message |
+| --- | --- |
+| a threat with no `control` | `the threat "<id>" offers no control, so nothing can answer it` |
+| a threat no technology names, that is neither a connection nor a zone threat | `no technology in this library names "<id>", so nothing raises it` |
+
+`severity`, `stride` and `category` are taxonomy data rather than grammar, so
+the parser accepts any string and the **load** refuses a value the taxonomy does
+not hold:
+
+```
+the technology "cribl-stream" is in the category "observability", which the taxonomy does not hold
+```
+
+Two libraries in one project that carry the same label is an error as well:
+
+```
+this project already holds a library called "acme"
+```
+
+A library that does not load stops the project opening, rather than loading the
+libraries that do, because half a catalogue draws a diagram nobody can trust.
+
+## 7. Diagnostics
+
+### 7.1 The shape
 
 A diagnostic carries a severity, a line, a column and a message, and prints as:
 
@@ -627,7 +821,7 @@ threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0
 
 An editor and a build log both read that shape.
 
-### 6.2 The severities
+### 7.2 The severities
 
 | Severity | Effect |
 | --- | --- |
@@ -636,7 +830,7 @@ An editor and a build log both read that shape.
 
 One error anywhere in a file stops the whole file. Warnings alone do not.
 
-### 6.3 Recovery
+### 7.3 Recovery
 
 Neither the lexer nor the parser stops at the first fault, so a file with four
 faults reports four rather than one.
@@ -648,7 +842,7 @@ faults reports four rather than one.
 | a missing required attribute | records one diagnostic and drops the block |
 | an unknown character | records one diagnostic and skips that one character |
 
-## 7. Canonical form
+## 8. Canonical form
 
 The writer emits one shape, so a rewrite of an unchanged source produces no
 diff. `threatmodeller format` rewrites every `.arch` file in this shape.
@@ -676,7 +870,7 @@ source identifier; inside each, by threat identifier. Inside a threat block it
 writes `severity` and `score`, then the controls sorted by description, then the
 compensating controls.
 
-## 8. A worked example
+## 9. A worked example
 
 `threatmodel/payments.arch`:
 
@@ -754,7 +948,7 @@ controls for "Payments" {
 `threatmodeller check` exits 1 while `t-mitm` and `t-lateral-movement` hold no
 answer. `threatmodeller report` writes `threatmodel/payments.md`.
 
-## 9. The grammar in full
+## 10. The grammar in full
 
 ```
 (* common *)
@@ -826,7 +1020,7 @@ CompensatingAttr  = "reduces_risk_by" "=" Number
                   | "rationale"       "=" String ;
 ```
 
-## 10. Where the code is
+## 11. Where the code is
 
 | File | What it holds |
 | --- | --- |
@@ -836,7 +1030,11 @@ CompensatingAttr  = "reduces_risk_by" "=" Number
 | [`ArchitectureWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/ArchitectureWriter.swift) | the canonical form of a `.arch` file |
 | [`ControlsParser.swift`](../ThreatModelKit/Sources/ArchitectureDSL/ControlsParser.swift) | section 5 |
 | [`ControlsWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/ControlsWriter.swift) | the canonical form of a `.controls` file |
-| [`Diagnostic.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/Diagnostic.swift) | section 6 |
+| [`LibraryParser.swift`](../ThreatModelKit/Sources/ArchitectureDSL/LibraryParser.swift) | section 6 |
+| [`LibraryWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/LibraryWriter.swift) | the canonical form of a `.lib` file |
+| [`Library.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/Library.swift) | the prefix rule of section 6.4, and the taxonomy check |
+| [`MergedCatalogue.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/MergedCatalogue.swift) | how a library and the vendored catalogue read as one |
+| [`Diagnostic.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/Diagnostic.swift) | section 7 |
 | [`ControlsSource.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ControlsSource.swift) | the value tree, and the threat key of section 5.7 |
 | [`ProjectConvention.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ProjectConvention.swift) | how a `.arch` file pairs with its `.controls` and its `.md` |
 

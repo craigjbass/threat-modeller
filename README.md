@@ -11,12 +11,13 @@ third:
 | `<name>.arch` | a person | the architecture: technologies, zones, components and flows |
 | `<name>.controls` | the compiler writes it, then a person fills it in | the answer for every threat the architecture raises |
 | `<name>.md` | the compiler | the report |
+| `library/<name>.lib` | a team, and shared with other teams | technologies, threats and controls every system in the project reads |
 
 The application draws the same files on a canvas. The executable reads them in
 continuous integration, so a pull request that adds a database and answers
 nothing fails the build.
 
-**Read [the language guide](docs/LANGUAGE.md) for the syntax of both source
+**Read [the language guide](docs/LANGUAGE.md) for the syntax of all three source
 files:** the lexical rules, the grammar, every block and attribute, the
 diagnostics and the canonical form.
 
@@ -79,6 +80,8 @@ controls for "Payments" {
 ```
 <project root>/
   threatmodel/
+    library/
+      acme.lib
     payments.arch
     payments.controls
     payments.md
@@ -92,6 +95,53 @@ and its `.md` file take the same stem beside it. The rule is in
 [`ProjectConvention`](ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ProjectConvention.swift),
 in one place, so the application and the executable cannot disagree about where
 a file is.
+
+Every `.lib` file under `threatmodel/library/` is a shared element library, and
+every system in the project reads every one of them. There is nothing to
+declare.
+
+## Sharing an element library
+
+The vendored catalogue holds the technologies every user shares. A
+`CustomTechnology` holds one that belongs to a single diagram. A **library**
+sits between them: a text file a team writes, commits and shares with other
+teams.
+
+```hcl
+library "acme" {
+  name = "Acme Platform"
+
+  technology "cribl-stream" {
+    name     = "Cribl Stream"
+    category = "monitoring"
+    threats  = ["pipeline-tamper"]
+  }
+
+  threat "pipeline-tamper" {
+    name     = "Pipeline tampering"
+    severity = "high"
+
+    control "Sign pipeline configurations"
+  }
+}
+```
+
+The label is a provider, and it prefixes every id the file declares, so two
+teams can both define `cribl-stream` and neither clashes. A system names it:
+
+```hcl
+component "ingest" {
+  technology = "acme-cribl-stream"
+}
+```
+
+From that point a library entry and a catalogue entry are the same thing: the
+palette shows an `Acme Platform` group, the sidebar raises
+`acme-pipeline-tamper`, and the `.controls` file holds a stanza for it.
+
+A library that does not load stops the project opening, rather than loading the
+libraries that do. [The language guide](docs/LANGUAGE.md#6-the-library-language)
+states the grammar and every fault.
 
 ## Scoring
 
@@ -159,7 +209,9 @@ document.
 ## More documentation
 
 - [The language guide](docs/LANGUAGE.md) — the syntax and the semantics of
-  `.arch` and `.controls`.
+  `.arch`, `.controls` and `.lib`.
+- [The shared element library design](docs/superpowers/specs/2026-09-09-shared-element-library-design.md) —
+  why a library is shaped this way, and how it is vendored.
 - [The code-first design](docs/superpowers/specs/2026-09-08-code-first-dsl-design.md) —
   why the languages are shaped this way, the pipeline, the layout rules and the
   Linux build.
