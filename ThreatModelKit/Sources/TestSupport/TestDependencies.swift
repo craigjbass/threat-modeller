@@ -149,6 +149,10 @@ public final class TestDependencies: UseCaseFactory {
         OpenProject(projects: projects)
     }
 
+    public func readProjectFingerprint() -> ReadProjectFingerprintUseCase {
+        ReadProjectFingerprint(projects: projects)
+    }
+
     public func openSystem() -> OpenSystemUseCase {
         OpenSystem(
             projects: projects,

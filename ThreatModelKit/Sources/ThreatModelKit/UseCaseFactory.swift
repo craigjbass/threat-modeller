@@ -33,6 +33,7 @@ public protocol UseCaseFactory {
     func applyControlAnswers() -> ApplyControlAnswersUseCase
     func checkControlAnswers() -> CheckControlAnswersUseCase
     func openProject() -> OpenProjectUseCase
+    func readProjectFingerprint() -> ReadProjectFingerprintUseCase
     func initialiseProject() -> InitialiseProjectUseCase
     func openSystem() -> OpenSystemUseCase
     func saveSystem() -> SaveSystemUseCase

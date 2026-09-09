@@ -142,6 +142,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         OpenProject(projects: projects)
     }
 
+    func readProjectFingerprint() -> ReadProjectFingerprintUseCase {
+        ReadProjectFingerprint(projects: projects)
+    }
+
     func openSystem() -> OpenSystemUseCase {
         OpenSystem(
             projects: projects,
