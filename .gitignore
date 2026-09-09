@@ -5,3 +5,6 @@ DerivedData/
 xcuserdata/
 *.xcuserdatad
 build/
+
+# The build writes this page from LANGUAGE.md.
+docs/documentation.html
