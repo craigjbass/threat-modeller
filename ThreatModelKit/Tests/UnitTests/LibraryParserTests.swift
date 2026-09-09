@@ -111,7 +111,12 @@ struct LibraryParserTests {
     @Test func warnsAboutAThreatNothingCanRaise() throws {
         let read = read("""
         library "acme" {
-          threat "orphan" { name = "Orphan" severity = "low" }
+          threat "orphan" {
+            name     = "Orphan"
+            severity = "low"
+
+            control "Answer it"
+          }
         }
         """)
 
@@ -127,7 +132,13 @@ struct LibraryParserTests {
     @Test func doesNotWarnAboutAZoneThreat() {
         let read = read("""
         library "acme" {
-          threat "everywhere" { name = "Everywhere" severity = "low" zone = true }
+          threat "everywhere" {
+            name     = "Everywhere"
+            severity = "low"
+            zone     = true
+
+            control "Watch the zone"
+          }
         }
         """)
 
@@ -138,11 +149,33 @@ struct LibraryParserTests {
         let read = read("""
         library "acme" {
           technology "t" { name = "T" category = "monitoring" threats = ["named"] }
-          threat "named" { name = "Named" severity = "low" }
+          threat "named" {
+            name     = "Named"
+            severity = "low"
+
+            control "Answer it"
+          }
         }
         """)
 
         #expect(read.diagnostics.isEmpty)
+    }
+
+    @Test func warnsAboutAThreatNothingCanAnswer() throws {
+        let read = read("""
+        library "acme" {
+          technology "t" { name = "T" category = "monitoring" threats = ["bare"] }
+          threat "bare" { name = "Bare" severity = "low" }
+        }
+        """)
+
+        #expect(read.source != nil)
+        let warning = try #require(read.diagnostics.first)
+        #expect(warning.severity == .warning)
+        #expect(
+            warning.message
+                == "the threat \"bare\" offers no control, so nothing can answer it"
+        )
     }
 
     @Test func reportsEveryFaultRatherThanTheFirst() {

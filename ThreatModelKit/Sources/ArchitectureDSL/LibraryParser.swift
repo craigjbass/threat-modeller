@@ -228,6 +228,16 @@ struct LibraryParser {
             record("the threat \"\(threat.id)\" is declared twice", at: tokens[0])
         }
 
+        // A threat with no control is a threat nobody can answer, so `check`
+        // would report it as unanswered for ever.
+        for threat in source.threats where threat.controlDescriptions.isEmpty {
+            record(
+                "the threat \"\(threat.id)\" offers no control, so nothing can answer it",
+                at: tokens[0],
+                severity: .warning
+            )
+        }
+
         // A threat nothing names and nothing raises is a threat this library
         // states for no reader.
         let named = Set(source.technologies.flatMap(\.threatIds))
