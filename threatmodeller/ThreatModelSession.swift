@@ -40,6 +40,10 @@ final class ThreatModelSession {
     /// The threats the technology editor offers. Read once: the catalogue does
     /// not change while the application runs.
     private(set) var threatChoices: [ThreatChoice] = []
+    /// How many times this session has read the model back. It starts at 1,
+    /// and every change raises it. `ProjectSession` compares it with the
+    /// number it recorded to answer whether anything on screen is unsaved.
+    private(set) var revision = 0
 
     /// Where a double-click on a palette row puts a component, in model
     /// coordinates. A drag from the palette uses the drop point instead.
@@ -630,6 +634,7 @@ final class ThreatModelSession {
     /// Spec section 2: the delivery mechanism calls `AssessThreatModel`
     /// explicitly after each change, and reads the canvas the same way.
     private func refresh() {
+        revision += 1
         palette = useCases.listTechnologies().execute(ListTechnologiesRequest()).providers
         canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
         let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())

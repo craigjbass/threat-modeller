@@ -589,3 +589,27 @@ struct SampleBrowserSessionTests {
         #expect(session.errorMessage == "This application no longer holds that example.")
     }
 }
+
+/// The revision is what tells the project session that something on screen is
+/// unsaved.
+@MainActor
+struct ThreatModelSessionRevisionTests {
+    @Test func startsAtOneAndRisesWithEachChange() {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        let first = session.revision
+
+        session.addAtDefaultPoint(technologyId: "aws-ec2")
+
+        #expect(first == 1)
+        #expect(session.revision == 2)
+    }
+
+    @Test func doesNotRiseWhenNothingIsAsked() {
+        let session = ThreatModelSession(useCases: TestDependencies())
+
+        _ = session.canvas
+        _ = session.threats
+
+        #expect(session.revision == 1)
+    }
+}
