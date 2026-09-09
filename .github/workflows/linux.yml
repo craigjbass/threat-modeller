@@ -21,7 +21,11 @@ permissions:
 jobs:
   package:
     runs-on: ubuntu-latest
-    container: swift:6.2
+    # Pinned to a patch release, not to swift:6.2. A Swift SDK must be the same
+    # build as the toolchain that uses it, and swift.org publishes an SDK per
+    # patch release. swift:6.2 is 6.2.4 today, and no static SDK is published
+    # for 6.2.4. Move this pin forward when one is.
+    container: swift:6.2.3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -178,6 +182,21 @@ jobs:
 
           # Installing from a local file needs no checksum on the command line.
           curl -fsSL -o "/tmp/${BUNDLE}" "$URL"
+
+          # download.swift.org answers a missing object with HTTP 200 and a
+          # short XML body, so curl reports success for a file that is not
+          # there. Read the first two bytes instead: a gzip file starts 1f 8b.
+          MAGIC=$(head -c 2 "/tmp/${BUNDLE}" | od -An -tx1 | tr -d ' \n')
+          if [ "$MAGIC" != "1f8b" ]; then
+            echo "the address did not answer with an archive:"
+            head -c 300 "/tmp/${BUNDLE}"
+            echo
+            echo "swift.org publishes a static SDK for each patch release."
+            echo "This toolchain is ${TAG}. Pin the container to a release"
+            echo "whose SDK is published."
+            exit 1
+          fi
+
           swift sdk install "/tmp/${BUNDLE}"
           swift sdk list
 
