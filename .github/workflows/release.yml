@@ -15,16 +15,12 @@ jobs:
       build-binaries: true
 
   build-and-notarize:
-    needs: linux
     runs-on: macos-26
     permissions:
-      id-token: write      # required for GitHub attestation
-      contents: write      # required to upload release assets
-      attestations: write  # required for attest-build-provenance
+      contents: read
     env:
       TAG_NAME: ${{ github.ref_name }}
     outputs:
-      hashes: ${{ steps.hash.outputs.hashes }}
       release_name: ${{ github.ref_name }}
       provenance_name: threatmodeller-${{ github.ref_name }}.intoto.jsonl
 
@@ -218,15 +214,44 @@ jobs:
           rm AuthKey.p8
           xcrun stapler staple "build/threatmodeller-${VERSION_NAME}.dmg"
 
-      - name: Take the static Linux binaries from the Linux job
+      - name: Upload the macOS assets as a workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos-assets
+          path: |
+            build/threatmodeller-${{ github.ref_name }}.dmg
+            build/threatmodeller-cli-${{ github.ref_name }}-macos.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  # The two builds run at the same time. This job is where they meet: it holds
+  # every file a release carries, so one attestation names all of them and one
+  # subject list feeds the SLSA generator.
+  bundle:
+    needs: [linux, build-and-notarize]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write      # required for GitHub attestation
+      attestations: write  # required for attest-build-provenance
+      contents: read
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    env:
+      VERSION_NAME: ${{ github.ref_name }}
+    steps:
+      - name: Download the macOS assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: macos-assets
+          path: build
+
+      - name: Download the static Linux binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: linux-binaries
           path: linux
 
       - name: Name the Linux binaries after the version
-        env:
-          VERSION_NAME: ${{ github.ref_name }}
         run: |
           # The Linux job cannot read the version, so it names the files after
           # the triple and this step renames them.
@@ -239,6 +264,9 @@ jobs:
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
+          # One call over every subject makes one attestation that names them
+          # all. Two calls would make two attestations, and two signed
+          # statements cannot be joined into one.
           subject-path: |
             build/threatmodeller-${{ github.ref_name }}.dmg
             build/threatmodeller-cli-${{ github.ref_name }}-macos.tar.gz
@@ -246,24 +274,20 @@ jobs:
             build/threatmodeller-cli-${{ github.ref_name }}-linux-aarch64.tar.gz
 
       - name: Stage Sigstore bundle as release asset
-        env:
-          VERSION_NAME: ${{ github.ref_name }}
         run: |
           cp "${{ steps.attest.outputs.bundle-path }}" \
              "build/threatmodeller-${VERSION_NAME}.sigstore"
 
       - name: Compute artifact hashes for SLSA provenance
         id: hash
-        env:
-          VERSION_NAME: ${{ github.ref_name }}
         run: |
           cd build
-          HASHES=$(shasum -a 256 \
+          HASHES=$(sha256sum \
             "threatmodeller-${VERSION_NAME}.dmg" \
             "threatmodeller-cli-${VERSION_NAME}-macos.tar.gz" \
             "threatmodeller-cli-${VERSION_NAME}-linux-x86_64.tar.gz" \
             "threatmodeller-cli-${VERSION_NAME}-linux-aarch64.tar.gz" \
-            | base64 | tr -d '\n')
+            | base64 -w0)
           echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
 
       - name: Upload release assets as workflow artifact
@@ -280,19 +304,19 @@ jobs:
           retention-days: 1
 
   provenance:
-    needs: build-and-notarize
+    needs: [build-and-notarize, bundle]
     permissions:
       id-token: write
       contents: write
       actions: read
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     with:
-      base64-subjects: ${{ needs.build-and-notarize.outputs.hashes }}
+      base64-subjects: ${{ needs.bundle.outputs.hashes }}
       provenance-name: ${{ needs.build-and-notarize.outputs.provenance_name }}
       compile-generator: true
 
   publish:
-    needs: [build-and-notarize, provenance]
+    needs: [build-and-notarize, bundle, provenance]
     runs-on: ubuntu-latest
     permissions:
       contents: write
