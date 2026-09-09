@@ -2,13 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<!-- This application is NOT sandboxed.
+
+	     A child process inherits its parent's container. Inside one, `~` is
+	     redirected to the container, so `git` reads an empty `.ssh` rather
+	     than the user's, and `$SSH_AUTH_SOCK` names a socket the container
+	     denies. A private library repository could therefore not be fetched
+	     from the window. The socket's path changes per login session, so no
+	     temporary exception can name it.
+
+	     The application still ships with the Hardened Runtime, a Developer ID
+	     signature and notarization. See docs/RELEASING.md. -->
 	<key>com.apple.security.files.user-selected.read-write</key>
-	<true/>
-	<!-- A project is a directory the user chooses once. The bookmark is what
-	     lets Open Recent Project work after a relaunch. -->
-	<key>com.apple.security.files.bookmarks.app-scope</key>
 	<true/>
 </dict>
 </plist>

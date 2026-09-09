@@ -39,6 +39,32 @@ cd threatmodeller-<version>
 ./threatmodeller --catalogue . check /path/to/your/project
 ```
 
+## The sandbox
+
+**This application is not sandboxed.** `threatmodeller.entitlements` grants
+`com.apple.security.files.user-selected.read-write` and nothing else.
+
+The reason is the Libraries sheet. Fetching a library runs `git`, and a child
+process inherits its parent's container. Inside one, `~` is redirected to
+`~/Library/Containers/uk.craigbass.threatmodeller/Data`, so `git` reads an empty
+`.ssh` rather than the user's, and `$SSH_AUTH_SOCK` names a socket the container
+denies. A private repository could therefore not be fetched. The socket's path
+changes with every login session, so no temporary exception entitlement can name
+it.
+
+**What this costs.** Inside the container a fault in this application reached one
+directory. Outside it, a fault reaches what the user can reach. That is the price
+of the window using the user's own `git` access.
+
+**What does not change.** The Hardened Runtime, the Developer ID signature, the
+notarization, the stapled ticket, the attestation and the SLSA provenance are all
+as they were. Developer ID distribution does not require the sandbox; only the
+Mac App Store does, and this application does not ship there.
+
+Because there is no container, a recent project is stored as a path rather than
+as a security-scoped bookmark. `RecentProjects` reads an older list that carries
+a bookmark and uses its path.
+
 ## The secrets a release needs
 
 Set these in **Settings ▸ Secrets and variables ▸ Actions**.

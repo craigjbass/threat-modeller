@@ -14,7 +14,7 @@ struct RecentProjectsTests {
         return RecentProjects(defaults: defaults)
     }
 
-    /// A directory this test made, so the sandbox grants a bookmark for it.
+    /// A directory this test made.
     private func aDirectory(_ name: String) -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("recent-projects-test", isDirectory: true)
@@ -71,5 +71,33 @@ struct RecentProjectsTests {
         let entry = try #require(store.list().first)
 
         #expect(store.resolve(entry)?.path == url.path)
+    }
+
+    /// The application is no longer sandboxed, so a path is the whole entry
+    /// and a list written by an older version still reads.
+    @Test func opensARootRecordedAsAPathAlone() throws {
+        let suite = "recent-projects-test-six"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let url = aDirectory("six")
+        defaults.set([["path": url.path]], forKey: "recentProjects")
+        let store = RecentProjects(defaults: defaults)
+
+        let entry = try #require(store.list().first)
+
+        #expect(entry.path == url.path)
+        #expect(store.resolve(entry)?.path == url.path)
+    }
+
+    @Test func forgetsARootThatIsNoLongerThere() throws {
+        let store = aStore(named: "seven")
+        let url = aDirectory("seven")
+        store.record(url: url)
+        try FileManager.default.removeItem(at: url)
+
+        let entry = try #require(store.list().first)
+
+        #expect(store.resolve(entry) == nil)
+        #expect(store.list().isEmpty)
     }
 }

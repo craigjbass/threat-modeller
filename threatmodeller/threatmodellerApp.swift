@@ -139,11 +139,10 @@ struct ThreatModellerApp: App {
         dismissWindow(id: Self.welcomeWindowId)
     }
 
-    /// A recent root was chosen. The bookmark grants the sandbox access, so
-    /// the panel is not needed.
+    /// A recent root was chosen. The application is not sandboxed, so the path
+    /// is enough and the panel is not needed.
     private func openRecent(_ entry: RecentProject) {
         guard let project, let url = recents.resolve(entry) else { return }
-        guard url.startAccessingSecurityScopedResource() else { return }
 
         openWindow(id: Self.projectWindowId)
         project.open(root: url.path)
