@@ -333,8 +333,9 @@ Settings ▸ Pages, set Source to GitHub Actions.
 2. Run `scripts/build-docs-page.py` into a temporary file.
 3. Run `scripts/check-docs-page.py`, which fails when any of these is true:
    - the output holds `{{TOC}}` or `{{BODY}}`;
-   - the output holds fewer than ten `<h2 id=` elements, which is every `##`
-     heading of `LANGUAGE.md` except `## Contents`;
+   - the output holds fewer than ten `<h2 id=` elements. `LANGUAGE.md` holds
+     twelve `##` headings, the build drops `## Contents`, and the floor sits at
+     ten so that renaming one heading does not fail the job;
    - the output holds no `<table>`;
    - the output holds no `<pre>`;
    - the output holds an `href` that starts with neither `#`, `http:` nor
