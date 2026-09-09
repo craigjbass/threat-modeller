@@ -53,6 +53,17 @@ class CheckTests(unittest.TestCase):
     def test_finds_no_fault_in_a_good_page(self):
         self.assertEqual([], c.faults(GOOD, headings=1))
 
+    def test_reports_a_picture_the_directory_lacks(self):
+        faults = c.asset_faults('<img src="screenshot.png" />', ".")
+        self.assertIn("screenshot.png", " ".join(faults))
+
+    def test_finds_no_fault_when_the_picture_is_there(self):
+        directory = str(Path(__file__).resolve().parents[2] / "docs")
+        self.assertEqual([], c.asset_faults('<img src="LANGUAGE.md" />', directory))
+
+    def test_leaves_a_picture_on_another_host_alone(self):
+        self.assertEqual([], c.asset_faults('<img src="https://x/y.png" />', "."))
+
     def test_reports_a_style_block_that_differs(self):
         self.assertEqual([], c.style_faults("<style>A</style>", "<style>A</style>"))
         self.assertEqual(
