@@ -67,6 +67,11 @@ jobs:
         run: |
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
+          # codesign and xcodebuild read the keychain search list, and a new
+          # keychain is not on it. Put build.keychain first, and keep the
+          # keychains that are already on the list after it.
+          EXISTING_KEYCHAINS=$(security list-keychains -d user | sed 's/["[:space:]]//g')
+          security list-keychains -d user -s build.keychain $EXISTING_KEYCHAINS
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -t 3600 -u build.keychain
 
@@ -81,14 +86,26 @@ jobs:
             -s -k "$KEYCHAIN_PASSWORD" build.keychain
           rm certificate.p12
 
+          # Fail in this step, with this message, when the certificate is not
+          # usable. The archive step reports the same fault as a build error.
+          security find-identity -v -p codesigning \
+            | grep -q "Developer ID Application" \
+            || { echo "build.keychain holds no Developer ID Application identity"; exit 1; }
+
       - name: Archive
         run: |
+          # Manual signing defaults to a "Mac Development" identity, and the
+          # runner keychain holds the Developer ID Application certificate
+          # only. The archive names that certificate. A Developer ID build
+          # needs no provisioning profile, so the specifier stays empty.
           xcodebuild archive \
             -project threatmodeller.xcodeproj \
             -scheme threatmodeller \
             -configuration Release \
             -archivePath build/threatmodeller.xcarchive \
             CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             DEVELOPMENT_TEAM=37KMK6XFTT
 
       - name: Export
