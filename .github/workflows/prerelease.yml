@@ -48,10 +48,16 @@ jobs:
 
       - name: Test the application
         run: |
+          # The runner holds no Mac Development certificate, and automatic
+          # signing asks for one. The tests do not need a real identity, so
+          # they sign ad hoc.
           xcodebuild test \
             -project threatmodeller.xcodeproj \
             -scheme threatmodeller \
-            -destination 'platform=macOS'
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=""
 
       - name: Import Developer ID certificate
         env:
