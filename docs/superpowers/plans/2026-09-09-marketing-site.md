@@ -20,7 +20,7 @@
 - The licence line reads `MIT`. The catalogue line reads `Threat Model Library v1.0.1 (CC BY 4.0)`.
 - The repository is `craigjbass/threat-modeller`. The site URL is `https://craigjbass.github.io/threat-modeller/`.
 - Every GitHub Action is pinned by commit sha, as `release.yml` and `pr-test.yml` already do.
-- `markdown==3.10.3` is the only Python dependency, pinned by sha256.
+- `markdown==3.9` is the only Python dependency, pinned by sha256.
 - Python tests use the standard library `unittest`. Do not add pytest.
 
 ---
@@ -45,7 +45,7 @@
 Run:
 
 ```bash
-python3 -m pip install --user "markdown==3.10.3"
+python3 -m pip install --user "markdown==3.9"
 ```
 
 - [ ] **Step 2: Write the failing tests**
@@ -1096,9 +1096,9 @@ git commit -m "feat: add the documentation page template and its checks"
 Create `.github/workflows/pages-requirements.txt`:
 
 ```
-markdown==3.10.3 \
-    --hash=sha256:fa6c92a00a4a3c98b22728c64a935ae1928250ae65058a6ded814d2cc29a4cea \
-    --hash=sha256:3589362618f743188b4d955b874402bc814f4f83f544dc207719f4baa7d9c45f
+markdown==3.9 \
+    --hash=sha256:9f4d91ed810864ea88a6f32c07ba8bee1346c0cc1f6b1f9f6c822f2a9667d280 \
+    --hash=sha256:d2900fe1782bd33bdbbd56859defef70c2e78fc46668f8eb9df3128138f2cb6a
 ```
 
 - [ ] **Step 2: Check the requirements install**
@@ -1110,7 +1110,7 @@ python3 -m venv /tmp/pages-venv
 /tmp/pages-venv/bin/pip install --require-hashes -r .github/workflows/pages-requirements.txt
 ```
 
-Expected: `Successfully installed markdown-3.10.3`.
+Expected: `Successfully installed markdown-3.9`.
 
 - [ ] **Step 3: Write the pull request job**
 
