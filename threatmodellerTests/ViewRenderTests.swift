@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 import SwiftUI
 import Testing
 import ThreatModelKit
@@ -190,6 +191,45 @@ struct ViewRenderTests {
 
         #expect(session.hasFilesChangedOnDisk)
         expectDrawn(ProjectWindow(session: session), "the project window with the notice")
+    }
+
+    // MARK: the welcome window
+
+    private func aRecentStore(named name: String) -> RecentProjects {
+        let suite = "welcome-render-\(name)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return RecentProjects(defaults: defaults)
+    }
+
+    @Test func drawsTheWelcomeWindow() throws {
+        let view = WelcomeWindow(
+            catalogue: ViewCatalogueVersionResponse(
+                repository: "threat-catalogue",
+                tag: "v1.4.2",
+                technologyCount: 42
+            ),
+            recents: aRecentStore(named: "full"),
+            openProject: {},
+            openRecentProject: { _ in }
+        )
+
+        let image = try #require(draw(view, width: 620, height: 520))
+
+        #expect(hasContent(image))
+    }
+
+    @Test func drawsTheWelcomeWindowWithNoCatalogue() throws {
+        let view = WelcomeWindow(
+            catalogue: nil,
+            recents: aRecentStore(named: "empty"),
+            openProject: {},
+            openRecentProject: { _ in }
+        )
+
+        let image = try #require(draw(view, width: 620, height: 520))
+
+        #expect(hasContent(image))
     }
 
     // MARK: the rest of the chrome
