@@ -201,17 +201,24 @@ jobs:
             --wait \
             --timeout 30m
 
-          # A tar archive cannot be stapled, so the executable inside it is
-          # notarized and Gatekeeper checks it online on first run.
+          # notarytool reads only a .zip, a .pkg or a .dmg, and a tar archive
+          # cannot be stapled either. Submit a zip carrying the same signed
+          # executable: the ticket is recorded against the signature, so the
+          # executable in the tar archive is notarized and Gatekeeper checks it
+          # online on first run.
+          ditto -c -k --keepParent \
+            "build/cli/threatmodeller-${VERSION_NAME}" \
+            build/notarize-cli.zip
+
           xcrun notarytool submit \
-            "build/threatmodeller-cli-${VERSION_NAME}-macos.tar.gz" \
+            build/notarize-cli.zip \
             --key AuthKey.p8 \
             --key-id "$ASC_KEY_ID" \
             --issuer "$ASC_ISSUER_ID" \
             --wait \
             --timeout 30m
 
-          rm AuthKey.p8
+          rm AuthKey.p8 build/notarize-cli.zip
           xcrun stapler staple "build/threatmodeller-${VERSION_NAME}.dmg"
 
       - name: Upload the macOS assets as a workflow artifact
