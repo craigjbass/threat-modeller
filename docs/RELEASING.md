@@ -23,7 +23,13 @@ publishing a version is one command:
 ## What a release carries
 
 - `threatmodeller-<version>.dmg` — the application, signed with Developer ID,
-  notarized and stapled.
+  notarized and stapled. It carries the command line executable at
+  `Contents/Resources/threatmodeller-cli/`, with the catalogue beside it, and
+  *Install Command Line Tool…* writes a link to it in the user's own
+  `~/.local/bin`. `scripts/embed-cli.sh` puts it there and signs the bundle
+  again, because adding a file to a signed bundle breaks its signature. It goes
+  under `Resources` rather than `Helpers` because `codesign` treats every file
+  under `Contents/Helpers` as code, and the catalogue is data.
 - `threatmodeller-cli-<version>-macos.tar.gz` — the command line executable as a
   universal binary, with the threat catalogue beside it. It is signed and
   notarized; a tar archive cannot be stapled, so Gatekeeper checks it online the
@@ -36,7 +42,15 @@ Using the executable from the tarball:
 ```
 tar xzf threatmodeller-cli-<version>-macos.tar.gz
 cd threatmodeller-<version>
-./threatmodeller --catalogue . check /path/to/your/project
+./threatmodeller check /path/to/your/project
+```
+
+It needs no `--catalogue` flag. The executable reads the directory it sits in
+when `Library/` and `Actors/` are beside it, and it resolves its own path
+through a symbolic link first, so this works too:
+
+```
+ln -sf "$PWD/threatmodeller" ~/.local/bin/threatmodeller
 ```
 
 ## The sandbox

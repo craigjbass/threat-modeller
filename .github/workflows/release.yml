@@ -84,6 +84,15 @@ jobs:
             -exportPath build/export \
             -exportOptionsPlist ExportOptions.plist
 
+      - name: Put the command line executable inside the application
+        run: |
+          # The application installs this on the user's PATH, so the DMG
+          # carries it. The script signs the helper and then the bundle again,
+          # because adding a file to a signed bundle breaks its signature.
+          scripts/embed-cli.sh \
+            "build/export/threatmodeller.app" \
+            "Developer ID Application"
+
       - name: Build and sign the command line executable
         env:
           VERSION_NAME: ${{ github.ref_name }}

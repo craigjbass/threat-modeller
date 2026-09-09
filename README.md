@@ -233,11 +233,48 @@ A diagnostic prints as
 `threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0.1`,
 which an editor and a build log both read.
 
-Build the executable:
+### Getting the command
+
+Three ways, in the order most people want them.
+
+**From the application.** *threatmodeller ▸ Install Command Line Tool…* writes a
+link in `~/.local/bin`, which is your own directory, so it asks for no password
+and touches nothing outside your home. The window says whether that directory is
+on your `PATH` and, when it is not, gives you the one line to add to `~/.zshrc`.
+The same window uninstalls it, and says so when the link points at a copy of the
+application you have moved.
+
+**From a release.** The tarball holds the executable with the catalogue beside
+it, and needs no flag:
 
 ```
-cd ThreatModelKit && swift build --product threatmodeller-cli
+tar xzf threatmodeller-cli-<version>-macos.tar.gz
+cd threatmodeller-<version>
+./threatmodeller check /path/to/your/project
+ln -sf "$PWD/threatmodeller" ~/.local/bin/threatmodeller
 ```
+
+**From this repository.** A link to the build output keeps working after every
+rebuild:
+
+```
+cd ThreatModelKit
+swift build -c release --product threatmodeller-cli
+mkdir -p ~/.local/bin
+ln -sf "$(swift build -c release --product threatmodeller-cli --show-bin-path)/threatmodeller-cli" \
+       ~/.local/bin/threatmodeller
+```
+
+If `~/.local/bin` is not on your `PATH`, add this to `~/.zshrc` and open a new
+terminal:
+
+```
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+The executable finds its catalogue in the directory it sits in, and resolves its
+own path through a symbolic link first, which is why a link from `PATH` works
+from anywhere.
 
 ## The application
 
@@ -292,5 +329,7 @@ document.
 | [`ThreatModelKit/Sources/ThreatModelKit/architecture`](ThreatModelKit/Sources/ThreatModelKit/architecture) | the project convention and the use cases over it |
 | [`ThreatModelKit/Sources/CommandLineApplication`](ThreatModelKit/Sources/CommandLineApplication) | the verbs and their exit codes |
 | [`GitLibraryFetcher.swift`](ThreatModelKit/Sources/FileGateways/GitLibraryFetcher.swift) | the one place this application runs `git` |
+| [`CommandLineTool.swift`](threatmodeller/CommandLineTool.swift) | putting `threatmodeller` on the user's `PATH` |
+| [`scripts/embed-cli.sh`](scripts/embed-cli.sh) | putting the executable inside the application bundle |
 | [`threatmodeller/project`](threatmodeller/project) | the project window, the workflow bar, the notice strip and the Libraries sheet |
 | [`scripts/update-catalogue.sh`](scripts/update-catalogue.sh) | refreshes the vendored threat catalogue |
