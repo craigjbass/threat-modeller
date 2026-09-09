@@ -117,6 +117,15 @@ jobs:
             -exportPath build/export \
             -exportOptionsPlist ExportOptions.plist
 
+      - name: Put the command line executable inside the application
+        run: |
+          # The application installs this on the user's PATH, so the DMG
+          # carries it. The script signs the helper and then the bundle again,
+          # because adding a file to a signed bundle breaks its signature.
+          scripts/embed-cli.sh \
+            "build/export/threatmodeller.app" \
+            "Developer ID Application"
+
       - name: Build and sign the command line executable
         env:
           VERSION_NAME: ${{ steps.version.outputs.name }}
@@ -144,6 +153,15 @@ jobs:
         env:
           VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
+          # WARNING: a DMG whose application carries no command line executable
+          # reaches the user as "This build of the application carries no
+          # command line tool". Fail the build here instead.
+          CLI="build/export/threatmodeller.app/Contents/Resources/threatmodeller-cli/threatmodeller"
+          if [ ! -x "$CLI" ]; then
+            echo "the application carries no command line executable at $CLI" >&2
+            exit 1
+          fi
+
           # Create a writable staging image large enough to hold the app + layout metadata
           hdiutil create \
             -volname "threatmodeller" \
