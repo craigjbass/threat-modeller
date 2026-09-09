@@ -1,86 +1,74 @@
-# Carry-forward after Milestone 10B
+# Carry-forward after Milestone 11
 
-The code-first line is complete: a team writes `.arch`, a compiler writes
-`.controls`, a person answers it, and the application, the report and
-continuous integration all read the same two files.
+What Milestone 11 closed, and what still stands.
 
-## Closed in Milestone 10B
+## Closed in Milestone 11
 
-- The controls language, its parser, its writer and its shared contract.
-- `ControlStatus` and `CompensatingControl` in the model, and the scoring order
-  of spec §5: base, override, zone, pathway, then compensation, applied last
-  and multiplicatively, with the stronger of two rather than the sum.
-- Document format version 3, which reads versions 1 and 2.
-- `CompileControls`, the merge that never deletes an answer.
-- `ApplyControlAnswers` and `CheckControlAnswers`.
-- The report: a status beside each control, what compensated a threat and what
-  it bought, and the controls counted by status.
-- `compile`, `check` and `report` in the executable, and an Ubuntu job that
-  runs the whole line.
-- The four-way status control, the compensating sheet, a save that merges the
-  answers on screen into the controls file, and `Compile Report`.
+- **A third language.** `.lib` files, read by the lexer and the block syntax
+  `.arch` and `.controls` already use: a `library` block holding `technology`
+  and `threat` blocks, with `mitre` blocks and `control` statements. It has the
+  same properties the other two hold: every fault names a line and a column,
+  parse-write-parse gives the same value tree, and a canonical file is
+  reproduced byte for byte.
+- **The prefix rule.** A library's label is a provider id, and every id the file
+  declares is minted `<label>-<id>`, so two teams can both define
+  `cribl-stream`. A `threats` entry the library declares is prefixed; any other
+  id stays bare and belongs to the vendored catalogue.
+- **`MergedCatalogue`.** The vendored catalogue and the project's libraries read
+  as one behind the existing `TechnologyCatalogue` port. The existing catalogue
+  contract runs against it with no library, which proves the merge is
+  transparent, and again with one.
+- **The project convention.** `threatmodel/library/*.lib`, found by
+  `ProjectConvention`, so the window and the executable cannot disagree.
+- **`LoadLibraries`**, which refuses a `.lib` that does not parse, two libraries
+  with one label, and a severity, stride category or service category the
+  taxonomy does not hold.
+- **Vendoring.** `LibraryFetching` with `GitLibraryFetcher` behind it, and the
+  six verbs `library add`, `update`, `remove`, `list`, `verify` and `outdated`,
+  with exit code 4 for a fetch that failed. `library.lock.json` pins each
+  library by label, with the repository, the tag and the `sha256` of each file.
+  `sha256` is written by hand in `LibraryLock`, because `CryptoKit` is an Apple
+  framework, and it is checked against the four published test vectors.
+- **The Libraries sheet**, over `LibrarySession`, which calls the same use cases
+  the verbs call.
+- **The sandbox is gone.** A child process inherits its parent's container, so
+  `git` inside one cannot read the user's `~/.ssh` or reach their `ssh-agent`.
+  The Hardened Runtime, the Developer ID signature and notarization do not
+  change. `RecentProjects` stores a path rather than a bookmark, and reads an
+  older list that carries one.
+- **`ProjectSourceGateway.delete`**, with the contract stating that deleting a
+  file that is not there is not a fault.
 
-## New in Milestone 10B
+## Still open
 
-1. **A threat card can hold only one compensating control from the interface.**
-   The model and the file hold a list; the sheet writes one. A person who wants
-   two writes them in the file.
-
-2. **The compensating sheet does not read back the percent or the rationale.**
-   It reads back the label. Opening it on an existing compensating control
-   shows 40 percent and an empty rationale until the person types.
-
-3. **`SaveSystemAnswers` resolves the model twice**: once inside
-   `CompileControls` and once to read the statuses on screen.
-
-4. **Nothing writes a `note` from the interface.** The file holds one per
-   control, the report does not print it, and the sidebar cannot set it.
-
-5. **A stale answer is invisible in the application.** The file keeps it, the
-   executable reports it, and the sidebar says nothing.
-
-6. **`check` counts a threat as answered when one control is answered.** A
-   threat with ten controls and one `accepted` passes. Whether that is the right
-   rule is a question for a user, not a defect.
-
-7. **The interface journey reads the summary, not a threat card.** Cards scroll,
-   and an off-screen card is not in the accessibility tree, so the journey
-   asserts "1 of 39 controls in place" rather than the card's own text.
-
-8. **The severity and the score in a controls file are written but never read.**
-   A person who edits them changes nothing, as the file says.
-
-9. **`report` in the executable builds one composition root per system**, so a
-   project of twenty systems parses the catalogue once but resolves twenty
-   times, unmeasured.
-
-## The interface journeys are gone
-
-They needed macOS Automation Mode. A machine that asks for authentication to
-enable it — this one does — fails every journey after sixty seconds with
-`Timed out while enabling automation mode`, and no journey ran here after
-19:01 on 2026-09-08.
-
-What they covered is now in two places:
-
-- `threatmodellerTests/ViewRenderTests.swift` draws every view with
-  `ImageRenderer` and reads the pixels back, so a view that fails to build, lay
-  out or paint is a failing test. One test proves the assertion has teeth by
-  drawing a flat colour and expecting it to fail.
-- The session tests state what each control does.
-
-What is no longer covered, and should be said plainly: nothing clicks a real
-control any more. A view that draws correctly but is wired to the wrong action
-would pass. `docs/TESTING.md` says how to turn Automation Mode on if that trade
-is ever worth reversing.
-
-## Standing
-
-- The zone-drag undo defect of Milestone 6B, and the interface journey that no
-  longer walks an undo.
-- Everything in `MILESTONE-10B-CARRY-FORWARD.md`: no directory watching, no
-  app-scoped bookmark, one project window, `OpenProject` reading the directory
-  twice, warnings without a line number, and `format` rewriting whole files the
-  first time it is run.
-- The older lists in `MILESTONE-10-CARRY-FORWARD.md`, less the sensitivity gap,
-  which Milestone 9 closed.
+1. **A library cannot define a category, a severity or a stride category.** The
+   taxonomy stays the vendored one, so a technology picks from its fourteen
+   categories. A team whose domain is missing, such as operational technology,
+   has no category to name.
+2. **A library cannot define a pathway mitigation**, and cannot mark a threat as
+   a pathway threat.
+3. **A library cannot override a catalogue entry.** A team that wants a
+   different severity for one model uses the per-model severity override.
+4. **There is no index, so there is no browsing and no search.** A user adds a
+   library by naming its repository and its tag. An index needs a host, a
+   format and a rule about who may publish.
+5. **`ListOutdatedLibraries` compares tags as text, not as versions**, so `v10`
+   sorts before `v9`. It takes the last tag in sorted order.
+6. **`outdated` reads every tag a repository holds** and keeps only the last, so
+   a repository with thousands of tags does more work than it needs to.
+7. **The About window does not list the libraries and their tags.** The
+   Libraries sheet says it, and the About window says only the catalogue.
+8. **A private repository needs the user's own `git` access.** This application
+   holds no credential, reads none and prompts for none, so a repository the
+   user's `git` cannot read is one the application cannot read.
+9. **`GitLibraryFetcher` has no cancel.** The Libraries sheet disables its
+   buttons while a fetch runs, and the fetch is killed after 60 seconds, but a
+   person cannot stop one that has started.
+10. **`LibrarySession` runs its use cases on the main actor.** A slow `git` sits
+    on it for as long as the fetch takes, up to the 60 second timeout.
+11. **A `.lib` file is never written by the application.** `LibraryWriter`
+    exists and is tested, and no verb and no button calls it. `format` rewrites
+    `.arch` files only.
+12. **Nothing warns when a vendored library's `catalogue` tag differs from the
+    catalogue in use**, though the `.arch` drift banner does the same job for a
+    system.

@@ -248,6 +248,14 @@ cd ThreatModelKit && swift build --product threatmodeller-cli
   answers into its `.controls` file.
 - *Generate Report* writes the `.md` file. A report is an artefact, so a
   synchronise does not write it.
+- *Libraries* opens a sheet listing the shared element libraries the project
+  holds, with their repository, version and whether the files match the lock
+  file. *Add…* takes a repository and a version and fetches it; a private
+  repository works, because the application runs the user's own `git` and
+  inherits their `ssh-agent`. *Update* and *Remove* act on the selected row, and
+  *Remove* asks again when a system still names the library. *Check for updates*
+  is the one control that reaches a server without being asked for a change, and
+  a person presses it: nothing checks on its own.
 - *Auto Sync* keeps the files and the screen in step both ways. It writes the
   `.arch` file and the `.controls` file when the model changes, half a second
   after the changes stop, and it redraws the diagram when a file changes on
@@ -284,5 +292,5 @@ document.
 | [`ThreatModelKit/Sources/ThreatModelKit/architecture`](ThreatModelKit/Sources/ThreatModelKit/architecture) | the project convention and the use cases over it |
 | [`ThreatModelKit/Sources/CommandLineApplication`](ThreatModelKit/Sources/CommandLineApplication) | the verbs and their exit codes |
 | [`GitLibraryFetcher.swift`](ThreatModelKit/Sources/FileGateways/GitLibraryFetcher.swift) | the one place this application runs `git` |
-| [`threatmodeller/project`](threatmodeller/project) | the project window, the workflow bar and the notice strip |
+| [`threatmodeller/project`](threatmodeller/project) | the project window, the workflow bar, the notice strip and the Libraries sheet |
 | [`scripts/update-catalogue.sh`](scripts/update-catalogue.sh) | refreshes the vendored threat catalogue |
