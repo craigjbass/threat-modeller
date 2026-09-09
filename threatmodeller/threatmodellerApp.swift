@@ -69,6 +69,10 @@ struct ThreatModellerApp: App {
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("About Threat Modeller") { openAbout() }
+
+                Divider()
+
+                Button("Install Command Line Tool\u{2026}") { openCommandLineTool() }
             }
 
             CommandGroup(after: .newItem) {
@@ -104,6 +108,14 @@ struct ThreatModellerApp: App {
         }
         .defaultSize(width: 1400, height: 900)
 
+        Window("Command Line Tool", id: Self.commandLineWindowId) {
+            CommandLineToolSheet(
+                tool: CommandLineTool(),
+                dismiss: { dismissWindow(id: Self.commandLineWindowId) }
+            )
+        }
+        .windowResizability(.contentSize)
+
         Window("About Threat Modeller", id: Self.aboutWindowId) {
             AboutWindow(catalogue: catalogue)
         }
@@ -111,6 +123,7 @@ struct ThreatModellerApp: App {
     }
 
     static let aboutWindowId = "about"
+    static let commandLineWindowId = "command-line-tool"
     static let projectWindowId = "project"
     static let welcomeWindowId = "welcome"
 
@@ -119,6 +132,10 @@ struct ThreatModellerApp: App {
 
     private func openAbout() {
         openWindow(id: Self.aboutWindowId)
+    }
+
+    private func openCommandLineTool() {
+        openWindow(id: Self.commandLineWindowId)
     }
 
     /// The panel's grant covers the folder and everything in it, which is what

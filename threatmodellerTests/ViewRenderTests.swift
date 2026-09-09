@@ -205,6 +205,52 @@ struct ViewRenderTests {
         #expect(hasContent(sheet))
     }
 
+    // MARK: the command line tool
+
+    /// An application bundle that carries the executable, and a home, so the
+    /// sheet draws its real states without touching the user's own.
+    private func aCommandLineTool(carryingTheHelper: Bool) throws -> CommandLineTool {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("command-line-render-\(UUID().uuidString)")
+        let app = root.appendingPathComponent("threatmodeller.app")
+        let home = root.appendingPathComponent("home")
+        let helpers = app.appendingPathComponent("Contents/Resources/threatmodeller-cli")
+        try FileManager.default.createDirectory(at: helpers, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        if carryingTheHelper {
+            try "binary".write(
+                to: helpers.appendingPathComponent("threatmodeller"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        return CommandLineTool(bundle: app, home: home, path: "/usr/bin")
+    }
+
+    @Test func drawsTheCommandLineToolSheet() throws {
+        let tool = try aCommandLineTool(carryingTheHelper: true)
+
+        let sheet = try #require(draw(
+            CommandLineToolSheet(tool: tool, dismiss: {}),
+            width: 560,
+            height: 340
+        ))
+
+        #expect(hasContent(sheet))
+    }
+
+    @Test func drawsTheSheetForABuildThatCarriesNoCommand() throws {
+        let tool = try aCommandLineTool(carryingTheHelper: false)
+
+        let sheet = try #require(draw(
+            CommandLineToolSheet(tool: tool, dismiss: {}),
+            width: 560,
+            height: 340
+        ))
+
+        #expect(hasContent(sheet))
+    }
+
     @Test func drawsWhatTheLastActionDid() throws {
         let session = aDrawnProject()
         session.compileReport()
