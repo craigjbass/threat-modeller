@@ -2,7 +2,7 @@
 title: GitHub Pages Marketing Site
 date: 2026-09-09
 status: Approved
-scope: docs/index.html, docs/documentation.template.html, scripts/build-docs-page.py, .github/workflows/pages.yml, .github/workflows/pages-requirements.txt, .github/workflows/pr-test.yml
+scope: docs/index.html, docs/documentation.template.html, scripts/build_docs_page.py, .github/workflows/pages.yml, .github/workflows/pages-requirements.txt, .github/workflows/pr-test.yml
 ---
 
 # GitHub Pages Marketing Site
@@ -99,7 +99,7 @@ who reads both sites sees one hand.
 ```
 docs/index.html                           the landing page, one <style> block
 docs/documentation.template.html          the shell, with {{TOC}} and {{BODY}}
-scripts/build-docs-page.py                renders LANGUAGE.md into the shell
+scripts/build_docs_page.py                renders LANGUAGE.md into the shell
 .github/workflows/pages.yml               builds and deploys the site
 .github/workflows/pages-requirements.txt  markdown, pinned by sha256
 .github/workflows/pr-test.yml             gains one job that runs the build
@@ -249,13 +249,13 @@ One dimmed line states that the application installs the same executable through
 
 ## The documentation page
 
-`scripts/build-docs-page.py` reads `docs/LANGUAGE.md`, renders it, and writes the
+`scripts/build_docs_page.py` reads `docs/LANGUAGE.md`, renders it, and writes the
 result into `docs/documentation.template.html`.
 
 Command:
 
 ```
-python3 scripts/build-docs-page.py --template docs/documentation.template.html \
+python3 scripts/build_docs_page.py --template docs/documentation.template.html \
                                    --source docs/LANGUAGE.md \
                                    --output <staging>/documentation.html
 ```
@@ -309,7 +309,7 @@ Steps of the one job:
 4. `cp -R docs site` — the staging directory.
 5. `rm -rf site/superpowers` — the design specs and the plans are not part of
    the site, and they stay readable in the repository.
-6. `python3 scripts/build-docs-page.py … --output site/documentation.html`.
+6. `python3 scripts/build_docs_page.py … --output site/documentation.html`.
 7. `rm site/documentation.template.html`.
 8. `actions/configure-pages`.
 9. `actions/upload-pages-artifact` with `path: site/`.
@@ -330,8 +330,8 @@ Settings ▸ Pages, set Source to GitHub Actions.
 `pr-test.yml` gains a `docs-site` job:
 
 1. Install the pinned `markdown` package.
-2. Run `scripts/build-docs-page.py` into a temporary file.
-3. Run `scripts/check-docs-page.py`, which fails when any of these is true:
+2. Run `scripts/build_docs_page.py` into a temporary file.
+3. Run `scripts/check_docs_page.py`, which fails when any of these is true:
    - the output holds `{{TOC}}` or `{{BODY}}`;
    - the output holds fewer than ten `<h2 id=` elements. `LANGUAGE.md` holds
      twelve `##` headings, the build drops `## Contents`, and the floor sits at
@@ -339,7 +339,8 @@ Settings ▸ Pages, set Source to GitHub Actions.
    - the output holds no `<table>`;
    - the output holds no `<pre>`;
    - the output holds an `href` that starts with neither `#`, `http:` nor
-     `https:`;
+     `https:`, and does not end with `.html`, which is how the navigation bar
+     points at the landing page;
    - the output holds a heading id that the table of contents does not link to.
 4. Check that `docs/index.html` and `docs/documentation.template.html` hold the
    same `<style>` block, byte for byte, so the two copies cannot drift.
