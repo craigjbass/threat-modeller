@@ -79,28 +79,128 @@ Because there is no container, a recent project is stored as a path rather than
 as a security-scoped bookmark. `RecentProjects` reads an older list that carries
 a bookmark and uses its path.
 
+## Setting the secrets
+
+`scripts/setup-release-secrets.sh` makes the signing material and sets all six
+secrets. It runs in two passes, because Apple does not let any API key create a
+Developer ID certificate. The portal answers `This operation can only be
+performed by the Account Holder`, and a team API key cannot hold that role.
+
+| Pass | What it does |
+|---|---|
+| 1 | generates a private key and a certificate request, and prints what to do with the request |
+| 2 | builds the `.p12` and sets the six secrets |
+
+No secret value is written inside this repository. Pass 2 builds every file in a
+temporary directory outside the working tree and deletes that directory on every
+exit path. Values reach `gh` on standard input, so no value appears in the
+shell history or in `ps` output.
+
+**Step 1 — make an App Store Connect API key.** Apple does not issue its own API
+key over the API, so make this one by hand. It is needed once.
+
+1. Open <https://appstoreconnect.apple.com/access/integrations/api>.
+2. Choose the **Team Keys** tab, then **+**.
+3. Name the key `notarize-ci` and set Access to **Admin**.
+4. Choose **Generate**, then **Download API Key**. Apple gives the file once
+   only. It is named `AuthKey_<key id>.p8`.
+5. Copy the **Issuer ID** from the top of the same page.
+
+Keep the `.p8` file. The script reads it and never copies it, and Apple will not
+give it again.
+
+**Step 2 — install and sign in to `gh`.**
+
+```
+brew install gh
+gh auth login
+```
+
+**Step 3 — run pass 1.**
+
+```
+./scripts/setup-release-secrets.sh \
+  --asc-key ~/Downloads/AuthKey_<key id>.p8 \
+  --issuer-id <issuer id>
+```
+
+The script writes `~/.threatmodeller-signing/key.pem` and
+`~/.threatmodeller-signing/request.csr`, then prints the portal steps.
+
+WARNING: `~/.threatmodeller-signing` holds a private key. Pass 2 needs it.
+Delete it after pass 2 with `./scripts/setup-release-secrets.sh --forget`.
+Anyone who holds that key and the certificate can sign as this team.
+
+**Step 4 — get the certificate signed.** Sign in to the developer portal as the
+**Account Holder**. No other role can do this.
+
+1. Open <https://developer.apple.com/account/resources/certificates/add>.
+2. Choose **Developer ID Application**, then Continue.
+3. If the page asks about the profile type, choose **Direct**.
+4. Upload `~/.threatmodeller-signing/request.csr`.
+5. Choose Continue, then Download. The file is `developerID_application.cer`.
+
+**Step 5 — run pass 2.**
+
+```
+./scripts/setup-release-secrets.sh \
+  --asc-key ~/Downloads/AuthKey_<key id>.p8 \
+  --issuer-id <issuer id> \
+  --certificate ~/Downloads/developerID_application.cer
+```
+
+Pass 2:
+
+1. checks that the certificate matches the key it generated in pass 1;
+2. collects the issuer certificates above it, by reading the certificate's own
+   "CA Issuers" address rather than guessing a URL;
+3. builds a `.p12` from the key, the certificate and the chain, with a random
+   password;
+4. sets `DEVELOPER_ID_CERT_P12`, `DEVELOPER_ID_CERT_PASSWORD`,
+   `KEYCHAIN_PASSWORD`, `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID` and
+   `ASC_API_PRIVATE_KEY`;
+5. prints `gh secret list` and checks that the working tree did not change.
+
+Both passes read the team identifier from `ExportOptions.plist` and call the
+App Store Connect API once. That call proves the key identifier and the issuer
+identifier are right here, in a second, rather than in the middle of a release.
+
+`--dry-run` stops before it changes anything and prints what a real run would
+do. `--list-certs` prints the Developer ID certificates the portal holds and
+stops. `--yes` skips the question pass 2 asks before it writes.
+
+**Step 6 — delete the private key and prove the release.**
+
+```
+./scripts/setup-release-secrets.sh --forget
+git commit --allow-empty -m "ci: prove the release secrets" && git push
+gh run watch
+```
+
 ## The secrets a release needs
 
 Set these in **Settings ▸ Secrets and variables ▸ Actions**.
 
+`scripts/setup-release-secrets.sh` sets all six. The table says what each one
+is, for the day the script is not there.
+
 | Secret | What it is | How to make it |
 |---|---|---|
-| `DEVELOPER_ID_CERT_P12` | the Developer ID Application certificate and its private key, as base64 | export the certificate from Keychain Access as a `.p12`, then `base64 -i cert.p12 \| pbcopy` |
-| `DEVELOPER_ID_CERT_PASSWORD` | the password set on that `.p12` | chosen during the export |
-| `KEYCHAIN_PASSWORD` | any password; it unlocks the keychain the job creates | make one up |
-| `PROVISIONING_PROFILE_APP` | the Developer ID provisioning profile for `uk.craigbass.threatmodeller`, as base64 | download the profile from the developer portal, then `base64 -i profile.provisionprofile \| pbcopy` |
+| `DEVELOPER_ID_CERT_P12` | the Developer ID Application certificate and its private key, as base64 | the script builds it, or export the certificate from Keychain Access as a `.p12` and run `base64 -i cert.p12 \| pbcopy` |
+| `DEVELOPER_ID_CERT_PASSWORD` | the password on that `.p12` | the script makes a random one |
+| `KEYCHAIN_PASSWORD` | any password; it unlocks the keychain the job creates | the script makes a random one |
 | `ASC_API_KEY_ID` | the App Store Connect API key identifier | App Store Connect ▸ Users and Access ▸ Integrations |
 | `ASC_API_ISSUER_ID` | the issuer identifier on the same page | the same page |
 | `ASC_API_PRIVATE_KEY` | the contents of the `AuthKey_<id>.p8` file, verbatim | downloaded once, when the key is created |
 
-**`PROVISIONING_PROFILE_OPFILTER` is not needed here.** That secret exists in
-`clearancekit` because that application ships a network extension in a second
-target. This application has one signed bundle, so it has one profile.
-
-The profile in `ExportOptions.plist` is named `threatmodeller Developer ID`.
-The profile in the developer portal must carry that name, or the export step
-fails with "no profile for team 37KMK6XFTT matching 'threatmodeller Developer
-ID' found".
+**There is no provisioning profile, and no `PROVISIONING_PROFILE_APP` secret.**
+A Developer ID application needs a profile only for a capability that names an
+entitlement Apple must grant, such as iCloud or Push. `threatmodeller.entitlements`
+carries one key, `com.apple.security.files.user-selected.read-write`, and no
+capability. `ExportOptions.plist` therefore names a team and a certificate and
+nothing else, and neither workflow installs a profile. This also removes the
+failure where the profile name in the portal and the name in
+`ExportOptions.plist` differ.
 
 ## What is not automated
 

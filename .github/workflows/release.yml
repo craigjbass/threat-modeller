@@ -59,14 +59,6 @@ jobs:
             -s -k "$KEYCHAIN_PASSWORD" build.keychain
           rm certificate.p12
 
-      - name: Install provisioning profile
-        env:
-          PP_APP_BASE64: ${{ secrets.PROVISIONING_PROFILE_APP }}
-        run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$PP_APP_BASE64" | base64 --decode \
-            > ~/Library/MobileDevice/Provisioning\ Profiles/threatmodeller.provisionprofile
-
       - name: Archive
         run: |
           xcodebuild archive \

@@ -10,10 +10,5 @@
     <string>manual</string>
     <key>signingCertificate</key>
     <string>Developer ID Application</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>uk.craigbass.threatmodeller</key>
-        <string>threatmodeller Developer ID</string>
-    </dict>
 </dict>
 </plist>
