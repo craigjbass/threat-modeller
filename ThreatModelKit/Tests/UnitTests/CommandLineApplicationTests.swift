@@ -235,3 +235,77 @@ struct CommandLineApplicationTests {
         #expect(result.lines.contains { $0.contains("warning: the zone \"empty\" holds no components") })
     }
 }
+
+/// A project whose systems name a technology only a library defines.
+@Suite("Running the threat modeller over a project with a library")
+struct CommandLineLibraryTests {
+    private let project = InMemoryProject(root: "/work")
+
+    private let acme = """
+    library "acme" {
+      technology "cribl-stream" {
+        name     = "Cribl Stream"
+        category = "compute"
+        threats  = ["pipeline-tamper"]
+      }
+
+      threat "pipeline-tamper" {
+        name     = "Pipeline tampering"
+        severity = "high"
+
+        control "Sign pipeline configurations"
+      }
+    }
+
+    """
+
+    private func run(_ words: String...) -> (code: Int32, lines: [String]) {
+        var lines: [String] = []
+        let code = CommandLineApplication(
+            projects: project,
+            catalogue: { CatalogueFixture.catalogue() }
+        )
+        .run(arguments: ["threatmodeller"] + words, output: { lines.append($0) })
+        return (code, lines)
+    }
+
+    @Test func compilesAThreatOnlyTheLibraryDefines() throws {
+        project.put("""
+        system "Payments" {
+          component "ingest" { technology = "acme-cribl-stream" }
+        }
+        """, at: "/work/threatmodel/payments.arch")
+        project.put(acme, at: "/work/threatmodel/library/acme.lib")
+
+        let outcome = run("compile", "/work")
+
+        #expect(outcome.code == 0)
+        let written = try #require(project.text(at: "/work/threatmodel/payments.controls"))
+        #expect(written.contains("threat \"acme-pipeline-tamper\" on component \"ingest\""))
+        #expect(written.contains("control \"Sign pipeline configurations\""))
+    }
+
+    @Test func refusesWhenALibraryDoesNotParse() {
+        project.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
+        project.put("library \"acme\" { nonsense }", at: "/work/threatmodel/library/acme.lib")
+
+        let outcome = run("check", "/work")
+
+        #expect(outcome.code == 2)
+        #expect(outcome.lines.contains { $0.contains("acme.lib") })
+    }
+
+    @Test func saysWhatALibraryWarnsAbout() {
+        project.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
+        project.put("""
+        library "acme" {
+          technology "t" { name = "T" category = "compute" threats = ["bare"] }
+          threat "bare" { name = "Bare" severity = "low" }
+        }
+        """, at: "/work/threatmodel/library/acme.lib")
+
+        let outcome = run("check", "/work")
+
+        #expect(outcome.lines.contains { $0.contains("bare") })
+    }
+}

@@ -294,10 +294,39 @@ public struct CommandLineApplication {
             return ExitCode.fileFault.rawValue
         }
 
+        // A project's libraries are read once and every system reads them all.
+        let store = LibraryStore()
+        let merged = MergedCatalogue(base: catalogue, store: store)
+        let libraryDirectory = ProjectConvention.path(
+            layout.directory,
+            ProjectConvention.libraryDirectory
+        )
+        switch LoadLibraries(
+            projects: projects,
+            sources: HclLibrarySource(),
+            catalogue: catalogue
+        ).execute(LoadLibrariesRequest(root: root)) {
+        case .loaded(let libraries, let warnings):
+            store.set(libraries)
+            for warning in warnings {
+                output("threatmodeller: \(warning.message)")
+            }
+        case .refused(let fileName, let diagnostics):
+            for diagnostic in diagnostics {
+                output(
+                    diagnostic.described(in: ProjectConvention.path(libraryDirectory, fileName))
+                )
+            }
+            return ExitCode.didNotParse.rawValue
+        case .notAProject(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        }
+
         var worst = ExitCode.success
         for system in layout.systems {
             let useCases = CommandLineDependencies(
-                catalogue: catalogue,
+                catalogue: merged,
                 architectureSources: architecture,
                 controlsSources: controls
             )
