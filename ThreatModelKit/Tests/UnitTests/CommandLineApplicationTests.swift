@@ -309,3 +309,187 @@ struct CommandLineLibraryTests {
         #expect(outcome.lines.contains { $0.contains("bare") })
     }
 }
+
+/// The `library` verbs. Every one runs over a fake fetcher, so no test reaches
+/// a server or runs `git`.
+@Suite("Managing a library from a shell")
+struct LibraryVerbTests {
+    private let project = InMemoryProject(root: "/work")
+    private let fetcher = FakeLibraryFetcher()
+    private let repository = "github.com/acme/threat-elements"
+
+    private func run(_ words: String...) -> (code: Int32, lines: [String]) {
+        var lines: [String] = []
+        let code = CommandLineApplication(
+            projects: project,
+            fetcher: fetcher,
+            catalogue: { CatalogueFixture.catalogue() }
+        )
+        .run(arguments: ["threatmodeller"] + words, output: { lines.append($0) })
+        return (code, lines)
+    }
+
+    private func aProject() {
+        project.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
+        fetcher.put(
+            ["acme.lib": "library \"acme\" {\n  name = \"Acme Platform\"\n}\n"],
+            repository: repository,
+            tag: "v2.1.0"
+        )
+    }
+
+    @Test func addsALibrary() {
+        aProject()
+
+        let outcome = run("library", "add", repository, "v2.1.0", "/work")
+
+        #expect(outcome.code == 0)
+        #expect(project.text(at: "/work/threatmodel/library/acme.lib") != nil)
+        #expect(project.text(at: "/work/threatmodel/library/library.lock.json") != nil)
+        #expect(outcome.lines.contains { $0.contains("acme") })
+    }
+
+    @Test func exitsFourWhenTheFetchFails() {
+        aProject()
+
+        let outcome = run("library", "add", repository, "v9", "/work")
+
+        #expect(outcome.code == 4)
+        #expect(outcome.lines.contains { $0.contains("v9") })
+    }
+
+    @Test func exitsTwoWhenWhatItFetchedDoesNotParse() {
+        aProject()
+        fetcher.put(["bad.lib": "library \"x\" { nonsense }"], repository: "bad", tag: "v1")
+
+        let outcome = run("library", "add", "bad", "v1", "/work")
+
+        #expect(outcome.code == 2)
+    }
+
+    @Test func verifiesWhatItAdded() {
+        aProject()
+        _ = run("library", "add", repository, "v2.1.0", "/work")
+
+        let outcome = run("library", "verify", "/work")
+
+        #expect(outcome.code == 0)
+        #expect(outcome.lines.contains { $0.contains("acme.lib") })
+    }
+
+    @Test func exitsOneWhenAFileDoesNotMatchTheLockFile() {
+        aProject()
+        _ = run("library", "add", repository, "v2.1.0", "/work")
+        project.put(
+            "library \"acme\" { name = \"Changed\" }\n",
+            at: "/work/threatmodel/library/acme.lib"
+        )
+
+        let outcome = run("library", "verify", "/work")
+
+        #expect(outcome.code == 1)
+        #expect(outcome.lines.contains { $0.contains("acme.lib") })
+    }
+
+    @Test func listsWhatTheProjectHolds() {
+        aProject()
+        _ = run("library", "add", repository, "v2.1.0", "/work")
+
+        let outcome = run("library", "list", "/work")
+
+        #expect(outcome.code == 0)
+        #expect(outcome.lines.contains { $0.contains("acme") && $0.contains("v2.1.0") })
+    }
+
+    @Test func updatesALibraryAtItsRecordedTag() {
+        aProject()
+        _ = run("library", "add", repository, "v2.1.0", "/work")
+        fetcher.put(
+            ["acme.lib": "library \"acme\" {\n  name = \"Moved\"\n}\n"],
+            repository: repository,
+            tag: "v2.1.0"
+        )
+
+        let outcome = run("library", "update", "/work")
+
+        #expect(outcome.code == 0)
+        #expect(project.text(at: "/work/threatmodel/library/acme.lib")?.contains("Moved") == true)
+    }
+
+    @Test func removesALibraryNoSystemNames() {
+        aProject()
+        _ = run("library", "add", repository, "v2.1.0", "/work")
+
+        let outcome = run("library", "remove", "acme", "/work")
+
+        #expect(outcome.code == 0)
+        #expect(project.text(at: "/work/threatmodel/library/acme.lib") == nil)
+    }
+
+    @Test func refusesToRemoveALibraryASystemNames() {
+        aProject()
+        _ = run("library", "add", repository, "v2.1.0", "/work")
+        project.put(
+            "system \"Payments\" { component \"i\" { technology = \"acme-thing\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        let outcome = run("library", "remove", "acme", "/work")
+
+        #expect(outcome.code == 1)
+        #expect(outcome.lines.contains { $0.contains("payments") })
+        #expect(project.text(at: "/work/threatmodel/library/acme.lib") != nil)
+    }
+
+    @Test func removesItAnywayWhenForced() {
+        aProject()
+        _ = run("library", "add", repository, "v2.1.0", "/work")
+        project.put(
+            "system \"Payments\" { component \"i\" { technology = \"acme-thing\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        let outcome = run("library", "remove", "acme", "--force", "/work")
+
+        #expect(outcome.code == 0)
+        #expect(project.text(at: "/work/threatmodel/library/acme.lib") == nil)
+    }
+
+    @Test func exitsOneWhenALibraryHasANewerTag() {
+        aProject()
+        _ = run("library", "add", repository, "v2.1.0", "/work")
+        fetcher.put([:], repository: repository, tag: "v2.2.0")
+
+        let outcome = run("library", "outdated", "/work")
+
+        #expect(outcome.code == 1)
+        #expect(outcome.lines.contains { $0.contains("v2.2.0") })
+    }
+
+    @Test func exitsZeroWhenNothingIsNewer() {
+        aProject()
+        _ = run("library", "add", repository, "v2.1.0", "/work")
+
+        let outcome = run("library", "outdated", "/work")
+
+        #expect(outcome.code == 0)
+    }
+
+    @Test func saysWhatTheOperationsAreWhenItIsGivenNone() {
+        aProject()
+
+        let outcome = run("library", "/work")
+
+        #expect(outcome.code == 2)
+        #expect(outcome.lines.joined(separator: "\n").contains("library add"))
+    }
+
+    @Test func namesTheVerbsInTheUsageText() {
+        let outcome = run("help")
+
+        let usage = outcome.lines.joined(separator: "\n")
+        #expect(usage.contains("library add"))
+        #expect(usage.contains("library verify"))
+        #expect(usage.contains("library outdated"))
+    }
+}

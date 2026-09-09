@@ -1,5 +1,6 @@
 import ArchitectureDSL
 import CatalogueGateways
+import FileGateways
 import Foundation
 import ThreatModelKit
 
@@ -13,11 +14,16 @@ public struct CommandLineApplication {
         case unanswered = 1
         case didNotParse = 2
         case fileFault = 3
+        /// `git` failed, is absent, or the clone timed out. The message
+        /// carries `git`'s own output.
+        case fetchFailed = 4
     }
 
     private let projects: ProjectSourceGateway
     private let architecture: ArchitectureSourceGateway
     private let controls: ControlsSourceGateway
+    private let libraries: LibrarySourceGateway
+    private let fetcher: LibraryFetching
     /// Built once a catalogue is known, which is only when a verb needs one.
     private let makeCatalogue: () throws -> TechnologyCatalogue
 
@@ -25,11 +31,15 @@ public struct CommandLineApplication {
         projects: ProjectSourceGateway,
         architecture: ArchitectureSourceGateway = HclArchitectureSource(),
         controls: ControlsSourceGateway = HclControlsSource(),
+        libraries: LibrarySourceGateway = HclLibrarySource(),
+        fetcher: LibraryFetching = GitLibraryFetcher(),
         catalogue: @escaping () throws -> TechnologyCatalogue = { try BundledTechnologyCatalogue() }
     ) {
         self.projects = projects
         self.architecture = architecture
         self.controls = controls
+        self.libraries = libraries
+        self.fetcher = fetcher
         makeCatalogue = catalogue
     }
 
@@ -38,6 +48,7 @@ public struct CommandLineApplication {
     public func run(arguments: [String], output: (String) -> Void) -> Int32 {
         var words = Array(arguments.dropFirst())
         var isQuiet = false
+        var isForced = false
         var catalogueDirectory: String?
 
         var flagless: [String] = []
@@ -46,6 +57,8 @@ public struct CommandLineApplication {
             switch words[index] {
             case "--quiet", "-q":
                 isQuiet = true
+            case "--force", "-f":
+                isForced = true
             case "--catalogue":
                 index += 1
                 catalogueDirectory = index < words.count ? words[index] : nil
@@ -79,6 +92,8 @@ public struct CommandLineApplication {
             return compile(root: root, isQuiet: isQuiet, output: output)
         case "check":
             return check(root: root, output: output)
+        case "library":
+            return library(words: Array(words.dropFirst()), isForced: isForced, output: output)
         case "report":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return report(root: root, into: into, isQuiet: isQuiet, output: output)
@@ -336,6 +351,199 @@ public struct CommandLineApplication {
         return worst.rawValue
     }
 
+    // MARK: the library verbs
+
+    private func library(words: [String], isForced: Bool, output: (String) -> Void) -> Int32 {
+        guard let operation = words.first else {
+            output(Self.usage)
+            return ExitCode.didNotParse.rawValue
+        }
+        let rest = Array(words.dropFirst())
+
+        switch operation {
+        case "add":
+            guard rest.count >= 2 else {
+                output("threatmodeller: library add takes a repository and a tag")
+                return ExitCode.didNotParse.rawValue
+            }
+            return add(repository: rest[0], tag: rest[1], root: rest.count > 2 ? rest[2] : ".", output: output)
+        case "update":
+            // `update <label> <root>`, `update <root>` or `update`.
+            let label = rest.count >= 2 ? rest[0] : nil
+            let root = rest.count >= 2 ? rest[1] : (rest.first ?? ".")
+            return update(label: label, root: root, output: output)
+        case "remove":
+            guard let label = rest.first else {
+                output("threatmodeller: library remove takes a library's name")
+                return ExitCode.didNotParse.rawValue
+            }
+            return remove(
+                label: label,
+                root: rest.count > 1 ? rest[1] : ".",
+                isForced: isForced,
+                output: output
+            )
+        case "list":
+            return list(root: rest.first ?? ".", output: output)
+        case "verify":
+            return verify(root: rest.first ?? ".", output: output)
+        case "outdated":
+            return outdated(root: rest.first ?? ".", output: output)
+        default:
+            output("threatmodeller: there is no library operation \"\(operation)\"")
+            output(Self.usage)
+            return ExitCode.didNotParse.rawValue
+        }
+    }
+
+    private func adds() -> AddLibrary {
+        AddLibrary(projects: projects, fetcher: fetcher, sources: libraries)
+    }
+
+    private func add(
+        repository: String,
+        tag: String,
+        root: String,
+        output: (String) -> Void
+    ) -> Int32 {
+        switch adds().execute(
+            AddLibraryRequest(root: root, repository: repository, tag: tag)
+        ) {
+        case .added(let label, let files):
+            output("\(label): \(files.joined(separator: ", ")) at \(tag)")
+            return ExitCode.success.rawValue
+        case .cannotFetch(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fetchFailed.rawValue
+        case .refused(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.didNotParse.rawValue
+        case .notAProject(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        case .cannotWrite(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        }
+    }
+
+    private func update(label: String?, root: String, output: (String) -> Void) -> Int32 {
+        switch UpdateLibraries(projects: projects, adds: adds()).execute(
+            UpdateLibrariesRequest(root: root, label: label)
+        ) {
+        case .updated(let labels):
+            if labels.isEmpty {
+                output("threatmodeller: this project holds no library")
+            } else {
+                for updated in labels { output("\(updated): read again") }
+            }
+            return ExitCode.success.rawValue
+        case .noSuchLibrary:
+            output("threatmodeller: this project holds no library called \"\(label ?? "")\"")
+            return ExitCode.fileFault.rawValue
+        case .cannotFetch(let label, let reason):
+            output("threatmodeller: \(label): \(reason)")
+            return ExitCode.fetchFailed.rawValue
+        case .refused(let label, let reason):
+            output("threatmodeller: \(label): \(reason)")
+            return ExitCode.didNotParse.rawValue
+        case .notAProject(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        }
+    }
+
+    private func remove(
+        label: String,
+        root: String,
+        isForced: Bool,
+        output: (String) -> Void
+    ) -> Int32 {
+        switch RemoveLibrary(projects: projects, architectureSources: architecture).execute(
+            RemoveLibraryRequest(root: root, label: label, isForced: isForced)
+        ) {
+        case .removed(let files):
+            output("\(label): removed \(files.joined(separator: ", "))")
+            return ExitCode.success.rawValue
+        case .inUse(let systems):
+            output(
+                "threatmodeller: \(systems.joined(separator: ", ")) still name "
+                    + "a technology \"\(label)\" defines. Use --force to remove it anyway."
+            )
+            return ExitCode.unanswered.rawValue
+        case .noSuchLibrary:
+            output("threatmodeller: this project holds no library called \"\(label)\"")
+            return ExitCode.fileFault.rawValue
+        case .notAProject(let reason), .cannotWrite(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        }
+    }
+
+    private func list(root: String, output: (String) -> Void) -> Int32 {
+        switch ListLibraries(
+            projects: projects,
+            sources: libraries,
+            verifies: VerifyLibraries(projects: projects)
+        ).execute(ListLibrariesRequest(root: root)) {
+        case .listed(let found):
+            if found.isEmpty {
+                output("threatmodeller: this project holds no library")
+            }
+            for one in found {
+                output(
+                    "\(one.label)  \(one.tag)  \(one.repository)  "
+                        + (one.matchesLock ? "matches" : "does not match the lock file")
+                )
+            }
+            return ExitCode.success.rawValue
+        case .notAProject(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        }
+    }
+
+    private func verify(root: String, output: (String) -> Void) -> Int32 {
+        switch VerifyLibraries(projects: projects).execute(VerifyLibrariesRequest(root: root)) {
+        case .verified(let matched, let differed):
+            for fileName in matched { output("\(fileName): matches the lock file") }
+            for fileName in differed { output("\(fileName): does not match the lock file") }
+            if matched.isEmpty && differed.isEmpty {
+                output("threatmodeller: this project holds no library")
+            }
+            return differed.isEmpty
+                ? ExitCode.success.rawValue
+                : ExitCode.unanswered.rawValue
+        case .notAProject(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        }
+    }
+
+    private func outdated(root: String, output: (String) -> Void) -> Int32 {
+        switch ListOutdatedLibraries(projects: projects, fetcher: fetcher).execute(
+            ListOutdatedLibrariesRequest(root: root)
+        ) {
+        case .listed(let found):
+            var isBehind = false
+            for one in found {
+                if let newest = one.newestTag {
+                    isBehind = true
+                    output("\(one.label): \(one.tag) is vendored; \(newest) is newer")
+                } else if let reason = one.reason {
+                    output("\(one.label): \(one.tag) is vendored; the tags could not be read: \(reason)")
+                } else {
+                    output("\(one.label): \(one.tag) is the newest")
+                }
+            }
+            if found.isEmpty { output("threatmodeller: this project holds no library") }
+            return isBehind ? ExitCode.unanswered.rawValue : ExitCode.success.rawValue
+        case .notAProject(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        }
+    }
+
     private func read(_ path: String, _ output: (String) -> Void) -> String? {
         do {
             return try projects.read(path: path)
@@ -364,16 +572,32 @@ public struct CommandLineApplication {
       threatmodeller format  [<root>]  rewrite every .arch file in the canonical shape
       threatmodeller help              show this text
 
+    Shared element libraries:
+      threatmodeller library add <repository> <tag> [<root>]  fetch and pin a library
+      threatmodeller library update [<label>] [<root>]        fetch again at the recorded tag
+      threatmodeller library remove <label> [<root>]          delete a library and its lock entry
+      threatmodeller library list [<root>]                    say what this project holds
+      threatmodeller library verify [<root>]                  check the files against the lock file
+      threatmodeller library outdated [<root>]                say which libraries have a newer tag
+
     Options:
       -o <dir>            write the reports into this directory
       --catalogue <dir>   read the threat catalogue from this directory
       -q, --quiet         say nothing about a file that did not change
+      -f, --force         remove a library a system still names
+
+    add, update and outdated run `git`, so they use the access a person
+    already has: their ssh-agent, their ~/.ssh/config and their credential
+    helper. This application holds no credential of its own. verify runs no
+    child process and reaches no server.
 
     <root> is the project root, and defaults to the working directory. This
     application reads <root>/threatmodel when that directory exists, and <root>
     when it does not.
 
-    Exit codes: 0 success, 1 a threat is unanswered, 2 a file did not parse,
-    3 a file could not be read or written.
+    Exit codes: 0 success; 1 a threat is unanswered, a library file does not
+    match the lock file, a library a system names was not removed, or a library
+    has a newer tag; 2 a file did not parse; 3 a file could not be read or
+    written; 4 a library could not be fetched.
     """
 }
