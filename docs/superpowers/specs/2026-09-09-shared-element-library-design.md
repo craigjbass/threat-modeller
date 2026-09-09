@@ -22,6 +22,10 @@ thing to the rest of the application.
   library came from, and the checksum of each file.
 - `threatmodeller library verify` says the two agree, and needs no network.
 
+A library is also something a person manages. The window holds a Libraries
+sheet that adds, updates and removes one, and the executable holds the same
+operations as verbs, over the same use cases, so the two cannot disagree.
+
 ## 2. The decisions this design fixes
 
 1. **A library defines technologies, threats and controls.** A team can say
@@ -54,6 +58,20 @@ thing to the rest of the application.
 7. **A library never changes a catalogue entry.** There is no override. A team
    that wants a different severity for one model uses the severity override the
    model already carries.
+
+8. **Both interfaces manage libraries.** The window holds a Libraries sheet
+   that adds, updates and removes a library, and the executable holds the same
+   operations as verbs. Neither is a read-only view of the other's work.
+
+9. **A library is fetched over HTTPS, not by a child process.** A sandboxed
+   application cannot start `git`, so the two interfaces would otherwise need
+   two fetching mechanisms. One `LibraryFetching` port over `URLSession` serves
+   both, and the application target gains
+   `com.apple.security.network.client`.
+
+10. **A library repository states what it provides.** `library.json` at the
+    repository root lists the `.lib` files, so a fetch reads a manifest and
+    then the files it names, and needs no archive reader and no host API.
 
 ## 3. The library language
 
@@ -275,6 +293,9 @@ acme.lib ──▶ LibraryParser ──▶ LibrarySource ──▶ LoadLibraries
 | `Library` | `ThreatModelKit/catalogue/domain` | one library as a `Provider`, `[Technology]` and `[Threat]`, ids already prefixed |
 | `MergedCatalogue` | `ThreatModelKit/catalogue/domain` | `TechnologyCatalogue` over a base and `[Library]` |
 | `LoadLibraries` | `ThreatModelKit/architecture/usecase` | a project root to `[Library]` and diagnostics |
+| `LibraryFetching` | `ThreatModelKit/architecture/gateway` | a repository and a tag to the files it provides, with `HttpLibraryFetcher` behind it |
+| `LibraryVersions` | `ThreatModelKit/architecture/gateway` | a repository to its tags, for `outdated` only |
+| `AddLibrary`, `UpdateLibrary`, `RemoveLibrary`, `VerifyLibraries`, `ListOutdatedLibraries` | `ThreatModelKit/architecture/usecase` | what both the sheet and the verbs call. Section 7 states each rule |
 
 ### 6.3 Changes to what exists
 
@@ -301,34 +322,88 @@ A `.arch` file that declares a `technology` block whose id a library also
 defines is a warning, and the file's declaration is used, because a file is
 more local than a library.
 
-## 7. Vendoring
+## 7. Managing a library
 
-### 7.1 The verbs
+### 7.1 What a library repository holds
 
 ```
-threatmodeller library add    <repository> <tag> [<root>]   # fetch, copy, write the lock file
-threatmodeller library update [<root>]                      # re-fetch every library at its recorded tag
-threatmodeller library verify [<root>]                      # re-checksum against the lock file
+acme/threat-elements @ v2.1.0
+  library.json
+  acme.lib
 ```
 
-`add` writes the entry for that repository, and replaces it when the project
-already holds it, so `add` with a new tag is how a team moves to a new version.
-`update` re-fetches every library at the tag the lock file already records, and
-changes no tag.
+```json
+{
+  "name": "Acme Platform",
+  "files": ["acme.lib"]
+}
+```
 
-`add` and `update` run `git` as a child process:
-`git clone --depth 1 --branch <tag> <repository> <temporary directory>`. That
-is the one place this application starts a child process and the one place it
-reaches the network. It adds no library dependency, and `git` is on every
-machine that holds this repository.
+The manifest says what the repository provides, so a fetch reads it and then
+reads the files it names. Nothing untars an archive and nothing lists a
+directory over an API.
 
-`add` and `update` copy every `*.lib` file at the repository root into
-`<root>/threatmodel/library/`, then write the lock file.
+A repository that holds no `library.json` cannot be added, and the message says
+so.
 
-`verify` reads the lock file, re-checksums each file, and prints what differs.
-It needs no network, and it is the verb a continuous integration job runs.
+### 7.2 The fetch
 
-### 7.2 The lock file
+`LibraryFetching` is one port:
+
+```
+fetch(repository: String, tag: String) -> [fileName: String]
+```
+
+`HttpLibraryFetcher` sits behind it, over `URLSession`, and reads:
+
+| Host | Raw file URL |
+|---|---|
+| `github.com/<owner>/<repo>` | `https://raw.githubusercontent.com/<owner>/<repo>/<tag>/<file>` |
+| `gitlab.com/<owner>/<repo>` | `https://gitlab.com/<owner>/<repo>/-/raw/<tag>/<file>` |
+
+It reads `library.json` first, then each file the manifest names. A host that is
+neither is refused by name, and adding one is a new row in that table.
+
+Reading a tag list is a separate port, `LibraryVersions`, because only
+`outdated` needs it and only a host API answers it:
+
+| Host | Tag list |
+|---|---|
+| `github.com/<owner>/<repo>` | `https://api.github.com/repos/<owner>/<repo>/tags` |
+
+GitLab tag listing is not in this design. `outdated` says so for a GitLab
+library rather than guessing.
+
+`URLSession` is Foundation, so the fetcher builds on Linux. Nothing else in the
+package reaches the network, and no test does.
+
+### 7.3 The verbs
+
+```
+threatmodeller library add    <repository> <tag> [<root>]  # fetch, write the files and the lock entry
+threatmodeller library update [<label>] [<root>]           # re-fetch at the recorded tag
+threatmodeller library remove <label> [<root>]             # delete the files and the lock entry
+threatmodeller library list   [<root>]                     # what this project holds
+threatmodeller library verify [<root>]                     # re-checksum against the lock file, offline
+threatmodeller library outdated [<root>]                   # say which libraries have a newer tag
+```
+
+- `add` writes the entry for that repository, and replaces it when the project
+  already holds it, so `add` with a new tag is how a team moves version.
+- `update` with no label re-fetches every library at the tag the lock file
+  records, and changes no tag.
+- `remove` refuses while a system names one of the library's technologies, and
+  names those systems. `--force` removes it anyway, and the systems then hold a
+  technology nothing defines, which the import already reports as a warning.
+- `list` prints the label, the name, the repository, the tag, and whether the
+  files match the lock file.
+- `verify` reads the lock file, re-checksums each file, and prints what
+  differs. It needs no network, and it is the verb a continuous integration job
+  runs.
+- `outdated` reads each library's tag list and prints the recorded tag and the
+  newest one.
+
+### 7.4 The lock file
 
 ```json
 {
@@ -337,28 +412,64 @@ It needs no network, and it is the verb a continuous integration job runs.
       "repository": "github.com/acme/threat-elements",
       "tag": "v2.1.0",
       "files": {
-        "acme.lib": "9f2c…"
+        "acme.lib": "9f2c0b1e…"
       }
     }
   }
 }
 ```
 
-The key is the library's label, which is its provider id.
+The key is the library's label, which is its provider id. The checksum is
+`sha256` of the file as written.
 
-### 7.3 Exit codes
+### 7.5 Exit codes
 
 The four the executable already holds, and one more:
 
 | Code | Meaning |
 |---|---|
 | 0 | success |
-| 1 | `check` found an unanswered threat, or `library verify` found a file the lock file does not match |
+| 1 | `check` found an unanswered threat; `verify` found a file the lock file does not match; `outdated` found a newer tag |
 | 2 | a file did not parse |
 | 3 | a file could not be read or written |
 | 4 | a library could not be fetched |
 
-## 8. Testing
+## 8. The Libraries sheet
+
+The project window's toolbar gains a Libraries button, which opens a sheet over
+the project.
+
+```
+Libraries — /work
+
+  Acme Platform       acme       github.com/acme/threat-elements   v2.1.0   matches
+  Platform Elements   platform   github.com/acme/platform          v1.4.2   v1.5.0 is newer
+
+  [ Add… ]   [ Update ]   [ Remove ]        [ Check for updates ]   [ Done ]
+```
+
+- The list reads the lock file and the files on disk, so it opens with no
+  network call and says `matches` or `does not match the lock file`.
+- **Check for updates** is the one control that reaches the network, and a
+  person presses it. Nothing checks on its own, because a window that opens a
+  connection without being asked is a window a user cannot take to a customer
+  site.
+- **Add…** asks for a repository and a tag, fetches, writes, and reloads the
+  project so the palette shows the new group.
+- **Update** and **Remove** act on the selected row. Remove says which systems
+  name the library's technologies and asks again before it removes one that is
+  in use.
+- A fetch that fails leaves the project as it was, and the sheet says what
+  failed.
+
+Every one of those actions is the use case the matching verb calls, so the two
+interfaces cannot disagree about what `add` means.
+
+The window writes into the project directory, which the folder bookmark already
+grants, and reaches the network, which needs
+`com.apple.security.network.client` in the target's entitlements.
+
+## 9. Testing
 
 - **The language.** Lexer, then parser, then diagnostics: every fault case
   asserts a line, a column and a message. The two properties the other
@@ -371,52 +482,65 @@ The four the executable already holds, and one more:
   `MergedCatalogue` with no libraries, which proves the merge is transparent,
   and again with one library. Then the merge's own rules: order, `findById`
   precedence, and the provider list.
-- **The use case.** `LoadLibraries` over a project holding two libraries, one
-  that parses and one that does not.
+- **The use cases.** `LoadLibraries` over a project holding two libraries, one
+  that parses and one that does not. `AddLibrary`, `UpdateLibrary`,
+  `RemoveLibrary`, `VerifyLibraries` and `ListOutdatedLibraries`, each against
+  a fake `LibraryFetching` and a fake `LibraryVersions`, so no test reaches the
+  network. `RemoveLibrary` asserts the refusal while a system names the
+  library, and the removal with `--force`.
+- **The fetcher.** `HttpLibraryFetcher` and the GitHub version reader sit over
+  one `HttpFetching` port, and their tests answer that port with recorded text,
+  so the URL each builds is asserted and no test opens a connection.
 - **Acceptance.** A project holding `acme.lib` and a `payments.arch` naming
-  `acme-cribl-stream`: compile the controls, and read `acme-pipeline-tamper`
-  in the file; answer it, apply it, and see the score move.
-- **The executable.** `library verify` against a lock file that agrees and one
-  that does not, with the exit code asserted. `add` and `update` are tested
-  against a fake fetcher, so no test reaches the network.
-- **The application.** The palette shows the library's group; a `.lib` that
-  does not parse opens the diagnostics sheet.
+  `acme-cribl-stream`: compile the controls, and read `acme-pipeline-tamper` in
+  the file; answer it, apply it, and see the score move. Then add a second
+  library through the use case, and see its group in the palette.
+- **The executable.** Every verb's exit code and printed text, called in
+  process.
+- **The application.** The Libraries sheet lists what the project holds; Add
+  writes and reloads; Remove asks again while a system names the library.
 - **Linux.** The Ubuntu job, which is what holds the no-Apple-framework rule.
 
-The fetch is one port, `LibraryFetching`, with the `git` child process behind
-it, so every test above runs offline.
+## 10. Milestones
 
-## 9. Milestones
-
-**Milestone 11A — the language and the merge.** The `.lib` lexer rules, the
-parser, the diagnostics, the writer, `LibrarySource` and its gateway, `Library`,
+**Milestone 11A — the language and the merge.** The `.lib` parser, the
+diagnostics, the writer, `LibrarySource` and its gateway, `Library`,
 `MergedCatalogue`, `LoadLibraries`, the project convention, and the wiring of
 every use case and verb onto the merged catalogue. It ends with a user opening a
 project that holds `acme.lib` and seeing Cribl in the palette and its threat in
 the sidebar.
 
-**Milestone 11B — vendoring.** `LibraryFetching`, the `git` child process, the
-three `library` verbs, the lock file, exit code 4, a section for the library
-language in `docs/LANGUAGE.md`, and the README.
+**Milestone 11B — managing a library from the command line.** `library.json`,
+`LibraryFetching` and `HttpLibraryFetcher`, `LibraryVersions` and the GitHub
+version reader, the five use cases, the lock file, the six verbs and exit code
+4.
 
-## 10. What this design does not do
+**Milestone 11C — the Libraries sheet.** The toolbar button, the sheet, the
+network entitlement, and the reload after a change.
+
+## 11. What this design does not do
 
 - **A library cannot define a category, a severity or a stride.** The taxonomy
   stays the vendored one, so a technology picks from its fourteen categories.
   Cribl is `monitoring`.
 - **A library cannot define a pathway mitigation.**
 - **A library cannot override a catalogue entry.** Decision 7.
-- **The application does not author or fetch a library.** The window reads what
-  is vendored, and the verbs write it. A user who wants to write a library
-  writes the text file.
-- **The About window does not list the libraries and their tags.** The lock
-  file says it, and this is worth adding later.
+- **There is no index, so there is no browsing and no search.** A user adds a
+  library by naming its repository and its tag. An index that lists the
+  libraries a user has never named is a separate design: it needs a host, a
+  format and a rule about who may publish.
+- **`outdated` reads GitHub only.** A GitLab library is fetched but its tags
+  are not listed, and `outdated` says so rather than guessing.
+- **A private repository is not supported.** There is no credential store in
+  this design, so a library repository must be readable without one.
+- **The About window does not list the libraries and their tags.** The
+  Libraries sheet says it.
 - **The OWASP threat model library is a separate design.** It holds whole
   threat models against `threat-model.schema.json`, not a catalogue of
   technologies, so reading and writing it is interchange, not a library. It
   needs its own spec.
 
-## 11. Risks
+## 12. Risks
 
 - **A third language is a third parser on a critical path.** The mitigation is
   the one the other two use: the property tests and the fault tests are written
@@ -425,9 +549,13 @@ language in `docs/LANGUAGE.md`, and the README.
   does not raise an error a user notices unless the application says so, which
   is why a `.lib` that does not parse stops the project opening rather than
   loading half of it.
-- **The child process is new.** The executable has started no child process
-  before. It sits behind `LibraryFetching`, so nothing but that one
-  implementation knows about `git`, and no test runs it.
-- **A team can vendor a library and never update it.** `library verify` says
-  the files match the lock file, and says nothing about the tag being old.
-  Reporting a newer tag needs the network, so it is not in this design.
+- **The application now reaches the network.** It did not before. One port
+  does it, one entitlement allows it, and one button starts it, so the reach is
+  small and a user can see when it happens.
+- **A raw file URL is a shape a host can change.** Two rows of a table hold
+  those shapes, and a host that changes one breaks `add` for that host until
+  the row changes. A vendored library keeps working, because reading needs no
+  network.
+- **A team can vendor a library and never update it.** `verify` says the files
+  match the lock file. `outdated` says a newer tag exists, and it needs the
+  network, so a job that runs offline cannot tell.
