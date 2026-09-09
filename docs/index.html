@@ -104,6 +104,19 @@
     }
     pre.ascii.fg { color: var(--fg); }
 
+    /* screenshot */
+    figure.shot { margin: 0 0 24px; }
+    figure.shot img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    figure.shot figcaption {
+      color: var(--dim);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
     /* stats line */
     .stats {
       color: var(--fg);
@@ -263,6 +276,12 @@
       <a class="blink" href="documentation.html">docs</a>
       <a class="blink" href="https://github.com/craigjbass/threat-modeller">source</a>
     </p>
+
+    <!-- SCREENSHOT -->
+    <figure class="shot">
+      <img src="screenshot.png" width="1440" height="880" alt="The project window on the public-web system. The palette lists the technologies on the left. The canvas draws an end user, an edge zone holding CloudFront and a load balancer, and an application VPC holding an application server, a customer database and a document store. The sidebar on the right counts the threats by severity, says 5 of 165 controls are in place, and shows the controls of the Credential Theft threat, three of them implemented." />
+      <figcaption>// the application draws the same two files, and the sidebar answers each threat</figcaption>
+    </figure>
 
     <!-- STATS -->
     <div class="stats"><span class="k">sources=</span>2  <span class="k">outputs=</span>1  <span class="k">catalogue=</span>v1.0.1  <span class="k">platforms=</span>macos+linux  <span class="k">net=</span>0</div>

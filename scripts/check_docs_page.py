@@ -2,12 +2,14 @@
 """Checks the rendered documentation page, and the style block of both pages."""
 
 import argparse
+import os
 import re
 import sys
 
 HEADING_ID = re.compile(r'<h2 id="([^"]+)"')
 TOC_LINK = re.compile(r'<a class="blink" href="#([^"]+)"')
 HREF = re.compile(r'href="([^"]*)"')
+SRC = re.compile(r'src="([^"]*)"')
 STYLE = re.compile(r"<style>.*?</style>", re.DOTALL)
 
 MINIMUM_HEADINGS = 10
@@ -41,6 +43,17 @@ def faults(page, headings=MINIMUM_HEADINGS):
     return found
 
 
+def asset_faults(page, directory):
+    """Gives one line for each picture the page names and the directory lacks."""
+    found = []
+    for target in SRC.findall(page):
+        if target.startswith(("http:", "https:", "data:")):
+            continue
+        if not os.path.isfile(os.path.join(directory, target)):
+            found.append("the page names a picture that is not there: %s" % target)
+    return found
+
+
 def style_faults(index, template):
     """Gives one line when the two style blocks are not the same."""
     first = STYLE.search(index)
@@ -64,7 +77,11 @@ def main():
         index = handle.read()
     with open(arguments.template, encoding="utf-8") as handle:
         template = handle.read()
-    found = faults(page) + style_faults(index, template)
+    found = (
+        faults(page)
+        + asset_faults(index, os.path.dirname(arguments.index) or ".")
+        + style_faults(index, template)
+    )
     for line in found:
         print("check_docs_page: %s" % line, file=sys.stderr)
     return 1 if found else 0

@@ -1290,3 +1290,77 @@ A person does these once. Neither is a code change, and the assistant cannot do 
 - Press every bracketed link of the contents on the documentation page.
 - Turn JavaScript off and reload the landing page. Every download link points at the releases page.
 - Check the four download links carry the filenames of the newest release.
+
+---
+
+### Task 5: The screenshot
+
+**Files:**
+- Create: `docs/screenshot.png`
+- Modify: `docs/index.html`
+- Modify: `docs/documentation.template.html` (the style block only)
+- Modify: `scripts/check_docs_page.py`
+- Modify: `scripts/tests/test_check_docs_page.py`
+
+**Interfaces:**
+- Consumes: `docs/index.html` from Task 2, `check_docs_page.faults` from Task 3.
+- Produces: `asset_faults(page, directory) -> list`, one line for each picture the page names and the directory lacks.
+
+- [x] **Step 1: Capture the window**
+
+`ImageRenderer` draws no `NavigationSplitView` and no AppKit-backed list, so a
+rendered picture of `ProjectWindow` holds a placeholder where the palette and
+the threat sidebar sit. The interface journeys need macOS Automation Mode, which
+this machine cannot give. A person therefore captures the window with
+`Cmd-Shift-4` then `Space`.
+
+- [x] **Step 2: Size the picture**
+
+```bash
+sips --resampleWidth 1440 <capture>.png --out docs/screenshot.png
+```
+
+The column is 720 CSS pixels wide, so 1440 is two device pixels for each of
+them. The file drops from 1.0 MB to 349 KB.
+
+- [x] **Step 3: Add the figure to the landing page**
+
+The `figure` sits under the hero links and above the stats line. The style block
+gains:
+
+```css
+    /* screenshot */
+    figure.shot { margin: 0 0 24px; }
+    figure.shot img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    figure.shot figcaption {
+      color: var(--dim);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+```
+
+The capture holds the window's own corners and shadow, so the picture carries no
+border. The same style block goes into `docs/documentation.template.html`,
+because `check_docs_page.py` compares the two byte for byte.
+
+- [x] **Step 4: Check the picture is there**
+
+`scripts/check_docs_page.py` gains `asset_faults`, which reports every `src` the
+landing page names and the directory lacks. Three tests cover it: a picture that
+is missing, a picture that is there, and a picture on another host.
+
+- [x] **Step 5: Run every check**
+
+```bash
+python3 -m unittest discover -s scripts/tests
+python3 scripts/build_docs_page.py --template docs/documentation.template.html \
+  --source docs/LANGUAGE.md --output docs/documentation.html
+python3 scripts/check_docs_page.py --page docs/documentation.html \
+  --index docs/index.html --template docs/documentation.template.html
+```
+
+Expected: 31 tests pass, and the check exits `0`.
