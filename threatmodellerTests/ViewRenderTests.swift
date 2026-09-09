@@ -156,6 +156,55 @@ struct ViewRenderTests {
         #expect(hasContent(bar))
     }
 
+    // MARK: the Libraries sheet
+
+    /// A session over a project holding one library, so the sheet has a row.
+    private func aLibrarySession(usingTheLibrary: Bool = false) async -> LibrarySession {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            usingTheLibrary
+                ? "system \"Payments\" { component \"i\" { technology = \"acme-thing\" } }"
+                : "system \"Payments\" { }",
+            at: "/work/threatmodel/payments.arch"
+        )
+        useCases.libraryFetcher.put(
+            ["acme.lib": "library \"acme\" {\n  name = \"Acme Platform\"\n}\n"],
+            repository: "github.com/acme/threat-elements",
+            tag: "v2.1.0"
+        )
+        let session = LibrarySession(useCases: useCases, root: "/work", onChange: {})
+        await session.add(repository: "github.com/acme/threat-elements", tag: "v2.1.0")
+        return session
+    }
+
+    @Test func drawsTheLibrariesSheet() async throws {
+        let session = await aLibrarySession()
+
+        let sheet = try #require(draw(LibrariesSheet(session: session, dismiss: {})))
+
+        #expect(hasContent(sheet))
+    }
+
+    @Test func drawsTheLibrariesSheetForAProjectWithNoLibrary() throws {
+        let useCases = TestDependencies()
+        useCases.project.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
+        let session = LibrarySession(useCases: useCases, root: "/work", onChange: {})
+
+        let sheet = try #require(draw(LibrariesSheet(session: session, dismiss: {})))
+
+        #expect(hasContent(sheet))
+    }
+
+    @Test func drawsTheQuestionBeforeRemovingALibraryInUse() async throws {
+        let session = await aLibrarySession(usingTheLibrary: true)
+        session.remove(label: "acme", isForced: false)
+
+        let sheet = try #require(draw(LibrariesSheet(session: session, dismiss: {})))
+
+        #expect(session.removalInUse == ["payments"])
+        #expect(hasContent(sheet))
+    }
+
     @Test func drawsWhatTheLastActionDid() throws {
         let session = aDrawnProject()
         session.compileReport()

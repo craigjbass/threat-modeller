@@ -9,7 +9,9 @@ import ThreatModelKit
 @MainActor
 @Observable
 final class ProjectSession {
-    private let useCases: UseCaseFactory
+    /// The composition root this session runs on. The project window reads it
+    /// to build the Libraries sheet's own session over the same root.
+    let useCases: UseCaseFactory
     private let watcher: ProjectWatching
     private let defaults: UserDefaults
     private let coalescer: ChangeCoalescing

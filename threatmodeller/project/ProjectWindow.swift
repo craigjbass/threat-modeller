@@ -9,6 +9,7 @@ struct ProjectWindow: View {
     let session: ProjectSession
 
     @State private var isShowingDiagnostics = false
+    @State private var isShowingLibraries = false
     @State private var canvas = CanvasState()
 
     var body: some View {
@@ -37,6 +38,20 @@ struct ProjectWindow: View {
                 dismiss: { isShowingDiagnostics = false }
             )
         }
+        .sheet(isPresented: $isShowingLibraries) {
+            if let root = session.root {
+                LibrariesSheet(
+                    // A change reloads the project, so the palette shows a
+                    // library that has just arrived.
+                    session: LibrarySession(
+                        useCases: session.useCases,
+                        root: root,
+                        onChange: { session.reloadFromDisk() }
+                    ),
+                    dismiss: { isShowingLibraries = false }
+                )
+            }
+        }
         .onChange(of: session.diagnostics.count) {
             // Errors stop the picture, so they interrupt. Warnings sit in the
             // strip until the user asks for them.
@@ -53,6 +68,14 @@ struct ProjectWindow: View {
                 .frame(minWidth: 160)
                 .disabled(session.systems.isEmpty)
                 .accessibilityIdentifier("system-picker")
+            }
+
+            ToolbarItem {
+                Button("Libraries", systemImage: "books.vertical") {
+                    isShowingLibraries = true
+                }
+                .disabled(session.root == nil)
+                .accessibilityIdentifier("libraries")
             }
         }
     }
