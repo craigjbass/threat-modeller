@@ -76,7 +76,8 @@ struct ViewRenderTests {
     private func anEmptyProject() -> ProjectSession {
         let useCases = TestDependencies()
         useCases.project.put("a readme", at: "/work/README.md")
-        let session = ProjectSession(useCases: useCases)
+        // A fake watcher, so a render test never reaches the file system.
+        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher())
         session.open(root: "/work")
         return session
     }
@@ -95,7 +96,7 @@ struct ViewRenderTests {
             """,
             at: "/work/threatmodel/payments.arch"
         )
-        let session = ProjectSession(useCases: useCases)
+        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher())
         session.open(root: "/work")
         return session
     }
@@ -142,6 +143,53 @@ struct ViewRenderTests {
 
         #expect(session.model != nil)
         expectDrawn(ProjectWindow(session: session), "the project window after the example")
+    }
+
+    // MARK: the workflow bar
+
+    @Test func drawsTheWorkflowBar() throws {
+        let session = aDrawnProject()
+
+        let bar = try #require(draw(WorkflowBar(session: session), width: 900, height: 90))
+
+        #expect(hasContent(bar))
+    }
+
+    @Test func drawsWhatTheLastActionDid() throws {
+        let session = aDrawnProject()
+        session.compileReport()
+
+        #expect(session.lastActionMessage?.hasPrefix("Report: ") == true)
+        let bar = try #require(draw(WorkflowBar(session: session), width: 900, height: 90))
+        #expect(hasContent(bar))
+    }
+
+    @Test func drawsTheNoticeWhenTheFilesChangedUnderAnUnsavedModel() throws {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" {
+                technology = "aws-ec2"
+                data       = "confidential"
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        let watcher = FakeProjectWatcher()
+        let session = ProjectSession(useCases: useCases, watcher: watcher)
+        session.open(root: "/work")
+        session.model?.addAtDefaultPoint(technologyId: "aws-rds")
+        useCases.project.put(
+            "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+        watcher.fire()
+
+        #expect(session.hasFilesChangedOnDisk)
+        expectDrawn(ProjectWindow(session: session), "the project window with the notice")
     }
 
     // MARK: the rest of the chrome

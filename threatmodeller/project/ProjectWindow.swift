@@ -109,8 +109,37 @@ struct ProjectWindow: View {
         .accessibilityIdentifier("empty-project")
     }
 
-    @ViewBuilder
     private var chrome: some View {
+        VStack(spacing: 0) {
+            WorkflowBar(session: session)
+            filesChangedNotice
+            diagnosticsNotice
+        }
+    }
+
+    /// A file changed on disk while something on screen was unsaved. The user
+    /// picks which one wins.
+    @ViewBuilder
+    private var filesChangedNotice: some View {
+        if session.hasFilesChangedOnDisk {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.clockwise")
+                Text("The files changed on disk. Your unsaved changes are still on screen.")
+                    .font(.callout)
+                Spacer(minLength: 8)
+                Button("Reload") { session.reloadFromDisk() }
+                    .accessibilityIdentifier("reload-from-disk")
+                Button("Keep Mine") { session.keepMine() }
+                    .accessibilityIdentifier("keep-mine")
+            }
+            .padding(8)
+            .background(Color.blue.opacity(0.18))
+            .accessibilityIdentifier("files-changed-notice")
+        }
+    }
+
+    @ViewBuilder
+    private var diagnosticsNotice: some View {
         if session.diagnostics.isEmpty == false || session.errorMessage != nil {
             HStack(spacing: 8) {
                 Image(systemName: session.hasErrors ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
