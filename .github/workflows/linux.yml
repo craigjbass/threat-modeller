@@ -162,6 +162,10 @@ jobs:
       - name: Install the static Linux SDK
         if: ${{ inputs.build-binaries }}
         run: |
+          # The Swift container carries no download tool.
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends curl ca-certificates
+
           # The SDK and the toolchain must be the same build, so read the tag
           # out of the toolchain rather than naming a version here.
           TAG=$(swift --version | sed -n 's/.*(\(swift-[0-9.]*-RELEASE\)).*/\1/p')
