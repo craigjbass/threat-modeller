@@ -141,6 +141,10 @@ final class ProjectSession {
             errorMessage = systems.isEmpty
                 ? "\(directory) holds no .arch files. Start from an example, or write one."
                 : nil
+
+            // Every system reads every library, so they load before one is
+            // drawn. A library that does not load stops the project.
+            guard loadLibraries(root: root) else { return }
             fingerprint = currentFingerprint()
             watcher.stop()
             watcher.watch(directory: directory) { [weak self] in self?.filesChanged() }
@@ -152,6 +156,31 @@ final class ProjectSession {
             model = nil
             watcher.stop()
             errorMessage = "That is not a project: \(reason)"
+        }
+    }
+
+    /// Reads the project's libraries into the catalogue every later use case
+    /// reads. It answers false when one did not load, and says which file.
+    private func loadLibraries(root: String) -> Bool {
+        switch useCases.loadLibraries().execute(LoadLibrariesRequest(root: root)) {
+        case .loaded(let libraries, let warnings):
+            useCases.useLibraries(libraries)
+            diagnostics = warnings
+            diagnosticsFileName = warnings.isEmpty ? nil : "a library"
+            return true
+        case .refused(let fileName, let faults):
+            useCases.useLibraries([])
+            model = nil
+            chosenSystem = nil
+            diagnostics = faults
+            diagnosticsFileName = fileName
+            errorMessage = "\(fileName) did not parse."
+            return false
+        case .notAProject(let reason):
+            useCases.useLibraries([])
+            model = nil
+            errorMessage = "That is not a project: \(reason)"
+            return false
         }
     }
 

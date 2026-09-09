@@ -6,7 +6,12 @@ import FileGateways
 /// but wires use cases to fakes. Gateways are deliberately private: an
 /// acceptance test may only speak to the use case boundary.
 public final class TestDependencies: UseCaseFactory {
-    private let catalogue: InMemoryTechnologyCatalogue
+    /// The fixture catalogue alone.
+    private let base: InMemoryTechnologyCatalogue
+    /// The open project's libraries. `useLibraries` is what fills it.
+    private let libraries = LibraryStore()
+    /// The fixture catalogue and the open project's libraries, read as one.
+    private var catalogue: TechnologyCatalogue { MergedCatalogue(base: base, store: libraries) }
     private let models: ThreatModelGateway
     /// The store, so a test can state domain facts a use case does not yet
     /// write. Every other test goes through the use cases.
@@ -19,13 +24,14 @@ public final class TestDependencies: UseCaseFactory {
     private var projects: ProjectSourceGateway { project }
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let controlsSources: ControlsSourceGateway = HclControlsSource()
+    private let librarySources: LibrarySourceGateway = HclLibrarySource()
     private let samples: SampleModelGateway = FakeSampleModels()
     private let clock = FixedClock()
     /// The clock this root runs on, so an acceptance test can move time.
     public var time: FixedClock { clock }
 
     public init() {
-        self.catalogue = CatalogueFixture.catalogue()
+        self.base = CatalogueFixture.catalogue()
         self.models = InMemoryThreatModelGateway()
         self.ids = SequentialIdentityGenerator()
     }
@@ -143,6 +149,14 @@ public final class TestDependencies: UseCaseFactory {
             files: files,
             sources: architectureSources
         )
+    }
+
+    public func loadLibraries() -> LoadLibrariesUseCase {
+        LoadLibraries(projects: projects, sources: librarySources, catalogue: base)
+    }
+
+    public func useLibraries(_ libraries: [Library]) {
+        self.libraries.set(libraries)
     }
 
     public func openProject() -> OpenProjectUseCase {

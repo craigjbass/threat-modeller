@@ -7,18 +7,24 @@ import ThreatModelKit
 /// one per document window. `UseCaseFactory` lives in the core so this root and
 /// `TestDependencies` cannot drift apart.
 nonisolated final class Dependencies: UseCaseFactory {
-    private let catalogue: TechnologyCatalogue
+    /// The vendored catalogue alone.
+    private let base: TechnologyCatalogue
+    /// The open project's libraries. `useLibraries` is what fills it.
+    private let libraries = LibraryStore()
+    /// The vendored catalogue and the open project's libraries, read as one.
+    private var catalogue: TechnologyCatalogue { MergedCatalogue(base: base, store: libraries) }
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
     private let projects: ProjectSourceGateway = FileSystemProject()
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let controlsSources: ControlsSourceGateway = HclControlsSource()
+    private let librarySources: LibrarySourceGateway = HclLibrarySource()
     private let samples: SampleModelGateway = BundledSampleModels()
     private let clock: Clock = SystemClock()
 
     init() throws {
-        catalogue = try BundledTechnologyCatalogue()
+        base = try BundledTechnologyCatalogue()
         models = InMemoryThreatModelGateway()
         ids = UUIDIdentityGenerator()
     }
@@ -171,6 +177,14 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func saveSystem() -> SaveSystemUseCase {
         SaveSystem(projects: projects, exports: exportArchitecture())
+    }
+
+    func loadLibraries() -> LoadLibrariesUseCase {
+        LoadLibraries(projects: projects, sources: librarySources, catalogue: base)
+    }
+
+    func useLibraries(_ libraries: [Library]) {
+        self.libraries.set(libraries)
     }
 
     func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {

@@ -701,3 +701,90 @@ struct AutomaticSaveTests {
         #expect(coalescer.hasPendingWork == false)
     }
 }
+
+/// A project that holds a shared library. Its technologies and its threats
+/// reach the palette and the sidebar the way the vendored catalogue's do.
+@MainActor
+struct ProjectLibraryTests {
+    private let payments = """
+    system "Payments" {
+      component "ingest" { technology = "acme-cribl-stream" }
+    }
+    """
+
+    private let acme = """
+    library "acme" {
+      name = "Acme Platform"
+
+      technology "cribl-stream" {
+        name     = "Cribl Stream"
+        category = "compute"
+        threats  = ["pipeline-tamper"]
+      }
+
+      threat "pipeline-tamper" {
+        name     = "Pipeline tampering"
+        severity = "high"
+
+        control "Sign pipeline configurations"
+      }
+    }
+    """
+
+    private func aProject(_ files: [String: String]) -> (ProjectSession, TestDependencies) {
+        let useCases = TestDependencies()
+        for (path, text) in files { useCases.project.put(text, at: path) }
+        return (ProjectSession(useCases: useCases, defaults: aTestDefaults()), useCases)
+    }
+
+    @Test func raisesAThreatOnlyTheLibraryDefines() throws {
+        let (session, _) = aProject([
+            "/work/threatmodel/payments.arch": payments,
+            "/work/threatmodel/library/acme.lib": acme
+        ])
+
+        session.open(root: "/work")
+
+        #expect(session.errorMessage == nil)
+        let threats = try #require(session.model?.threats)
+        #expect(threats.contains { $0.threatId == "acme-pipeline-tamper" })
+    }
+
+    @Test func showsTheLibraryAsItsOwnPaletteGroup() {
+        let (session, _) = aProject([
+            "/work/threatmodel/payments.arch": payments,
+            "/work/threatmodel/library/acme.lib": acme
+        ])
+
+        session.open(root: "/work")
+
+        #expect(session.model?.palette.contains { $0.id == "acme" } == true)
+        #expect(
+            session.model?.palette.first { $0.id == "acme" }?.displayName == "Acme Platform"
+        )
+    }
+
+    @Test func saysSoWhenALibraryDoesNotParse() {
+        let (session, _) = aProject([
+            "/work/threatmodel/payments.arch": payments,
+            "/work/threatmodel/library/acme.lib": "library \"acme\" { nonsense }"
+        ])
+
+        session.open(root: "/work")
+
+        #expect(session.model == nil)
+        #expect(session.diagnosticsFileName == "acme.lib")
+        #expect(session.errorMessage?.contains("acme.lib") == true)
+    }
+
+    @Test func drawsAProjectThatHoldsNoLibrary() {
+        let (session, _) = aProject([
+            "/work/threatmodel/payments.arch": "system \"Payments\" { }"
+        ])
+
+        session.open(root: "/work")
+
+        #expect(session.errorMessage == nil)
+        #expect(session.model != nil)
+    }
+}
