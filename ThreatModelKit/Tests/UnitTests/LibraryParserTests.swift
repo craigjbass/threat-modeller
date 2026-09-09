@@ -40,6 +40,48 @@ struct LibraryParserTests {
         #expect(technology.encrypts)
     }
 
+    @Test func readsAThreatWithItsControls() throws {
+        let read = read("""
+        library "acme" {
+          threat "pipeline-tamper" {
+            name         = "Pipeline tampering"
+            description  = "An attacker changes a pipeline."
+            severity     = "high"
+            stride       = ["tampering"]
+            zone         = true
+            zone_context = "Reachable only from the VPC."
+
+            mitre "T1565" {
+              name   = "Data Manipulation"
+              tactic = "impact"
+            }
+
+            control "Sign pipeline configurations"
+            control "Review every pipeline change"
+          }
+        }
+        """)
+
+        let source = try #require(read.source)
+        let threat = try #require(source.threats.first)
+        #expect(threat.id == "pipeline-tamper")
+        #expect(threat.name == "Pipeline tampering")
+        #expect(threat.description == "An attacker changes a pipeline.")
+        #expect(threat.severityLabel == "high")
+        #expect(threat.strideIds == ["tampering"])
+        #expect(threat.isZoneThreat)
+        #expect(threat.isConnectionThreat == false)
+        #expect(threat.zoneContext == "Reachable only from the VPC.")
+        #expect(
+            threat.mitre
+                == [SourceMitreTechnique(id: "T1565", name: "Data Manipulation", tactic: "impact")]
+        )
+        #expect(threat.controlDescriptions == [
+            "Sign pipeline configurations",
+            "Review every pipeline change"
+        ])
+    }
+
     @Test func refusesAFileThatDoesNotStartWithLibrary() {
         let read = read("system \"Payments\" { }")
 

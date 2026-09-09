@@ -116,7 +116,100 @@ struct LibraryParser {
     }
 
     private mutating func parseThreat() -> SourceLibraryThreat? {
-        nil
+        advance()
+        guard let id = expect(.string, "the threat's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var name: String?
+        var description = ""
+        var severityLabel: String?
+        var strideIds: [String] = []
+        var isConnectionThreat = false
+        var isZoneThreat = false
+        var zoneContext: String?
+        var mitre: [SourceMitreTechnique] = []
+        var controls: [String] = []
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": name = parseTextAttribute()
+            case "description": description = parseTextAttribute() ?? ""
+            case "severity": severityLabel = parseTextAttribute()
+            case "stride": strideIds = parseListAttribute()
+            case "connection": isConnectionThreat = parseBooleanAttribute() ?? false
+            case "zone": isZoneThreat = parseBooleanAttribute() ?? false
+            case "zone_context": zoneContext = parseTextAttribute()
+            case "mitre":
+                if let technique = parseMitre() { mitre.append(technique) }
+            case "control":
+                if let control = parseControl() { controls.append(control) }
+            default:
+                record(
+                    "a threat holds name, description, severity, stride, connection, zone, "
+                        + "zone_context, mitre and control, not \"\(current.text)\""
+                )
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let name else {
+            record("the threat \"\(id.text)\" has no name", at: id)
+            return nil
+        }
+        guard let severityLabel else {
+            record("the threat \"\(id.text)\" has no severity", at: id)
+            return nil
+        }
+        return SourceLibraryThreat(
+            id: id.text,
+            name: name,
+            description: description,
+            severityLabel: severityLabel,
+            strideIds: strideIds,
+            isConnectionThreat: isConnectionThreat,
+            isZoneThreat: isZoneThreat,
+            zoneContext: zoneContext,
+            mitre: mitre,
+            controlDescriptions: controls
+        )
+    }
+
+    private mutating func parseMitre() -> SourceMitreTechnique? {
+        advance()
+        guard let id = expect(.string, "the technique's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var name: String?
+        var tactic: String?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": name = parseTextAttribute()
+            case "tactic": tactic = parseTextAttribute()
+            default:
+                record("a mitre technique holds name and tactic, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let name else {
+            record("the technique \"\(id.text)\" has no name", at: id)
+            return nil
+        }
+        guard let tactic else {
+            record("the technique \"\(id.text)\" has no tactic", at: id)
+            return nil
+        }
+        return SourceMitreTechnique(id: id.text, name: name, tactic: tactic)
+    }
+
+    /// A control is a statement, not a block: a library says what a control is
+    /// and a controls file says its status.
+    private mutating func parseControl() -> String? {
+        advance()
+        return expect(.string, "the control's description")?.text
     }
 
     // MARK: what the file must hold once it parses
