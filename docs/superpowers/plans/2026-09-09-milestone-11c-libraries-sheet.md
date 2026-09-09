@@ -148,7 +148,8 @@ git -c commit.gpgsign=false commit -m "feat: run without the app sandbox, so git
 - Consumes: `ListLibraries`, `AddLibrary`, `UpdateLibraries`, `RemoveLibrary`,
   `ListOutdatedLibraries` from Milestone 11B.
 - Produces:
-  `@MainActor @Observable final class LibrarySession { init(useCases: UseCaseFactory, root: String, onChange: @escaping () -> Void); var libraries: [ListedLibrary]; var errorMessage: String?; var isWorking: Bool; func reload(); func add(repository: String, tag: String) async; func update(label: String) async; func remove(label: String, isForced: Bool); func checkForUpdates() async; var removalInUse: [String]? }`
+  `struct LibraryRow: Equatable, Sendable { let label: String; let name: String; let repository: String; let tag: String; let matchesLock: Bool; var newestTag: String? }` in `LibrarySession.swift`, because a row joins what `ListLibraries` says with what `ListOutdatedLibraries` says, and neither use case holds both,
+  `@MainActor @Observable final class LibrarySession { init(useCases: UseCaseFactory, root: String, onChange: @escaping () -> Void); private(set) var libraries: [LibraryRow]; private(set) var errorMessage: String?; private(set) var isWorking: Bool; private(set) var removalInUse: [String]?; func reload(); func add(repository: String, tag: String) async; func update(label: String) async; func remove(label: String, isForced: Bool); func checkForUpdates() async }`
 - `UseCaseFactory` gains `addLibrary()`, `updateLibraries()`, `removeLibrary()`,
   `listLibraries()`, `listOutdatedLibraries()`.
 

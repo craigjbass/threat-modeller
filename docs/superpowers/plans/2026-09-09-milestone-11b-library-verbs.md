@@ -669,9 +669,10 @@ git -c commit.gpgsign=false commit -m "feat: add and update a library"
 - Produces:
   `enum RemoveLibraryResponse { case removed(files: [String]); case inUse(systems: [String]); case noSuchLibrary; case cannotWrite(reason: String) }`,
   `struct RemoveLibraryRequest { let root: String; let label: String; let isForced: Bool }`,
-  `struct VerifyLibrariesResponse` carrying `matched: [String]` and `differed: [String]`,
-  `struct ListedLibrary { let label: String; let name: String; let repository: String; let tag: String; let matchesLock: Bool }`,
-  `struct OutdatedLibrary { let label: String; let tag: String; let newest: String? ; let reason: String? }`
+  `struct VerifyLibrariesRequest { let root: String }`,
+  `enum VerifyLibrariesResponse { case verified(matched: [String], differed: [String]); case notAProject(reason: String) }`,
+  `struct ListedLibrary: Equatable, Sendable { let label: String; let name: String; let repository: String; let tag: String; let matchesLock: Bool }`,
+  `struct OutdatedLibrary: Equatable, Sendable { let label: String; let tag: String; let newestTag: String?; let reason: String? }`
 
 **The in-use rule.** `RemoveLibrary` reads every `.arch` file in the project
 with the architecture gateway and looks for a component whose `technology`
@@ -748,16 +749,65 @@ struct RemoveLibraryTests {
 ```swift
 @Suite("Verifying the libraries")
 struct VerifyLibrariesTests {
-    @Test func saysTheFilesMatchTheLockFile() { /* write the lock with the real checksum */ }
-    @Test func saysWhichFileDiffers() { /* change the file after writing the lock */ }
-    @Test func saysWhichFileIsMissing() { /* delete the file after writing the lock */ }
-    @Test func saysNothingWhenTheProjectHoldsNoLockFile() { }
+    private let library = "library \"acme\" { }\n"
+
+    /// A project holding one library, its lock entry, and whatever the caller
+    /// wants the file on disk to say.
+    private func aProject(fileSays: String?) -> VerifyLibrariesUseCase {
+        let projects = InMemoryProject()
+        projects.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
+        if let fileSays {
+            projects.put(fileSays, at: "/work/threatmodel/library/acme.lib")
+        }
+        projects.put(
+            LibraryLock(libraries: [
+                LockedLibrary(
+                    label: "acme",
+                    repository: "r",
+                    tag: "v1",
+                    files: ["acme.lib": LibraryLock.checksum(library)]
+                )
+            ]).written(),
+            at: "/work/threatmodel/library/library.lock.json"
+        )
+        return VerifyLibraries(projects: projects)
+    }
+
+    @Test func saysTheFilesMatchTheLockFile() {
+        let response = aProject(fileSays: library).execute(
+            VerifyLibrariesRequest(root: "/work")
+        )
+
+        #expect(response == .verified(matched: ["acme.lib"], differed: []))
+    }
+
+    @Test func saysWhichFileDiffers() {
+        let response = aProject(fileSays: "library \"acme\" { name = \"Changed\" }\n")
+            .execute(VerifyLibrariesRequest(root: "/work"))
+
+        #expect(response == .verified(matched: [], differed: ["acme.lib"]))
+    }
+
+    @Test func saysWhichFileIsMissing() {
+        let response = aProject(fileSays: nil).execute(
+            VerifyLibrariesRequest(root: "/work")
+        )
+
+        #expect(response == .verified(matched: [], differed: ["acme.lib"]))
+    }
+
+    @Test func saysNothingWhenTheProjectHoldsNoLockFile() {
+        let projects = InMemoryProject()
+        projects.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
+
+        let response = VerifyLibraries(projects: projects).execute(
+            VerifyLibrariesRequest(root: "/work")
+        )
+
+        #expect(response == .verified(matched: [], differed: []))
+    }
 }
 ```
-
-Write those four bodies out in full before implementing: each one puts a lock
-file and the `.lib` files into an `InMemoryProject`, then asserts `matched` and
-`differed`.
 
 - [ ] **Step 2: Run the tests and watch them fail**
 
