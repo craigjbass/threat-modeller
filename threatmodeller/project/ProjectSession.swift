@@ -12,6 +12,7 @@ final class ProjectSession {
     private let useCases: UseCaseFactory
     private let watcher: ProjectWatching
     private let defaults: UserDefaults
+    private let coalescer: ChangeCoalescing
 
     private(set) var root: String?
     private(set) var directory: String?
@@ -45,11 +46,13 @@ final class ProjectSession {
     init(
         useCases: UseCaseFactory,
         watcher: ProjectWatching = FSEventsProjectWatcher(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        coalescer: ChangeCoalescing = TimerCoalescer()
     ) {
         self.useCases = useCases
         self.watcher = watcher
         self.defaults = defaults
+        self.coalescer = coalescer
         if defaults.object(forKey: Self.autoSyncKey) == nil {
             defaults.set(true, forKey: Self.autoSyncKey)
         }
@@ -64,6 +67,9 @@ final class ProjectSession {
     var isAutoSyncOn: Bool = true {
         didSet {
             defaults.set(isAutoSyncOn, forKey: Self.autoSyncKey)
+            // Turning it off drops the write that is waiting, because the user
+            // has just said this application must not write on its own.
+            if isAutoSyncOn == false { coalescer.cancel() }
             // Turning it on answers the change the user has been looking at.
             if isAutoSyncOn, hasFilesChangedOnDisk, hasUnsavedChanges == false {
                 reloadFromDisk()
@@ -124,6 +130,9 @@ final class ProjectSession {
     /// It draws the system named in `preferring` when the project still holds
     /// it, and the first system when it does not.
     func open(root: String, preferring wanted: String? = nil) {
+        // A write waiting for the project being left must not land in it.
+        coalescer.cancel()
+
         switch useCases.openProject().execute(OpenProjectRequest(root: root)) {
         case .opened(let systems, let directory):
             self.root = root
@@ -191,6 +200,8 @@ final class ProjectSession {
     /// diagnostics, because half a diagram is worse than none.
     func choose(_ systemName: String) {
         guard let root else { return }
+        // The same rule as `open`: the write belongs to the system being left.
+        coalescer.cancel()
 
         switch useCases.openSystem().execute(
             OpenSystemRequest(root: root, systemName: systemName)
@@ -201,9 +212,12 @@ final class ProjectSession {
             diagnosticsFileName = "\(systemName).arch"
             errorMessage = nil
             lastActionMessage = nil
-            model = ThreatModelSession(useCases: useCases)
-            savedRevision = model?.revision ?? 0
+            let drawn = ThreatModelSession(useCases: useCases)
+            model = drawn
+            savedRevision = drawn.revision
             hasFilesChangedOnDisk = false
+            // Set last, so building the session does not count as a change.
+            drawn.onChange = { [weak self] in self?.modelDidChange() }
         case .refused(let fileName, let faults):
             chosenSystem = systemName
             diagnostics = faults
@@ -218,6 +232,16 @@ final class ProjectSession {
         case .cannotRead(let reason):
             errorMessage = "That system could not be read: \(reason)"
         }
+    }
+
+    /// What the window calls when the drawn model changed.
+    ///
+    /// With auto sync on, a change on screen reaches the files without the
+    /// user pressing Synchronise. The write waits for the changes to stop, so
+    /// a name typed into a field writes the files once and not once a letter.
+    func modelDidChange() {
+        guard isAutoSyncOn, hasUnsavedChanges else { return }
+        coalescer.schedule { [weak self] in self?.save() }
     }
 
     /// Writes the drawn system back to the file it came from, and merges the

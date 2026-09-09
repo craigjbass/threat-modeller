@@ -145,8 +145,11 @@ cd ThreatModelKit && swift build --product threatmodeller-cli
   answers into its `.controls` file.
 - *Generate Report* writes the `.md` file. A report is an artefact, so a
   synchronise does not write it.
-- *Auto Sync* reloads a file that changes on disk. When Auto Sync is off, the
-  notice strip says the files changed on disk.
+- *Auto Sync* keeps the files and the screen in step both ways. It writes the
+  `.arch` file and the `.controls` file when the model changes, half a second
+  after the changes stop, and it redraws the diagram when a file changes on
+  disk. When Auto Sync is off, nothing is written until the user presses
+  Synchronise, and the notice strip says the files changed on disk.
 - An import that fails lists every fault as `line:column message`.
 
 The `.threatmodel` document and its window still work. *Export Architecture…* is

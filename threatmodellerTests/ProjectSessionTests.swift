@@ -585,3 +585,119 @@ struct EmptyProjectTests {
     }
 }
 
+
+/// A coalescer a test drives by hand, so no test waits.
+@MainActor
+final class FakeCoalescer: ChangeCoalescing {
+    private(set) var scheduledCount = 0
+    private(set) var cancelledCount = 0
+    private var work: (@MainActor () -> Void)?
+
+    var hasPendingWork: Bool { work != nil }
+
+    func schedule(_ work: @escaping @MainActor () -> Void) {
+        scheduledCount += 1
+        self.work = work
+    }
+
+    func cancel() {
+        cancelledCount += 1
+        work = nil
+    }
+
+    /// What the real coalescer does when the wait ends.
+    func fire() {
+        let pending = work
+        work = nil
+        pending?()
+    }
+}
+
+/// What Auto Sync writes. With it on, a change on screen reaches the files
+/// without the user pressing Synchronise.
+@MainActor
+struct AutomaticSaveTests {
+    private let payments = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+    }
+
+    """
+
+    private func aProject() -> (ProjectSession, TestDependencies, FakeCoalescer) {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        useCases.project.put(
+            "system \"Reporting\" { component \"r\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/reporting.arch"
+        )
+        useCases.project.put(
+            "system \"Other\" { component \"o\" { technology = \"aws-rds\" } }",
+            at: "/other/threatmodel/other.arch"
+        )
+        let coalescer = FakeCoalescer()
+        let session = ProjectSession(
+            useCases: useCases,
+            defaults: aTestDefaults(),
+            coalescer: coalescer
+        )
+        session.open(root: "/work")
+        return (session, useCases, coalescer)
+    }
+
+    @Test func writesTheAnswersWhenAControlChangesAndAutoSyncIsOn() throws {
+        let (session, useCases, coalescer) = aProject()
+        let control = try #require(session.model?.threats.first?.controls.first)
+
+        session.model?.setControlStatus(key: control.key, statusId: "accepted")
+        coalescer.fire()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.controls"))
+        #expect(written.contains("status = \"accepted\""))
+        #expect(session.hasUnsavedChanges == false)
+    }
+
+    @Test func writesNothingWhileAutoSyncIsOff() {
+        let (session, useCases, coalescer) = aProject()
+        session.isAutoSyncOn = false
+
+        session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
+
+        #expect(coalescer.hasPendingWork == false)
+        #expect(useCases.project.text(at: "/work/threatmodel/payments.controls") == nil)
+        #expect(session.hasUnsavedChanges)
+    }
+
+    @Test func dropsAPendingWriteWhenAnotherSystemIsPicked() {
+        let (session, _, coalescer) = aProject()
+        session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
+        #expect(coalescer.hasPendingWork)
+
+        session.choose("reporting")
+
+        #expect(coalescer.hasPendingWork == false)
+    }
+
+    @Test func dropsAPendingWriteWhenAutoSyncIsTurnedOff() {
+        let (session, _, coalescer) = aProject()
+        session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
+        #expect(coalescer.hasPendingWork)
+
+        session.isAutoSyncOn = false
+
+        #expect(coalescer.hasPendingWork == false)
+    }
+
+    @Test func dropsAPendingWriteWhenAnotherProjectIsOpened() {
+        let (session, _, coalescer) = aProject()
+        session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
+        #expect(coalescer.hasPendingWork)
+
+        session.open(root: "/other")
+
+        #expect(coalescer.hasPendingWork == false)
+    }
+}

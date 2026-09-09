@@ -4,6 +4,9 @@ import SwiftUI
 ///
 /// The menu carries the same two commands and the same shortcuts. This bar is
 /// what tells a user who never opens a menu that they exist.
+///
+/// Auto Sync writes the files on its own, so a user who leaves it on presses
+/// Synchronise for nothing. The button stays for the user who turns it off.
 struct WorkflowBar: View {
     let session: ProjectSession
 
@@ -35,8 +38,9 @@ struct WorkflowBar: View {
                 Toggle("Auto Sync", isOn: autoSync)
                     .toggleStyle(.checkbox)
                     .help(
-                        "Redraw the diagram when a .arch or .controls file "
-                            + "changes on disk."
+                        "Save the .arch and .controls files when you change "
+                            + "the model, and redraw the diagram when those "
+                            + "files change on disk."
                     )
                     .accessibilityIdentifier("auto-sync")
             }

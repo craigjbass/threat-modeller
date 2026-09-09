@@ -44,6 +44,9 @@ final class ThreatModelSession {
     /// and every change raises it. `ProjectSession` compares it with the
     /// number it recorded to answer whether anything on screen is unsaved.
     private(set) var revision = 0
+    /// What a window that owns this session wants to know after every change.
+    /// A document window sets nothing. A project window writes the files.
+    var onChange: (() -> Void)?
 
     /// Where a double-click on a palette row puts a component, in model
     /// coordinates. A drag from the palette uses the drop point instead.
@@ -643,5 +646,6 @@ final class ThreatModelSession {
         summary = useCases.summariseRisk().execute(SummariseRiskRequest())
         pathwayMitigations = useCases.listPathwayMitigations()
             .execute(ListPathwayMitigationsRequest())
+        onChange?()
     }
 }
