@@ -9,6 +9,9 @@ public protocol ProjectSourceGateway: Sendable {
     func discover(root: String) throws -> ProjectLayout
     func read(path: String) throws -> String
     func write(_ text: String, to path: String) throws
+    /// Removes a file. A file that is not there is not a fault, because the
+    /// caller wanted it gone and it is gone.
+    func delete(path: String) throws
     func exists(path: String) -> Bool
 }
 

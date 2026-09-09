@@ -63,6 +63,16 @@ public func verifyProjectSourceGatewayContract(
         ProjectConvention.path(library, "beta.lib")
     ])
 
+    // A file that is deleted is gone, and deleting one that is not there is
+    // not a fault.
+    #expect(throws: Never.self) {
+        try gateway.delete(path: payments.controlsPath)
+    }
+    #expect(gateway.exists(path: payments.controlsPath) == false)
+    #expect(throws: Never.self) {
+        try gateway.delete(path: payments.controlsPath)
+    }
+
     // A read of a file that is not there says which file.
     #expect(throws: ProjectError.self) {
         _ = try gateway.read(path: ProjectConvention.path(inside, "no-such-file.arch"))

@@ -65,6 +65,10 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
         put(text, at: path)
     }
 
+    public func delete(path: String) throws {
+        files.removeValue(forKey: path)
+    }
+
     public func exists(path: String) -> Bool {
         files[path] != nil || directories.contains(path)
     }

@@ -66,6 +66,15 @@ public struct FileSystemProject: ProjectSourceGateway {
         }
     }
 
+    public func delete(path: String) throws {
+        guard manager.fileExists(atPath: path) else { return }
+        do {
+            try manager.removeItem(atPath: path)
+        } catch {
+            throw ProjectError.cannotWrite(path: path, reason: String(describing: error))
+        }
+    }
+
     public func exists(path: String) -> Bool {
         manager.fileExists(atPath: path)
     }
