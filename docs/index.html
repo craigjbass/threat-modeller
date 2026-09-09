@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="threat-modeller — a threat model your team writes as text files in git. A macOS application and a command line executable that read .arch and .controls files, raise the threats and fail the build while one has no answer." />
+  <title>threat-modeller — a threat model your team writes as text files in git</title>
+  <style>
+    /* ============================================================
+       THREAT-MODELLER DESIGN SYSTEM — canonical CSS
+       Pasted verbatim into index.html and documentation.template.html
+       ============================================================ */
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #0a0a0a;
+      --fg:     #e7e7e7;
+      --dim:    #888888;
+      --faint:  #555555;
+      --green:  #9fef00;
+      --red:    #ef4444;
+      --border: #222222;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 20px 80px;
+    }
+
+    /* nav */
+    .nav {
+      font-size: 12px;
+      color: var(--dim);
+      padding: 4px 0 32px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+    .nav a { color: var(--fg); text-decoration: none; }
+    .nav a:hover { color: var(--green); }
+    .sep { color: var(--faint); margin: 0 8px; }
+    .nav a[aria-current="page"] { color: var(--dim); }
+
+    /* section header */
+    .sh {
+      color: var(--dim);
+      font-size: 12px;
+      margin: 40px 0 14px;
+    }
+
+    /* document headings */
+    h1, h2, h3, h4 {
+      color: var(--fg);
+      font-weight: normal;
+      margin: 32px 0 14px;
+    }
+    h1 { font-size: 18px; }
+    h2 { font-size: 15px; }
+    h3 { font-size: 13px; }
+    h4 { font-size: 13px; }
+    h2::before { content: "## "; color: var(--dim); }
+    h3::before { content: "### "; color: var(--dim); }
+
+    /* prose */
+    p { margin: 0 0 14px; max-width: 80ch; }
+    p.lead { color: var(--fg); font-size: 15px; margin-bottom: 24px; }
+    p.dim { color: var(--dim); }
+
+    /* links */
+    a { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
+    a:hover { color: var(--green); }
+
+    /* bracketed link */
+    .blink {
+      color: var(--fg);
+      text-decoration: none;
+      margin-right: 14px;
+      display: inline-block;
+    }
+    .blink::before { content: "[ "; color: var(--dim); }
+    .blink::after  { content: " ]"; color: var(--dim); }
+    .blink:hover { color: var(--green); }
+    .blink:hover::before, .blink:hover::after { color: var(--green); }
+
+    /* ascii diagram */
+    pre.ascii {
+      color: var(--green);
+      line-height: 1.4;
+      margin: 0 0 18px;
+      white-space: pre;
+      overflow-x: auto;
+      border-left: none;
+      padding: 0;
+    }
+    pre.ascii.fg { color: var(--fg); }
+
+    /* stats line */
+    .stats {
+      color: var(--fg);
+      margin: 0 0 24px;
+      white-space: pre;
+      font-family: inherit;
+      overflow-x: auto;
+    }
+    .k { color: var(--dim); }
+    .no { color: var(--red); }
+
+    /* numbered steps */
+    ol.steps {
+      list-style: none;
+      counter-reset: step;
+      margin: 0 0 18px;
+    }
+    ol.steps li {
+      counter-increment: step;
+      padding-left: 32px;
+      position: relative;
+      margin-bottom: 8px;
+    }
+    ol.steps li::before {
+      content: counter(step) ".";
+      position: absolute;
+      left: 0;
+      color: var(--dim);
+    }
+
+    /* bullet list */
+    ul.bullets { list-style: none; margin: 0 0 18px; }
+    ul.bullets > li {
+      padding-left: 16px;
+      position: relative;
+      margin-bottom: 14px;
+    }
+    ul.bullets > li::before {
+      content: "-";
+      position: absolute;
+      left: 0;
+      color: var(--dim);
+    }
+    ul.bullets > li > .desc {
+      color: var(--dim);
+      display: block;
+      margin-top: 2px;
+    }
+
+    /* definition list */
+    dl.paths { margin: 0 0 18px; }
+    dl.paths dt { color: var(--green); margin-top: 14px; }
+    dl.paths dt:first-child { margin-top: 0; }
+    dl.paths dd { color: var(--dim); margin: 2px 0 0; padding-left: 16px; }
+
+    /* two column comparison */
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin: 0 0 18px;
+    }
+    .compare h4 {
+      margin: 0 0 10px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+    .compare ul { list-style: none; }
+    .compare li {
+      padding-left: 16px;
+      position: relative;
+      margin-bottom: 6px;
+      color: var(--dim);
+    }
+    .compare li::before {
+      content: "-";
+      position: absolute;
+      left: 0;
+      color: var(--faint);
+    }
+    @media (max-width: 768px) {
+      .compare { grid-template-columns: 1fr; gap: 18px; }
+    }
+
+    /* shell-prompt block */
+    pre.shell {
+      color: var(--fg);
+      background: transparent;
+      margin: 0 0 14px;
+      white-space: pre;
+      overflow-x: auto;
+      border-left: none;
+      padding: 0;
+    }
+    pre.shell .p { color: var(--green); }
+    pre.shell .c { color: var(--dim); }
+
+    /* inline code */
+    code { color: var(--green); background: transparent; }
+
+    /* code blocks */
+    pre {
+      background: transparent;
+      border-left: 1px solid var(--border);
+      padding: 0 0 0 14px;
+      margin: 0 0 14px;
+      overflow-x: auto;
+      color: var(--fg);
+    }
+    pre code { color: inherit; }
+
+    /* tables */
+    table {
+      border-collapse: collapse;
+      margin: 0 0 18px;
+      font-size: 13px;
+      width: 100%;
+    }
+    th, td {
+      text-align: left;
+      padding: 6px 14px 6px 0;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      color: var(--fg);
+    }
+    th { color: var(--dim); font-weight: normal; }
+
+    /* footer */
+    .foot {
+      color: var(--dim);
+      font-size: 12px;
+      padding: 32px 0 0;
+      border-top: 1px solid var(--border);
+      margin-top: 48px;
+    }
+
+    /* toc */
+    .toc { margin: 0 0 32px; color: var(--dim); line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <div class="nav">
+      <a href="index.html">threat-modeller</a><span class="sep">·</span><a href="index.html" aria-current="page">home</a><span class="sep">·</span><a href="documentation.html">docs</a><span class="sep">·</span><a href="#download">download</a><span class="sep">·</span><a href="https://github.com/craigjbass/threat-modeller">source</a>
+    </div>
+
+    <!-- HERO -->
+    <div class="sh">// threat-modeller</div>
+<pre class="ascii">┌───────────────────────────────────────┐
+│  THREAT-MODELLER                      │
+│  .arch + .controls → .md              │
+└───────────────────────────────────────┘</pre>
+    <p class="lead">A threat model your team writes as text files in git.</p>
+    <p>
+      <a class="blink" href="#download">download</a>
+      <a class="blink" href="documentation.html">docs</a>
+      <a class="blink" href="https://github.com/craigjbass/threat-modeller">source</a>
+    </p>
+
+    <!-- STATS -->
+    <div class="stats"><span class="k">sources=</span>2  <span class="k">outputs=</span>1  <span class="k">catalogue=</span>v1.0.1  <span class="k">platforms=</span>macos+linux  <span class="k">net=</span>0</div>
+
+    <!-- DOWNLOAD -->
+    <div class="sh" id="download">// download</div>
+    <p>
+      <span class="k">version:</span> <a id="version-link" href="https://github.com/craigjbass/threat-modeller/releases/latest">latest</a>
+      <span class="sep">·</span>
+      <span class="k">source:</span> <a href="https://github.com/craigjbass/threat-modeller">github.com/craigjbass/threat-modeller</a>
+      <span class="sep">·</span>
+      <span class="k">license:</span> MIT
+    </p>
+    <dl class="paths">
+      <dt><a id="dmg-link" href="https://github.com/craigjbass/threat-modeller/releases/latest">threatmodeller.dmg</a></dt>
+      <dd>The macOS application, with the command line executable inside it.</dd>
+      <dt><a id="cli-macos-link" href="https://github.com/craigjbass/threat-modeller/releases/latest">threatmodeller-cli-macos.tar.gz</a></dt>
+      <dd>The command line executable for macOS, with the catalogue beside it.</dd>
+      <dt><a id="cli-linux-x86-link" href="https://github.com/craigjbass/threat-modeller/releases/latest">threatmodeller-cli-linux-x86_64.tar.gz</a></dt>
+      <dd>The command line executable for Linux on x86_64. Static, so it runs in any container.</dd>
+      <dt><a id="cli-linux-arm-link" href="https://github.com/craigjbass/threat-modeller/releases/latest">threatmodeller-cli-linux-aarch64.tar.gz</a></dt>
+      <dd>The command line executable for Linux on aarch64.</dd>
+    </dl>
+
+    <!-- HOW IT WORKS -->
+    <div class="sh" id="how-it-works">// how it works</div>
+<pre class="ascii">┌──────────┐   compile   ┌──────────────┐   check   ┌──────────┐
+│  .arch   │ ──────────▶ │  .controls   │ ────────▶ │ exit 0/1 │
+└──────────┘             └──────┬───────┘           └──────────┘
+                                │ report
+                                ▼
+                          ┌───────────┐
+                          │    .md    │
+                          └───────────┘</pre>
+    <ol class="steps">
+      <li>A person writes <code>payments.arch</code>: the technologies, the zones, the components and the flows.</li>
+      <li><code>threatmodeller compile</code> reads the architecture, raises every threat the catalogue holds for it, and writes a stanza into <code>payments.controls</code>.</li>
+      <li>A person fills in each stanza: the status of every control, a note, and a compensating control where one applies.</li>
+      <li><code>threatmodeller check</code> exits <code class="no">1</code> while a threat has no answer, so a pull request that adds a database and answers nothing fails the build.</li>
+    </ol>
+
+    <!-- THE TWO FILES -->
+    <div class="sh" id="files">// the two files</div>
+    <p class="dim">threatmodel/payments.arch — a person writes it.</p>
+<pre><code>system "Payments" {
+  catalogue = "v1.0.1"
+
+  zone "app" {
+    kind            = "private"
+    network         = "vpc"
+    reduces_risk_by = 30
+
+    component "api" {
+      technology = "aws-ec2"
+      name       = "Application Server"
+      data       = "confidential"
+    }
+  }
+
+  component "attacker" {
+    technology = "actor-attacker"
+    data       = "public"
+  }
+
+  flow attacker -&gt; api
+}</code></pre>
+    <p class="dim">threatmodel/payments.controls — the compiler writes it, then a person fills it in.</p>
+<pre><code>controls for "Payments" {
+  catalogue = "v1.0.1"
+
+  threat "t-credential-theft" on component "api" {
+    severity = "critical"
+    score    = 90
+
+    control "Enforce MFA on all administrative access" {
+      status = "implemented"
+      note   = "Okta, enforced group-wide"
+    }
+
+    compensating "Break-glass account watched by the SIEM" {
+      reduces_risk_by = 40
+      rationale       = "Standing keys are gone; the one account left alerts on use."
+    }
+  }
+
+  threat "t-mitm" on flow "attacker-&gt;api" { }
+}</code></pre>
+    <p class="dim">A threat with an empty block has no answer, and <code>check</code> exits <code class="no">1</code> until somebody writes one.</p>
+
+    <!-- FEATURES -->
+    <div class="sh" id="features">// features</div>
+    <ul class="bullets">
+      <li>the architecture language
+        <span class="desc">One file states the technologies, the zones, the components and the flows. The language guide states the grammar of every block and attribute.</span>
+      </li>
+      <li>the generated controls file
+        <span class="desc">The compiler writes a stanza for every threat the architecture raises, and merges new threats into the file a person has already answered. An answer a threat no longer needs stays in the file, marked stale.</span>
+      </li>
+      <li>the build gate
+        <span class="desc">The executable exits 1 for an unanswered threat, a stale answer, or a library file that does not match the lock file. A diagnostic prints as threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0.1, which an editor and a build log both read.</span>
+      </li>
+      <li>the macOS canvas
+        <span class="desc">The application draws the same files, and Auto Sync writes the files when the model changes and redraws the diagram when a file changes on disk.</span>
+      </li>
+      <li>shared element libraries
+        <span class="desc">A team writes technologies, threats and controls into a .lib file and shares it. The label prefixes every id it declares, so two teams cannot clash. library.lock.json records the repository, the tag and the sha256 of each file.</span>
+      </li>
+      <li>a fixed scoring order
+        <span class="desc">Base severity, then a severity override, then the zone reduction, then the pathway mitigation, then one compensating control. Two compensating controls give the stronger of the two, not the sum.</span>
+      </li>
+      <li>markdown reports
+        <span class="desc">threatmodeller report writes one .md file for each system. A report is an artefact, so a synchronise does not write it.</span>
+      </li>
+      <li>your own git, no credential
+        <span class="desc">The application runs git as a child process, so a private repository works through the ssh-agent key and the credential helper you already have. This application holds no credential, reads none and prompts for none.</span>
+      </li>
+    </ul>
+
+    <!-- WHY TEXT FILES -->
+    <div class="sh" id="why">// why text files, not a diagram tool</div>
+    <div class="compare">
+      <div>
+        <h4>a diagram tool</h4>
+        <ul>
+          <li>The model lives in a file only that tool opens.</li>
+          <li>A reviewer reads an image, and cannot see what changed.</li>
+          <li>The diagram and the code drift apart, and nothing measures the distance.</li>
+          <li>The answer to a threat lives in a spreadsheet beside it, or in nobody's head.</li>
+          <li>The build knows nothing about the model.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>threat-modeller</h4>
+        <ul>
+          <li>The model is two text files beside the code.</li>
+          <li>A reviewer reads the diff, line by line, in the pull request.</li>
+          <li>A new component raises its threats the moment the file changes.</li>
+          <li>The answer to a threat sits in the .controls file, with a note and a status.</li>
+          <li>The build fails while a threat has no answer.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- INSTALL -->
+    <div class="sh" id="install">// install</div>
+    <p class="dim">The application:</p>
+<pre class="shell"><span class="p">$</span> open threatmodeller.dmg
+<span class="c"># drag threatmodeller to Applications</span></pre>
+    <p class="dim">The command line executable:</p>
+<pre class="shell"><span class="p">$</span> tar xzf threatmodeller-cli-macos.tar.gz
+<span class="p">$</span> ln -sf "$PWD/threatmodeller" ~/.local/bin/threatmodeller
+<span class="p">$</span> export PATH="$HOME/.local/bin:$PATH"</pre>
+    <p class="dim">In continuous integration:</p>
+<pre class="shell"><span class="p">$</span> threatmodeller library verify &amp;&amp; threatmodeller check</pre>
+    <p class="dim">The application installs the same executable: <em>threatmodeller ▸ Install Command Line Tool…</em> writes a link in <code>~/.local/bin</code>, and asks for no password.</p>
+
+    <div class="foot">
+      <span class="k">// license:</span> MIT
+      <span class="sep">·</span>
+      <span class="k">catalogue:</span> <a href="https://github.com/jib1337/threat-model-library">Threat Model Library</a> v1.0.1 (CC BY 4.0)
+      <span class="sep">·</span>
+      <span class="k">source:</span> <a href="https://github.com/craigjbass/threat-modeller">github.com/craigjbass/threat-modeller</a>
+      <span class="sep">·</span>
+      <span class="k">version:</span> <a id="version-link-foot" href="https://github.com/craigjbass/threat-modeller/releases/latest">latest</a>
+    </div>
+
+  </div>
+
+<script>
+(function(){
+  var assets = [
+    { id: 'dmg-link',            pattern: /\.dmg$/i },
+    { id: 'cli-macos-link',      pattern: /-macos\.tar\.gz$/i },
+    { id: 'cli-linux-x86-link',  pattern: /-linux-x86_64\.tar\.gz$/i },
+    { id: 'cli-linux-arm-link',  pattern: /-linux-aarch64\.tar\.gz$/i }
+  ];
+  fetch('https://api.github.com/repos/craigjbass/threat-modeller/releases?per_page=1', { headers: { Accept: 'application/vnd.github+json' } })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(list){
+      if (!list || !list.length) return;
+      var release = list[0];
+      if (release.tag_name) {
+        ['version-link', 'version-link-foot'].forEach(function(id){
+          var element = document.getElementById(id);
+          if (element) element.textContent = release.tag_name;
+        });
+      }
+      assets.forEach(function(asset){
+        var match = (release.assets || []).find(function(a){ return asset.pattern.test(a.name); });
+        var element = document.getElementById(asset.id);
+        if (match && element) {
+          element.href = match.browser_download_url;
+          element.textContent = match.name;
+        }
+      });
+    })
+    .catch(function(){});
+})();
+</script>
+</body>
+</html>

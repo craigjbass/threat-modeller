@@ -626,9 +626,9 @@ Create `docs/index.html`:
 └──────────┘             └──────┬───────┘           └──────────┘
                                 │ report
                                 ▼
-                          ┌──────────┐
-                          │   .md    │
-                          └──────────┘</pre>
+                          ┌───────────┐
+                          │    .md    │
+                          └───────────┘</pre>
     <ol class="steps">
       <li>A person writes <code>payments.arch</code>: the technologies, the zones, the components and the flows.</li>
       <li><code>threatmodeller compile</code> reads the architecture, raises every threat the catalogue holds for it, and writes a stanza into <code>payments.controls</code>.</li>
