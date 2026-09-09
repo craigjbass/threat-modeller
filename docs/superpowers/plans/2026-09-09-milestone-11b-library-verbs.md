@@ -48,7 +48,7 @@ package. `git` is a child process, found on `PATH`.
   `final class FakeLibraryFetcher: LibraryFetching`,
   `func assertLibraryFetching(_ fetcher: LibraryFetching, repository: String, tag: String)`
 
-- [ ] **Step 1: Write the failing contract and its test**
+- [x] **Step 1: Write the failing contract and its test**
 
 ```swift
 // TestSupport/LibraryFetchingContract.swift
@@ -140,12 +140,12 @@ struct FakeLibraryFetcherTests {
 }
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter FakeLibraryFetcherTests`
 Expected: FAIL, `cannot find 'LibraryFetching' in scope`.
 
-- [ ] **Step 3: Write the port**
+- [x] **Step 3: Write the port**
 
 ```swift
 /// What a fetch can fail with. Each one carries what a person needs to fix it.
@@ -180,12 +180,12 @@ public protocol LibraryFetching: Sendable {
 }
 ```
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter FakeLibraryFetcherTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/architecture/gateway/LibraryFetching.swift \
@@ -210,7 +210,7 @@ git -c commit.gpgsign=false commit -m "feat: state what a library fetcher does"
 temporary directory with `git init`, commits `acme.lib`, tags it, and then
 clones it by path. That runs the real `git` and proves the real gateway.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 import Foundation
@@ -279,12 +279,12 @@ struct GitLibraryFetcherTests {
 }
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter GitLibraryFetcherTests`
 Expected: FAIL, `cannot find 'GitLibraryFetcher' in scope`.
 
-- [ ] **Step 3: Write `GitLibraryFetcher.swift`**
+- [x] **Step 3: Write `GitLibraryFetcher.swift`**
 
 ```swift
 import Foundation
@@ -392,12 +392,12 @@ public struct GitLibraryFetcher: LibraryFetching {
 }
 ```
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter GitLibraryFetcherTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/FileGateways/GitLibraryFetcher.swift \
@@ -422,7 +422,7 @@ The checksum is `sha256` of the file's bytes, written as lower-case hexadecimal.
 Foundation on Linux has no `CryptoKit`, so write the digest by hand in
 `ThreatModelKit`; it is 40 lines and it has no dependency.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 import Testing
@@ -481,12 +481,12 @@ struct LibraryLockTests {
 }
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryLockTests`
 Expected: FAIL, `cannot find 'LibraryLock' in scope`.
 
-- [ ] **Step 3: Write `LibraryLock.swift`**
+- [x] **Step 3: Write `LibraryLock.swift`**
 
 Use `Codable` over a private `[String: Entry]` shape with
 `JSONEncoder.outputFormatting = [.prettyPrinted, .sortedKeys]`, so two writes of
@@ -494,12 +494,12 @@ one lock file are the same text. Write `sha256` by hand: the eight initial
 values, the sixty-four round constants, the message schedule and the
 compression loop. Keep it in one file with a comment saying it is FIPS 180-4.
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryLockTests`
 Expected: PASS, including `checksumsWhatSha256Says`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/architecture/domain/LibraryLock.swift \
@@ -529,7 +529,7 @@ file that does not parse, writes the files under
 `<directory>/library/`, and writes the lock entry keyed by the label. Adding a
 repository the project already holds replaces its entry.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```swift
 @Suite("Adding a library")
@@ -622,12 +622,12 @@ Write the matching tests for `UpdateLibraries` in the same file: updating every
 library at its recorded tag, updating one named library, and refusing when the
 project holds no lock file.
 
-- [ ] **Step 2: Run the tests and watch them fail**
+- [x] **Step 2: Run the tests and watch them fail**
 
 Run: `cd ThreatModelKit && swift test --filter AddLibraryTests`
 Expected: FAIL, `cannot find 'AddLibrary' in scope`.
 
-- [ ] **Step 3: Write the two use cases**
+- [x] **Step 3: Write the two use cases**
 
 `AddLibrary.execute` in order: discover the layout; fetch; read every file with
 `sources.read` and refuse the first that has errors, naming the file; refuse when
@@ -639,12 +639,12 @@ the tag and the checksum of each file; write the lock file.
 `UpdateLibraries.execute` reads the lock file, then for each entry (or the one
 named) calls `AddLibrary` with the recorded repository and tag.
 
-- [ ] **Step 4: Run the tests and watch them pass**
+- [x] **Step 4: Run the tests and watch them pass**
 
 Run: `cd ThreatModelKit && swift test --filter Library`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/architecture/usecase/AddLibrary.swift \
@@ -679,7 +679,7 @@ with the architecture gateway and looks for a component whose `technology`
 starts with `<label>-`. It returns `.inUse` naming those systems unless
 `isForced`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```swift
 @Suite("Removing a library")
@@ -809,12 +809,12 @@ struct VerifyLibrariesTests {
 }
 ```
 
-- [ ] **Step 2: Run the tests and watch them fail**
+- [x] **Step 2: Run the tests and watch them fail**
 
 Run: `cd ThreatModelKit && swift test --filter RemoveLibraryTests`
 Expected: FAIL.
 
-- [ ] **Step 3: Write the four use cases**
+- [x] **Step 3: Write the four use cases**
 
 `ListLibraries` joins the lock file with `LoadLibraries`'s labels and display
 names, and calls `VerifyLibraries` for the match column.
@@ -822,12 +822,12 @@ names, and calls `VerifyLibraries` for the match column.
 takes the last tag that sorts after the recorded one, and records a reason when
 the tags cannot be read.
 
-- [ ] **Step 4: Run the tests and watch them pass**
+- [x] **Step 4: Run the tests and watch them pass**
 
 Run: `cd ThreatModelKit && swift test`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/architecture/usecase/RemoveLibrary.swift \
@@ -853,7 +853,7 @@ git -c commit.gpgsign=false commit -m "feat: remove, verify and list a project's
   `library` with the six operations.
 - `CommandLineApplication.init` gains `fetcher: LibraryFetching = GitLibraryFetcher()`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```swift
 @Suite("The library verbs")
@@ -972,24 +972,24 @@ struct LibraryVerbTests {
 }
 ```
 
-- [ ] **Step 2: Run the tests and watch them fail**
+- [x] **Step 2: Run the tests and watch them fail**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryVerbTests`
 Expected: FAIL, `extra argument 'fetcher' in call`.
 
-- [ ] **Step 3: Write the verb**
+- [x] **Step 3: Write the verb**
 
 Add `case fetchFailed = 4` to `ExitCode`. Add `library` to the verb switch, which
 reads the operation from the next flagless word and calls the matching use case.
 Add the six lines and the option to `Self.usage`. Keep the printed text one line
 per library, in the shape `<label>  <tag>  <repository>  <matches | differs>`.
 
-- [ ] **Step 4: Run the tests and watch them pass**
+- [x] **Step 4: Run the tests and watch them pass**
 
 Run: `cd ThreatModelKit && swift test`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/CommandLineApplication \
@@ -1005,25 +1005,25 @@ git -c commit.gpgsign=false commit -m "feat: manage a library from the command l
 - Modify: `README.md`
 - Modify: `docs/LANGUAGE.md`
 
-- [ ] **Step 1: Write the verbs into `README.md`**
+- [x] **Step 1: Write the verbs into `README.md`**
 
 Add a "Sharing a library" section under the executable: what a library
 repository holds, the six verbs with a one-line description each, the lock file,
 exit code 4, and the sentence that this application holds no credential and runs
 the user's own `git`.
 
-- [ ] **Step 2: Write the vendoring rules into `docs/LANGUAGE.md`**
+- [x] **Step 2: Write the vendoring rules into `docs/LANGUAGE.md`**
 
 Add to the library language section: where a `.lib` file lives, that
 `library.lock.json` pins it, and that the label is the key.
 
-- [ ] **Step 3: Run both suites**
+- [x] **Step 3: Run both suites**
 
 Run: `cd ThreatModelKit && swift test`
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS'`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md docs/LANGUAGE.md

@@ -54,7 +54,7 @@ only), Foundation only in the package.
   `struct LibraryRead { let source: LibrarySource?; let diagnostics: [Diagnostic]; var hasErrors: Bool; var warnings: [Diagnostic] }`,
   `struct LibraryParser { init(tokens: [Token], faults: [Diagnostic]); mutating func parse() -> LibraryRead }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 import Testing
@@ -108,12 +108,12 @@ struct LibraryParserTests {
 }
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryParserTests`
 Expected: FAIL, `cannot find 'LibraryParser' in scope`.
 
-- [ ] **Step 3: Write `LibrarySource.swift`**
+- [x] **Step 3: Write `LibrarySource.swift`**
 
 ```swift
 /// One library, as the text says it. Ids here are unprefixed: `LoadLibraries`
@@ -208,7 +208,7 @@ public struct LibraryRead: Equatable, Sendable {
 }
 ```
 
-- [ ] **Step 4: Write `LibraryParser.swift`, the `library` block and its technologies**
+- [x] **Step 4: Write `LibraryParser.swift`, the `library` block and its technologies**
 
 Copy the shape of `ArchitectureParser`: the same `current`, `advance`,
 `expect`, `record`, `skipToNextBlock` and `skipAttribute` helpers, and the same
@@ -283,12 +283,12 @@ struct LibraryParser {
 `parseThreat()` returns nil for now and records nothing; Task 2 writes it.
 `check(_:)` is empty for now; Task 3 writes it.
 
-- [ ] **Step 5: Run the test and watch it pass**
+- [x] **Step 5: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryParserTests`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/architecture/domain/LibrarySource.swift \
@@ -308,7 +308,7 @@ git -c commit.gpgsign=false commit -m "feat: read a library block and its techno
 **Interfaces:**
 - Produces: `LibraryParser.parseThreat()`, filling `SourceLibraryThreat`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 @Test func readsAThreatWithItsControls() throws {
@@ -350,12 +350,12 @@ git -c commit.gpgsign=false commit -m "feat: read a library block and its techno
 }
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter readsAThreatWithItsControls`
 Expected: FAIL, the threat list is empty.
 
-- [ ] **Step 3: Write `parseThreat`, `parseMitre` and `parseControl`**
+- [x] **Step 3: Write `parseThreat`, `parseMitre` and `parseControl`**
 
 ```swift
     private mutating func parseThreat() -> SourceLibraryThreat? {
@@ -455,12 +455,12 @@ Expected: FAIL, the threat list is empty.
     }
 ```
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryParserTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ArchitectureDSL/LibraryParser.swift \
@@ -479,7 +479,7 @@ git -c commit.gpgsign=false commit -m "feat: read a threat block in a library"
 **Interfaces:**
 - Produces: `LibraryParser.check(_:)`, the static checks of spec section 3.5.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```swift
 @Test func refusesADuplicateTechnologyIdentifier() {
@@ -541,12 +541,12 @@ git -c commit.gpgsign=false commit -m "feat: read a threat block in a library"
 }
 ```
 
-- [ ] **Step 2: Run the tests and watch them fail**
+- [x] **Step 2: Run the tests and watch them fail**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryParserTests`
 Expected: FAIL on the duplicate and the warning tests.
 
-- [ ] **Step 3: Write `check`**
+- [x] **Step 3: Write `check`**
 
 ```swift
     /// What the file must hold once it parses. Each fault names the first line,
@@ -577,12 +577,12 @@ Expected: FAIL on the duplicate and the warning tests.
     }
 ```
 
-- [ ] **Step 4: Run the tests and watch them pass**
+- [x] **Step 4: Run the tests and watch them pass**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryParserTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ArchitectureDSL/LibraryParser.swift \
@@ -607,7 +607,7 @@ one newline at the end, and an attribute holding its default not written. The
 order is `name`, `catalogue`, the technologies in declaration order, then the
 threats in declaration order.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 import Testing
@@ -665,12 +665,12 @@ struct LibraryWriterTests {
 }
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryWriterTests`
 Expected: FAIL, `cannot find 'LibraryWriter' in scope`.
 
-- [ ] **Step 3: Write `LibraryWriter.swift`**
+- [x] **Step 3: Write `LibraryWriter.swift`**
 
 Copy `ArchitectureWriter`'s `aligned`, `indent` and `quoted` helpers verbatim,
 then:
@@ -775,12 +775,12 @@ struct LibraryWriter {
 }
 ```
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryWriterTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ArchitectureDSL/LibraryWriter.swift \
@@ -804,7 +804,7 @@ git -c commit.gpgsign=false commit -m "feat: write a library file in a canonical
   `struct HclLibrarySource: LibrarySourceGateway`,
   `func assertLibrarySourceGateway(_ gateway: LibrarySourceGateway)`
 
-- [ ] **Step 1: Write the failing contract and its test**
+- [x] **Step 1: Write the failing contract and its test**
 
 ```swift
 // TestSupport/LibrarySourceGatewayContract.swift
@@ -856,12 +856,12 @@ struct HclLibrarySourceTests {
 }
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter HclLibrarySourceTests`
 Expected: FAIL, `cannot find 'HclLibrarySource' in scope`.
 
-- [ ] **Step 3: Write the port and the implementation**
+- [x] **Step 3: Write the port and the implementation**
 
 ```swift
 // ThreatModelKit/architecture/gateway/LibrarySourceGateway.swift
@@ -892,12 +892,12 @@ public struct HclLibrarySource: LibrarySourceGateway {
 }
 ```
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter HclLibrarySourceTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/architecture/gateway/LibrarySourceGateway.swift \
@@ -925,7 +925,7 @@ git -c commit.gpgsign=false commit -m "feat: read and write a library through a 
 `threats` entry is prefixed when the library declares that threat, and left bare
 when it does not, because a bare id belongs to the vendored catalogue.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 import Testing
@@ -1012,12 +1012,12 @@ struct LibraryTests {
 }
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryTests`
 Expected: FAIL, `type 'Library' has no member 'build'`.
 
-- [ ] **Step 3: Write `Library.swift`**
+- [x] **Step 3: Write `Library.swift`**
 
 ```swift
 /// One library, said the way the rest of the application says it.
@@ -1128,12 +1128,12 @@ public extension Library {
 
 Add `Equatable` to `Provider` if it is not already `Equatable`; it is.
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter LibraryTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/Library.swift \
@@ -1159,7 +1159,7 @@ A store rather than a stored array, because a composition root builds its
 catalogue once and a project's libraries arrive later, when the user opens the
 project.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 import Testing
@@ -1242,12 +1242,12 @@ struct MergedCatalogueTests {
 `FakeTechnologyCatalogue` already exists in `TestSupport`. Check its name before
 writing the test and use whatever the package already calls its fake catalogue.
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter MergedCatalogueTests`
 Expected: FAIL, `cannot find 'MergedCatalogue' in scope`.
 
-- [ ] **Step 3: Write `LibraryStore.swift` and `MergedCatalogue.swift`**
+- [x] **Step 3: Write `LibraryStore.swift` and `MergedCatalogue.swift`**
 
 ```swift
 import Foundation
@@ -1347,17 +1347,17 @@ public struct MergedCatalogue: TechnologyCatalogue {
 }
 ```
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter MergedCatalogueTests`
 Expected: PASS.
 
-- [ ] **Step 5: Run the whole suite**
+- [x] **Step 5: Run the whole suite**
 
 Run: `cd ThreatModelKit && swift test`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/LibraryStore.swift \
@@ -1385,7 +1385,7 @@ git -c commit.gpgsign=false commit -m "feat: read the catalogue and the project'
   `ProjectConvention.libraries(in:fileNames:) -> [String]`,
   `ProjectLayout.libraryPaths: [String]`
 
-- [ ] **Step 1: Write the failing contract addition**
+- [x] **Step 1: Write the failing contract addition**
 
 Add to `assertProjectSourceGateway`:
 
@@ -1403,12 +1403,12 @@ Add to `assertProjectSourceGateway`:
     ])
 ```
 
-- [ ] **Step 2: Run the contract and watch it fail**
+- [x] **Step 2: Run the contract and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter ProjectSourceGateway`
 Expected: FAIL, `value of type 'ProjectLayout' has no member 'libraryPaths'`.
 
-- [ ] **Step 3: Add the convention, the layout field and both gateways**
+- [x] **Step 3: Add the convention, the layout field and both gateways**
 
 ```swift
 // ProjectConvention.swift
@@ -1436,12 +1436,12 @@ names through `ProjectConvention.libraries(in:fileNames:)`. A directory that is
 absent gives an empty list rather than an error. `InMemoryProject.discover` does
 the same over its dictionary of paths.
 
-- [ ] **Step 4: Run the contract and watch it pass**
+- [x] **Step 4: Run the contract and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter ProjectSourceGateway`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ProjectConvention.swift \
@@ -1467,7 +1467,7 @@ git -c commit.gpgsign=false commit -m "feat: find a project's library files by c
   `enum LoadLibrariesResponse { case loaded(libraries: [Library], warnings: [Diagnostic]); case refused(fileName: String, diagnostics: [Diagnostic]); case notAProject(reason: String) }`,
   `struct LoadLibraries: LoadLibrariesUseCase { init(projects: ProjectSourceGateway, sources: LibrarySourceGateway, catalogue: TechnologyCatalogue) }`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 import Testing
@@ -1595,12 +1595,12 @@ library language has no fake, so use `HclLibrarySource` here by importing
 architecture language. Check how `CompileControlsTests` gets its gateway and
 follow it.
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter LoadLibrariesTests`
 Expected: FAIL, `cannot find 'LoadLibraries' in scope`.
 
-- [ ] **Step 3: Write `LoadLibraries.swift`**
+- [x] **Step 3: Write `LoadLibraries.swift`**
 
 ```swift
 public protocol LoadLibrariesUseCase {
@@ -1701,12 +1701,12 @@ public struct LoadLibraries: LoadLibrariesUseCase {
 }
 ```
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test --filter LoadLibrariesTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/architecture/usecase/LoadLibraries.swift \
@@ -1729,7 +1729,7 @@ git -c commit.gpgsign=false commit -m "feat: load every library a project holds"
   project's libraries in the store, and refuses with exit code 2 when a `.lib`
   file does not load.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 @Test func compilesAThreatALibraryDefines() throws {
@@ -1780,12 +1780,12 @@ git -c commit.gpgsign=false commit -m "feat: load every library a project holds"
 }
 ```
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `cd ThreatModelKit && swift test --filter CommandLineApplicationTests`
 Expected: FAIL, the compiled file names no library threat.
 
-- [ ] **Step 3: Merge the libraries in `forEachSystem`**
+- [x] **Step 3: Merge the libraries in `forEachSystem`**
 
 In `CommandLineApplication`, after the catalogue is built and before the loop:
 
@@ -1818,12 +1818,12 @@ In `CommandLineApplication`, after the catalogue is built and before the loop:
 and pass `merged` into each `CommandLineDependencies`. Add
 `import ArchitectureDSL` if the file does not already hold it; it does.
 
-- [ ] **Step 4: Run the test and watch it pass**
+- [x] **Step 4: Run the test and watch it pass**
 
 Run: `cd ThreatModelKit && swift test`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/CommandLineApplication \
@@ -1848,7 +1848,7 @@ git -c commit.gpgsign=false commit -m "feat: read a project's libraries in the e
 - `ProjectSession.open(root:preferring:)` loads the libraries before it chooses
   a system, and refuses the project when one does not load.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```swift
 @MainActor
@@ -1924,12 +1924,12 @@ struct ProjectLibraryTests {
 Read `ThreatModelSession.palette`'s element type before writing the second test
 and match its property names.
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS' -only-testing:threatmodellerTests/ProjectLibraryTests`
 Expected: FAIL.
 
-- [ ] **Step 3: Add the two factory methods and call them**
+- [x] **Step 3: Add the two factory methods and call them**
 
 `UseCaseFactory` gains:
 
@@ -1978,12 +1978,12 @@ chooses a system:
             }
 ```
 
-- [ ] **Step 4: Run the tests and watch them pass**
+- [x] **Step 4: Run the tests and watch them pass**
 
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS'`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ThreatModelKit/Sources/ThreatModelKit/UseCaseFactory.swift \
@@ -2003,7 +2003,7 @@ git -c commit.gpgsign=false commit -m "feat: read a project's libraries in the a
 - Modify: `docs/LANGUAGE.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write the failing acceptance test**
+- [x] **Step 1: Write the failing acceptance test**
 
 ```swift
 import ArchitectureDSL
@@ -2076,11 +2076,11 @@ struct UsingASharedLibraryTests {
 Check `CompileControls`'s initialiser and its response's associated values
 before writing this, and match them.
 
-- [ ] **Step 2: Run it and watch it fail, then pass**
+- [x] **Step 2: Run it and watch it fail, then pass**
 
 Run: `cd ThreatModelKit && swift test --filter UsingASharedLibraryTests`
 
-- [ ] **Step 3: Write the library language into `docs/LANGUAGE.md`**
+- [x] **Step 3: Write the library language into `docs/LANGUAGE.md`**
 
 Add a section 6, "The library language", between the controls language and the
 diagnostics section, and renumber the sections after it and the contents list.
@@ -2088,19 +2088,19 @@ It holds the same parts the other two languages have: a shape, the EBNF, the
 block and attribute table, the identity rule and the fault list. Add the
 library rules to section 9, "The grammar in full".
 
-- [ ] **Step 4: Write the library into `README.md`**
+- [x] **Step 4: Write the library into `README.md`**
 
 Add a row to the file table for `<name>.lib`, a paragraph under "The project
 layout" for `threatmodel/library/`, and a link to the new section of the
 language guide.
 
-- [ ] **Step 5: Run both suites**
+- [x] **Step 5: Run both suites**
 
 Run: `cd ThreatModelKit && swift test`
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS'`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add ThreatModelKit/Tests/AcceptanceTests/UsingASharedLibraryTests.swift \

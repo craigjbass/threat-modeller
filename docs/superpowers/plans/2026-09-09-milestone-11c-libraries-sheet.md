@@ -47,12 +47,12 @@ reads an empty `.ssh`, and `$SSH_AUTH_SOCK` names a socket the container denies.
 Without the sandbox a security-scoped bookmark buys nothing, so a recent project
 is a path.
 
-- [ ] **Step 1: Read `RecentProjects.swift` and its tests**
+- [x] **Step 1: Read `RecentProjects.swift` and its tests**
 
 Note every place it mints, resolves or starts access to a bookmark. Those are
 the lines this task removes.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```swift
 @Test func remembersAProjectByItsPath() {
@@ -79,13 +79,13 @@ the lines this task removes.
 Match the names `RecentProjects` already uses; change the test to its real API
 rather than changing the API to the test.
 
-- [ ] **Step 3: Run the tests and watch them fail or pass**
+- [x] **Step 3: Run the tests and watch them fail or pass**
 
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS' -only-testing:threatmodellerTests/RecentProjectsTests`
 
 If they pass already, the store is path-based and only the bookmark code goes.
 
-- [ ] **Step 4: Change the entitlements**
+- [x] **Step 4: Change the entitlements**
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -103,19 +103,19 @@ If they pass already, the store is path-based and only the bookmark code goes.
 </plist>
 ```
 
-- [ ] **Step 5: Remove the bookmark code**
+- [x] **Step 5: Remove the bookmark code**
 
 Delete the bookmark minting, resolving and `startAccessingSecurityScopedResource`
 calls from `RecentProjects` and anywhere else that calls them. Search:
 `grep -rn "bookmark\|SecurityScoped" threatmodeller`.
 
-- [ ] **Step 6: Write the reason into `docs/RELEASING.md`**
+- [x] **Step 6: Write the reason into `docs/RELEASING.md`**
 
 Add a short section, "The sandbox", saying the application is not sandboxed,
 why, and that the Hardened Runtime, the signature and the notarization do not
 change.
 
-- [ ] **Step 7: Run both suites and open the application**
+- [x] **Step 7: Run both suites and open the application**
 
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS'`
 Expected: PASS.
@@ -123,7 +123,7 @@ Expected: PASS.
 Then open the built application, open a project, close it and open it again from
 Open Recent Project, and confirm it still opens.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add threatmodeller/threatmodeller.entitlements \
@@ -153,7 +153,7 @@ git -c commit.gpgsign=false commit -m "feat: run without the app sandbox, so git
 - `UseCaseFactory` gains `addLibrary()`, `updateLibraries()`, `removeLibrary()`,
   `listLibraries()`, `listOutdatedLibraries()`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```swift
 import Testing
@@ -264,12 +264,12 @@ struct LibrarySessionTests {
 
 `TestDependencies` gains a `libraryFetcher: FakeLibraryFetcher` the test fills.
 
-- [ ] **Step 2: Run the tests and watch them fail**
+- [x] **Step 2: Run the tests and watch them fail**
 
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS' -only-testing:threatmodellerTests/LibrarySessionTests`
 Expected: FAIL, `cannot find 'LibrarySession' in scope`.
 
-- [ ] **Step 3: Write `LibrarySession.swift`**
+- [x] **Step 3: Write `LibrarySession.swift`**
 
 It owns no rule. Every answer comes from a use case, exactly as
 `ProjectSession` does. `add`, `update` and `checkForUpdates` are `async` and run
@@ -278,12 +278,12 @@ back on the main actor, so a slow `git` does not stop the window. `isWorking` is
 true while one runs. `onChange` is what the project window calls to reload the
 project after a change, so the palette shows the new group.
 
-- [ ] **Step 4: Run the tests and watch them pass**
+- [x] **Step 4: Run the tests and watch them pass**
 
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS'`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add threatmodeller/project/LibrarySession.swift \
@@ -308,7 +308,7 @@ git -c commit.gpgsign=false commit -m "feat: hold what the Libraries sheet shows
 - `ProjectWindow` gains a toolbar button with the accessibility identifier
   `libraries` that opens the sheet.
 
-- [ ] **Step 1: Write the failing render test**
+- [x] **Step 1: Write the failing render test**
 
 Follow the shape the other tests in `ViewRenderTests.swift` use: render the view
 with `ImageRenderer` and assert the pixels are not all one colour, and that the
@@ -329,12 +329,12 @@ view builds for an empty project and for one holding two libraries.
 
 Use the helper `ViewRenderTests` already holds rather than a new one.
 
-- [ ] **Step 2: Run the test and watch it fail**
+- [x] **Step 2: Run the test and watch it fail**
 
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS' -only-testing:threatmodellerTests/ViewRenderTests`
 Expected: FAIL, `cannot find 'LibrariesSheet' in scope`.
 
-- [ ] **Step 3: Write the sheet**
+- [x] **Step 3: Write the sheet**
 
 A `Table` or a `List` of the rows, each showing the name, the label, the
 repository, the tag, and the status: `matches`, `does not match the lock file`,
@@ -362,12 +362,12 @@ and a `.sheet(isPresented: $isShowingLibraries)` holding `LibrariesSheet`, built
 with `LibrarySession(useCases:root:onChange:)` where `onChange` calls
 `session.reloadFromDisk()`.
 
-- [ ] **Step 4: Run the tests and watch them pass**
+- [x] **Step 4: Run the tests and watch them pass**
 
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS'`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add threatmodeller/project/LibrariesSheet.swift \
@@ -384,14 +384,14 @@ git -c commit.gpgsign=false commit -m "feat: manage a library from the project w
 - Modify: `README.md`
 - Modify: `docs/superpowers/specs/MILESTONE-11-CARRY-FORWARD.md` (create it)
 
-- [ ] **Step 1: Write the sheet into `README.md`**
+- [x] **Step 1: Write the sheet into `README.md`**
 
 Add the Libraries button to "The application", saying what the sheet lists, that
 `Add…` and `Check for updates` are the two controls that reach a server, and
 that a private repository works because the application runs the user's own
 `git`.
 
-- [ ] **Step 2: Run the real application against a real repository**
+- [x] **Step 2: Run the real application against a real repository**
 
 Build and open the application. Open a project. Open Libraries. Add a public
 repository holding a `.lib` file at its root, at a real tag. Confirm the palette
@@ -401,7 +401,7 @@ and `threatmodeller library verify` exits 0.
 Record what happened in the carry-forward note, including anything that did not
 work.
 
-- [ ] **Step 3: Write the carry-forward note**
+- [x] **Step 3: Write the carry-forward note**
 
 `docs/superpowers/specs/MILESTONE-11-CARRY-FORWARD.md`, in the shape the other
 carry-forward notes use: what Milestone 11 closed, and what still stands. Carry
@@ -409,13 +409,13 @@ forward at least: a library cannot define a category; there is no index, so no
 browsing and no search; `ListOutdatedLibraries` compares tags as text rather
 than as versions; and the About window does not list the libraries.
 
-- [ ] **Step 4: Run both suites**
+- [x] **Step 4: Run both suites**
 
 Run: `cd ThreatModelKit && swift test`
 Run: `xcodebuild test -project threatmodeller.xcodeproj -scheme threatmodeller -destination 'platform=macOS'`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md docs/superpowers/specs/MILESTONE-11-CARRY-FORWARD.md

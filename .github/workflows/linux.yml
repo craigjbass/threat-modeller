@@ -68,3 +68,83 @@ jobs:
           code=$?
           set -e
           test "$code" -eq 2 || { echo "expected exit 2, got $code"; exit 1; }
+
+      - name: Vendor a library, and read it
+        working-directory: ThreatModelKit
+        run: |
+          # A library repository this job builds, so nothing reaches a network.
+          mkdir -p /tmp/elements
+          cat > /tmp/elements/acme.lib <<'LIB'
+          library "acme" {
+            name = "Acme Platform"
+
+            technology "cribl-stream" {
+              name     = "Cribl Stream"
+              category = "monitoring"
+              threats  = ["pipeline-tamper"]
+            }
+
+            threat "pipeline-tamper" {
+              name     = "Pipeline tampering"
+              severity = "high"
+
+              control "Sign pipeline configurations"
+            }
+          }
+          LIB
+          git config --global --add safe.directory /tmp/elements
+          git -C /tmp/elements init --initial-branch=main
+          git -C /tmp/elements add .
+          git -C /tmp/elements -c user.email=a@b.c -c user.name=A commit -m one
+          git -C /tmp/elements tag v1.0.0
+
+          # A project that names the library's technology.
+          mkdir -p /tmp/library-project/threatmodel
+          cat > /tmp/library-project/threatmodel/payments.arch <<'ARCH'
+          system "Payments" {
+            component "ingest" { technology = "acme-cribl-stream" }
+          }
+          ARCH
+
+          swift run threatmodeller-cli library add /tmp/elements v1.0.0 /tmp/library-project
+          test -f /tmp/library-project/threatmodel/library/acme.lib
+          test -f /tmp/library-project/threatmodel/library/library.lock.json
+
+          swift run threatmodeller-cli library verify /tmp/library-project
+          swift run threatmodeller-cli library list /tmp/library-project
+
+          # The library's threat reaches the compiled answers.
+          swift run threatmodeller-cli compile /tmp/library-project
+          grep -q 'acme-pipeline-tamper' /tmp/library-project/threatmodel/payments.controls
+          grep -q 'Sign pipeline configurations' /tmp/library-project/threatmodel/payments.controls
+
+          # A hand edit must fail verify.
+          echo '# edited by hand' >> /tmp/library-project/threatmodel/library/acme.lib
+          set +e
+          swift run threatmodeller-cli library verify /tmp/library-project
+          code=$?
+          set -e
+          test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
+
+          # update puts it back.
+          swift run threatmodeller-cli library update /tmp/library-project
+          swift run threatmodeller-cli library verify /tmp/library-project
+
+          # remove refuses while the system names it.
+          set +e
+          swift run threatmodeller-cli library remove acme /tmp/library-project
+          code=$?
+          set -e
+          test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
+          swift run threatmodeller-cli library remove acme --force /tmp/library-project
+
+      - name: Refuse a repository that is not there
+        working-directory: ThreatModelKit
+        run: |
+          mkdir -p /tmp/no-repo/threatmodel
+          printf 'system "P" { }\n' > /tmp/no-repo/threatmodel/p.arch
+          set +e
+          swift run threatmodeller-cli library add /no/such/repository v1.0.0 /tmp/no-repo
+          code=$?
+          set -e
+          test "$code" -eq 4 || { echo "expected exit 4, got $code"; exit 1; }
