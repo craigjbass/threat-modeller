@@ -205,7 +205,7 @@ import sys
 import markdown
 
 REPOSITORY = "https://github.com/craigjbass/threat-modeller"
-BLOB = f"{REPOSITORY}/blob/main"
+BLOB = REPOSITORY + "/blob/main"
 SOURCE_DIRECTORY = "docs"
 
 HEADING = re.compile(r"^## +(.*?)\s*$", re.MULTILINE)
@@ -213,12 +213,11 @@ LEADING_NUMBER = re.compile(r"^\d+(\.\d+)*\.?\s+")
 HREF = re.compile(r'href="([^"]*)"')
 
 
-def strip_contents(text: str) -> str:
+def strip_contents(text):
     """Removes the `## Contents` section, up to the next second-level heading."""
-    lines = text.split("\n")
     output = []
     inside = False
-    for line in lines:
+    for line in text.split("\n"):
         if line.startswith("## "):
             inside = line[3:].strip().lower() == "contents"
         if not inside:
@@ -226,44 +225,44 @@ def strip_contents(text: str) -> str:
     return "\n".join(output)
 
 
-def slug(title: str) -> str:
+def slug(title):
     """Gives the id the toc extension of markdown writes for a heading."""
     text = title.strip().lower()
     text = re.sub(r"[^\w\s-]", "", text)
     return re.sub(r"[\s_]+", "-", text).strip("-")
 
 
-def build_toc(text: str) -> str:
+def build_toc(text):
     """Gives one bracketed link for each second-level heading."""
     links = []
     for title in HEADING.findall(text):
         label = LEADING_NUMBER.sub("", title).lower()
-        links.append(f'<a class="blink" href="#{slug(title)}">{label}</a>')
+        links.append('<a class="blink" href="#%s">%s</a>' % (slug(title), label))
     return "".join(links)
 
 
-def rewrite_links(html: str) -> str:
+def rewrite_links(html):
     """Points every relative link at the file in the repository."""
 
-    def replace(match: "re.Match[str]") -> str:
+    def replace(match):
         target = match.group(1)
         if target.startswith(("#", "http:", "https:", "mailto:")):
             return match.group(0)
         path, _, fragment = target.partition("#")
         resolved = posixpath.normpath(posixpath.join(SOURCE_DIRECTORY, path))
-        url = f"{BLOB}/{resolved}"
+        url = BLOB + "/" + resolved
         if fragment:
-            url = f"{url}#{fragment}"
-        return f'href="{url}"'
+            url = url + "#" + fragment
+        return 'href="%s"' % url
 
     return HREF.sub(replace, html)
 
 
-def render(text: str) -> str:
+def render(text):
     return markdown.markdown(text, extensions=["tables", "fenced_code", "toc"])
 
 
-def build(template: str, source: str) -> str:
+def build(template, source):
     if "{{TOC}}" not in template:
         raise ValueError("the template holds no {{TOC}} slot")
     if "{{BODY}}" not in template:
@@ -273,7 +272,7 @@ def build(template: str, source: str) -> str:
     return template.replace("{{TOC}}", build_toc(guide)).replace("{{BODY}}", body)
 
 
-def main() -> int:
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--template", required=True)
     parser.add_argument("--source", required=True)
@@ -286,7 +285,7 @@ def main() -> int:
             source = handle.read()
         page = build(template, source)
     except (OSError, ValueError) as fault:
-        print(f"build_docs_page: {fault}", file=sys.stderr)
+        print("build_docs_page: %s" % fault, file=sys.stderr)
         return 1
     with open(arguments.output, "w", encoding="utf-8") as handle:
         handle.write(page)
@@ -929,6 +928,10 @@ class CheckTests(unittest.TestCase):
         page = GOOD + '<a href="index.html">home</a>'
         self.assertNotIn("relative link", " ".join(c.faults(page, headings=1)))
 
+    def test_leaves_a_navigation_link_with_a_fragment_alone(self):
+        page = GOOD + '<a href="index.html#download">download</a>'
+        self.assertNotIn("relative link", " ".join(c.faults(page, headings=1)))
+
     def test_reports_a_heading_the_contents_does_not_link_to(self):
         page = GOOD + '<h2 id="2-lexical-structure">2. Lexical structure</h2>'
         self.assertIn("2-lexical-structure", " ".join(c.faults(page, headings=1)))
@@ -972,7 +975,7 @@ STYLE = re.compile(r"<style>.*?</style>", re.DOTALL)
 MINIMUM_HEADINGS = 10
 
 
-def faults(page: str, headings: int = MINIMUM_HEADINGS) -> list:
+def faults(page, headings=MINIMUM_HEADINGS):
     """Gives one line for each fault of the rendered page."""
     found = []
     if "{{TOC}}" in page or "{{BODY}}" in page:
@@ -980,7 +983,8 @@ def faults(page: str, headings: int = MINIMUM_HEADINGS) -> list:
     identifiers = HEADING_ID.findall(page)
     if len(identifiers) < headings:
         found.append(
-            f"the page holds {len(identifiers)} second-level headings, and needs {headings}"
+            "the page holds %d second-level headings, and needs %d"
+            % (len(identifiers), headings)
         )
     if "<table>" not in page:
         found.append("the page holds no table")
@@ -989,17 +993,17 @@ def faults(page: str, headings: int = MINIMUM_HEADINGS) -> list:
     for target in HREF.findall(page):
         if target.startswith(("#", "http:", "https:", "mailto:")):
             continue
-        if target.endswith(".html"):
+        if target.partition("#")[0].endswith(".html"):
             continue  # the navigation bar points at the other page of the site
-        found.append(f"the page holds a relative link: {target}")
+        found.append("the page holds a relative link: %s" % target)
     linked = set(TOC_LINK.findall(page))
     for identifier in identifiers:
         if identifier not in linked:
-            found.append(f"the contents links to no heading {identifier}")
+            found.append("the contents links to no heading %s" % identifier)
     return found
 
 
-def style_faults(index: str, template: str) -> list:
+def style_faults(index, template):
     """Gives one line when the two style blocks are not the same."""
     first = STYLE.search(index)
     second = STYLE.search(template)
@@ -1010,7 +1014,7 @@ def style_faults(index: str, template: str) -> list:
     return []
 
 
-def main() -> int:
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--page", required=True)
     parser.add_argument("--index", required=True)
@@ -1024,7 +1028,7 @@ def main() -> int:
         template = handle.read()
     found = faults(page) + style_faults(index, template)
     for line in found:
-        print(f"check_docs_page: {line}", file=sys.stderr)
+        print("check_docs_page: %s" % line, file=sys.stderr)
     return 1 if found else 0
 
 
@@ -1035,7 +1039,7 @@ if __name__ == "__main__":
 - [ ] **Step 5: Run the tests to see them pass**
 
 Run: `python3 -m unittest discover -s scripts/tests -v`
-Expected: PASS, 27 tests.
+Expected: PASS, 28 tests.
 
 - [ ] **Step 6: Build the real page and check it**
 
@@ -1101,16 +1105,13 @@ markdown==3.9 \
     --hash=sha256:d2900fe1782bd33bdbbd56859defef70c2e78fc46668f8eb9df3128138f2cb6a
 ```
 
-- [ ] **Step 2: Check the requirements install**
+- [ ] **Step 2: Read the note on the hashed install**
 
-Run:
-
-```bash
-python3 -m venv /tmp/pages-venv
-/tmp/pages-venv/bin/pip install --require-hashes -r .github/workflows/pages-requirements.txt
-```
-
-Expected: `Successfully installed markdown-3.9`.
+`pip install --require-hashes` succeeds on Python 3.10 and above, where markdown
+needs no other package. On Python 3.9 markdown also needs `importlib-metadata`,
+which this file does not pin, and the install fails. Continuous integration runs
+Python 3.12, so the file holds markdown alone. For local work, install markdown
+without the hashes.
 
 - [ ] **Step 3: Write the pull request job**
 
