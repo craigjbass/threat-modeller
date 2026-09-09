@@ -5,9 +5,10 @@ import Testing
 /// Where the executable's own catalogue is.
 ///
 /// A tarball and the application's helper both put `Library/` and `Actors/`
-/// beside the binary, so the binary finds them without a flag. These tests set
-/// the executable this rule reads, so they run in one order.
-@Suite("Finding the catalogue beside the executable", .serialized)
+/// beside the binary, so the binary finds them without a flag. These tests
+/// name the executable they mean, so nothing the whole process shares changes
+/// and a test that reads the catalogue at the same time is unaffected.
+@Suite("Finding the catalogue beside the executable")
 struct CatalogueLocationTests {
     /// A directory holding a file that stands for the executable, and the
     /// catalogue directories beside it.
@@ -31,23 +32,14 @@ struct CatalogueLocationTests {
         return directory
     }
 
-    private func withExecutable(_ url: URL?, _ body: () throws -> Void) rethrows {
-        let before = CatalogueLocation.executableURL
-        CatalogueLocation.executableURL = url
-        defer { CatalogueLocation.executableURL = before }
-        try body()
-    }
-
     @Test func readsTheDirectoryTheExecutableSitsIn() throws {
         let tarball = try aTarball(withCatalogue: true)
         defer { try? FileManager.default.removeItem(at: tarball) }
 
-        try withExecutable(tarball.appendingPathComponent("threatmodeller")) {
-            #expect(
-                CatalogueLocation.directory
-                    == tarball.resolvingSymlinksInPath().path
-            )
-        }
+        #expect(
+            CatalogueLocation.directoryBeside(tarball.appendingPathComponent("threatmodeller"))
+                == tarball.resolvingSymlinksInPath().path
+        )
     }
 
     @Test func readsThroughASymbolicLink() throws {
@@ -67,21 +59,19 @@ struct CatalogueLocationTests {
 
         // A link on the user's PATH must find the catalogue the binary sits
         // beside, not the directory the link sits in.
-        try withExecutable(link) {
-            #expect(
-                CatalogueLocation.directory
-                    == tarball.resolvingSymlinksInPath().path
-            )
-        }
+        #expect(
+            CatalogueLocation.directoryBeside(link)
+                == tarball.resolvingSymlinksInPath().path
+        )
     }
 
     @Test func readsNothingWhenTheCatalogueIsNotBesideIt() throws {
         let plain = try aTarball(withCatalogue: false)
         defer { try? FileManager.default.removeItem(at: plain) }
 
-        try withExecutable(plain.appendingPathComponent("threatmodeller")) {
-            #expect(CatalogueLocation.directory == nil)
-        }
+        #expect(
+            CatalogueLocation.directoryBeside(plain.appendingPathComponent("threatmodeller")) == nil
+        )
     }
 
     @Test func readsNothingWhenOnlyOneDirectoryIsBesideIt() throws {
@@ -92,20 +82,57 @@ struct CatalogueLocationTests {
         )
         defer { try? FileManager.default.removeItem(at: half) }
 
-        try withExecutable(half.appendingPathComponent("threatmodeller")) {
-            #expect(CatalogueLocation.directory == nil)
-        }
+        #expect(
+            CatalogueLocation.directoryBeside(half.appendingPathComponent("threatmodeller")) == nil
+        )
+    }
+
+    @Test func readsNothingWhenThereIsNoExecutable() {
+        #expect(CatalogueLocation.directoryBeside(nil) == nil)
     }
 
     @Test func prefersTheDirectoryTheUserNamed() throws {
         let tarball = try aTarball(withCatalogue: true)
         defer { try? FileManager.default.removeItem(at: tarball) }
 
-        try withExecutable(tarball.appendingPathComponent("threatmodeller")) {
-            CatalogueLocation.directory = "/somewhere/else"
-            defer { CatalogueLocation.directory = nil }
+        #expect(
+            CatalogueLocation.resolve(
+                chosen: "/somewhere/else",
+                environment: ["THREATMODELLER_CATALOGUE": "/from/the/environment"],
+                executable: tarball.appendingPathComponent("threatmodeller")
+            ) == "/somewhere/else"
+        )
+    }
 
-            #expect(CatalogueLocation.directory == "/somewhere/else")
-        }
+    @Test func prefersTheEnvironmentOverTheExecutable() throws {
+        let tarball = try aTarball(withCatalogue: true)
+        defer { try? FileManager.default.removeItem(at: tarball) }
+
+        #expect(
+            CatalogueLocation.resolve(
+                chosen: nil,
+                environment: ["THREATMODELLER_CATALOGUE": "/from/the/environment"],
+                executable: tarball.appendingPathComponent("threatmodeller")
+            ) == "/from/the/environment"
+        )
+    }
+
+    @Test func readsTheExecutableWhenNothingElseNamesADirectory() throws {
+        let tarball = try aTarball(withCatalogue: true)
+        defer { try? FileManager.default.removeItem(at: tarball) }
+
+        #expect(
+            CatalogueLocation.resolve(
+                chosen: nil,
+                environment: [:],
+                executable: tarball.appendingPathComponent("threatmodeller")
+            ) == tarball.resolvingSymlinksInPath().path
+        )
+    }
+
+    @Test func readsTheBundleWhenNothingNamesADirectory() {
+        #expect(
+            CatalogueLocation.resolve(chosen: nil, environment: [:], executable: nil) == nil
+        )
     }
 }

@@ -13,26 +13,43 @@ import Foundation
 /// Rule 2 is why a tarball needs no flag, and why a symbolic link from a
 /// directory on the user's `PATH` still finds the catalogue: the path is
 /// resolved through the link before the directory is read.
+///
+/// `resolve` and `directoryBeside` take every value they read. A test names
+/// the inputs it wants and changes nothing the whole process shares, so a test
+/// that reads the catalogue cannot see a value another test set.
 public enum CatalogueLocation {
     nonisolated(unsafe) private static var chosen: String?
 
-    /// The running executable. A test sets it to say where the binary is.
-    nonisolated(unsafe) public static var executableURL: URL? = Bundle.main.executableURL
+    /// The running executable.
+    public static let executableURL: URL? = Bundle.main.executableURL
 
     /// The directory to read instead of the bundle, or nil for the bundle.
     public static var directory: String? {
         get {
-            chosen
-                ?? ProcessInfo.processInfo.environment["THREATMODELLER_CATALOGUE"]
-                ?? besideTheExecutable
+            resolve(
+                chosen: chosen,
+                environment: ProcessInfo.processInfo.environment,
+                executable: executableURL
+            )
         }
         set { chosen = newValue }
     }
 
-    /// The directory the real executable sits in, when it holds the catalogue.
-    private static var besideTheExecutable: String? {
-        guard let executableURL else { return nil }
-        let directory = executableURL.resolvingSymlinksInPath().deletingLastPathComponent()
+    /// The three rules, as one function of its inputs.
+    public static func resolve(
+        chosen: String?,
+        environment: [String: String],
+        executable: URL?
+    ) -> String? {
+        chosen
+            ?? environment["THREATMODELLER_CATALOGUE"]
+            ?? directoryBeside(executable)
+    }
+
+    /// The directory the executable sits in, when the catalogue sits beside it.
+    public static func directoryBeside(_ executable: URL?) -> String? {
+        guard let executable else { return nil }
+        let directory = executable.resolvingSymlinksInPath().deletingLastPathComponent()
 
         for name in ["Library", "Actors"] {
             var isDirectory: ObjCBool = false
