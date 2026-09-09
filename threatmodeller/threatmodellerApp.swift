@@ -2,8 +2,34 @@ import AppKit
 import SwiftUI
 import ThreatModelKit
 
+/// macOS opens an untitled document at launch when the application declares a
+/// document type. This application opens on the welcome window instead.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
+
+    /// Clicking the Dock icon with no window open brings the welcome window
+    /// back. When that window is gone, AppKit does what it does by default.
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows: Bool
+    ) -> Bool {
+        guard hasVisibleWindows == false else { return true }
+
+        guard let welcome = sender.windows.first(where: { $0.title == "Threat Modeller" })
+        else { return true }
+
+        welcome.makeKeyAndOrderFront(nil)
+        return false
+    }
+}
+
 @main
 struct ThreatModellerApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
+    /// The project roots the user opened before, for the welcome window.
+    private let recents = RecentProjects()
+
     /// Read once, at launch. The catalogue does not change while the
     /// application runs, and a failed load leaves the window saying so.
     private let catalogue: ViewCatalogueVersionResponse? = {
@@ -24,6 +50,18 @@ struct ThreatModellerApp: App {
     }()
 
     var body: some Scene {
+        // First in the body, so macOS opens this window at launch rather than
+        // the file open panel the document type would otherwise bring up.
+        Window("Threat Modeller", id: Self.welcomeWindowId) {
+            WelcomeWindow(
+                catalogue: catalogue,
+                recents: recents,
+                openProject: { openProject() },
+                openRecentProject: { entry in openRecent(entry) }
+            )
+        }
+        .windowResizability(.contentSize)
+
         DocumentGroup(newDocument: ThreatModelDocument()) { file in
             ContentView(document: file.document)
         }
@@ -45,6 +83,9 @@ struct ThreatModellerApp: App {
                 Button("Compile Report") { project?.compileReport() }
                     .keyboardShortcut("r", modifiers: [.command, .option])
                     .disabled(project?.chosenSystem == nil)
+            }
+            CommandGroup(after: .windowList) {
+                Button("Welcome") { openWindow(id: Self.welcomeWindowId) }
             }
             ThreatModelCommands()
         }
@@ -71,8 +112,10 @@ struct ThreatModellerApp: App {
 
     static let aboutWindowId = "about"
     static let projectWindowId = "project"
+    static let welcomeWindowId = "welcome"
 
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
 
     private func openAbout() {
         openWindow(id: Self.aboutWindowId)
@@ -82,7 +125,6 @@ struct ThreatModellerApp: App {
     /// a project needs. Nothing opens a directory the user did not choose.
     private func openProject() {
         guard let project else { return }
-        openWindow(id: Self.projectWindowId)
 
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -90,7 +132,22 @@ struct ThreatModellerApp: App {
         panel.allowsMultipleSelection = false
         panel.prompt = "Open Project"
         guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        recents.record(url: url)
+        openWindow(id: Self.projectWindowId)
         project.open(root: url.path)
+        dismissWindow(id: Self.welcomeWindowId)
+    }
+
+    /// A recent root was chosen. The bookmark grants the sandbox access, so
+    /// the panel is not needed.
+    private func openRecent(_ entry: RecentProject) {
+        guard let project, let url = recents.resolve(entry) else { return }
+        guard url.startAccessingSecurityScopedResource() else { return }
+
+        openWindow(id: Self.projectWindowId)
+        project.open(root: url.path)
+        dismissWindow(id: Self.welcomeWindowId)
     }
 
 

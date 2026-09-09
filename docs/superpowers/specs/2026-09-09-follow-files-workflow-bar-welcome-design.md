@@ -306,3 +306,32 @@ bar, and reads the pixels back, as the existing render tests do.
   project route only.
 - Merging a change on disk with a change on screen. The user picks one.
 - Any change to the report format, the catalogue or the DSL.
+
+## 8. What the build showed
+
+Run on 2026-09-09, against the built application.
+
+**The launch window.** The application opened one window, 620 by 552 points,
+which is the welcome window plus its title bar. No open panel appeared and no
+document window appeared. Both parts were needed: the `Window` scene declared
+first in the `App` body, and `AppDelegate.applicationShouldOpenUntitledFile`
+answering false.
+
+The check read the window list with `CGWindowListCopyWindowInfo`. Window titles
+need the screen recording permission, which this machine does not grant to the
+runner, so the check read the size and the count rather than the title.
+`osascript` and `screencapture` both failed for the same reason:
+`osascript is not allowed assistive access` and `could not create image from
+display`.
+
+**FSEvents.** A separate check ran the same stream flags and the same 0.3
+second latency over a temporary directory, then wrote into a file that already
+existed, in place. The stream reported three events. That is what a text editor
+that saves in place produces, and it is what a `DispatchSource` on the directory
+would not report.
+
+**A stale build.** Adding a source file to `ThreatModelKit` while an Xcode build
+of the application already existed made `TestSupport` fail to compile with
+`Cannot find type 'ReadProjectFingerprintUseCase' in scope`, although
+`swift test` in the package passed. `xcodebuild clean` cleared it. Run the clean
+after adding a file to the package, before running the application tests.
