@@ -214,7 +214,33 @@ struct LibraryParser {
 
     // MARK: what the file must hold once it parses
 
+    /// Each fault names the first line, because it is a fault of the file
+    /// rather than of one token.
     private mutating func check(_ source: LibrarySource) {
+        var technologyIds: Set<String> = []
+        for technology in source.technologies
+        where technologyIds.insert(technology.id).inserted == false {
+            record("the technology \"\(technology.id)\" is declared twice", at: tokens[0])
+        }
+
+        var threatIds: Set<String> = []
+        for threat in source.threats where threatIds.insert(threat.id).inserted == false {
+            record("the threat \"\(threat.id)\" is declared twice", at: tokens[0])
+        }
+
+        // A threat nothing names and nothing raises is a threat this library
+        // states for no reader.
+        let named = Set(source.technologies.flatMap(\.threatIds))
+        for threat in source.threats
+        where named.contains(threat.id) == false
+            && threat.isZoneThreat == false
+            && threat.isConnectionThreat == false {
+            record(
+                "no technology in this library names \"\(threat.id)\", so nothing raises it",
+                at: tokens[0],
+                severity: .warning
+            )
+        }
     }
 
     // MARK: the attributes

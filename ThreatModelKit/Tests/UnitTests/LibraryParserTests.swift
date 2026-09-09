@@ -82,6 +82,80 @@ struct LibraryParserTests {
         ])
     }
 
+    @Test func refusesADuplicateTechnologyIdentifier() {
+        let read = read("""
+        library "acme" {
+          technology "one" { name = "One" category = "monitoring" }
+          technology "one" { name = "Two" category = "monitoring" }
+        }
+        """)
+
+        #expect(read.source == nil)
+        #expect(
+            read.diagnostics.contains { $0.message == "the technology \"one\" is declared twice" }
+        )
+    }
+
+    @Test func refusesADuplicateThreatIdentifier() {
+        let read = read("""
+        library "acme" {
+          threat "t" { name = "One" severity = "high" }
+          threat "t" { name = "Two" severity = "high" }
+        }
+        """)
+
+        #expect(read.source == nil)
+        #expect(read.diagnostics.contains { $0.message == "the threat \"t\" is declared twice" })
+    }
+
+    @Test func warnsAboutAThreatNothingCanRaise() throws {
+        let read = read("""
+        library "acme" {
+          threat "orphan" { name = "Orphan" severity = "low" }
+        }
+        """)
+
+        #expect(read.source != nil)
+        let warning = try #require(read.diagnostics.first)
+        #expect(warning.severity == .warning)
+        #expect(
+            warning.message
+                == "no technology in this library names \"orphan\", so nothing raises it"
+        )
+    }
+
+    @Test func doesNotWarnAboutAZoneThreat() {
+        let read = read("""
+        library "acme" {
+          threat "everywhere" { name = "Everywhere" severity = "low" zone = true }
+        }
+        """)
+
+        #expect(read.diagnostics.isEmpty)
+    }
+
+    @Test func doesNotWarnAboutAThreatATechnologyNames() {
+        let read = read("""
+        library "acme" {
+          technology "t" { name = "T" category = "monitoring" threats = ["named"] }
+          threat "named" { name = "Named" severity = "low" }
+        }
+        """)
+
+        #expect(read.diagnostics.isEmpty)
+    }
+
+    @Test func reportsEveryFaultRatherThanTheFirst() {
+        let read = read("""
+        library "acme" {
+          technology "one" { category = "monitoring" }
+          threat "t" { name = "T" }
+        }
+        """)
+
+        #expect(read.diagnostics.count == 2)
+    }
+
     @Test func refusesAFileThatDoesNotStartWithLibrary() {
         let read = read("system \"Payments\" { }")
 
