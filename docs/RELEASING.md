@@ -8,10 +8,14 @@ release that carries all of it.
 
 | Workflow | Starts on | Produces |
 |---|---|---|
-| `pr-test.yml` | a pull request to `main` | the package tests and the application tests |
-| `linux.yml` | a push to `main`, and a pull request | the package built and tested on Ubuntu, and the executable run over a sample project |
+| `pr-test.yml` | a pull request to `main` | the package tests, the application tests, and the Linux job |
 | `prerelease.yml` | a push to `main` | a pre-release named `v<marketing>.<next>-beta-<hash>` |
 | `release.yml` | a tag matching `v*` | a release named after the tag |
+| `linux.yml` | nothing; the other three call it | the package built and tested on Ubuntu, the executable run over a sample project, and, when the caller asks for them, the static Linux binaries |
+
+`linux.yml` is a reusable workflow. `pr-test.yml` calls it for the tests alone.
+`prerelease.yml` and `release.yml` call it with `build-binaries: true`, wait for
+it, and carry what it makes.
 
 `scripts/tag.sh` makes the next tag from `MARKETING_VERSION` and pushes it, so
 publishing a version is one command:
@@ -34,8 +38,16 @@ publishing a version is one command:
   universal binary, with the threat catalogue beside it. It is signed and
   notarized; a tar archive cannot be stapled, so Gatekeeper checks it online the
   first time it runs.
+- `threatmodeller-cli-<version>-linux-x86_64.tar.gz` and
+  `threatmodeller-cli-<version>-linux-aarch64.tar.gz` — the command line
+  executable for Linux, with the threat catalogue beside it. The static Linux
+  SDK links musl and the Swift runtime into the file, so the target machine
+  needs no Swift installed. The Linux job proves this with `ldd` before it
+  uploads them.
 - `threatmodeller-<version>.sigstore` — the GitHub build attestation.
 - `threatmodeller-<version>.intoto.jsonl` — SLSA build provenance.
+
+Every one of these is attested and named in the SLSA provenance.
 
 Using the executable from the tarball:
 
@@ -204,8 +216,5 @@ failure where the profile name in the portal and the name in
 
 ## What is not automated
 
-- **The Linux binaries.** `scripts/build-linux.sh` cross-compiles them from a
-  machine with the static Linux SDK installed. No job builds them, so no release
-  carries them.
 - **The version number.** `MARKETING_VERSION` in `threatmodeller.xcodeproj` is
   edited by hand. `scripts/tag.sh` reads it and counts the increment.

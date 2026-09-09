@@ -9,6 +9,9 @@ permissions:
   contents: read
 
 jobs:
+  linux:
+    uses: ./.github/workflows/linux.yml
+
   test:
     runs-on: macos-26
 

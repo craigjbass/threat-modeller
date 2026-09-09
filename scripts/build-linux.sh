@@ -8,7 +8,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-if ! swift sdk list 2>/dev/null | grep -q 'swift-linux-musl'; then
+if ! swift sdk list 2>/dev/null | grep -Eq 'swift-linux-musl|static-linux'; then
     echo "No static Linux SDK is installed. Install one with:" >&2
     echo "  swift sdk install <static-linux-sdk-artifactbundle-url>" >&2
     echo "The URL for this toolchain is on swift.org/download." >&2

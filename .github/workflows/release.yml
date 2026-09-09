@@ -9,7 +9,13 @@ permissions:
   contents: read
 
 jobs:
+  linux:
+    uses: ./.github/workflows/linux.yml
+    with:
+      build-binaries: true
+
   build-and-notarize:
+    needs: linux
     runs-on: macos-26
     permissions:
       id-token: write      # required for GitHub attestation
@@ -195,6 +201,23 @@ jobs:
           rm AuthKey.p8
           xcrun stapler staple "build/threatmodeller-${VERSION_NAME}.dmg"
 
+      - name: Take the static Linux binaries from the Linux job
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: linux-binaries
+          path: linux
+
+      - name: Name the Linux binaries after the version
+        env:
+          VERSION_NAME: ${{ github.ref_name }}
+        run: |
+          # The Linux job cannot read the version, so it names the files after
+          # the triple and this step renames them.
+          mv linux/threatmodeller-x86_64-swift-linux-musl.tar.gz \
+             "build/threatmodeller-cli-${VERSION_NAME}-linux-x86_64.tar.gz"
+          mv linux/threatmodeller-aarch64-swift-linux-musl.tar.gz \
+             "build/threatmodeller-cli-${VERSION_NAME}-linux-aarch64.tar.gz"
+
       - name: Attest build provenance
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -202,6 +225,8 @@ jobs:
           subject-path: |
             build/threatmodeller-${{ github.ref_name }}.dmg
             build/threatmodeller-cli-${{ github.ref_name }}-macos.tar.gz
+            build/threatmodeller-cli-${{ github.ref_name }}-linux-x86_64.tar.gz
+            build/threatmodeller-cli-${{ github.ref_name }}-linux-aarch64.tar.gz
 
       - name: Stage Sigstore bundle as release asset
         env:
@@ -219,6 +244,8 @@ jobs:
           HASHES=$(shasum -a 256 \
             "threatmodeller-${VERSION_NAME}.dmg" \
             "threatmodeller-cli-${VERSION_NAME}-macos.tar.gz" \
+            "threatmodeller-cli-${VERSION_NAME}-linux-x86_64.tar.gz" \
+            "threatmodeller-cli-${VERSION_NAME}-linux-aarch64.tar.gz" \
             | base64 | tr -d '\n')
           echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
 
@@ -229,6 +256,8 @@ jobs:
           path: |
             build/threatmodeller-${{ github.ref_name }}.dmg
             build/threatmodeller-cli-${{ github.ref_name }}-macos.tar.gz
+            build/threatmodeller-cli-${{ github.ref_name }}-linux-x86_64.tar.gz
+            build/threatmodeller-cli-${{ github.ref_name }}-linux-aarch64.tar.gz
             build/threatmodeller-${{ github.ref_name }}.sigstore
           if-no-files-found: error
           retention-days: 1
@@ -273,6 +302,8 @@ jobs:
           gh release create "$TAG_NAME" \
             "artifacts/threatmodeller-${TAG_NAME}.dmg" \
             "artifacts/threatmodeller-cli-${TAG_NAME}-macos.tar.gz" \
+            "artifacts/threatmodeller-cli-${TAG_NAME}-linux-x86_64.tar.gz" \
+            "artifacts/threatmodeller-cli-${TAG_NAME}-linux-aarch64.tar.gz" \
             "artifacts/threatmodeller-${TAG_NAME}.sigstore" \
             "artifacts/${PROVENANCE_NAME}" \
             --repo "$GITHUB_REPOSITORY" \
