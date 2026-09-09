@@ -38,6 +38,24 @@ drive the interface without a further prompt. Turn it back off with
 
 `swift test`, the application tests and the render tests need none of this.
 
+## After adding a file to `ThreatModelKit`, clean first
+
+**Symptom.** `cd ThreatModelKit && swift test` passes, and
+`xcodebuild test` then fails with `Cannot find type '<the new type>' in scope`
+while it emits the module for `TestSupport`.
+
+**Cause.** The Xcode build reuses its own copy of the package modules. A source
+file added to the package does not reach it.
+
+**Recovery.**
+
+```
+xcodebuild clean -project threatmodeller.xcodeproj -scheme threatmodeller \
+  -destination 'platform=macOS'
+```
+
+Run the clean once, after adding the file, before the application tests.
+
 ## When `xcodebuild test` hangs with no output at all
 
 **Cause.** `testmanagerd` holds one test session per user. Killing a test
