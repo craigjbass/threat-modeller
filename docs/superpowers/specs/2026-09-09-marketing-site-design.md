@@ -25,7 +25,8 @@ in `docs/`, and a GitHub Actions workflow that deploys on a published release.
 - No analytics. The pages run no `gtag` script.
 - No light theme and no theme control. One dark theme.
 - No animation. A link changes colour on hover; nothing else moves.
-- No screenshot, no diagram image, no icon. ASCII art draws every diagram.
+- One picture: a screenshot of the project window, under the hero. Every
+  diagram is ASCII art. No icon, no logo.
 - No copy of the language guide by hand. The build renders `docs/LANGUAGE.md`.
 - No change to the application, the executable, or any Swift source file.
 
@@ -117,7 +118,7 @@ copies.
 
 ## The landing page
 
-The page holds eight sections, in this order.
+The page holds nine sections, in this order.
 
 ### 1. Hero
 
@@ -132,11 +133,25 @@ Lead line: `A threat model your team writes as text files in git.`
 
 Below it: `[ download ]  [ docs ]  [ source ]`.
 
-### 2. Stats
+### 2. Screenshot
+
+One `figure` under the hero links, above the stats line. `docs/screenshot.png`
+is a capture of the project window on the `public-web` system: the palette, the
+canvas and the threat sidebar. The image fills the column, carries no frame,
+because the capture holds the window's own corners and shadow, and holds a
+caption in `--dim`:
+
+```
+// the application draws the same two files, and the sidebar answers each threat
+```
+
+The `alt` text states what the window shows, for a reader who cannot see it.
+
+### 3. Stats
 
 One line: `sources=2  outputs=1  catalogue=v1.0.1  platforms=macos+linux  net=0`
 
-### 3. Download
+### 4. Download
 
 One block of `key: value` pairs: version, the `.dmg`, the macOS command line
 tarball, the two Linux command line tarballs, the source repository, and the
@@ -164,7 +179,7 @@ The latest release is a prerelease, and `releases/latest` does not return a
 prerelease. The script therefore reads `/releases?per_page=1` and takes the
 first element, which is the newest release of either kind.
 
-### 4. How it works
+### 5. How it works
 
 ```
 ┌──────────┐   compile   ┌──────────────┐   check   ┌──────────┐
@@ -188,12 +203,12 @@ Four numbered lines:
 4. `threatmodeller check` exits `1` while a threat has no answer, so the build
    fails until somebody answers it.
 
-### 5. The two files
+### 6. The two files
 
 The `payments.arch` sample and the `payments.controls` sample from `README.md`,
 quoted without change, each under a `// name.arch` header.
 
-### 6. Features
+### 7. Features
 
 A bullet list. Each item is one lowercase phrase, with one or two dimmed lines
 below it:
@@ -207,14 +222,14 @@ below it:
 - markdown reports
 - your own `git`, no credential
 
-### 7. Why text files
+### 8. Why text files
 
 Two columns of text: `a diagram tool` on the left, `threat-modeller` on the
 right. The rows compare where the model lives, how a change is reviewed, what
 happens when the architecture changes, who owns the answer to a threat, and what
 the build knows.
 
-### 8. Install
+### 9. Install
 
 A shell block for the application:
 
@@ -344,6 +359,8 @@ Settings ▸ Pages, set Source to GitHub Actions.
    - the output holds a heading id that the table of contents does not link to.
 4. Check that `docs/index.html` and `docs/documentation.template.html` hold the
    same `<style>` block, byte for byte, so the two copies cannot drift.
+5. Check that every picture `docs/index.html` names is in `docs/`, so a deleted
+   or renamed file fails the pull request rather than the deployed page.
 
 The job runs on every pull request. A change to `LANGUAGE.md` that breaks the
 page fails the pull request, and not the deployment.
