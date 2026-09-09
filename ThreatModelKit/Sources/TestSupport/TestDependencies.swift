@@ -25,6 +25,9 @@ public final class TestDependencies: UseCaseFactory {
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let controlsSources: ControlsSourceGateway = HclControlsSource()
     private let librarySources: LibrarySourceGateway = HclLibrarySource()
+    /// The fetcher this root wires, so a test states what a repository holds
+    /// and no test runs `git`.
+    public let libraryFetcher = FakeLibraryFetcher()
     private let samples: SampleModelGateway = FakeSampleModels()
     private let clock = FixedClock()
     /// The clock this root runs on, so an acceptance test can move time.
@@ -157,6 +160,30 @@ public final class TestDependencies: UseCaseFactory {
 
     public func useLibraries(_ libraries: [Library]) {
         self.libraries.set(libraries)
+    }
+
+    public func addLibrary() -> AddLibraryUseCase {
+        AddLibrary(projects: projects, fetcher: libraryFetcher, sources: librarySources)
+    }
+
+    public func updateLibraries() -> UpdateLibrariesUseCase {
+        UpdateLibraries(projects: projects, adds: addLibrary())
+    }
+
+    public func removeLibrary() -> RemoveLibraryUseCase {
+        RemoveLibrary(projects: projects, architectureSources: architectureSources)
+    }
+
+    public func listLibraries() -> ListLibrariesUseCase {
+        ListLibraries(
+            projects: projects,
+            sources: librarySources,
+            verifies: VerifyLibraries(projects: projects)
+        )
+    }
+
+    public func listOutdatedLibraries() -> ListOutdatedLibrariesUseCase {
+        ListOutdatedLibraries(projects: projects, fetcher: libraryFetcher)
     }
 
     public func openProject() -> OpenProjectUseCase {

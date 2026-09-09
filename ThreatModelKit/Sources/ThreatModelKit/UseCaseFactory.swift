@@ -66,4 +66,9 @@ public protocol UseCaseFactory {
     /// What the open project's libraries are, for every use case this root
     /// builds after the call.
     func useLibraries(_ libraries: [Library])
+    func addLibrary() -> AddLibraryUseCase
+    func updateLibraries() -> UpdateLibrariesUseCase
+    func removeLibrary() -> RemoveLibraryUseCase
+    func listLibraries() -> ListLibrariesUseCase
+    func listOutdatedLibraries() -> ListOutdatedLibrariesUseCase
 }

@@ -20,6 +20,8 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let controlsSources: ControlsSourceGateway = HclControlsSource()
     private let librarySources: LibrarySourceGateway = HclLibrarySource()
+    /// The one place this application runs `git`.
+    private let libraryFetcher: LibraryFetching = GitLibraryFetcher()
     private let samples: SampleModelGateway = BundledSampleModels()
     private let clock: Clock = SystemClock()
 
@@ -185,6 +187,30 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func useLibraries(_ libraries: [Library]) {
         self.libraries.set(libraries)
+    }
+
+    func addLibrary() -> AddLibraryUseCase {
+        AddLibrary(projects: projects, fetcher: libraryFetcher, sources: librarySources)
+    }
+
+    func updateLibraries() -> UpdateLibrariesUseCase {
+        UpdateLibraries(projects: projects, adds: addLibrary())
+    }
+
+    func removeLibrary() -> RemoveLibraryUseCase {
+        RemoveLibrary(projects: projects, architectureSources: architectureSources)
+    }
+
+    func listLibraries() -> ListLibrariesUseCase {
+        ListLibraries(
+            projects: projects,
+            sources: librarySources,
+            verifies: VerifyLibraries(projects: projects)
+        )
+    }
+
+    func listOutdatedLibraries() -> ListOutdatedLibrariesUseCase {
+        ListOutdatedLibraries(projects: projects, fetcher: libraryFetcher)
     }
 
     func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {
