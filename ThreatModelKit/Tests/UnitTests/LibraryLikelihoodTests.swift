@@ -41,6 +41,20 @@ struct LibraryLikelihoodTests {
         #expect(errors.first?.message.contains("folklore") == true)
     }
 
+    @Test func refusesANumberAboveOneHundred() throws {
+        let read = gateway.read(library("    likelihood = 150"))
+        let errors = read.diagnostics.filter { $0.severity == .error }
+        #expect(errors.count == 1)
+        #expect(errors.first?.message.contains("150") == true)
+    }
+
+    @Test func refusesANegativeNumber() throws {
+        let read = gateway.read(library("    likelihood = -1"))
+        let errors = read.diagnostics.filter { $0.severity == .error }
+        #expect(errors.count == 1)
+        #expect(errors.first?.message.contains("-1") == true)
+    }
+
     @Test func buildsIntoTheThreatAndDefaultsToCommodity() throws {
         let stated = try #require(gateway.read(library("    likelihood = \"targeted\"")).source)
         let silent = try #require(gateway.read(library("")).source)

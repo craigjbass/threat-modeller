@@ -160,10 +160,13 @@ struct LibraryParser {
                 let token = current
                 if peekIsNumber() {
                     let prior = parseNumberAttribute()
-                    if let prior, Likelihood(prior: prior) == nil {
-                        record("likelihood is \(prior); a whole number runs from 0 to 100", at: token)
+                    if let prior {
+                        if Likelihood(prior: prior) != nil {
+                            likelihood = String(prior)
+                        } else {
+                            record("likelihood is \(prior); a whole number runs from 0 to 100", at: token)
+                        }
                     }
-                    likelihood = prior.map(String.init)
                 } else {
                     let raw = parseTextAttribute() ?? ""
                     if Likelihood(rawValue: raw) == nil {
