@@ -81,4 +81,43 @@ struct RecommendationsSectionTests {
         #expect(lines.contains("- Answers: credential-theft on store"))
         #expect(lines.contains("- Unanswered on this component: Tampering (critical, 12)"))
     }
+
+    @Test func theDependencySectionSaysWhenNothingIsUnanswered() {
+        let lines = MarkdownProtectionDependencies.lines([
+            ReportProtectionDependency(
+                protectorName: "ClearanceKit",
+                protects: ["credential-theft on store"],
+                unanswered: []
+            )
+        ])
+        #expect(lines.contains("### ClearanceKit"))
+        #expect(lines.contains("- Nothing on this component is unanswered."))
+    }
+
+    @Test func twoRecommendationsOnOneThreatBothAppear() {
+        let built = RecommendationsReport.build(
+            threats: [threat("credential-theft", "store", 8)],
+            recommendations: [
+                ThreatKey(threatId: "credential-theft", sourceId: "component:store"): [
+                    Recommendation(text: "first"),
+                    Recommendation(text: "second")
+                ]
+            ]
+        )
+        #expect(built.count == 2)
+        #expect(built.map(\.text).sorted() == ["first", "second"])
+        #expect(built.allSatisfy { $0.threatName == "Credential-Theft" })
+        #expect(built.allSatisfy { $0.riskScore == 8 })
+    }
+
+    @Test func recommendationsAtTheSameScoreSortByText() {
+        let built = RecommendationsReport.build(
+            threats: [threat("a", "one", 8), threat("b", "two", 8)],
+            recommendations: [
+                ThreatKey(threatId: "a", sourceId: "component:one"): [Recommendation(text: "second")],
+                ThreatKey(threatId: "b", sourceId: "component:two"): [Recommendation(text: "first")]
+            ]
+        )
+        #expect(built.map(\.text) == ["first", "second"])
+    }
 }
