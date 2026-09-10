@@ -14,7 +14,9 @@ public enum ArchitectureSourceBuilder {
                     technologyId: component.technologyId.value,
                     name: component.customName,
                     data: component.sensitivity.rawValue,
-                    raisesThreats: component.threatsDisabled == false
+                    raisesThreats: component.threatsDisabled == false,
+                    runsAs: component.runsAs.rawValue,
+                    assets: component.assets.map { SourceAsset(name: $0.name, data: $0.sensitivity.rawValue) }
                 )
                 if let zone = ZoneContainment.zone(holding: component.centre, in: model.zones) {
                     inZone[zone.id, default: []].append(written)
@@ -44,12 +46,27 @@ public enum ArchitectureSourceBuilder {
                         name: zone.name,
                         reducesRisk: zone.riskReductionEnabled,
                         reducesRiskBy: zone.riskReductionPercent,
-                        components: inZone[zone.id] ?? []
+                        components: inZone[zone.id] ?? [],
+                        boundary: zone.boundary.rawValue,
+                        description: zone.description
                     )
                 },
                 components: loose,
                 flows: model.connections.map {
-                    SourceFlow(sourceId: $0.source.value, targetId: $0.target.value)
+                    SourceFlow(
+                        sourceId: $0.source.value,
+                        targetId: $0.target.value,
+                        kind: $0.kind.rawValue,
+                        description: $0.description
+                    )
+                },
+                mitigates: model.mitigatesEdges.map { edge in
+                    SourceMitigates(
+                        sourceId: edge.source.value,
+                        targetId: edge.target.value,
+                        threatIds: edge.threatIds.map(\.value),
+                        reducesRiskBy: edge.reducesRiskBy
+                    )
                 }
             )
         return source

@@ -74,7 +74,11 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     position: positions[component.id] ?? Point(x: 0, y: 0),
                     sensitivity: DataSensitivity(rawValue: component.data) ?? .internalData,
                     customName: component.name,
-                    threatsDisabled: component.raisesThreats == false
+                    threatsDisabled: component.raisesThreats == false,
+                    runsAs: PrivilegeLevel(rawValue: component.runsAs) ?? .default,
+                    assets: component.assets.map {
+                        Asset(name: $0.name, sensitivity: DataSensitivity(rawValue: $0.data) ?? .internalData)
+                    }
                 )
             )
         }
@@ -94,7 +98,9 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     networkZone: NetworkZone(rawValue: zone.kind) ?? .privateZone,
                     networkType: ZoneNetworkType(rawValue: zone.network) ?? .generic,
                     riskReductionEnabled: zone.reducesRisk,
-                    riskReductionPercent: zone.reducesRiskBy ?? Zone.defaultRiskReductionPercent
+                    riskReductionPercent: zone.reducesRiskBy ?? Zone.defaultRiskReductionPercent,
+                    boundary: ZoneBoundary(rawValue: zone.boundary) ?? .default,
+                    description: zone.description
                 )
             )
         }
@@ -104,8 +110,19 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 Connection(
                     id: ConnectionId(flow.id),
                     source: ComponentId(flow.sourceId),
-                    target: ComponentId(flow.targetId)
+                    target: ComponentId(flow.targetId),
+                    kind: FlowKind(rawValue: flow.kind) ?? .default,
+                    description: flow.description
                 )
+            )
+        }
+
+        model.mitigatesEdges = source.mitigates.map { edge in
+            MitigatesEdge(
+                source: ComponentId(edge.sourceId),
+                target: ComponentId(edge.targetId),
+                threatIds: edge.threatIds.map(ThreatId.init),
+                reducesRiskBy: edge.reducesRiskBy
             )
         }
 
