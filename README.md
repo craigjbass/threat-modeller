@@ -240,8 +240,9 @@ threatmodeller help                          # shows the usage text
 ```
 
 Options: `-o <dir>` writes the reports into that directory. `--catalogue <dir>`
-reads the threat catalogue from that directory. `-q` or `--quiet` says nothing
-about a file that did not change.
+reads the threat catalogue from that directory. `--tolerance <level>` lets a
+likelihood finding answer a threat up to this level, for `check`. `-q` or
+`--quiet` says nothing about a file that did not change.
 
 `<root>` is the project root, and defaults to the working directory.
 

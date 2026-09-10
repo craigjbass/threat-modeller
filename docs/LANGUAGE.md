@@ -196,13 +196,20 @@ ArchitectureFile = SystemBlock ;
 
 SystemBlock  = "system" String "{" { SystemEntry } "}" ;
 SystemEntry  = CatalogueAttr
+             | RiskToleranceAttr
              | TechnologyBlock
              | ZoneBlock
              | ComponentBlock
              | FlowStatement
-             | MitigatesBlock ;
+             | MitigatesBlock
+             | AssumptionBlock ;
 
-CatalogueAttr = "catalogue" "=" String ;
+CatalogueAttr     = "catalogue" "=" String ;
+RiskToleranceAttr = "risk_tolerance" "=" String ;
+
+AssumptionBlock = "assumption" String "{" { AssumptionAttr } "}" ;
+AssumptionAttr  = "text"  "=" String
+                | "owner" "=" String ;
 
 TechnologyBlock = "technology" String "{" { TechnologyAttr } "}" ;
 TechnologyAttr  = "name"        "=" String
@@ -237,7 +244,8 @@ FlowEntry     = "kind"        "=" String
 
 MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
 MitigatesEntry = "threats"         "=" StringList
-               | "reduces_risk_by" "=" Number ;
+               | "reduces_risk_by" "=" Number
+               | "status"          "=" String ;
 ```
 
 A file holds exactly one `system` block. A file that starts with any other word
@@ -258,6 +266,37 @@ The label is the system's name, which the report and the window title show.
 | Attribute | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `catalogue` | string | the catalogue in use | the catalogue tag this file was written against |
+| `risk_tolerance` | string | `low` | the risk level a likelihood finding may answer up to |
+
+`risk_tolerance` takes `low`, `medium`, `high` or `critical`. A system that
+states none reads as `low`. `threatmodeller check --tolerance <level>`
+overrides this for one run, without changing the file. A value outside the
+four levels is the error `risk_tolerance is "<value>"; this application holds
+"low", "medium", "high", "critical"`.
+
+**`assumption`.** A system may hold one or more `assumption` blocks. An
+assumption is a fact the team accepts without proof, written down so a
+reviewer can see it and challenge it.
+
+```hcl
+system "Payments" {
+  assumption "network-segmented" {
+    text  = "The VPC has no route to the internet."
+    owner = "Platform team"
+  }
+}
+```
+
+The label names the assumption.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `text` | string | any, and not empty | **required** |
+| `owner` | string | any | none |
+
+A block with no `text`, or an empty one, is the error `the assumption "<label>"
+has no text`, and the block is dropped. Nothing else in this application reads
+an assumption; it is a record for a person.
 
 ### 4.3 `technology`
 
@@ -424,6 +463,7 @@ set on another component.
 mitigates guard -> store {
   threats         = ["credential-theft"]
   reduces_risk_by = 80
+  status          = "assumed"
 }
 ```
 
@@ -434,10 +474,18 @@ provides the mitigation, then the component it protects.
 | --- | --- | --- | --- |
 | `threats` | list of strings | threat identifiers | **required** |
 | `reduces_risk_by` | number | 0 to 100 | **required** |
+| `status` | string | `adopted`, `assumed` | `adopted` |
 
 A block with no `threats` is the error `the mitigates edge "<id>" names no
 threats`. A block with no `reduces_risk_by` is the error `the mitigates edge
-"<id>" has no reduces_risk_by`. Either error drops the block.
+"<id>" has no reduces_risk_by`. Either error drops the block. A `status`
+outside `adopted` or `assumed` is the error `status is "<value>"; a mitigates
+edge is "adopted" or "assumed"`.
+
+An `assumed` edge never lowers the residual score: it states a mitigation the
+team plans but has not put in place. The report shows the score both with and
+without it, in an "If assumed hold" column, so a reader sees the risk today
+and the risk once the assumption is true.
 
 Two `mitigates` edges that lower the same threat on the same component give
 the stronger reduction, not the sum.
@@ -484,6 +532,7 @@ Errors, which stop the import and produce no model:
 | a flow that ends at an undeclared component | `the flow ends at "<id>", which this file does not declare` |
 | a flow from a component to itself | `the flow "<id>" starts and ends at the same component` |
 | the same flow declared twice | `the flow "<id>" is declared twice` |
+| an assumption label declared twice | `the assumption "<label>" is declared twice` |
 
 Warnings, which do not stop the import:
 
@@ -507,17 +556,30 @@ them.
 ControlsFile = ControlsBlock ;
 
 ControlsBlock = "controls" "for" String "{" { ControlsEntry } "}" ;
-ControlsEntry = CatalogueAttr | ThreatBlock ;
+ControlsEntry = CatalogueAttr | ToleranceAttr | ThreatBlock ;
 
 CatalogueAttr = "catalogue" "=" String ;
+ToleranceAttr = "tolerance" "=" String ;
 
 ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String "{" { ThreatEntry } "}" ;
 SourceKind  = "component" | "zone" | "flow" ;
 ThreatEntry = "severity" "=" String
             | "score"    "=" Number
+            | LikelihoodBlock
+            | SeverityOverrideBlock
             | ControlBlock
             | CompensatingBlock
             | RecommendationBlock ;
+
+LikelihoodBlock = "likelihood" String "{" { LikelihoodAttr } "}" ;
+LikelihoodAttr  = "tier"      "=" String
+                | "prior"     "=" Number
+                | "rationale" "=" String
+                | "sources"   "=" StringList ;
+
+SeverityOverrideBlock = "severity_override" String "{" { SeverityOverrideAttr } "}" ;
+SeverityOverrideAttr  = "rationale" "=" String
+                      | "sources"   "=" StringList ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
 ControlAttr  = "status" "=" String
@@ -525,9 +587,12 @@ ControlAttr  = "status" "=" String
 
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number
-                  | "rationale"       "=" String ;
+                  | "rationale"       "=" String
+                  | "sources"         "=" StringList ;
 
-RecommendationBlock = "recommendation" String "{" [ "note" "=" String ] "}" ;
+RecommendationBlock = "recommendation" String "{" { RecommendationAttr } "}" ;
+RecommendationAttr  = "note"    "=" String
+                    | "sources" "=" StringList ;
 
 (* the library language *)
 
@@ -548,6 +613,7 @@ ThreatEntry = "name"         "=" String
             | "connection"   "=" Boolean
             | "zone"         "=" Boolean
             | "zone_context" "=" String
+            | "likelihood"   "=" ( String | Number )
             | MitreBlock
             | ControlStatement ;
 
@@ -582,6 +648,14 @@ The label is the system's name. It matches the name in the `.arch` file.
 | Attribute | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `catalogue` | string | the catalogue in use | the catalogue tag this file was written against |
+| `tolerance` | string | `low` | the risk level a likelihood finding may answer up to |
+
+The compiler writes `tolerance` from the `.arch` file's `risk_tolerance`, so
+this file reads alone. A person editing it changes nothing: the next compile
+overwrites it. `threatmodeller check --tolerance <level>` overrides the value
+for one run, without changing either file. A value outside `low`, `medium`,
+`high` or `critical` is the error `tolerance is "<value>"; this application
+holds "low", "medium", "high", "critical"`.
 
 ### 5.3 `threat`
 
@@ -627,7 +701,8 @@ blocks, alongside its controls.
 ```hcl
 threat "credential-theft" on component "c1" {
   recommendation "Protect the managed preferences plist" {
-    note = "Deny write from anything but the MDM daemon."
+    note    = "Deny write from anything but the MDM daemon."
+    sources = ["https://example.com/mdm-hardening"]
   }
 }
 ```
@@ -638,6 +713,10 @@ A threat may hold more than one recommendation.
 | Attribute | Type | Values | Default |
 | --- | --- | --- | --- |
 | `note` | string | any | none |
+| `sources` | list of strings | any | empty |
+
+`sources` is a URL, a CVE identifier, or any other text that says where the
+recommendation comes from.
 
 A compile keeps a recommendation whole, the same way it keeps a control's
 status and a compensating control's rationale.
@@ -715,6 +794,7 @@ A `status` outside the four values is an error that lists the four.
 compensating "Break-glass account watched by the SIEM" {
   reduces_risk_by = 40
   rationale       = "Standing keys are gone; the one account left alerts on use."
+  sources         = ["https://example.com/break-glass-runbook"]
 }
 ```
 
@@ -724,6 +804,7 @@ The label is what the compensating control is called.
 | --- | --- | --- | --- |
 | `reduces_risk_by` | number | 0 to 100 | `0` |
 | `rationale` | string | any, and not empty | **required** |
+| `sources` | list of strings | any | empty |
 
 A block with no `rationale`, or an empty one, is the error
 `the compensating control "<label>" has no rationale`, and the block is dropped.
@@ -738,7 +819,85 @@ being `implemented`.
 Two compensating controls on one threat give the stronger of the two, not the
 sum.
 
-### 5.7 Threat keys
+### 5.7 `likelihood`
+
+A `likelihood` block is a finding: what a person learned about how often an
+attack of this kind happens, and why. It is evidence, not a control, and it
+multiplies the score rather than answering the threat outright.
+
+```hcl
+threat "t-credential-theft" on component "api" {
+  likelihood "no campaign has used this against our stack" {
+    tier      = "research"
+    rationale = "No public reporting names this technique against this platform."
+    sources   = ["https://example.com/threat-report"]
+  }
+}
+```
+
+The label is what the finding says. A threat holds at most one `likelihood`
+block.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `tier` | string | `commodity`, `targeted`, `research` | one of `tier` or `prior` is **required** |
+| `prior` | number | 0 to 100 | one of `tier` or `prior` is **required** |
+| `rationale` | string | any, and not empty | **required** |
+| `sources` | list of strings | any | empty |
+
+A block states a tier or a prior, never both. `tier` names a band from the
+library language's three tiers; `prior` is a percentage a person measured or
+estimated directly.
+
+A block with no `rationale`, or an empty one, is the error `the likelihood
+"<label>" has no rationale`, and the block is dropped. A finding nobody can
+justify is not one. A block that states both a `tier` and a `prior` is the
+error `the likelihood "<label>" states a tier and a prior; it states one`. A
+block that states neither is the error `the likelihood "<label>" states no
+tier and no prior`. A `prior` outside 0 to 100 is the error `prior is <n>; it
+runs from 0 to 100`. A threat that holds a second `likelihood` block is the
+error `this threat holds two likelihood blocks; it holds one`.
+
+`threatmodeller check` counts a threat as answered by its likelihood only
+while the residual score sits at or below the project's risk tolerance.
+Section 4.2 and section 5.2 state that tolerance; `--tolerance <level>`
+overrides it for one run.
+
+### 5.8 `severity_override`
+
+A `severity_override` block is a person's decision to raise or lower a
+threat's severity from what the catalogue states, with the reasoning kept
+beside it.
+
+```hcl
+threat "t-data-exfiltration" on component "ledger" {
+  severity_override "critical" {
+    rationale = "This ledger holds the whole customer balance, not one row."
+    sources   = ["https://example.com/data-classification-policy"]
+  }
+}
+```
+
+The label is the severity the assessor chose. A threat holds at most one
+`severity_override` block.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `rationale` | string | any, and not empty | **required** |
+| `sources` | list of strings | any | empty |
+
+A block with no `rationale`, or an empty one, is the error `the
+severity_override "<label>" has no rationale`, and the block is dropped. A
+severity decision nobody can justify is not one. A threat that holds a second
+`severity_override` block is the error `this threat holds two
+severity_override blocks; it holds one`.
+
+A label naming a severity the catalogue does not hold is not a parser error:
+`ApplyControlAnswers` warns `"<severity>" is not a severity this catalogue
+holds, so the severity_override on "<threat id>" is not applied`, and the
+catalogue's own severity stands.
+
+### 5.9 Threat keys
 
 Each threat block names one key. The key pairs the threat identifier with what
 raised it:
@@ -756,7 +915,7 @@ So `threat "t-mitm" on flow "cdn->api"` holds the key
 
 Two blocks with the same key are the error `<key> is answered twice`.
 
-### 5.8 What the application does with the answers
+### 5.10 What the application does with the answers
 
 `ApplyControlAnswers` reads the file against the threats the architecture
 raises. It skips every `stale` block, and it warns rather than fails when a file
@@ -766,8 +925,9 @@ says something the model does not:
 | --- | --- |
 | the model does not raise that threat on that source | `this model does not raise "<threat>" on <kind> "<id>", so its answers are not applied` |
 | the threat no longer offers that control | `"<threat>" no longer offers the control "<description>", so its answer is not applied` |
+| the `severity_override` names a severity the catalogue does not hold | `"<severity>" is not a severity this catalogue holds, so the severity_override on "<threat>" is not applied` |
 
-### 5.9 The merge
+### 5.11 The merge
 
 `threatmodeller compile` reads the architecture and the existing `.controls`
 file, then writes the `.controls` file back.
@@ -847,6 +1007,7 @@ ThreatEntry = "name"         "=" String
             | "connection"   "=" Boolean
             | "zone"         "=" Boolean
             | "zone_context" "=" String
+            | "likelihood"   "=" ( String | Number )
             | MitreBlock
             | ControlStatement ;
 
@@ -892,6 +1053,7 @@ read.
 | | | `boundary` | `network`, `privilege` | none |
 | | | `runs_as` | a list of privilege levels: `user`, `admin`, `root`, `system`, `kernel` | empty |
 | | | `pathway` | `true` or `false` | `false` |
+| | | `likelihood` | a tier — `commodity`, `targeted`, `research` — or a whole number 0 to 100 | `commodity` |
 | `mitre` | the technique id | `name` | string | **required** |
 | | | `tactic` | string | **required** |
 | `control` | the control's description | none | | |
@@ -906,6 +1068,31 @@ read.
 connection threat to the flow kinds named; `boundary` narrows a zone threat to
 the zone boundary named. `runs_as` names the privilege levels the threat runs
 at. `pathway = true` marks the threat as one a pathway mitigation can lower.
+
+`likelihood` states how often an attack of this kind happens: how many
+attackers actually use it, not how bad it is when they do. It takes one of the
+three tier words, or a whole number from 0 to 100 that a person measured
+directly. A threat that states none is `commodity`, the busiest tier, so a
+model that says nothing about likelihood keeps the score it always had.
+
+```hcl
+threat "credential-theft" {
+  name       = "Credential theft"
+  severity   = "high"
+  likelihood = "targeted"
+}
+
+threat "supply-chain-compromise" {
+  name       = "Supply-chain compromise"
+  severity   = "critical"
+  likelihood = 15
+}
+```
+
+A tier word outside the three is the error `likelihood is "<word>"; this
+application holds "commodity", "targeted", "research", or a whole number from
+0 to 100`. A number outside 0 to 100 is the error `likelihood is <n>; a whole
+number runs from 0 to 100`.
 
 A `mitigation` block declares a pathway mitigation: a control a technology
 provides that lowers named threats. `reduces_risk_by` is the percentage the
@@ -949,7 +1136,7 @@ Errors, which stop the project opening:
 | a technology with no `name` or no `category` | `the technology "<id>" has no name` |
 | a threat with no `name` or no `severity` | `the threat "<id>" has no severity` |
 | a `mitre` block with no `name` or no `tactic` | `the technique "<id>" has no tactic` |
-| a block or an attribute the grammar does not hold | `a library holds name, catalogue, technology and threat, not "<word>"` |
+| a block or an attribute the grammar does not hold | `a library holds name, catalogue, technology, threat and mitigation, not "<word>"` |
 
 Warnings, which do not:
 
@@ -1132,13 +1319,20 @@ ArchitectureFile = SystemBlock ;
 
 SystemBlock  = "system" String "{" { SystemEntry } "}" ;
 SystemEntry  = CatalogueAttr
+             | RiskToleranceAttr
              | TechnologyBlock
              | ZoneBlock
              | ComponentBlock
              | FlowStatement
-             | MitigatesBlock ;
+             | MitigatesBlock
+             | AssumptionBlock ;
 
-CatalogueAttr = "catalogue" "=" String ;
+CatalogueAttr     = "catalogue" "=" String ;
+RiskToleranceAttr = "risk_tolerance" "=" String ;
+
+AssumptionBlock = "assumption" String "{" { AssumptionAttr } "}" ;
+AssumptionAttr  = "text"  "=" String
+                | "owner" "=" String ;
 
 TechnologyBlock = "technology" String "{" { TechnologyAttr } "}" ;
 TechnologyAttr  = "name"        "=" String
@@ -1173,23 +1367,38 @@ FlowEntry     = "kind"        "=" String
 
 MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
 MitigatesEntry = "threats"         "=" StringList
-               | "reduces_risk_by" "=" Number ;
+               | "reduces_risk_by" "=" Number
+               | "status"          "=" String ;
 
 (* the controls language *)
 
 ControlsFile = ControlsBlock ;
 
 ControlsBlock = "controls" "for" String "{" { ControlsEntry } "}" ;
-ControlsEntry = CatalogueAttr | ThreatBlock ;
+ControlsEntry = CatalogueAttr | ToleranceAttr | ThreatBlock ;
+
+ToleranceAttr = "tolerance" "=" String ;
 
 ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String
               "{" { ThreatEntry } "}" ;
 SourceKind  = "component" | "zone" | "flow" ;
 ThreatEntry = "severity" "=" String
             | "score"    "=" Number
+            | LikelihoodBlock
+            | SeverityOverrideBlock
             | ControlBlock
             | CompensatingBlock
             | RecommendationBlock ;
+
+LikelihoodBlock = "likelihood" String "{" { LikelihoodAttr } "}" ;
+LikelihoodAttr  = "tier"      "=" String
+                | "prior"     "=" Number
+                | "rationale" "=" String
+                | "sources"   "=" StringList ;
+
+SeverityOverrideBlock = "severity_override" String "{" { SeverityOverrideAttr } "}" ;
+SeverityOverrideAttr  = "rationale" "=" String
+                      | "sources"   "=" StringList ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
 ControlAttr  = "status" "=" String
@@ -1197,9 +1406,12 @@ ControlAttr  = "status" "=" String
 
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number
-                  | "rationale"       "=" String ;
+                  | "rationale"       "=" String
+                  | "sources"         "=" StringList ;
 
-RecommendationBlock = "recommendation" String "{" [ "note" "=" String ] "}" ;
+RecommendationBlock = "recommendation" String "{" { RecommendationAttr } "}" ;
+RecommendationAttr  = "note"    "=" String
+                    | "sources" "=" StringList ;
 
 (* the library language *)
 
@@ -1219,6 +1431,7 @@ ThreatEntry = "name"         "=" String
             | "connection"   "=" Boolean
             | "zone"         "=" Boolean
             | "zone_context" "=" String
+            | "likelihood"   "=" ( String | Number )
             | MitreBlock
             | ControlStatement ;
 
