@@ -86,4 +86,31 @@ struct RecommendationLanguageTests {
         }
         #expect(text.contains("recommendation \"Deny reads of /dev/rdisk**\""))
     }
+
+    @Test func savingTheSystemKeepsTheRecommendation() throws {
+        let app = TestDependencies()
+        let architecture = """
+        system "S" {
+          component "c1" { technology = "aws-ec2" data = "confidential" }
+        }
+
+        """
+        let existingControls = """
+        controls for "S" {
+          threat "credential-theft" on component "c1" {
+            recommendation "Deny reads of /dev/rdisk**" { }
+          }
+        }
+        """
+        app.project.put(architecture, at: "/project/threatmodel/s.arch")
+        app.project.put(existingControls, at: "/project/threatmodel/s.controls")
+        _ = app.openSystem().execute(OpenSystemRequest(root: "/project", systemName: "s"))
+
+        _ = app.saveSystemAnswers().execute(
+            SaveSystemAnswersRequest(root: "/project", systemName: "s")
+        )
+
+        let written = try #require(app.project.text(at: "/project/threatmodel/s.controls"))
+        #expect(written.contains("recommendation \"Deny reads of /dev/rdisk**\""))
+    }
 }
