@@ -5,19 +5,23 @@ public struct ReportRecommendation: Equatable, Sendable {
     public let threatName: String
     public let sourceName: String
     public let riskScore: Int
+    /// Where the recommendation comes from. Empty when a person names none.
+    public let sources: [String]
 
     public init(
         text: String,
         note: String?,
         threatName: String,
         sourceName: String,
-        riskScore: Int
+        riskScore: Int,
+        sources: [String] = []
     ) {
         self.text = text
         self.note = note
         self.threatName = threatName
         self.sourceName = sourceName
         self.riskScore = riskScore
+        self.sources = sources
     }
 }
 

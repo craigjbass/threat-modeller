@@ -20,6 +20,8 @@ public struct Report: Equatable, Sendable {
     /// How many attack paths the trace found but did not list.
     public let attackPathsNotListed: Int
     public let rollups: ReportRollupTables
+    /// What the model takes on trust. Empty for a model that assumes nothing.
+    public let assumptions: [ReportAssumption]
 
     public init(
         modelName: String,
@@ -33,7 +35,8 @@ public struct Report: Equatable, Sendable {
         protectionDependencies: [ReportProtectionDependency] = [],
         attackPaths: [ReportAttackPath] = [],
         attackPathsNotListed: Int = 0,
-        rollups: ReportRollupTables = .empty
+        rollups: ReportRollupTables = .empty,
+        assumptions: [ReportAssumption] = []
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -47,6 +50,7 @@ public struct Report: Equatable, Sendable {
         self.attackPaths = attackPaths
         self.attackPathsNotListed = attackPathsNotListed
         self.rollups = rollups
+        self.assumptions = assumptions
     }
 }
 
@@ -201,6 +205,23 @@ public struct ReportThreat: Equatable, Sendable {
     /// The components whose `mitigates` edges lowered this threat, by label.
     /// Empty when none did.
     public let mitigatedByComponentLabels: [String]
+    /// What a reader sees for the likelihood tier the score used.
+    public let likelihoodLabel: String
+    /// Why the likelihood is what it is, or nil when the library's prior
+    /// stands.
+    public let likelihoodRationale: String?
+    /// Where the likelihood finding comes from. Empty when the library's
+    /// prior stands.
+    public let likelihoodSources: [String]
+    /// The score before the likelihood stage. Equal to `riskScore` when the
+    /// likelihood left it unchanged.
+    public let scoreBeforeLikelihood: Int
+    /// The score when every assumed mitigation is in place. Equal to
+    /// `riskScore` when no assumed edge answers this threat.
+    public let scoreIfAssumptionsHold: Int
+    /// What an assessor decided this threat's severity is, and why, or nil
+    /// when no decision names it.
+    public let severityDecision: ReportSeverityDecision?
 
     public init(
         threatId: String,
@@ -219,7 +240,13 @@ public struct ReportThreat: Equatable, Sendable {
         compensating: [ReportCompensatingControl] = [],
         scoreBeforeCompensation: Int? = nil,
         inherentScore: Int? = nil,
-        mitigatedByComponentLabels: [String] = []
+        mitigatedByComponentLabels: [String] = [],
+        likelihoodLabel: String = Likelihood.commodity.label,
+        likelihoodRationale: String? = nil,
+        likelihoodSources: [String] = [],
+        scoreBeforeLikelihood: Int? = nil,
+        scoreIfAssumptionsHold: Int? = nil,
+        severityDecision: ReportSeverityDecision? = nil
     ) {
         self.sourceId = sourceId
         self.compensating = compensating
@@ -238,6 +265,43 @@ public struct ReportThreat: Equatable, Sendable {
         self.sourceKind = sourceKind
         self.controls = controls
         self.pathwayMitigationLabels = pathwayMitigationLabels
+        self.likelihoodLabel = likelihoodLabel
+        self.likelihoodRationale = likelihoodRationale
+        self.likelihoodSources = likelihoodSources
+        self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
+        self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? riskScore
+        self.severityDecision = severityDecision
+    }
+}
+
+/// The severity an assessor chose for one threat, and why.
+public struct ReportSeverityDecision: Equatable, Sendable {
+    public let fromLabel: String
+    public let toLabel: String
+    public let rationale: String
+    public let sources: [String]
+
+    public init(fromLabel: String, toLabel: String, rationale: String, sources: [String] = []) {
+        self.fromLabel = fromLabel
+        self.toLabel = toLabel
+        self.rationale = rationale
+        self.sources = sources
+    }
+}
+
+/// Something the model takes on trust, in report form.
+public struct ReportAssumption: Equatable, Sendable {
+    public let label: String
+    public let text: String
+    public let owner: String?
+    /// The edges this assumption stands behind, already worded for a reader.
+    public let edges: [String]
+
+    public init(label: String, text: String, owner: String? = nil, edges: [String] = []) {
+        self.label = label
+        self.text = text
+        self.owner = owner
+        self.edges = edges
     }
 }
 
@@ -260,10 +324,13 @@ public struct ReportCompensatingControl: Equatable, Sendable {
     public let label: String
     public let reducesRiskBy: Int
     public let rationale: String
+    /// Where the rationale comes from. Empty when a person names none.
+    public let sources: [String]
 
-    public init(label: String, reducesRiskBy: Int, rationale: String) {
+    public init(label: String, reducesRiskBy: Int, rationale: String, sources: [String] = []) {
         self.label = label
         self.reducesRiskBy = reducesRiskBy
         self.rationale = rationale
+        self.sources = sources
     }
 }

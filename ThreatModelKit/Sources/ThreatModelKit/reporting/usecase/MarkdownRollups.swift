@@ -30,13 +30,29 @@ public enum MarkdownRollups {
         if tables.topResidual.isEmpty == false {
             lines.append("## Top residual risk")
             lines.append("")
-            lines.append("| Threat | Raised by | Residual | Before controls | Level |")
-            lines.append("| --- | --- | --- | --- | --- |")
+            // The "If assumed hold" column only earns its place when at
+            // least one threat's target posture differs from its residual
+            // score; a table with a column that never varies wastes a
+            // reader's eye.
+            let showsAssumed = tables.topResidual.contains { $0.scoreIfAssumptionsHold != $0.riskScore }
+            lines.append(
+                showsAssumed
+                    ? "| Threat | Raised by | Residual | If assumed hold | Before controls | Level |"
+                    : "| Threat | Raised by | Residual | Before controls | Level |"
+            )
+            lines.append(
+                showsAssumed
+                    ? "| --- | --- | --- | --- | --- | --- |"
+                    : "| --- | --- | --- | --- | --- |"
+            )
             for threat in tables.topResidual {
-                lines.append(
-                    "| \(Markdown.cell(threat.name)) | \(Markdown.cell(threat.sourceName))"
+                let cells = showsAssumed
+                    ? "| \(Markdown.cell(threat.name)) | \(Markdown.cell(threat.sourceName))"
+                        + " | \(threat.riskScore) | \(threat.scoreIfAssumptionsHold)"
+                        + " | \(threat.inherentScore) | \(threat.riskLevel) |"
+                    : "| \(Markdown.cell(threat.name)) | \(Markdown.cell(threat.sourceName))"
                         + " | \(threat.riskScore) | \(threat.inherentScore) | \(threat.riskLevel) |"
-                )
+                lines.append(cells)
             }
             lines.append("")
         }

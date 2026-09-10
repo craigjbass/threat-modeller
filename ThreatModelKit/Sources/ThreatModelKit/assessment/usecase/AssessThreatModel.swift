@@ -40,6 +40,25 @@ public struct AssessThreatModelResponse: Equatable, Sendable {
     }
 }
 
+/// What an assessor decided a threat's severity is, and why, in report-ready
+/// form: both labels already resolved, so a delivery mechanism looks up
+/// nothing else.
+public struct AssessedSeverityDecision: Hashable, Sendable {
+    /// The severity the threat started from.
+    public let fromLabel: String
+    /// The severity the assessor chose.
+    public let toLabel: String
+    public let rationale: String
+    public let sources: [String]
+
+    public init(fromLabel: String, toLabel: String, rationale: String, sources: [String] = []) {
+        self.fromLabel = fromLabel
+        self.toLabel = toLabel
+        self.rationale = rationale
+        self.sources = sources
+    }
+}
+
 public struct AssessedMitreTechnique: Hashable, Sendable {
     public let id: String
     public let name: String
@@ -174,6 +193,9 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The components whose assumed `mitigates` edges lowered the target
     /// posture, by label. Empty when none did.
     public let assumedByComponentLabels: [String]
+    /// What an assessor decided this threat's severity is, and why, or nil
+    /// when no decision names this threat on this source.
+    public let severityDecision: AssessedSeverityDecision?
 
     public init(
         threatId: String,
@@ -204,7 +226,8 @@ public struct AssessedThreat: Hashable, Sendable {
         likelihoodRationale: String? = nil,
         likelihoodSources: [String] = [],
         scoreIfAssumptionsHold: Int? = nil,
-        assumedByComponentLabels: [String] = []
+        assumedByComponentLabels: [String] = [],
+        severityDecision: AssessedSeverityDecision? = nil
     ) {
         self.threatId = threatId
         self.name = name
@@ -235,6 +258,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.likelihoodSources = likelihoodSources
         self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? riskScore
         self.assumedByComponentLabels = assumedByComponentLabels
+        self.severityDecision = severityDecision
     }
 }
 
@@ -256,6 +280,7 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
 
     public func execute(_ request: AssessThreatModelRequest) -> AssessThreatModelResponse {
         let model = models.current()
+        let taxonomy = catalogue.taxonomy()
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         let resolved = ThreatResolver(model: model, catalogue: catalogue).resolve()
         let nameOf: (ComponentId) -> String = { id in
@@ -313,10 +338,18 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     likelihoodRationale: threat.likelihoodFinding?.rationale,
                     likelihoodSources: threat.likelihoodFinding?.sources ?? [],
                     scoreIfAssumptionsHold: threat.scoreIfAssumptionsHold,
-                    assumedByComponentLabels: threat.assumedMitigations.map(\.protectorName)
+                    assumedByComponentLabels: threat.assumedMitigations.map(\.protectorName),
+                    severityDecision: threat.severityDecision.map { decision in
+                        AssessedSeverityDecision(
+                            fromLabel: threat.threat.severity.label,
+                            toLabel: taxonomy.severity(id: decision.severityId)?.label ?? decision.severityId,
+                            rationale: decision.rationale,
+                            sources: decision.sources
+                        )
+                    }
                 )
             },
-            severities: catalogue.taxonomy().severities.map {
+            severities: taxonomy.severities.map {
                 AssessedSeverity(id: $0.id, label: $0.label)
             },
             protectionDependencies: dependencies,

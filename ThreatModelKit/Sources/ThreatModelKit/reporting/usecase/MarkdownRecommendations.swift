@@ -17,6 +17,9 @@ public enum MarkdownRecommendations {
                 if let note = recommendation.note {
                     lines.append("  - \(note)")
                 }
+                for source in recommendation.sources {
+                    lines.append("  - Source: \(source)")
+                }
             }
             lines.append("")
         }

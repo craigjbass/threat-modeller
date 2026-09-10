@@ -47,6 +47,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         lines += MarkdownAttackPaths.lines(report.attackPaths, notListed: report.attackPathsNotListed)
         lines += MarkdownProtectionDependencies.lines(report.protectionDependencies)
         lines += MarkdownRecommendations.lines(report.recommendations)
+        lines += MarkdownAssumptions.lines(report.assumptions)
         lines += threats(report.threats)
 
         return ExportModelAsMarkdownResponse(
@@ -149,6 +150,33 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
                     "- Risk: \(threat.riskLevel) (\(threat.riskScore)),"
                         + " before controls \(threat.inherentScore)"
                 )
+            }
+            if threat.scoreBeforeLikelihood != threat.riskScore {
+                lines.append(
+                    "- Likelihood: \(threat.likelihoodLabel)"
+                        + " (\(threat.scoreBeforeLikelihood) \u{2192} \(threat.riskScore))"
+                )
+                if let rationale = threat.likelihoodRationale {
+                    lines.append("  - Rationale: \(rationale)")
+                }
+                for source in threat.likelihoodSources {
+                    lines.append("  - Source: \(source)")
+                }
+            }
+            if let decision = threat.severityDecision {
+                lines.append("- Severity decided: \(decision.fromLabel) \u{2192} \(decision.toLabel)")
+                lines.append("  - Rationale: \(decision.rationale)")
+                for source in decision.sources {
+                    lines.append("  - Source: \(source)")
+                }
+            }
+            if threat.scoreIfAssumptionsHold != threat.riskScore {
+                lines.append("- If the assumptions hold: \(threat.scoreIfAssumptionsHold)")
+            }
+            for compensating in threat.compensating where compensating.sources.isEmpty == false {
+                for source in compensating.sources {
+                    lines.append("  - Source: \(source)")
+                }
             }
             if threat.strideLabels.isEmpty == false {
                 lines.append("- STRIDE: \(threat.strideLabels.joined(separator: ", "))")

@@ -42,6 +42,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 ?? lookup.findById(component.technologyId)?.name
                 ?? component.technologyId.value
         }
+        let nameOf: (ComponentId) -> String = { nameById[$0] ?? $0.value }
 
         let zoneByComponent = Dictionary(
             uniqueKeysWithValues: model.components.map { component in
@@ -64,7 +65,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     ReportCompensatingControl(
                         label: $0.label,
                         reducesRiskBy: $0.reducesRiskBy,
-                        rationale: $0.rationale
+                        rationale: $0.rationale,
+                        sources: $0.sources
                     )
                 } ?? [],
                 // The assessment names STRIDE by id. A report is read
@@ -95,8 +97,27 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             connections: model.connections,
             zones: model.zones,
             threats: threats,
-            nameOf: { nameById[$0] ?? $0.value }
+            nameOf: nameOf
         )
+
+        // One line per assumed edge, shown under every assumption: the model
+        // carries no link from an assumption to the edge it excuses, so a
+        // reader sees the whole list of what the model is still trusting.
+        let assumedEdgeLines = model.mitigatesEdges
+            .filter { $0.status == .assumed }
+            .map {
+                "\(nameOf($0.source)) \u{2192} \(nameOf($0.target)),"
+                    + " mitigates \($0.threatIds.map(\.value).joined(separator: ", ")),"
+                    + " \u{2212}\($0.reducesRiskBy)%"
+            }
+        let assumptions = model.assumptions.map { assumption in
+            ReportAssumption(
+                label: assumption.label,
+                text: assumption.text,
+                owner: assumption.owner,
+                edges: assumedEdgeLines
+            )
+        }
 
         return BuildThreatModelReportResponse(
             report: Report(
@@ -141,7 +162,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 ),
                 attackPaths: attack.paths,
                 attackPathsNotListed: attack.notListed,
-                rollups: ReportRollups.build(threats: threats, zones: zones)
+                rollups: ReportRollups.build(threats: threats, zones: zones),
+                assumptions: assumptions
             )
         )
     }
@@ -195,7 +217,20 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             compensating: compensating,
             scoreBeforeCompensation: assessed.scoreBeforeCompensation,
             inherentScore: assessed.inherentScore,
-            mitigatedByComponentLabels: assessed.mitigatedByComponentLabels
+            mitigatedByComponentLabels: assessed.mitigatedByComponentLabels,
+            likelihoodLabel: assessed.likelihoodLabel,
+            likelihoodRationale: assessed.likelihoodRationale,
+            likelihoodSources: assessed.likelihoodSources,
+            scoreBeforeLikelihood: assessed.scoreBeforeLikelihood,
+            scoreIfAssumptionsHold: assessed.scoreIfAssumptionsHold,
+            severityDecision: assessed.severityDecision.map {
+                ReportSeverityDecision(
+                    fromLabel: $0.fromLabel,
+                    toLabel: $0.toLabel,
+                    rationale: $0.rationale,
+                    sources: $0.sources
+                )
+            }
         )
     }
 

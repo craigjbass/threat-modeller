@@ -19,7 +19,8 @@ public enum RecommendationsReport {
                         note: recommendation.note,
                         threatName: threat.name,
                         sourceName: threat.sourceName,
-                        riskScore: threat.riskScore
+                        riskScore: threat.riskScore,
+                        sources: recommendation.sources
                     )
                 )
             }
