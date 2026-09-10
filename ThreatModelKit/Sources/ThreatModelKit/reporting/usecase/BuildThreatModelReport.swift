@@ -76,13 +76,13 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         }
 
         let zones = model.zones.map { zone in
-            ReportZone(
+            let held = model.components.filter { zoneByComponent[$0.id] ?? nil == zone }
+            return ReportZone(
                 name: zone.displayName,
                 networkZoneLabel: zone.networkZone.label,
                 networkTypeLabel: zone.networkType.label,
-                componentNames: model.components
-                    .filter { zoneByComponent[$0.id] ?? nil == zone }
-                    .compactMap { nameById[$0.id] },
+                componentNames: held.compactMap { nameById[$0.id] },
+                componentIds: held.map(\.id.value),
                 riskReductionPercent: zone.riskReductionEnabled
                     ? zone.riskReductionPercent
                     : nil

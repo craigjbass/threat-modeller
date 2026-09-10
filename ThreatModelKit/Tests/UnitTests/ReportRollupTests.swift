@@ -5,6 +5,7 @@ struct ReportRollupTests {
     private func threat(
         _ name: String,
         source: String,
+        sourceId: String? = nil,
         kind: String = "Component",
         score: Int,
         level: String = "high"
@@ -20,17 +21,19 @@ struct ReportRollupTests {
             mitreTechniqueIds: [],
             sourceName: source,
             sourceKind: kind,
+            sourceId: sourceId ?? "component:\(source)",
             controls: [],
             pathwayMitigationLabels: []
         )
     }
 
-    private func zone(_ name: String, _ holds: [String]) -> ReportZone {
+    private func zone(_ name: String, _ holds: [String], ids: [String]? = nil) -> ReportZone {
         ReportZone(
             name: name,
             networkZoneLabel: "Private Zone",
             networkTypeLabel: "Generic Network",
             componentNames: holds,
+            componentIds: ids ?? holds,
             riskReductionPercent: 20
         )
     }
@@ -49,6 +52,22 @@ struct ReportRollupTests {
         #expect(rollup.componentCount == 1)
         #expect(rollup.worstScore == 12)
         #expect(rollup.byLevel.contains { $0.label == "critical" && $0.count == 1 })
+    }
+
+    @Test func aZoneRollupMatchesByIdNotByDisplayName() throws {
+        let tables = ReportRollups.build(
+            threats: [
+                threat("t", source: "PostgreSQL", sourceId: "component:db-1", score: 9, level: "high")
+            ],
+            zones: [
+                zone("Zone A", ["PostgreSQL"], ids: ["db-1"]),
+                zone("Zone B", ["PostgreSQL"], ids: ["db-2"])
+            ]
+        )
+        let zoneA = try #require(tables.byZone.first { $0.zoneName == "Zone A" })
+        let zoneB = try #require(tables.byZone.first { $0.zoneName == "Zone B" })
+        #expect(zoneA.worstScore == 9)
+        #expect(zoneB.worstScore == 0)
     }
 
     @Test func theTopResidualTableHoldsTheWorstTwentyWorstFirst() {

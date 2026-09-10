@@ -9,8 +9,8 @@ public enum ReportRollups {
     public static func build(threats: [ReportThreat], zones: [ReportZone]) -> ReportRollupTables {
         ReportRollupTables(
             byZone: zones.map { zone in
-                let held = Set(zone.componentNames)
-                let raised = threats.filter { held.contains($0.sourceName) }
+                let held = Set(zone.componentIds.map { "component:\($0)" })
+                let raised = threats.filter { held.contains($0.sourceId) }
                 return ReportZoneRollup(
                     zoneName: zone.name,
                     componentCount: zone.componentNames.count,

@@ -130,6 +130,10 @@ public struct ReportZone: Equatable, Sendable {
     public let networkZoneLabel: String
     public let networkTypeLabel: String
     public let componentNames: [String]
+    /// The ids of the components this zone holds, same order as
+    /// `componentNames`. A rollup matches a threat to a zone by id, because
+    /// a display name is not unique.
+    public let componentIds: [String]
     public let riskReductionPercent: Int?
 
     public init(
@@ -137,12 +141,14 @@ public struct ReportZone: Equatable, Sendable {
         networkZoneLabel: String,
         networkTypeLabel: String,
         componentNames: [String],
+        componentIds: [String] = [],
         riskReductionPercent: Int?
     ) {
         self.name = name
         self.networkZoneLabel = networkZoneLabel
         self.networkTypeLabel = networkTypeLabel
         self.componentNames = componentNames
+        self.componentIds = componentIds
         self.riskReductionPercent = riskReductionPercent
     }
 }
