@@ -50,6 +50,7 @@ public protocol UseCaseFactory {
     func removeComponents() -> RemoveComponentsUseCase
     func connectComponents() -> ConnectComponentsUseCase
     func removeConnection() -> RemoveConnectionUseCase
+    func setConnectionProperties() -> SetConnectionPropertiesUseCase
     func addZone() -> AddZoneUseCase
     func resizeZone() -> ResizeZoneUseCase
     func setZoneProperties() -> SetZonePropertiesUseCase

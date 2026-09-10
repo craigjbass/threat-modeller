@@ -29,6 +29,9 @@ public struct ViewedComponent: Equatable, Sendable {
     /// The zone whose rectangle holds this component's centre, or nil.
     /// Derived from the geometry every time; nothing stores it.
     public let zoneId: String?
+    /// The privilege the component runs at: user, admin, root, system or
+    /// kernel.
+    public let runsAsId: String
 
     public init(
         id: String,
@@ -42,7 +45,8 @@ public struct ViewedComponent: Equatable, Sendable {
         sensitivityId: String,
         threatsDisabled: Bool,
         isUnknownTechnology: Bool,
-        zoneId: String?
+        zoneId: String?,
+        runsAsId: String = PrivilegeLevel.default.rawValue
     ) {
         self.id = id
         self.technologyId = technologyId
@@ -56,6 +60,7 @@ public struct ViewedComponent: Equatable, Sendable {
         self.threatsDisabled = threatsDisabled
         self.isUnknownTechnology = isUnknownTechnology
         self.zoneId = zoneId
+        self.runsAsId = runsAsId
     }
 }
 
@@ -63,11 +68,23 @@ public struct ViewedConnection: Equatable, Sendable {
     public let id: String
     public let sourceComponentId: String
     public let targetComponentId: String
+    /// A flow kind: network, ipc, file, syscall or human.
+    public let kindId: String
+    /// Why the flow is there, or nil when the user has not said.
+    public let description: String?
 
-    public init(id: String, sourceComponentId: String, targetComponentId: String) {
+    public init(
+        id: String,
+        sourceComponentId: String,
+        targetComponentId: String,
+        kindId: String = FlowKind.default.rawValue,
+        description: String? = nil
+    ) {
         self.id = id
         self.sourceComponentId = sourceComponentId
         self.targetComponentId = targetComponentId
+        self.kindId = kindId
+        self.description = description
     }
 }
 
@@ -87,6 +104,8 @@ public struct ViewedZone: Equatable, Sendable {
     public let y: Double
     public let width: Double
     public let height: Double
+    /// What the zone is a boundary of: network or privilege.
+    public let boundaryId: String
 
     public init(
         id: String,
@@ -99,7 +118,8 @@ public struct ViewedZone: Equatable, Sendable {
         x: Double,
         y: Double,
         width: Double,
-        height: Double
+        height: Double,
+        boundaryId: String = ZoneBoundary.default.rawValue
     ) {
         self.id = id
         self.name = name
@@ -112,6 +132,7 @@ public struct ViewedZone: Equatable, Sendable {
         self.y = y
         self.width = width
         self.height = height
+        self.boundaryId = boundaryId
     }
 }
 
@@ -174,14 +195,17 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     sensitivityId: component.sensitivity.rawValue,
                     threatsDisabled: component.threatsDisabled,
                     isUnknownTechnology: technology == nil,
-                    zoneId: ZoneContainment.zone(holding: component.centre, in: model.zones)?.id.value
+                    zoneId: ZoneContainment.zone(holding: component.centre, in: model.zones)?.id.value,
+                    runsAsId: component.runsAs.rawValue
                 )
             },
             connections: model.connections.map {
                 ViewedConnection(
                     id: $0.id.value,
                     sourceComponentId: $0.source.value,
-                    targetComponentId: $0.target.value
+                    targetComponentId: $0.target.value,
+                    kindId: $0.kind.rawValue,
+                    description: $0.description
                 )
             },
             zones: model.zones.map {
@@ -196,7 +220,8 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     x: $0.rect.origin.x,
                     y: $0.rect.origin.y,
                     width: $0.rect.size.width,
-                    height: $0.rect.size.height
+                    height: $0.rect.size.height,
+                    boundaryId: $0.boundary.rawValue
                 )
             },
             canUndo: models.canUndo,

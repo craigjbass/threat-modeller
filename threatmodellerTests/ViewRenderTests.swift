@@ -370,6 +370,24 @@ struct ViewRenderTests {
         )
     }
 
+    @Test func drawsTheConnectionPanel() throws {
+        let session = aModel()
+        session.addAtDefaultPoint(technologyId: "aws-ec2")
+        let components = session.canvas.components
+        session.connect(
+            sourceComponentId: try #require(components.first).id,
+            targetComponentId: try #require(components.last).id
+        )
+        let connection = try #require(session.canvas.connections.first)
+
+        expectDrawn(
+            ConnectionPanel(session: session, connection: connection),
+            width: 900,
+            height: 60,
+            "the connection panel"
+        )
+    }
+
     @Test func drawsTheCompensatingControlSheet() throws {
         let session = aModel()
         let threat = try #require(session.threats.first)

@@ -193,7 +193,8 @@ final class ThreatModelSession {
         networkZoneId: String,
         networkTypeId: String,
         riskReductionEnabled: Bool,
-        riskReductionPercent: Int
+        riskReductionPercent: Int,
+        boundaryId: String
     ) {
         switch useCases.setZoneProperties().execute(
             SetZonePropertiesRequest(
@@ -202,7 +203,8 @@ final class ThreatModelSession {
                 networkZone: networkZoneId,
                 networkType: networkTypeId,
                 riskReductionEnabled: riskReductionEnabled,
-                riskReductionPercent: riskReductionPercent
+                riskReductionPercent: riskReductionPercent,
+                boundary: boundaryId
             )
         ) {
         case .updated:
@@ -215,6 +217,25 @@ final class ThreatModelSession {
             errorMessage = "That network type is not recognised."
         case .reductionOutOfRange:
             errorMessage = "Risk reduction must be between 0 and 100 per cent."
+        case .unknownBoundary:
+            errorMessage = "That boundary is not recognised."
+        }
+
+        refresh()
+    }
+
+    /// Writes what the flow panel shows. One call for the kind and the
+    /// description.
+    func setConnectionProperties(connectionId: String, kind: String, description: String?) {
+        switch useCases.setConnectionProperties().execute(
+            SetConnectionPropertiesRequest(connectionId: connectionId, kind: kind, description: description)
+        ) {
+        case .updated:
+            errorMessage = nil
+        case .unknownConnection:
+            errorMessage = "That flow is no longer on the model."
+        case .unknownKind:
+            errorMessage = "That kind of flow is not recognised."
         }
 
         refresh()
@@ -562,14 +583,16 @@ final class ThreatModelSession {
         componentId: String,
         name: String?,
         sensitivityId: String,
-        threatsDisabled: Bool
+        threatsDisabled: Bool,
+        runsAsId: String
     ) {
         switch useCases.setComponentProperties().execute(
             SetComponentPropertiesRequest(
                 componentId: componentId,
                 name: name,
                 sensitivity: sensitivityId,
-                threatsDisabled: threatsDisabled
+                threatsDisabled: threatsDisabled,
+                runsAs: runsAsId
             )
         ) {
         case .updated:
@@ -578,6 +601,8 @@ final class ThreatModelSession {
             errorMessage = "That component is no longer on the model."
         case .unknownSensitivity:
             errorMessage = "That sensitivity is not one this application holds."
+        case .unknownPrivilegeLevel:
+            errorMessage = "That privilege level is not recognised."
         }
 
         refresh()

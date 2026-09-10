@@ -44,7 +44,8 @@ struct StartingFromASampleTests {
                 componentId: componentId,
                 name: "The One That Matters",
                 sensitivity: "restricted",
-                threatsDisabled: false
+                threatsDisabled: false,
+                runsAs: "user"
             )
         )
 

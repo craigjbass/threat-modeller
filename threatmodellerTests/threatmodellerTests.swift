@@ -182,7 +182,8 @@ struct ThreatModelSessionTests {
             networkZoneId: "public",
             networkTypeId: "generic",
             riskReductionEnabled: true,
-            riskReductionPercent: 20
+            riskReductionPercent: 20,
+            boundaryId: "network"
         )
 
         #expect(session.canvas.zones.first?.name == "Internet")
@@ -214,7 +215,8 @@ struct ThreatModelSessionTests {
             networkZoneId: "private",
             networkTypeId: "vpc",
             riskReductionEnabled: true,
-            riskReductionPercent: 20
+            riskReductionPercent: 20,
+            boundaryId: "network"
         )
 
         let captured = try #require(session.canvas.components.first)
@@ -232,7 +234,8 @@ struct ThreatModelSessionTests {
             networkZoneId: "private",
             networkTypeId: "generic",
             riskReductionEnabled: true,
-            riskReductionPercent: 200
+            riskReductionPercent: 200,
+            boundaryId: "network"
         )
 
         #expect(session.errorMessage == "Risk reduction must be between 0 and 100 per cent.")
@@ -528,7 +531,8 @@ struct ComponentPanelSessionTests {
             componentId: componentId,
             name: "Checkout Server",
             sensitivityId: "restricted",
-            threatsDisabled: false
+            threatsDisabled: false,
+            runsAsId: "user"
         )
 
         #expect(session.canvas.components.first?.name == "Checkout Server")
@@ -545,7 +549,8 @@ struct ComponentPanelSessionTests {
             componentId: componentId,
             name: nil,
             sensitivityId: "internal",
-            threatsDisabled: true
+            threatsDisabled: true,
+            runsAsId: "user"
         )
 
         #expect(session.threats.isEmpty)
@@ -561,7 +566,8 @@ struct ComponentPanelSessionTests {
             componentId: componentId,
             name: nil,
             sensitivityId: "top-secret",
-            threatsDisabled: false
+            threatsDisabled: false,
+            runsAsId: "user"
         )
 
         #expect(session.errorMessage == "That sensitivity is not one this application holds.")

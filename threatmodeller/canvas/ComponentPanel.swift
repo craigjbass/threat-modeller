@@ -16,6 +16,14 @@ struct ComponentPanel: View {
         ("restricted", "Restricted")
     ]
 
+    private static let privileges = [
+        ("user", "User"),
+        ("admin", "Administrator"),
+        ("root", "Root"),
+        ("system", "System"),
+        ("kernel", "Kernel")
+    ]
+
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
             TextField("Name", text: name)
@@ -29,6 +37,13 @@ struct ComponentPanel: View {
             .labelsHidden()
             .frame(width: 160)
             .accessibilityIdentifier("component-sensitivity")
+
+            Picker("Runs as", selection: runsAs) {
+                ForEach(Self.privileges, id: \.0) { Text($0.1).tag($0.0) }
+            }
+            .labelsHidden()
+            .frame(width: 150)
+            .accessibilityIdentifier("component-runs-as")
 
             Toggle("Raise threats", isOn: threatsRaised)
                 .toggleStyle(.switch)
@@ -50,13 +65,15 @@ struct ComponentPanel: View {
     private func write(
         name newName: String? = nil,
         sensitivity newSensitivity: String? = nil,
-        threatsDisabled newThreatsDisabled: Bool? = nil
+        threatsDisabled newThreatsDisabled: Bool? = nil,
+        runsAs newRunsAs: String? = nil
     ) {
         session.setComponentProperties(
             componentId: component.id,
             name: newName ?? component.customName,
             sensitivityId: newSensitivity ?? component.sensitivityId,
-            threatsDisabled: newThreatsDisabled ?? component.threatsDisabled
+            threatsDisabled: newThreatsDisabled ?? component.threatsDisabled,
+            runsAsId: newRunsAs ?? component.runsAsId
         )
     }
 
@@ -66,6 +83,10 @@ struct ComponentPanel: View {
 
     private var sensitivity: Binding<String> {
         Binding(get: { component.sensitivityId }, set: { write(sensitivity: $0) })
+    }
+
+    private var runsAs: Binding<String> {
+        Binding(get: { component.runsAsId }, set: { write(runsAs: $0) })
     }
 
     /// The switch reads the other way round from the model: a user turns

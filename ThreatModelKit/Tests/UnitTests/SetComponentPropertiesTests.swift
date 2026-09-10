@@ -20,14 +20,16 @@ struct SetComponentPropertiesTests {
         _ componentId: String,
         name: String? = nil,
         sensitivity: String = "internal",
-        threatsDisabled: Bool = false
+        threatsDisabled: Bool = false,
+        runsAs: String = "user"
     ) -> SetComponentPropertiesResponse {
         app.setComponentProperties().execute(
             SetComponentPropertiesRequest(
                 componentId: componentId,
                 name: name,
                 sensitivity: sensitivity,
-                threatsDisabled: threatsDisabled
+                threatsDisabled: threatsDisabled,
+                runsAs: runsAs
             )
         )
     }
@@ -72,6 +74,20 @@ struct SetComponentPropertiesTests {
 
     @Test func refusesANodeTheModelDoesNotHold() {
         #expect(set("no-such-component") == .unknownComponent)
+    }
+
+    @Test func setsThePrivilegeTheComponentRunsAt() throws {
+        let componentId = aComponent()
+
+        #expect(set(componentId, runsAs: "root") == .updated)
+
+        #expect(try #require(view().components.first).runsAsId == "root")
+    }
+
+    @Test func refusesAPrivilegeLevelTheApplicationDoesNotHold() {
+        let componentId = aComponent()
+
+        #expect(set(componentId, runsAs: "superuser") == .unknownPrivilegeLevel)
     }
 
     @Test func raisesNothingForANodeWhoseThreatsAreOff() {

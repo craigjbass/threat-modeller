@@ -15,7 +15,8 @@ struct SetZonePropertiesTests {
         networkZone: String = "private",
         networkType: String = "vpc",
         enabled: Bool = true,
-        percent: Int = 40
+        percent: Int = 40,
+        boundary: String = "network"
     ) -> SetZonePropertiesResponse {
         SetZoneProperties(models: models).execute(
             SetZonePropertiesRequest(
@@ -24,7 +25,8 @@ struct SetZonePropertiesTests {
                 networkZone: networkZone,
                 networkType: networkType,
                 riskReductionEnabled: enabled,
-                riskReductionPercent: percent
+                riskReductionPercent: percent,
+                boundary: boundary
             )
         )
     }
@@ -87,5 +89,16 @@ struct SetZonePropertiesTests {
         #expect(set(percent: 0) == .updated)
         #expect(set(percent: 100) == .updated)
         #expect(zone()?.riskReductionPercent == 100)
+    }
+
+    @Test func setsTheBoundary() throws {
+        #expect(set(boundary: "privilege") == .updated)
+
+        #expect(try #require(zone()).boundary == .privilege)
+    }
+
+    @Test func refusesABoundaryItDoesNotKnow() {
+        #expect(set(boundary: "physical") == .unknownBoundary)
+        #expect(zone()?.name == nil)
     }
 }
