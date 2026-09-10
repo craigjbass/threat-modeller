@@ -13,24 +13,32 @@ struct ProjectWindow: View {
     @State private var canvas = CanvasState()
 
     var body: some View {
-        Group {
-            if let model = session.model {
-                ProjectColumns(session: model, canvas: canvas)
-                    .focusedSceneValue(\.threatModelSession, model)
-                    .focusedSceneValue(\.threatModelCanvas, canvas)
-            } else if session.canInitialise {
-                emptyProject
-            } else {
-                ContentUnavailableView(
-                    session.root == nil ? "No project is open" : "Nothing is drawn",
-                    systemImage: "folder",
-                    description: Text(
-                        session.errorMessage ?? "Open a project with File \u{25B8} Open Project."
+        // The chrome is a row above the columns, not an inset over them.
+        // `safeAreaInset` does not inset a `NavigationSplitView` on macOS: the
+        // columns keep the whole window, so a bar drawn that way covered the
+        // top of the palette and of the threat sidebar, and no scroll brought
+        // that top back into view.
+        VStack(spacing: 0) {
+            chrome
+
+            Group {
+                if let model = session.model {
+                    ProjectColumns(session: model, canvas: canvas)
+                        .focusedSceneValue(\.threatModelSession, model)
+                        .focusedSceneValue(\.threatModelCanvas, canvas)
+                } else if session.canInitialise {
+                    emptyProject
+                } else {
+                    ContentUnavailableView(
+                        session.root == nil ? "No project is open" : "Nothing is drawn",
+                        systemImage: "folder",
+                        description: Text(
+                            session.errorMessage ?? "Open a project with File \u{25B8} Open Project."
+                        )
                     )
-                )
+                }
             }
         }
-        .safeAreaInset(edge: .top) { chrome }
         .sheet(isPresented: $isShowingDiagnostics) {
             DiagnosticsSheet(
                 fileName: session.diagnosticsFileName ?? "",
