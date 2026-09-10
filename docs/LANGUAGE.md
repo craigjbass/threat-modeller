@@ -1200,6 +1200,40 @@ CompensatingAttr  = "reduces_risk_by" "=" Number
                   | "rationale"       "=" String ;
 
 RecommendationBlock = "recommendation" String "{" [ "note" "=" String ] "}" ;
+
+(* the library language *)
+
+LibraryFile  = LibraryBlock ;
+LibraryBlock = "library" String "{" { LibraryEntry } "}" ;
+LibraryEntry = "name"      "=" String
+             | "catalogue" "=" String
+             | TechnologyBlock
+             | ThreatBlock
+             | MitigationBlock ;
+
+ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
+ThreatEntry = "name"         "=" String
+            | "description"  "=" String
+            | "severity"     "=" String
+            | "stride"       "=" StringList
+            | "connection"   "=" Boolean
+            | "zone"         "=" Boolean
+            | "zone_context" "=" String
+            | MitreBlock
+            | ControlStatement ;
+
+MitreBlock = "mitre" String "{" { MitreAttr } "}" ;
+MitreAttr  = "name"   "=" String
+           | "tactic" "=" String ;
+
+ControlStatement = "control" String ;
+
+MitigationBlock = "mitigation" String "{" { MitigationAttr } "}" ;
+MitigationAttr  = "name"            "=" String
+                | "description"     "=" String
+                | "mitigates"       "=" StringList
+                | "provided_by"     "=" StringList
+                | "reduces_risk_by" "=" Number ;
 ```
 
 ## 11. Where the code is
