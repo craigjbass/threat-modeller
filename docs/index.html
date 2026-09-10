@@ -380,6 +380,9 @@
       <li>the generated controls file
         <span class="desc">The compiler writes a stanza for every threat the architecture raises, and merges new threats into the file a person has already answered. An answer a threat no longer needs stays in the file, marked stale.</span>
       </li>
+      <li>likelihood findings and a risk tolerance
+        <span class="desc">A person records what they found out about how often a threat is actually exploited, with a rationale and its sources. check treats that finding as an answer once the threat's score ranks at or under the project's risk tolerance — evidence closes a threat nobody exploits, and never a high one, unless the team raises the tolerance.</span>
+      </li>
       <li>the build gate
         <span class="desc">The executable exits 1 for an unanswered threat, a stale answer, or a library file that does not match the lock file. A diagnostic prints as threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0.1, which an editor and a build log both read.</span>
       </li>
@@ -390,7 +393,7 @@
         <span class="desc">A team writes technologies, threats and controls into a .lib file and shares it. The label prefixes every id it declares, so two teams cannot clash. library.lock.json records the repository, the tag and the sha256 of each file.</span>
       </li>
       <li>a fixed scoring order
-        <span class="desc">Base severity, then a severity override, then the zone reduction, then the pathway mitigation, then one compensating control. Two compensating controls give the stronger of the two, not the sum.</span>
+        <span class="desc">Base severity, the zone reduction, the controls answered, the pathway mitigation, a component that mitigates the threat, a likelihood finding, then one compensating control. Two mitigations at the same stage give the stronger of the two, not the sum, and a threat also carries a target score for what it would owe if every assumed mitigation held.</span>
       </li>
       <li>markdown reports
         <span class="desc">threatmodeller report writes one .md file for each system. A report is an artefact, so a synchronise does not write it.</span>

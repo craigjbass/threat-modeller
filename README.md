@@ -88,7 +88,12 @@ processes on it, the privilege each one runs at, and the calls between them.
   `system` or `kernel`.
 - One component may mitigate a named threat on another, with the `mitigates`
   block. A security product lowers the score of the threat it answers,
-  wherever that threat is raised.
+  wherever that threat is raised. This is a separate scoring stage from the
+  Pathway Mitigations panel below: a `mitigates` edge names one specific
+  protector and one specific threat, and it states its own `status`, either
+  `adopted` (the team has it, so it lowers the real score) or `assumed` (the
+  team plans it or believes it, so it only lowers the target score — see
+  "Scoring" below).
 
 Read [the language guide](docs/LANGUAGE.md) for the full grammar of `flow`,
 `zone`, `runs_as` and `mitigates`. Read
@@ -216,17 +221,113 @@ tag. To move version, run `add` with the new tag.
 
 ## Scoring
 
-The order is fixed:
+Every threat carries two numbers. The **residual score** is the real state of
+the system today. The **target score** — "if the assumptions hold" in the
+report — is the residual score recalculated as though every `assumed`
+`mitigates` edge were `adopted`. The two numbers differ only when a model
+carries an assumed edge; the report prints the target score only then.
 
-1. the threat's severity rank, multiplied by the component's data sensitivity
-2. the zone's risk reduction, when the component sits in a private zone
-3. the implemented controls, by their share of the applicable controls
-4. the strongest pathway mitigation upstream of the component
-5. the strongest compensating control on the threat
+The resolver runs seven stages, in this fixed order, to reach the residual
+score:
 
-Two compensating controls on one threat give the stronger of the two, not the
-sum. The report and the threat card show the score before compensation and after
-it.
+1. **Base score.** The threat's severity rank, multiplied by the component's
+   data sensitivity. The severity is the threat's own, unless a
+   `severity_override` block in the `.controls` file names this one threat on
+   this one source, or, failing that, a technology-wide override set from the
+   sidebar names it. A pathway threat uses the highest sensitivity among the
+   components it feeds directly, when that is higher than its own.
+2. **Zone.** The zone's `reduces_risk_by` percent, when the component sits in
+   a private zone.
+3. **Controls.** The implemented controls, by their share of the applicable
+   controls.
+4. **Pathway mitigation.** The strongest mitigation in the Pathway
+   Mitigations panel that is upstream of the component, switched on, and
+   provided by an upstream technology.
+5. **`mitigates` edges.** The strongest `mitigates` edge that targets this
+   component and names this threat, counting only edges whose `status` is
+   `adopted`. An edge whose `status` is `assumed` is skipped at this stage, so
+   it never lowers the residual score; it lowers only the target score, at
+   the same stage run a second time over both `adopted` and `assumed` edges.
+6. **Likelihood.** A `.controls` file's `likelihood` block for this threat on
+   this source, or, failing that, the threat's own likelihood tier, multiplies
+   both the residual score and the target score. `commodity` (the default)
+   leaves the score unchanged; `targeted` multiplies by 0.6; `research`
+   multiplies by 0.25. A `likelihood` block can also raise a threat's tier
+   back to `commodity`.
+7. **Compensating control.** The strongest `compensating` block on the threat
+   reduces both the residual score and the target score.
+
+Two mitigations at the same stage — two `mitigates` edges, two pathway
+mitigations, or two compensating controls — give the stronger of the two, not
+the sum. The report and the threat card show the score before controls, before
+pathway mitigation and before compensation, alongside the residual score.
+
+A threat raised by a flow runs stages 1 to 4 and 6 to 7: it takes the source
+component's upstream pathway mitigations, but no `mitigates` edge targets a
+flow. A threat raised by a zone runs stages 1, 2, 3, 6 and 7 only: a zone
+sits outside the connection graph, so nothing is upstream of it and no
+`mitigates` edge targets it.
+
+### Risk tolerance and likelihood findings
+
+A `likelihood` block is evidence a person found, not a control a team built.
+`threatmodeller check` uses it to close a threat when the evidence says the
+threat is unlikely enough: a threat counts as answered when it has an
+implemented control, a `compensating` block, **or** a `likelihood` block whose
+current residual risk level (`Low`, `Medium`, `High` or `Critical`) ranks at
+or below the project's risk tolerance.
+
+The risk tolerance is a `RiskLevel`, read in this order: the `--tolerance`
+flag, then the system's own `risk_tolerance` attribute in the `.arch` file,
+then `Low` when neither is set. `Low` is strict: a `likelihood` block closes
+only a threat whose residual score is already `Low`; it never closes a
+`Medium`, `High` or `Critical` threat until the team raises the tolerance. A
+`severity_override` block records an assessor's own severity decision for one
+threat on one source, with a rationale and, optionally, sources; it wins over
+a technology-wide override in stage 1 above.
+
+Read [the language guide](docs/LANGUAGE.md) for the full grammar of
+`severity_override`, `likelihood`, `risk_tolerance`, `assumption` and
+`recommendation`.
+
+## The report
+
+`threatmodeller report` and *Generate Report* write the same `.md` file, in
+this order:
+
+1. **Summary** — the threat count, the controls recorded, and a count by
+   risk level.
+2. **Where the risk sits** — a count by source kind: component, connection
+   or zone.
+3. **By zone** — one row per zone: its components, its worst residual score,
+   its worst target score (only when a model carries an assumed
+   `mitigates` edge), and a count by risk level.
+4. **Top residual risk** — the worst-scoring threats, residual score first,
+   with the score before controls and, when a model carries an assumed
+   edge, the target score.
+5. **Components**, **Connections**, **Zones** — what the architecture holds.
+6. **Attack paths** — a walk from an external actor to the components it can
+   reach, worst score first, with each hop's threat and score and what
+   reduced it. The walk is bounded, and the section says how many further
+   paths it left out.
+7. **Protection dependencies** — for a component other components rely on:
+   what it protects, and, when a threat on the protector itself has no
+   answer, that the reduction it grants rests on an unanswered threat.
+8. **Recommendations** — every `recommendation` block from the `.controls`
+   file, grouped by the source that raised the threat, worst source first.
+   A recommendation records what to do; it never answers a threat, so
+   `check` still fails while one stands with no other answer.
+9. **Assumptions** — every `assumption` block from the `.arch` file, then,
+   under "Assumed mitigations", every `mitigates` edge whose `status` is
+   `assumed`.
+10. **Threats** — one entry per threat: its severity, its residual score, the
+    likelihood block or tier applied, a severity decision, the target score
+    when it differs from the residual, STRIDE and MITRE ATT&CK labels, what
+    compensated it, what mitigated it upstream or through a `mitigates`
+    edge, and its controls.
+
+A section a model gives nothing to write about is left out, rather than
+printed empty.
 
 ## The command line executable
 
@@ -240,9 +341,11 @@ threatmodeller help                          # shows the usage text
 ```
 
 Options: `-o <dir>` writes the reports into that directory. `--catalogue <dir>`
-reads the threat catalogue from that directory. `--tolerance <level>` lets a
-likelihood finding answer a threat up to this level, for `check`. `-q` or
-`--quiet` says nothing about a file that did not change.
+reads the threat catalogue from that directory. `--tolerance <level>` sets the
+risk tolerance `check` uses for a likelihood finding (see "Risk tolerance and
+likelihood findings" above); `<level>` is `low`, `medium`, `high` or
+`critical`. `-q` or `--quiet` says nothing about a file that did not change.
+`-f` or `--force` removes a library a system still names.
 
 `<root>` is the project root, and defaults to the working directory.
 
@@ -305,8 +408,27 @@ from anywhere.
   picker.
 - *Synchronise* writes the architecture back to its `.arch` file and merges the
   answers into its `.controls` file.
-- *Generate Report* writes the `.md` file. A report is an artefact, so a
-  synchronise does not write it.
+- *Generate Report* writes the `.md` file described in "The report" above. A
+  report is an artefact, so a synchronise does not write it.
+- The document window's *File* menu also exports one system: *Export as
+  Markdown…* writes the same `.md` report, and *Export as threatcl…*, *Export
+  as PDF…* and *Export as Image…* write the architecture or the canvas in
+  those formats. Only the Markdown export is the project's report; the other
+  three exist only from this menu.
+- The **Pathway Mitigations panel**, in the sidebar, is where a user turns
+  stage 4 of "Scoring" on: a master toggle, then, per mitigation, an enable
+  switch, a mode (lower the score, or remove the threat outright) and, in
+  "lower the score" mode, a percent slider.
+- A threat's severity in the sidebar is a menu: choosing an entry sets a
+  technology-wide override, and, once one is set, the menu offers "Use the
+  catalogue's severity" to clear it. The menu offers nothing when a
+  `severity_override` block in the `.controls` file already decides that
+  threat on that source; the sidebar disables the menu rather than let a
+  choice from it change nothing.
+- A user creates, edits and deletes a custom technology from the canvas: its
+  name, category and description, which catalogue threats it carries, and
+  whether it encrypts what crosses it. See "Sharing an element library" below
+  for what a custom technology is and how it differs from a library entry.
 - *Libraries* opens a sheet listing the shared element libraries the project
   holds, with their repository, version and whether the files match the lock
   file. *Add…* takes a repository and a version and fetches it; a private
@@ -324,7 +446,9 @@ from anywhere.
 
 The `.threatmodel` document and its window still work. *Export Architecture…* is
 how a document becomes a project. It is one way: a project does not become a
-document.
+document. *File ▸ Open Example…* (`Cmd+Shift+O`) opens the sample browser for
+this document window; opening an example replaces the model on the canvas,
+and undo takes it back.
 
 ## More documentation
 
