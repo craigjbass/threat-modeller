@@ -96,8 +96,9 @@ public enum AttackPaths {
         nameOf: (ComponentId) -> String
     ) -> ReportAttackPathHop {
         let name = nameOf(component)
+        let sourceId = "component:\(component.value)"
         let worst = threats
-            .filter { $0.sourceKind == "Component" && $0.sourceName == name }
+            .filter { $0.sourceKind == "Component" && $0.sourceId == sourceId }
             .max { $0.riskScore < $1.riskScore }
 
         return ReportAttackPathHop(

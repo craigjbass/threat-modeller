@@ -24,7 +24,7 @@ struct AttackPathTests {
         )
     }
 
-    private func threat(_ name: String, _ source: String, _ score: Int) -> ReportThreat {
+    private func threat(_ name: String, _ source: String, _ score: Int, sourceId: String? = nil) -> ReportThreat {
         ReportThreat(
             threatId: name,
             name: name,
@@ -36,6 +36,10 @@ struct AttackPathTests {
             mitreTechniqueIds: [],
             sourceName: source,
             sourceKind: "Component",
+            // The other tests build with the default `nameOf`, which is the
+            // identity, so a component's display name and id are the same
+            // string there. This test's own `sourceId` overrides it.
+            sourceId: sourceId ?? "component:\(source)",
             controls: [],
             pathwayMitigationLabels: []
         )
@@ -93,6 +97,43 @@ struct AttackPathTests {
         let path = try #require(built.paths.first)
         #expect(path.worstScore == 12)
         #expect(path.hops.last?.worstThreatName == "bad")
+    }
+
+    @Test func aHopMatchesItsThreatByIdNotByDisplayName() throws {
+        // "dupA" and "dupB" are two components of one technology with no
+        // custom name, so nameOf gives both the same display name, "Duplicate".
+        let names: [ComponentId: String] = [
+            ComponentId("actor"): "actor",
+            ComponentId("dupA"): "Duplicate",
+            ComponentId("dupB"): "Duplicate"
+        ]
+        let built = AttackPaths.build(
+            components: [
+                component("actor"),
+                Component(
+                    id: ComponentId("dupA"),
+                    technologyId: TechnologyId("aws-ec2"),
+                    position: Point(x: 0, y: 0),
+                    sensitivity: .restricted
+                ),
+                Component(
+                    id: ComponentId("dupB"),
+                    technologyId: TechnologyId("aws-ec2"),
+                    position: Point(x: 0, y: 0),
+                    sensitivity: .internalData
+                )
+            ],
+            connections: [flow("actor", "dupA")],
+            zones: [],
+            threats: [
+                threat("worst-on-other", "Duplicate", 20, sourceId: "component:dupB"),
+                threat("actual", "Duplicate", 3, sourceId: "component:dupA")
+            ],
+            nameOf: { names[$0] ?? $0.value }
+        )
+        let path = try #require(built.paths.first)
+        #expect(path.hops.last?.worstThreatName == "actual")
+        #expect(path.hops.last?.riskScore == 3)
     }
 
     @Test func aCycleStopsTheWalk() {
