@@ -22,7 +22,7 @@ struct AboutWindow: View {
                     .font(.system(size: 48))
                     .foregroundStyle(.tint)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Threat Modeller")
+                    Text("Craig's Threat Modeller")
                         .font(.title2.bold())
                     Text(version)
                         .font(.callout)

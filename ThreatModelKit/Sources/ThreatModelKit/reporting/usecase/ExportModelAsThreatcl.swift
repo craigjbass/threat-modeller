@@ -39,7 +39,7 @@ public struct ExportModelAsThreatcl: ExportModelAsThreatclUseCase {
         lines.append("spec_version = \(HCL.string(Self.specVersion))")
         lines.append("")
         lines.append("threatmodel \(HCL.string(report.modelName)) {")
-        lines.append("  author = \(HCL.string("threat-modeller"))")
+        lines.append("  author = \(HCL.string("Craig's Threat Modeller"))")
         lines.append(
             "  description = "
                 + HCL.string(

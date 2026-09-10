@@ -564,7 +564,7 @@ public struct CommandLineApplication {
     }
 
     static let usage = """
-    threatmodeller — the code-first threat modeller
+    Craig's Threat Modeller — the code-first threat modeller
 
     Usage:
       threatmodeller compile [<root>]  write or merge every .controls file

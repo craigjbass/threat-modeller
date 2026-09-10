@@ -1,4 +1,4 @@
-# threat-modeller — Claude Code instructions
+# Craig's Threat Modeller — Claude Code instructions
 
 ## Before ANY work — settle the working tree first
 

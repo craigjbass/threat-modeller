@@ -1,4 +1,4 @@
-# threat-modeller
+# Craig's Threat Modeller
 
 A macOS application and a command line executable that build a threat model from
 text files a team commits to git.

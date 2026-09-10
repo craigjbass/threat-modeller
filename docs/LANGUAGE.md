@@ -1,4 +1,4 @@
-# The threat-modeller language
+# The language of Craig's Threat Modeller
 
 A reference for the three source languages this application reads: the
 architecture language, written in a `.arch` file; the controls language, written

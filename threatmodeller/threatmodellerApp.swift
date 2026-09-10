@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) -> Bool {
         guard hasVisibleWindows == false else { return true }
 
-        guard let welcome = sender.windows.first(where: { $0.title == "Threat Modeller" })
+        guard let welcome = sender.windows.first(where: { $0.title == "Craig's Threat Modeller" })
         else { return true }
 
         welcome.makeKeyAndOrderFront(nil)
@@ -52,7 +52,7 @@ struct ThreatModellerApp: App {
     var body: some Scene {
         // First in the body, so macOS opens this window at launch rather than
         // the file open panel the document type would otherwise bring up.
-        Window("Threat Modeller", id: Self.welcomeWindowId) {
+        Window("Craig's Threat Modeller", id: Self.welcomeWindowId) {
             WelcomeWindow(
                 catalogue: catalogue,
                 recents: recents,
@@ -68,7 +68,7 @@ struct ThreatModellerApp: App {
         .defaultSize(width: 1400, height: 900)
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("About Threat Modeller") { openAbout() }
+                Button("About Craig's Threat Modeller") { openAbout() }
 
                 Divider()
 
@@ -94,7 +94,7 @@ struct ThreatModellerApp: App {
             ThreatModelCommands()
         }
 
-        Window("Threat Modeller Project", id: Self.projectWindowId) {
+        Window("Craig's Threat Modeller Project", id: Self.projectWindowId) {
             if let project {
                 ProjectWindow(session: project)
                     .frame(minWidth: 900, minHeight: 600)
@@ -116,7 +116,7 @@ struct ThreatModellerApp: App {
         }
         .windowResizability(.contentSize)
 
-        Window("About Threat Modeller", id: Self.aboutWindowId) {
+        Window("About Craig's Threat Modeller", id: Self.aboutWindowId) {
             AboutWindow(catalogue: catalogue)
         }
         .windowResizability(.contentSize)

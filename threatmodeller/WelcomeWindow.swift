@@ -46,7 +46,7 @@ struct WelcomeWindow: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.tint)
 
-            Text("Threat Modeller")
+            Text("Craig's Threat Modeller")
                 .font(.largeTitle.bold())
 
             if let catalogue {
