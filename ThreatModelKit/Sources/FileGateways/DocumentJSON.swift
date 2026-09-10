@@ -20,7 +20,7 @@ struct DocumentJSON: Codable {
     let controlStatuses: [String: String]?
     let compensatingControls: [String: [CompensatingControlJSON]]?
     let pathwayMitigations: PathwayMitigationsJSON
-    /// Version 4 adds these three. A version 1, 2 or 3 file has none.
+    /// Version 4 adds these two. A version 1, 2 or 3 file has neither.
     let mitigatesEdges: [MitigatesEdgeJSON]?
     let recommendations: [String: [RecommendationJSON]]?
 }

@@ -96,4 +96,74 @@ struct DocumentFormatVersionFourTests {
         #expect(read.name == "S")
         #expect(read.mitigatesEdges.isEmpty)
     }
+
+    /// A version 3 document holds one component, one connection and one zone,
+    /// none carrying any of the version 4 keys. Every version 4 value defaults,
+    /// and every value the version 3 document did carry comes back unchanged.
+    @Test func aVersionThreeDocumentWithItemsStillReadsThemAtTheirDefaults() throws {
+        let text = """
+        {
+          "formatVersion" : 3,
+          "name" : "S",
+          "createdAt" : "1970-01-01T00:00:00Z",
+          "updatedAt" : "1970-01-01T00:00:00Z",
+          "components" : [
+            {
+              "id" : "guard",
+              "technologyId" : "aws-waf",
+              "x" : 10,
+              "y" : 20,
+              "sensitivity" : "confidential",
+              "customName" : "Edge guard",
+              "threatsDisabled" : false
+            }
+          ],
+          "connections" : [
+            { "id" : "guard->store", "source" : "guard", "target" : "store" }
+          ],
+          "zones" : [
+            {
+              "id" : "root",
+              "x" : 0,
+              "y" : 0,
+              "width" : 400,
+              "height" : 300,
+              "name" : "Root zone",
+              "networkZone" : "private",
+              "networkType" : "vpc",
+              "riskReductionEnabled" : true,
+              "riskReductionPercent" : 35
+            }
+          ],
+          "customTechnologies" : [],
+          "severityOverrides" : {},
+          "implementedControls" : [],
+          "pathwayMitigations" : { "isMasterEnabled" : false, "configs" : {} }
+        }
+        """
+        let read = try ThreatModelCodec().decode(Data(text.utf8))
+
+        let component = try #require(read.components.first)
+        #expect(component.runsAs == .user)
+        #expect(component.assets.isEmpty)
+        #expect(component.position == Point(x: 10, y: 20))
+        #expect(component.sensitivity == .confidential)
+        #expect(component.customName == "Edge guard")
+
+        let connection = try #require(read.connections.first)
+        #expect(connection.kind == .network)
+        #expect(connection.description == nil)
+
+        let zone = try #require(read.zones.first)
+        #expect(zone.boundary == .network)
+        #expect(zone.description == nil)
+        #expect(zone.rect == Rect(x: 0, y: 0, width: 400, height: 300))
+        #expect(zone.networkZone == .privateZone)
+        #expect(zone.networkType == .vpc)
+        #expect(zone.riskReductionEnabled == true)
+        #expect(zone.riskReductionPercent == 35)
+
+        #expect(read.mitigatesEdges.isEmpty)
+        #expect(read.recommendations.isEmpty)
+    }
 }
