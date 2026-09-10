@@ -28,6 +28,8 @@ public struct SourceThreatAnswer: Equatable, Sendable {
     /// changes nothing: the application recomputes both.
     public let severityLabel: String?
     public let score: Int?
+    /// What a person found out about how often this attack happens, or nil.
+    public let likelihood: LikelihoodFinding?
     public let controls: [SourceControlAnswer]
     public let compensating: [CompensatingControl]
     public let recommendations: [SourceRecommendation]
@@ -41,6 +43,7 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         sourceId: String,
         severityLabel: String? = nil,
         score: Int? = nil,
+        likelihood: LikelihoodFinding? = nil,
         controls: [SourceControlAnswer] = [],
         compensating: [CompensatingControl] = [],
         recommendations: [SourceRecommendation] = [],
@@ -51,6 +54,7 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         self.sourceId = sourceId
         self.severityLabel = severityLabel
         self.score = score
+        self.likelihood = likelihood
         self.controls = controls
         self.compensating = compensating
         self.recommendations = recommendations

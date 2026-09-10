@@ -63,6 +63,23 @@ struct ControlsWriter {
         }
         body += aligned(attributes)
 
+        if let finding = answer.likelihood {
+            if body.isEmpty == false { body.append("") }
+            body.append("likelihood \(quoted(finding.label)) {")
+            var inner: [(String, String)] = []
+            if Int(finding.likelihood.id) == nil {
+                inner.append(("tier", quoted(finding.likelihood.id)))
+            } else {
+                inner.append(("prior", finding.likelihood.id))
+            }
+            inner.append(("rationale", quoted(finding.rationale)))
+            if finding.sources.isEmpty == false {
+                inner.append(("sources", "[" + finding.sources.map(quoted).joined(separator: ", ") + "]"))
+            }
+            body += indent(aligned(inner))
+            body.append("}")
+        }
+
         for control in answer.controls.sorted(by: { $0.description < $1.description }) {
             if body.isEmpty == false { body.append("") }
             body.append("control \(quoted(control.description)) {")

@@ -82,6 +82,7 @@ struct ControlsParser {
 
         var severityLabel: String?
         var score: Int?
+        var likelihood: LikelihoodFinding?
         var controls: [SourceControlAnswer] = []
         var compensating: [CompensatingControl] = []
         var recommendations: [SourceRecommendation] = []
@@ -90,6 +91,15 @@ struct ControlsParser {
             switch current.text {
             case "severity": severityLabel = parseTextAttribute()
             case "score": score = parseNumberAttribute()
+            case "likelihood":
+                let token = current
+                if let finding = parseLikelihood() {
+                    if likelihood != nil {
+                        record("this threat holds two likelihood blocks; it holds one", at: token)
+                    } else {
+                        likelihood = finding
+                    }
+                }
             case "control":
                 if let control = parseControl() { controls.append(control) }
             case "compensating":
@@ -98,8 +108,8 @@ struct ControlsParser {
                 if let recommendation = parseRecommendation() { recommendations.append(recommendation) }
             default:
                 record(
-                    "a threat holds severity, score, control, compensating and recommendation, "
-                        + "not \"\(current.text)\""
+                    "a threat holds severity, score, likelihood, control, compensating and "
+                        + "recommendation, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -112,10 +122,74 @@ struct ControlsParser {
             sourceId: sourceId.text,
             severityLabel: severityLabel,
             score: score,
+            likelihood: likelihood,
             controls: controls,
             compensating: compensating,
             recommendations: recommendations,
             isStale: isStale
+        )
+    }
+
+    private mutating func parseLikelihood() -> LikelihoodFinding? {
+        advance()
+        guard let label = expect(.string, "what the finding is called") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var tier: String?
+        var prior: Int?
+        var rationale: String?
+        var sources: [String] = []
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "tier":
+                let token = current
+                let raw = parseTextAttribute() ?? ""
+                if Likelihood(rawValue: raw) == nil {
+                    record(
+                        "tier is \"\(raw)\"; this application holds "
+                            + Likelihood.allTiers.map { "\"\($0.id)\"" }.joined(separator: ", "),
+                        at: token
+                    )
+                } else {
+                    tier = raw
+                }
+            case "prior":
+                let token = current
+                prior = parseNumberAttribute()
+                if let value = prior, Likelihood(prior: value) == nil {
+                    record("prior is \(value); it runs from 0 to 100", at: token)
+                }
+            case "rationale":
+                rationale = parseTextAttribute()
+            case "sources":
+                sources = parseListAttribute()
+            default:
+                record("a likelihood holds tier, prior, rationale and sources, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        if tier != nil && prior != nil {
+            record("the likelihood \"\(label.text)\" states a tier and a prior; it states one", at: label)
+            return nil
+        }
+        guard let rationale, rationale.isEmpty == false else {
+            // Evidence nobody can justify is not evidence.
+            record("the likelihood \"\(label.text)\" has no rationale", at: label)
+            return nil
+        }
+        let read = tier.flatMap(Likelihood.init(rawValue:)) ?? prior.flatMap(Likelihood.init(prior:))
+        guard let read else {
+            record("the likelihood \"\(label.text)\" states no tier and no prior", at: label)
+            return nil
+        }
+        return LikelihoodFinding(
+            label: label.text,
+            likelihood: read,
+            rationale: rationale,
+            sources: sources
         )
     }
 
@@ -224,6 +298,21 @@ struct ControlsParser {
         guard expect(.equals, "=") != nil else { return nil }
         guard let token = expect(.number, "a whole number") else { return nil }
         return Int(token.text)
+    }
+
+    private mutating func parseListAttribute() -> [String] {
+        advance()
+        guard expect(.equals, "=") != nil else { return [] }
+        guard expect(.leftBracket, "[") != nil else { return [] }
+
+        var values: [String] = []
+        while current.kind != .rightBracket && current.kind != .endOfFile {
+            if current.kind == .comma { advance(); continue }
+            guard let token = expect(.string, "a text in quotation marks") else { break }
+            values.append(token.text)
+        }
+        _ = expect(.rightBracket, "]")
+        return values
     }
 
     // MARK: reading the token list
