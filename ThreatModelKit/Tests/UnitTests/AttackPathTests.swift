@@ -97,11 +97,12 @@ struct AttackPathTests {
 
     @Test func aCycleStopsTheWalk() {
         let built = build(
-            components: [component("a"), component("b"), component("store", .restricted)],
-            connections: [flow("a", "b"), flow("b", "a"), flow("b", "store")]
+            components: [component("entry"), component("a"), component("b"), component("store", .restricted)],
+            connections: [flow("entry", "a"), flow("a", "b"), flow("b", "a"), flow("b", "store")]
         )
         #expect(built.paths.isEmpty == false)
         #expect(built.paths.allSatisfy { $0.hops.count <= AttackPaths.maximumHops })
+        #expect(built.paths.allSatisfy { $0.startName == "entry" })
     }
 
     @Test func aDiamondFindsBothRoutesToTheSameComponent() {
@@ -122,6 +123,55 @@ struct AttackPathTests {
         let endings = built.paths.map { $0.hops.map(\.componentName) }
         #expect(endings.contains(["actor", "left", "store"]))
         #expect(endings.contains(["actor", "right", "store"]))
+    }
+
+    @Test func aDiamondWithACycleInItStillFindsBothRoutes() {
+        let built = build(
+            components: [
+                component("actor"),
+                component("left"),
+                component("right"),
+                component("store", .restricted)
+            ],
+            connections: [
+                flow("actor", "left"),
+                flow("actor", "right"),
+                flow("left", "store"),
+                flow("right", "store"),
+                flow("left", "right"),
+                flow("right", "left")
+            ]
+        )
+        let endings = built.paths.map { $0.hops.map(\.componentName) }
+        #expect(endings.contains(["actor", "left", "store"]))
+        #expect(endings.contains(["actor", "right", "store"]))
+        #expect(built.paths.allSatisfy { $0.hops.count <= AttackPaths.maximumHops })
+    }
+
+    @Test func aChainLongerThanSixHopsStopsAtTheBound() {
+        let built = build(
+            components: [
+                component("start"),
+                component("n1"),
+                component("n2"),
+                component("n3"),
+                component("n4"),
+                component("n5"),
+                component("n6"),
+                component("store", .restricted)
+            ],
+            connections: [
+                flow("start", "n1"),
+                flow("n1", "n2"),
+                flow("n2", "n3"),
+                flow("n3", "n4"),
+                flow("n4", "n5"),
+                flow("n5", "n6"),
+                flow("n6", "store")
+            ]
+        )
+        #expect(built.paths.isEmpty)
+        #expect(built.paths.allSatisfy { $0.hops.count <= AttackPaths.maximumHops })
     }
 
     @Test func theMarkdownStatesWhatItDidNotList() {

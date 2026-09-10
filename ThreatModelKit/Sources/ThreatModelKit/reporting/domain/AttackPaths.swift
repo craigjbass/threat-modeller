@@ -20,27 +20,15 @@ public enum AttackPaths {
         guard components.isEmpty == false else { return ([], 0) }
 
         var forward: [ComponentId: [Connection]] = [:]
+        var hasInbound: Set<ComponentId> = []
         for connection in connections {
             forward[connection.source, default: []].append(connection)
-        }
-
-        // A component that only ever hears from something it can itself
-        // reach back has no feed from outside its own cycle. It is still a
-        // valid start: the cycle is the only way in, so the walk must be
-        // free to begin inside it. `hasExternalInbound` marks only the
-        // components that a genuinely separate component feeds.
-        var hasExternalInbound: Set<ComponentId> = []
-        for connection in connections {
-            let targetReachesSource = Self.reachable(from: connection.target, forward: forward)
-                .contains(connection.source)
-            if targetReachesSource == false {
-                hasExternalInbound.insert(connection.target)
-            }
+            hasInbound.insert(connection.target)
         }
 
         let publicZones = zones.filter { $0.networkZone == .publicZone }
         let starts = components.filter { component in
-            hasExternalInbound.contains(component.id) == false
+            hasInbound.contains(component.id) == false
                 || ZoneContainment.zone(holding: component.centre, in: publicZones) != nil
         }
         let ends = Set(
@@ -97,23 +85,6 @@ public enum AttackPaths {
             Array(ordered.prefix(maximumPaths)),
             max(0, ordered.count - maximumPaths)
         )
-    }
-
-    /// Every component reached by following one or more forward connections
-    /// from `start`. A component that sits on a cycle reaches itself.
-    private static func reachable(
-        from start: ComponentId,
-        forward: [ComponentId: [Connection]]
-    ) -> Set<ComponentId> {
-        var visited: Set<ComponentId> = []
-        var queue = (forward[start] ?? []).map(\.target)
-        while queue.isEmpty == false {
-            let next = queue.removeFirst()
-            guard visited.contains(next) == false else { continue }
-            visited.insert(next)
-            queue.append(contentsOf: (forward[next] ?? []).map(\.target))
-        }
-        return visited
     }
 
     /// One step of the story: what the attacker reached, how they got there,
