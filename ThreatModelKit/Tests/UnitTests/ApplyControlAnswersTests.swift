@@ -224,6 +224,64 @@ struct ApplyControlAnswersTests {
         #expect(response.isClean)
     }
 
+    @Test func theRequestsToleranceOverridesTheFilesTolerance() throws {
+        let text = """
+        controls for "Payments" {
+          tolerance = "low"
+
+          threat "misconfiguration" on component "api" {
+            severity = "medium"
+            score    = 6
+
+            likelihood "no in-the-wild use" {
+              tier      = "research"
+              rationale = "no known exploitation"
+            }
+          }
+        }
+        """
+
+        let response = app.checkControlAnswers().execute(
+            CheckControlAnswersRequest(architectureText: payments, controlsText: text, tolerance: "medium")
+        )
+
+        guard case .checked(let unanswered, _, _, let usedTolerance) = response else {
+            Issue.record("expected the check to run, got \(response)")
+            return
+        }
+        #expect(usedTolerance == "medium")
+        #expect(unanswered.contains { $0.threatId == "misconfiguration" } == false)
+    }
+
+    @Test func withNoRequestOverrideTheFilesOwnToleranceStands() throws {
+        let text = """
+        controls for "Payments" {
+          tolerance = "low"
+
+          threat "misconfiguration" on component "api" {
+            severity = "medium"
+            score    = 6
+
+            likelihood "no in-the-wild use" {
+              tier      = "research"
+              rationale = "no known exploitation"
+            }
+          }
+        }
+        """
+
+        let response = app.checkControlAnswers().execute(
+            CheckControlAnswersRequest(architectureText: payments, controlsText: text)
+        )
+
+        guard case .checked(let unanswered, _, _, let usedTolerance) = response else {
+            Issue.record("expected the check to run, got \(response)")
+            return
+        }
+        #expect(usedTolerance == "low")
+        #expect(unanswered.contains { $0.threatId == "misconfiguration" } == true)
+    }
+
     @Test func reportsAStaleAnswer() throws {
         let bigger = """
         system "Payments" {

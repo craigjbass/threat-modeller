@@ -53,4 +53,22 @@ struct CheckToleranceTests {
         let source = try #require(HclControlsSource().read(controls(score: 3, tolerance: "medium")).source)
         #expect(source.riskTolerance == "medium")
     }
+
+    // The low band runs 1-3 and the medium band starts at 4, so these two
+    // pin the edge exactly: 3 is the last score low covers, 4 is the first
+    // score it does not.
+    @Test func aResidualScoreOfThreeAnswersAtLow() throws {
+        let source = try #require(HclControlsSource().read(controls(score: 3, tolerance: "low")).source)
+        #expect(source.answers.first?.isAnswered(within: .low) == true)
+    }
+
+    @Test func aResidualScoreOfFourDoesNotAnswerAtLow() throws {
+        let source = try #require(HclControlsSource().read(controls(score: 4, tolerance: "low")).source)
+        #expect(source.answers.first?.isAnswered(within: .low) == false)
+    }
+
+    @Test func aToleranceTheRiskLadderDoesNotHoldRecordsOneError() {
+        let read = HclControlsSource().read(controls(score: 3, tolerance: "extreme"))
+        #expect(read.diagnostics.filter { $0.severity == .error }.count == 1)
+    }
 }

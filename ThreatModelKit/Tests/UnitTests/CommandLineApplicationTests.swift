@@ -168,6 +168,45 @@ struct CommandLineApplicationTests {
         #expect(result.lines.contains { $0.contains("every threat is answered") })
     }
 
+    @Test func theToleranceFlagOverridesTheFilesTolerance() throws {
+        project.put(
+            """
+            system "Payments" {
+              component "db" {
+                technology = "aws-rds"
+                data       = "confidential"
+              }
+            }
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        project.put(
+            """
+            controls for "Payments" {
+              tolerance = "low"
+
+              threat "misconfiguration" on component "db" {
+                severity = "medium"
+                score    = 6
+
+                likelihood "no in-the-wild use" {
+                  tier      = "research"
+                  rationale = "no known exploitation"
+                }
+              }
+            }
+            """,
+            at: "/work/threatmodel/payments.controls"
+        )
+
+        let atTheFilesTolerance = run("check", "/work")
+        #expect(atTheFilesTolerance.code == 1)
+
+        let atMedium = run("check", "/work", "--tolerance", "medium")
+        #expect(atMedium.code == 0)
+        #expect(atMedium.lines.contains { $0.contains("checked against a medium risk tolerance") })
+    }
+
     @Test func writesTheReportBesideTheArchitecture() throws {
         project.put(payments, at: "/work/threatmodel/payments.arch")
 
