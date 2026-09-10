@@ -90,7 +90,7 @@ public struct ListPathwayMitigations: ListPathwayMitigationsUseCase {
         return ListPathwayMitigationsResponse(
             isMasterEnabled: settings.isMasterEnabled,
             mitigations: catalogue.pathwayMitigations().map { definition in
-                let config = settings.config(for: definition.id)
+                let config = settings.config(for: definition)
                 return ListedPathwayMitigation(
                     id: definition.id.value,
                     label: definition.label,

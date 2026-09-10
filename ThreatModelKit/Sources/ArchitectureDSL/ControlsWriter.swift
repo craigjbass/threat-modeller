@@ -86,6 +86,15 @@ struct ControlsWriter {
             body.append("}")
         }
 
+        for recommendation in answer.recommendations {
+            if body.isEmpty == false { body.append("") }
+            body.append("recommendation \(quoted(recommendation.text)) {")
+            if let note = recommendation.note, note.isEmpty == false {
+                body += indent(aligned([("note", quoted(note))]))
+            }
+            body.append("}")
+        }
+
         lines += indent(body)
         lines.append("}")
         return lines

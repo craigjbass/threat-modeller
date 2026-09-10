@@ -32,6 +32,13 @@ public struct Threat: Equatable, Sendable {
     public let isZoneThreat: Bool
     public let isPathwayThreat: Bool
     public let zoneContext: String?
+    /// The flow kinds this threat applies to. Empty means every kind, which is
+    /// what the resolver treats a connection threat as today.
+    public let appliesToFlowKinds: [FlowKind]
+    /// The zone boundary this threat applies to, or nil for every boundary.
+    public let boundary: ZoneBoundary?
+    /// The privilege levels this threat applies to. Empty means every level.
+    public let appliesToPrivilegeLevels: [PrivilegeLevel]
 
     public init(
         id: ThreatId,
@@ -44,7 +51,10 @@ public struct Threat: Equatable, Sendable {
         isConnectionThreat: Bool = false,
         isZoneThreat: Bool = false,
         isPathwayThreat: Bool = false,
-        zoneContext: String? = nil
+        zoneContext: String? = nil,
+        appliesToFlowKinds: [FlowKind] = [],
+        boundary: ZoneBoundary? = nil,
+        appliesToPrivilegeLevels: [PrivilegeLevel] = []
     ) {
         self.id = id
         self.name = name
@@ -57,5 +67,8 @@ public struct Threat: Equatable, Sendable {
         self.isZoneThreat = isZoneThreat
         self.isPathwayThreat = isPathwayThreat
         self.zoneContext = zoneContext
+        self.appliesToFlowKinds = appliesToFlowKinds
+        self.boundary = boundary
+        self.appliesToPrivilegeLevels = appliesToPrivilegeLevels
     }
 }

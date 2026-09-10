@@ -59,7 +59,10 @@ struct RecordControlTests {
         #expect(models.current().implementedControls == [other])
     }
 
-    @Test func changesNoScore() {
+    /// Recording one of the two controls covers half the credential-theft
+    /// threat, so its score drops from 12 to 8. The other threats carry no
+    /// control this test answers, so their scores stay at 6 and 3.
+    @Test func recordingAControlLowersOnlyItsOwnThreatsScore() {
         let catalogue = CatalogueFixture.catalogue()
         let seeded = InMemoryThreatModelGateway(
             ThreatModel(components: [
@@ -73,6 +76,7 @@ struct RecordControlTests {
         )
         let assess = AssessThreatModel(models: seeded, catalogue: catalogue)
         let before = assess.execute(AssessThreatModelRequest()).threats.map(\.riskScore)
+        #expect(before == [12, 6, 3])
 
         _ = RecordControlImplemented(models: seeded).execute(
             RecordControlImplementedRequest(
@@ -85,6 +89,6 @@ struct RecordControlTests {
             )
         )
 
-        #expect(assess.execute(AssessThreatModelRequest()).threats.map(\.riskScore) == before)
+        #expect(assess.execute(AssessThreatModelRequest()).threats.map(\.riskScore) == [8, 6, 3])
     }
 }

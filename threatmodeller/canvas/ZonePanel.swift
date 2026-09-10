@@ -10,6 +10,7 @@ struct ZonePanel: View {
     let zone: ViewedZone
 
     private static let kinds = [("private", "Private"), ("public", "Public")]
+    private static let boundaries = [("network", "Network"), ("privilege", "Privilege")]
     private static let networkTypes = [
         ("generic", "Generic Network"),
         ("vpc", "VPC"),
@@ -35,12 +36,22 @@ struct ZonePanel: View {
             .frame(width: 160)
             .accessibilityIdentifier("zone-kind")
 
-            Picker("Network", selection: networkType) {
-                ForEach(Self.networkTypes, id: \.0) { Text($0.1).tag($0.0) }
+            Picker("Boundary", selection: boundary) {
+                ForEach(Self.boundaries, id: \.0) { Text($0.1).tag($0.0) }
             }
+            .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 200)
-            .accessibilityIdentifier("zone-network-type")
+            .frame(width: 180)
+            .accessibilityIdentifier("zone-boundary")
+
+            if zone.boundaryId == "network" {
+                Picker("Network", selection: networkType) {
+                    ForEach(Self.networkTypes, id: \.0) { Text($0.1).tag($0.0) }
+                }
+                .labelsHidden()
+                .frame(width: 200)
+                .accessibilityIdentifier("zone-network-type")
+            }
 
             Toggle("Reduce risk", isOn: reductionEnabled)
                 .toggleStyle(.switch)
@@ -78,7 +89,8 @@ struct ZonePanel: View {
         kind newKind: String? = nil,
         networkType newNetworkType: String? = nil,
         enabled newEnabled: Bool? = nil,
-        percent newPercent: Int? = nil
+        percent newPercent: Int? = nil,
+        boundary newBoundary: String? = nil
     ) {
         session.setZoneProperties(
             zoneId: zone.id,
@@ -86,7 +98,8 @@ struct ZonePanel: View {
             networkZoneId: newKind ?? zone.networkZoneId,
             networkTypeId: newNetworkType ?? zone.networkTypeId,
             riskReductionEnabled: newEnabled ?? zone.riskReductionEnabled,
-            riskReductionPercent: newPercent ?? zone.riskReductionPercent
+            riskReductionPercent: newPercent ?? zone.riskReductionPercent,
+            boundaryId: newBoundary ?? zone.boundaryId
         )
     }
 
@@ -96,6 +109,10 @@ struct ZonePanel: View {
 
     private var kind: Binding<String> {
         Binding(get: { zone.networkZoneId }, set: { write(kind: $0) })
+    }
+
+    private var boundary: Binding<String> {
+        Binding(get: { zone.boundaryId }, set: { write(boundary: $0) })
     }
 
     private var networkType: Binding<String> {

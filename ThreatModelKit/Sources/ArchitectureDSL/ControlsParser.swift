@@ -84,6 +84,7 @@ struct ControlsParser {
         var score: Int?
         var controls: [SourceControlAnswer] = []
         var compensating: [CompensatingControl] = []
+        var recommendations: [SourceRecommendation] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -93,8 +94,13 @@ struct ControlsParser {
                 if let control = parseControl() { controls.append(control) }
             case "compensating":
                 if let control = parseCompensating() { compensating.append(control) }
+            case "recommendation":
+                if let recommendation = parseRecommendation() { recommendations.append(recommendation) }
             default:
-                record("a threat holds severity, score, control and compensating, not \"\(current.text)\"")
+                record(
+                    "a threat holds severity, score, control, compensating and recommendation, "
+                        + "not \"\(current.text)\""
+                )
                 skipAttribute()
             }
         }
@@ -108,6 +114,7 @@ struct ControlsParser {
             score: score,
             controls: controls,
             compensating: compensating,
+            recommendations: recommendations,
             isStale: isStale
         )
     }
@@ -184,6 +191,24 @@ struct ControlsParser {
             reducesRiskBy: percent ?? 0,
             rationale: rationale
         )
+    }
+
+    private mutating func parseRecommendation() -> SourceRecommendation? {
+        advance()
+        guard let text = expect(.string, "what the recommendation says") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var note: String?
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "note": note = parseTextAttribute()
+            default:
+                record("a recommendation holds note, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+        return SourceRecommendation(text: text.text, note: note)
     }
 
     // MARK: the attributes

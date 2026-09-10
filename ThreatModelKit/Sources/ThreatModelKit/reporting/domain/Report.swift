@@ -14,6 +14,12 @@ public struct Report: Equatable, Sendable {
     public let zones: [ReportZone]
     /// Worst first, then by source, so two reports of one model read the same.
     public let threats: [ReportThreat]
+    public let recommendations: [ReportRecommendation]
+    public let protectionDependencies: [ReportProtectionDependency]
+    public let attackPaths: [ReportAttackPath]
+    /// How many attack paths the trace found but did not list.
+    public let attackPathsNotListed: Int
+    public let rollups: ReportRollupTables
 
     public init(
         modelName: String,
@@ -22,7 +28,12 @@ public struct Report: Equatable, Sendable {
         components: [ReportComponent],
         connections: [ReportConnection],
         zones: [ReportZone],
-        threats: [ReportThreat]
+        threats: [ReportThreat],
+        recommendations: [ReportRecommendation] = [],
+        protectionDependencies: [ReportProtectionDependency] = [],
+        attackPaths: [ReportAttackPath] = [],
+        attackPathsNotListed: Int = 0,
+        rollups: ReportRollupTables = .empty
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -31,6 +42,11 @@ public struct Report: Equatable, Sendable {
         self.connections = connections
         self.zones = zones
         self.threats = threats
+        self.recommendations = recommendations
+        self.protectionDependencies = protectionDependencies
+        self.attackPaths = attackPaths
+        self.attackPathsNotListed = attackPathsNotListed
+        self.rollups = rollups
     }
 }
 
@@ -78,6 +94,10 @@ public struct ReportComponent: Equatable, Sendable {
     public let sensitivityLabel: String
     /// The zone holding it, or nil when it sits outside every zone.
     public let zoneName: String?
+    public let assetNames: [String]
+    /// The privilege level it runs at: User, Administrator, Root, System or
+    /// Kernel.
+    public let privilegeLabel: String
 
     public init(
         id: String,
@@ -85,7 +105,9 @@ public struct ReportComponent: Equatable, Sendable {
         technologyId: String,
         categoryId: String,
         sensitivityLabel: String,
-        zoneName: String?
+        zoneName: String?,
+        assetNames: [String] = [],
+        privilegeLabel: String = PrivilegeLevel.default.label
     ) {
         self.id = id
         self.name = name
@@ -93,16 +115,28 @@ public struct ReportComponent: Equatable, Sendable {
         self.categoryId = categoryId
         self.sensitivityLabel = sensitivityLabel
         self.zoneName = zoneName
+        self.assetNames = assetNames
+        self.privilegeLabel = privilegeLabel
     }
 }
 
 public struct ReportConnection: Equatable, Sendable {
     public let sourceName: String
     public let targetName: String
+    /// The flow's kind: Network, Local IPC, File, System Call or Human.
+    public let kindLabel: String
+    public let description: String?
 
-    public init(sourceName: String, targetName: String) {
+    public init(
+        sourceName: String,
+        targetName: String,
+        kindLabel: String = FlowKind.default.label,
+        description: String? = nil
+    ) {
         self.sourceName = sourceName
         self.targetName = targetName
+        self.kindLabel = kindLabel
+        self.description = description
     }
 }
 
@@ -111,20 +145,30 @@ public struct ReportZone: Equatable, Sendable {
     public let networkZoneLabel: String
     public let networkTypeLabel: String
     public let componentNames: [String]
+    /// The ids of the components this zone holds, same order as
+    /// `componentNames`. A rollup matches a threat to a zone by id, because
+    /// a display name is not unique.
+    public let componentIds: [String]
     public let riskReductionPercent: Int?
+    /// What the zone is a boundary of: Network Boundary or Privilege Boundary.
+    public let boundaryLabel: String
 
     public init(
         name: String,
         networkZoneLabel: String,
         networkTypeLabel: String,
         componentNames: [String],
-        riskReductionPercent: Int?
+        componentIds: [String] = [],
+        riskReductionPercent: Int?,
+        boundaryLabel: String = ZoneBoundary.default.label
     ) {
         self.name = name
         self.networkZoneLabel = networkZoneLabel
         self.networkTypeLabel = networkTypeLabel
         self.componentNames = componentNames
+        self.componentIds = componentIds
         self.riskReductionPercent = riskReductionPercent
+        self.boundaryLabel = boundaryLabel
     }
 }
 
@@ -141,6 +185,10 @@ public struct ReportThreat: Equatable, Sendable {
     /// "Component", "Connection" or "Zone", so a reader can group by what
     /// raised the threat.
     public let sourceKind: String
+    /// The identifier `ThreatResolver` mints for the source: `component:<id>`,
+    /// `connection:<id>` or `zone:<id>`. Task 14 keys the recommendations on
+    /// it.
+    public let sourceId: String
     public let controls: [ReportControl]
     public let pathwayMitigationLabels: [String]
     /// What compensates this threat, and what it bought.
@@ -148,6 +196,11 @@ public struct ReportThreat: Equatable, Sendable {
     /// The score before the compensating control. Equal to `riskScore` when
     /// none applied.
     public let scoreBeforeCompensation: Int
+    /// The score before the implemented controls lowered it.
+    public let inherentScore: Int
+    /// The components whose `mitigates` edges lowered this threat, by label.
+    /// Empty when none did.
+    public let mitigatedByComponentLabels: [String]
 
     public init(
         threatId: String,
@@ -160,13 +213,19 @@ public struct ReportThreat: Equatable, Sendable {
         mitreTechniqueIds: [String],
         sourceName: String,
         sourceKind: String,
+        sourceId: String = "",
         controls: [ReportControl],
         pathwayMitigationLabels: [String],
         compensating: [ReportCompensatingControl] = [],
-        scoreBeforeCompensation: Int? = nil
+        scoreBeforeCompensation: Int? = nil,
+        inherentScore: Int? = nil,
+        mitigatedByComponentLabels: [String] = []
     ) {
+        self.sourceId = sourceId
         self.compensating = compensating
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
+        self.inherentScore = inherentScore ?? riskScore
+        self.mitigatedByComponentLabels = mitigatedByComponentLabels
         self.threatId = threatId
         self.name = name
         self.description = description

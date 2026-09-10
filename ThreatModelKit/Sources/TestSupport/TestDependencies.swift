@@ -277,6 +277,10 @@ public final class TestDependencies: UseCaseFactory {
         RemoveConnection(models: models)
     }
 
+    public func setConnectionProperties() -> SetConnectionPropertiesUseCase {
+        SetConnectionProperties(models: models)
+    }
+
     public func addZone() -> AddZoneUseCase {
         AddZone(models: models, ids: ids)
     }

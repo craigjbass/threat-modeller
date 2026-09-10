@@ -314,7 +314,10 @@ mitigation "endpoint-security-client" {
 | | `reduces_risk_by` | number | 0 to 100 | **required** |
 
 `applies_to` only means something on a threat whose `connection` is `true`.
-`boundary` only means something on a threat whose `zone` is `true`.
+`boundary` means something on a threat whose `zone` is `true`, and also on a
+connection threat: `boundary = "privilege"` there raises the threat only where
+the flow crosses a privilege level, and the code reads `boundary` before
+`applies_to`, so `applies_to` has no effect on that threat.
 
 A `mitigation` block becomes a `PathwayMitigationDefinition`, the value the
 vendored `mitigations/pathway-mitigations.json` already produces. Its id and

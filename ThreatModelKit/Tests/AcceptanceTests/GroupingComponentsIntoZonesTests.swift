@@ -81,7 +81,8 @@ struct GroupingComponentsIntoZonesTests {
                 networkZone: "public",
                 networkType: "generic",
                 riskReductionEnabled: true,
-                riskReductionPercent: 20
+                riskReductionPercent: 20,
+                boundary: "network"
             )
         ) == .updated)
 
@@ -111,13 +112,13 @@ struct GroupingComponentsIntoZonesTests {
         _ = app.setZoneProperties().execute(
             SetZonePropertiesRequest(
                 zoneId: left, name: nil, networkZone: "private", networkType: "vpc",
-                riskReductionEnabled: true, riskReductionPercent: 25
+                riskReductionEnabled: true, riskReductionPercent: 25, boundary: "network"
             )
         )
         _ = app.setZoneProperties().execute(
             SetZonePropertiesRequest(
                 zoneId: right, name: nil, networkZone: "private", networkType: "subnet",
-                riskReductionEnabled: true, riskReductionPercent: 75
+                riskReductionEnabled: true, riskReductionPercent: 75, boundary: "network"
             )
         )
 

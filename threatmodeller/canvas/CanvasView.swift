@@ -87,6 +87,8 @@ struct CanvasView: View {
                 ComponentPanel(session: session, component: component)
             } else if let zone = selectedZone {
                 ZonePanel(session: session, zone: zone)
+            } else if let connection = selectedConnection {
+                ConnectionPanel(session: session, connection: connection)
             }
         }
         .dropDestination(for: String.self) { technologyIds, location in
@@ -203,6 +205,13 @@ struct CanvasView: View {
         guard canvas.selectedZoneIds.count == 1,
               let zoneId = canvas.selectedZoneIds.first else { return nil }
         return session.canvas.zones.first { $0.id == zoneId }
+    }
+
+    /// The one flow the panel edits, or nil while none or many are selected.
+    private var selectedConnection: ViewedConnection? {
+        guard canvas.selectedConnectionIds.count == 1,
+              let connectionId = canvas.selectedConnectionIds.first else { return nil }
+        return session.canvas.connections.first { $0.id == connectionId }
     }
 
     /// The drawing layer follows the model, so a saved diagram that reaches

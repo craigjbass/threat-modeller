@@ -269,6 +269,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveConnection(models: models)
     }
 
+    func setConnectionProperties() -> SetConnectionPropertiesUseCase {
+        SetConnectionProperties(models: models)
+    }
+
     func addZone() -> AddZoneUseCase {
         AddZone(models: models, ids: ids)
     }

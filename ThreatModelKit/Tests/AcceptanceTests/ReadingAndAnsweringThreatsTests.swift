@@ -57,7 +57,9 @@ struct ReadingAndAnsweringThreatsTests {
 
         let after = try threat("credential-theft")
         #expect(after.controls.first?.isImplemented == true)
-        #expect(after.riskScore == 12)
+        // One of the two controls now stands implemented, so the control
+        // coverage stage takes the score from 12 to 8.
+        #expect(after.riskScore == 8)
         #expect(summary().controlsRecorded == 1)
 
         #expect(app.recordControlNotImplemented().execute(

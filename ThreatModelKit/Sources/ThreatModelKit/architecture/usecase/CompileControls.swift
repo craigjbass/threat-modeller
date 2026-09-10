@@ -102,6 +102,7 @@ public struct CompileControls: CompileControlsUseCase {
                 score: threat.score.value,
                 controls: controls,
                 compensating: previous?.compensating ?? [],
+                recommendations: previous?.recommendations ?? [],
                 isStale: false
             )
             answers.append(answer)
@@ -121,6 +122,7 @@ public struct CompileControls: CompileControlsUseCase {
                     score: previous.score,
                     controls: previous.controls,
                     compensating: previous.compensating,
+                    recommendations: previous.recommendations,
                     isStale: true
                 )
             )

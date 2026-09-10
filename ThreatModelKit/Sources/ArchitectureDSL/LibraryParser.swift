@@ -37,6 +37,7 @@ struct LibraryParser {
         var catalogueTag: String?
         var technologies: [SourceTechnology] = []
         var threats: [SourceLibraryThreat] = []
+        var mitigations: [SourceLibraryMitigation] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -48,9 +49,11 @@ struct LibraryParser {
                 if let technology = parseTechnology() { technologies.append(technology) }
             case "threat":
                 if let threat = parseThreat() { threats.append(threat) }
+            case "mitigation":
+                if let mitigation = parseMitigation() { mitigations.append(mitigation) }
             default:
                 record(
-                    "a library holds name, catalogue, technology and threat, "
+                    "a library holds name, catalogue, technology, threat and mitigation, "
                         + "not \"\(current.text)\""
                 )
                 skipToNextBlock()
@@ -63,7 +66,8 @@ struct LibraryParser {
             displayName: displayName,
             catalogueTag: catalogueTag,
             technologies: technologies,
-            threats: threats
+            threats: threats,
+            mitigations: mitigations
         )
     }
 
@@ -129,6 +133,10 @@ struct LibraryParser {
         var zoneContext: String?
         var mitre: [SourceMitreTechnique] = []
         var controls: [String] = []
+        var appliesTo: [String] = []
+        var boundary: String?
+        var runsAs: [String] = []
+        var isPathwayThreat = false
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -143,10 +151,15 @@ struct LibraryParser {
                 if let technique = parseMitre() { mitre.append(technique) }
             case "control":
                 if let control = parseControl() { controls.append(control) }
+            case "applies_to": appliesTo = parseListAttribute()
+            case "boundary": boundary = parseTextAttribute()
+            case "runs_as": runsAs = parseListAttribute()
+            case "pathway": isPathwayThreat = parseBooleanAttribute() ?? false
             default:
                 record(
                     "a threat holds name, description, severity, stride, connection, zone, "
-                        + "zone_context, mitre and control, not \"\(current.text)\""
+                        + "zone_context, mitre, control, applies_to, boundary, runs_as and "
+                        + "pathway, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -171,7 +184,66 @@ struct LibraryParser {
             isZoneThreat: isZoneThreat,
             zoneContext: zoneContext,
             mitre: mitre,
-            controlDescriptions: controls
+            controlDescriptions: controls,
+            appliesTo: appliesTo,
+            boundary: boundary,
+            runsAs: runsAs,
+            isPathwayThreat: isPathwayThreat
+        )
+    }
+
+    private mutating func parseMitigation() -> SourceLibraryMitigation? {
+        advance()
+        guard let id = expect(.string, "the mitigation's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var name: String?
+        var description = ""
+        var mitigates: [String] = []
+        var providedBy: [String] = []
+        var reducesRiskBy: Int?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": name = parseTextAttribute()
+            case "description": description = parseTextAttribute() ?? ""
+            case "mitigates": mitigates = parseListAttribute()
+            case "provided_by": providedBy = parseListAttribute()
+            case "reduces_risk_by":
+                let token = current
+                reducesRiskBy = parseNumberAttribute()
+                if let percent = reducesRiskBy, percent < 0 || percent > 100 {
+                    record("reduces_risk_by is \(percent); it runs from 0 to 100", at: token)
+                }
+            default:
+                record(
+                    "a mitigation holds name, description, mitigates, provided_by and "
+                        + "reduces_risk_by, not \"\(current.text)\""
+                )
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let name else {
+            record("the mitigation \"\(id.text)\" has no name", at: id)
+            return nil
+        }
+        guard mitigates.isEmpty == false else {
+            record("the mitigation \"\(id.text)\" names no threats", at: id)
+            return nil
+        }
+        guard providedBy.isEmpty == false else {
+            record("the mitigation \"\(id.text)\" names no technologies", at: id)
+            return nil
+        }
+        return SourceLibraryMitigation(
+            id: id.text,
+            name: name,
+            description: description,
+            mitigatesThreatIds: mitigates,
+            technologyIds: providedBy,
+            reducesRiskBy: reducesRiskBy ?? 0
         )
     }
 
@@ -265,6 +337,13 @@ struct LibraryParser {
         advance()
         guard expect(.equals, "=") != nil else { return nil }
         return expect(.boolean, "true or false")?.text == "true"
+    }
+
+    private mutating func parseNumberAttribute() -> Int? {
+        advance()
+        guard expect(.equals, "=") != nil else { return nil }
+        guard let token = expect(.number, "a whole number") else { return nil }
+        return Int(token.text)
     }
 
     private mutating func parseListAttribute() -> [String] {

@@ -75,6 +75,27 @@ controls for "Payments" {
 }
 ```
 
+## Modelling a host
+
+A system is not only a network of services. It can also be a single host: the
+processes on it, the privilege each one runs at, and the calls between them.
+
+- A flow states its `kind`: `network`, `ipc`, `file`, `syscall`, and more. A
+  local call raises no network-only threat, such as a man-in-the-middle attack.
+- A zone states its `boundary`: `network` (the default) or `privilege`. A
+  privilege zone raises the threats a library marks for that boundary.
+- A component states the privilege it `runs_as`: `user`, `admin`, `root`,
+  `system` or `kernel`.
+- One component may mitigate a named threat on another, with the `mitigates`
+  block. A security product lowers the score of the threat it answers,
+  wherever that threat is raised.
+
+Read [the language guide](docs/LANGUAGE.md) for the full grammar of `flow`,
+`zone`, `runs_as` and `mitigates`. Read
+[`libraries/endpoint.lib`](libraries/endpoint.lib) for the technologies an
+endpoint model draws from: the operating system, its shells, its security
+products.
+
 ## The project layout
 
 ```
@@ -197,11 +218,11 @@ tag. To move version, run `add` with the new tag.
 
 The order is fixed:
 
-1. the threat's base severity
-2. a severity override, if the user set one
-3. the zone reduction, if the component sits in a private zone that reduces risk
-4. the pathway mitigation, if one answers the threat
-5. the compensating control, applied last and multiplicatively
+1. the threat's severity rank, multiplied by the component's data sensitivity
+2. the zone's risk reduction, when the component sits in a private zone
+3. the implemented controls, by their share of the applicable controls
+4. the strongest pathway mitigation upstream of the component
+5. the strongest compensating control on the threat
 
 Two compensating controls on one threat give the stronger of the two, not the
 sum. The report and the threat card show the score before compensation and after

@@ -22,10 +22,21 @@ public struct AssessThreatModelResponse: Equatable, Sendable {
     public let threats: [AssessedThreat]
     /// Every severity the override menu offers, in taxonomy order.
     public let severities: [AssessedSeverity]
+    /// What each `mitigates` edge rests on. Empty when the model draws none.
+    public let protectionDependencies: [ProtectionDependency]
+    /// What a reader must know before they trust a reduction.
+    public let warnings: [String]
 
-    public init(threats: [AssessedThreat], severities: [AssessedSeverity] = []) {
+    public init(
+        threats: [AssessedThreat],
+        severities: [AssessedSeverity] = [],
+        protectionDependencies: [ProtectionDependency] = [],
+        warnings: [String] = []
+    ) {
         self.threats = threats
         self.severities = severities
+        self.protectionDependencies = protectionDependencies
+        self.warnings = warnings
     }
 }
 
@@ -139,6 +150,12 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The score before the compensating control. Equal to `riskScore` when
     /// none applied.
     public let scoreBeforeCompensation: Int
+    /// The score before the implemented controls lowered it. Equal to
+    /// `riskScore` when nothing was implemented.
+    public let inherentScore: Int
+    /// The components whose `mitigates` edges lowered this threat, by label.
+    /// Empty when none did.
+    public let mitigatedByComponentLabels: [String]
 
     public init(
         threatId: String,
@@ -160,7 +177,9 @@ public struct AssessedThreat: Hashable, Sendable {
         pathwayMitigationLabels: [String] = [],
         scoreBeforePathwayMitigation: Int = 0,
         compensatingLabels: [String] = [],
-        scoreBeforeCompensation: Int? = nil
+        scoreBeforeCompensation: Int? = nil,
+        inherentScore: Int? = nil,
+        mitigatedByComponentLabels: [String] = []
     ) {
         self.threatId = threatId
         self.name = name
@@ -182,6 +201,8 @@ public struct AssessedThreat: Hashable, Sendable {
         self.scoreBeforePathwayMitigation = scoreBeforePathwayMitigation
         self.compensatingLabels = compensatingLabels
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
+        self.inherentScore = inherentScore ?? riskScore
+        self.mitigatedByComponentLabels = mitigatedByComponentLabels
     }
 }
 
@@ -202,7 +223,22 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
     }
 
     public func execute(_ request: AssessThreatModelRequest) -> AssessThreatModelResponse {
-        let resolved = ThreatResolver(model: models.current(), catalogue: catalogue).resolve()
+        let model = models.current()
+        let lookup = TechnologyLookup(model: model, catalogue: catalogue)
+        let resolved = ThreatResolver(model: model, catalogue: catalogue).resolve()
+        let nameOf: (ComponentId) -> String = { id in
+            guard let component = model.components.first(where: { $0.id == id }) else {
+                return id.value
+            }
+            return component.customName
+                ?? lookup.findById(component.technologyId)?.name
+                ?? component.technologyId.value
+        }
+        let dependencies = ProtectionDependencies.derive(
+            from: resolved,
+            edges: model.mitigatesEdges,
+            nameOf: nameOf
+        )
 
         return AssessThreatModelResponse(
             threats: resolved.map { threat in
@@ -236,12 +272,16 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     pathwayMitigationLabels: threat.mitigatedBy.map(\.label),
                     scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
                     compensatingLabels: threat.compensating.map(\.label),
-                    scoreBeforeCompensation: threat.scoreBeforeCompensation
+                    scoreBeforeCompensation: threat.scoreBeforeCompensation,
+                    inherentScore: threat.scoreBeforeControls,
+                    mitigatedByComponentLabels: threat.mitigatedByComponents.map(\.protectorName)
                 )
             },
             severities: catalogue.taxonomy().severities.map {
                 AssessedSeverity(id: $0.id, label: $0.label)
-            }
+            },
+            protectionDependencies: dependencies,
+            warnings: ProtectionDependencies.warnings(for: dependencies)
         )
     }
 

@@ -16,19 +16,25 @@ public struct PathwayMitigationDefinition: Equatable, Sendable {
     public let mitigatesThreatIds: [ThreatId]
     /// The technologies that provide this mitigation.
     public let technologyIds: [TechnologyId]
+    /// The percentage a library states this mitigation reduces risk by, or nil
+    /// when the catalogue states none. The user's settings start from this
+    /// value until the user sets their own.
+    public let reducesRiskBy: Int?
 
     public init(
         id: PathwayMitigationId,
         label: String,
         description: String,
         mitigatesThreatIds: [ThreatId],
-        technologyIds: [TechnologyId]
+        technologyIds: [TechnologyId],
+        reducesRiskBy: Int? = nil
     ) {
         self.id = id
         self.label = label
         self.description = description
         self.mitigatesThreatIds = mitigatesThreatIds
         self.technologyIds = technologyIds
+        self.reducesRiskBy = reducesRiskBy
     }
 
     public func mitigates(_ threatId: ThreatId) -> Bool {

@@ -54,6 +54,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
 
         var statuses: [ControlKey: ControlStatus] = [:]
         var compensating: [ThreatKey: [CompensatingControl]] = [:]
+        var recommendations: [ThreatKey: [Recommendation]] = [:]
         var warnings = read.warnings
         var applied = 0
 
@@ -92,16 +93,24 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
                 compensating[answer.key] = answer.compensating
                 applied += answer.compensating.count
             }
+
+            if answer.recommendations.isEmpty == false {
+                recommendations[answer.key] = answer.recommendations.map {
+                    Recommendation(text: $0.text, note: $0.note)
+                }
+            }
         }
 
         let readStatuses = statuses
         let readCompensating = compensating
+        let readRecommendations = recommendations
         let count = applied
         let readWarnings = warnings
 
         return models.mutate { model in
             model.controlStatuses = readStatuses
             model.compensatingControls = readCompensating
+            model.recommendations = readRecommendations
             return .applied(answers: count, warnings: readWarnings)
         }
     }

@@ -22,6 +22,9 @@ struct ArchitectureParser {
     private static let sensitivities: Set<String> = [
         "public", "internal", "confidential", "restricted"
     ]
+    private static let flowKinds: Set<String> = ["network", "ipc", "file", "syscall", "human"]
+    private static let boundaries: Set<String> = ["network", "privilege"]
+    private static let privilegeLevels: Set<String> = ["user", "admin", "root", "system", "kernel"]
 
     mutating func parse() -> ArchitectureRead {
         guard let system = parseSystem() else {
@@ -46,6 +49,7 @@ struct ArchitectureParser {
         var zones: [SourceZone] = []
         var components: [SourceComponent] = []
         var flows: [SourceFlow] = []
+        var mitigates: [SourceMitigates] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -59,8 +63,10 @@ struct ArchitectureParser {
                 if let component = parseComponent() { components.append(component) }
             case "flow":
                 if let flow = parseFlow() { flows.append(flow) }
+            case "mitigates":
+                if let edge = parseMitigates() { mitigates.append(edge) }
             default:
-                record("a system holds catalogue, technology, zone, component and flow, not \"\(current.text)\"")
+                record("a system holds catalogue, technology, zone, component, flow and mitigates, not \"\(current.text)\"")
                 skipToNextBlock()
             }
         }
@@ -72,7 +78,8 @@ struct ArchitectureParser {
             technologies: technologies,
             zones: zones,
             components: components,
-            flows: flows
+            flows: flows,
+            mitigates: mitigates
         )
     }
 
@@ -130,6 +137,8 @@ struct ArchitectureParser {
         var reducesRisk = true
         var reducesRiskBy: Int?
         var components: [SourceComponent] = []
+        var boundary = "network"
+        var description: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -153,8 +162,14 @@ struct ArchitectureParser {
                 }
             case "component":
                 if let component = parseComponent() { components.append(component) }
+            case "boundary":
+                let token = current
+                boundary = parseTextAttribute() ?? boundary
+                expectVocabulary(boundary, Self.boundaries, field: "boundary", at: token)
+            case "description":
+                description = parseTextAttribute()
             default:
-                record("a zone holds kind, network, name, reduces_risk, reduces_risk_by and component, not \"\(current.text)\"")
+                record("a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not \"\(current.text)\"")
                 skipAttribute()
             }
         }
@@ -167,7 +182,9 @@ struct ArchitectureParser {
             name: name,
             reducesRisk: reducesRisk,
             reducesRiskBy: reducesRiskBy,
-            components: components
+            components: components,
+            boundary: boundary,
+            description: description
         )
     }
 
@@ -180,6 +197,8 @@ struct ArchitectureParser {
         var name: String?
         var data = "internal"
         var raisesThreats = true
+        var runsAs = "user"
+        var assets: [SourceAsset] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -190,8 +209,14 @@ struct ArchitectureParser {
                 data = parseTextAttribute() ?? data
                 expectVocabulary(data, Self.sensitivities, field: "data", at: token)
             case "threats": raisesThreats = parseBooleanAttribute() ?? true
+            case "runs_as":
+                let token = current
+                runsAs = parseTextAttribute() ?? runsAs
+                expectVocabulary(runsAs, Self.privilegeLevels, field: "runs_as", at: token)
+            case "asset":
+                if let asset = parseAsset() { assets.append(asset) }
             default:
-                record("a component holds technology, name, data and threats, not \"\(current.text)\"")
+                record("a component holds technology, name, data, threats, runs_as and asset, not \"\(current.text)\"")
                 skipAttribute()
             }
         }
@@ -206,8 +231,31 @@ struct ArchitectureParser {
             technologyId: technologyId,
             name: name,
             data: data,
-            raisesThreats: raisesThreats
+            raisesThreats: raisesThreats,
+            runsAs: runsAs,
+            assets: assets
         )
+    }
+
+    private mutating func parseAsset() -> SourceAsset? {
+        advance()
+        guard let name = expect(.string, "the asset's name") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var data = "internal"
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "data":
+                let token = current
+                data = parseTextAttribute() ?? data
+                expectVocabulary(data, Self.sensitivities, field: "data", at: token)
+            default:
+                record("an asset holds data, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+        return SourceAsset(name: name.text, data: data)
     }
 
     private mutating func parseFlow() -> SourceFlow? {
@@ -215,7 +263,79 @@ struct ArchitectureParser {
         guard let source = expect(.identifier, "the component the flow starts at") else { return nil }
         guard expect(.arrow, "->") != nil else { return nil }
         guard let target = expect(.identifier, "the component the flow ends at") else { return nil }
-        return SourceFlow(sourceId: source.text, targetId: target.text)
+        guard current.kind == .leftBrace else {
+            return SourceFlow(sourceId: source.text, targetId: target.text)
+        }
+        advance()
+
+        var kind = "network"
+        var description: String?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "kind":
+                let token = current
+                kind = parseTextAttribute() ?? kind
+                expectVocabulary(kind, Self.flowKinds, field: "kind", at: token)
+            case "description":
+                description = parseTextAttribute()
+            default:
+                record("a flow holds kind and description, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        return SourceFlow(
+            sourceId: source.text,
+            targetId: target.text,
+            kind: kind,
+            description: description
+        )
+    }
+
+    private mutating func parseMitigates() -> SourceMitigates? {
+        advance()
+        guard let source = expect(.identifier, "the component the mitigation comes from") else { return nil }
+        guard expect(.arrow, "->") != nil else { return nil }
+        guard let target = expect(.identifier, "the component the mitigation protects") else { return nil }
+        let name = "\(source.text)->\(target.text)"
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var threatIds: [String] = []
+        var reducesRiskBy: Int?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "threats":
+                threatIds = parseListAttribute()
+            case "reduces_risk_by":
+                let token = current
+                reducesRiskBy = parseNumberAttribute()
+                if let percent = reducesRiskBy, percent < 0 || percent > 100 {
+                    record("reduces_risk_by is \(percent); it runs from 0 to 100", at: token)
+                }
+            default:
+                record("a mitigates edge holds threats and reduces_risk_by, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard threatIds.isEmpty == false else {
+            record("the mitigates edge \"\(name)\" names no threats", at: source)
+            return nil
+        }
+        guard let reducesRiskBy else {
+            record("the mitigates edge \"\(name)\" has no reduces_risk_by", at: source)
+            return nil
+        }
+        return SourceMitigates(
+            sourceId: source.text,
+            targetId: target.text,
+            threatIds: threatIds,
+            reducesRiskBy: reducesRiskBy
+        )
     }
 
     // MARK: the attributes
@@ -287,6 +407,22 @@ struct ArchitectureParser {
 
         for zone in source.zones where zone.components.isEmpty {
             record("the zone \"\(zone.id)\" holds no components", at: tokens[0], severity: .warning)
+        }
+
+        var edges: Set<String> = []
+        for edge in source.mitigates {
+            if componentIds.contains(edge.sourceId) == false {
+                record("the mitigates edge starts at \"\(edge.sourceId)\", which this file does not declare", at: tokens[0])
+            }
+            if componentIds.contains(edge.targetId) == false {
+                record("the mitigates edge ends at \"\(edge.targetId)\", which this file does not declare", at: tokens[0])
+            }
+            if edge.sourceId == edge.targetId {
+                record("the mitigates edge \"\(edge.id)\" starts and ends at the same component", at: tokens[0])
+            }
+            if edges.insert(edge.id).inserted == false {
+                record("the mitigates edge \"\(edge.id)\" is declared twice", at: tokens[0])
+            }
         }
     }
 

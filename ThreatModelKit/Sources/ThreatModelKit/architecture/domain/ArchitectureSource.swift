@@ -11,6 +11,7 @@ public struct ArchitectureSource: Equatable, Sendable {
     /// Components declared outside every zone.
     public let components: [SourceComponent]
     public let flows: [SourceFlow]
+    public let mitigates: [SourceMitigates]
 
     public init(
         systemName: String,
@@ -18,7 +19,8 @@ public struct ArchitectureSource: Equatable, Sendable {
         technologies: [SourceTechnology] = [],
         zones: [SourceZone] = [],
         components: [SourceComponent] = [],
-        flows: [SourceFlow] = []
+        flows: [SourceFlow] = [],
+        mitigates: [SourceMitigates] = []
     ) {
         self.systemName = systemName
         self.catalogueTag = catalogueTag
@@ -26,6 +28,7 @@ public struct ArchitectureSource: Equatable, Sendable {
         self.zones = zones
         self.components = components
         self.flows = flows
+        self.mitigates = mitigates
     }
 
     /// Every component the file declares, wherever it declared it.
@@ -68,6 +71,8 @@ public struct SourceZone: Equatable, Sendable {
     /// nil means the application's default.
     public let reducesRiskBy: Int?
     public let components: [SourceComponent]
+    public let boundary: String
+    public let description: String?
 
     public init(
         id: String,
@@ -76,7 +81,9 @@ public struct SourceZone: Equatable, Sendable {
         name: String? = nil,
         reducesRisk: Bool = true,
         reducesRiskBy: Int? = nil,
-        components: [SourceComponent] = []
+        components: [SourceComponent] = [],
+        boundary: String = "network",
+        description: String? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -85,6 +92,8 @@ public struct SourceZone: Equatable, Sendable {
         self.reducesRisk = reducesRisk
         self.reducesRiskBy = reducesRiskBy
         self.components = components
+        self.boundary = boundary
+        self.description = description
     }
 }
 
@@ -94,33 +103,75 @@ public struct SourceComponent: Equatable, Sendable {
     public let name: String?
     public let data: String
     public let raisesThreats: Bool
+    public let runsAs: String
+    public let assets: [SourceAsset]
 
     public init(
         id: String,
         technologyId: String,
         name: String? = nil,
         data: String = "internal",
-        raisesThreats: Bool = true
+        raisesThreats: Bool = true,
+        runsAs: String = "user",
+        assets: [SourceAsset] = []
     ) {
         self.id = id
         self.technologyId = technologyId
         self.name = name
         self.data = data
         self.raisesThreats = raisesThreats
+        self.runsAs = runsAs
+        self.assets = assets
+    }
+}
+
+public struct SourceAsset: Equatable, Sendable {
+    public let name: String
+    public let data: String
+
+    public init(name: String, data: String = "internal") {
+        self.name = name
+        self.data = data
     }
 }
 
 public struct SourceFlow: Equatable, Sendable {
     public let sourceId: String
     public let targetId: String
+    public let kind: String
+    public let description: String?
 
-    public init(sourceId: String, targetId: String) {
+    public init(
+        sourceId: String,
+        targetId: String,
+        kind: String = "network",
+        description: String? = nil
+    ) {
         self.sourceId = sourceId
         self.targetId = targetId
+        self.kind = kind
+        self.description = description
     }
 
     /// The identifier a connection takes, and the identifier the controls file
     /// keys a flow's answers on.
+    public var id: String { "\(sourceId)->\(targetId)" }
+}
+
+public struct SourceMitigates: Equatable, Sendable {
+    public let sourceId: String
+    public let targetId: String
+    public let threatIds: [String]
+    public let reducesRiskBy: Int
+
+    public init(sourceId: String, targetId: String, threatIds: [String], reducesRiskBy: Int) {
+        self.sourceId = sourceId
+        self.targetId = targetId
+        self.threatIds = threatIds
+        self.reducesRiskBy = reducesRiskBy
+    }
+
+    /// The identifier, minted the way a flow's is.
     public var id: String { "\(sourceId)->\(targetId)" }
 }
 

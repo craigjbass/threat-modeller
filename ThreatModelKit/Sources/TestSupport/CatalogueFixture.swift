@@ -144,9 +144,11 @@ public enum CatalogueFixture {
         ]
     }
 
-    /// Two connection threats shaped like the vendored ones. `connection-mitm`
+    /// Three connection threats shaped like the vendored ones. `connection-mitm`
     /// is one of the two threats TLS mitigates; `connection-dos` is not, so a
-    /// test can tell the flag apart from the score.
+    /// test can tell the flag apart from the score. `privilege-boundary-crossing`
+    /// applies only where a flow's two ends run at different privilege levels,
+    /// so a test can tell a boundary-scoped threat from a kind-scoped one.
     public static func connectionThreats() -> [Threat] {
         [
             Threat(
@@ -169,6 +171,16 @@ public enum CatalogueFixture {
                 stride: [StrideId("denial-of-service")],
                 controls: [Control(id: "ctrl-conn-2", description: "Apply connection rate limits")],
                 isConnectionThreat: true
+            ),
+            Threat(
+                id: ThreatId("privilege-boundary-crossing"),
+                name: "Privilege Boundary Crossing",
+                description: "Attacker rides a local call from a lower privilege level into a higher one",
+                severity: high,
+                stride: [StrideId("elevation-of-privilege")],
+                controls: [Control(id: "ctrl-conn-3", description: "Check the caller's privilege on every call")],
+                isConnectionThreat: true,
+                boundary: .privilege
             )
         ]
     }

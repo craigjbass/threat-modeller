@@ -49,6 +49,10 @@ struct ArchitectureWriter {
             if let percent = zone.reducesRiskBy {
                 attributes.append(("reduces_risk_by", String(percent)))
             }
+            if zone.boundary != "network" { attributes.append(("boundary", quoted(zone.boundary))) }
+            if let description = zone.description {
+                attributes.append(("description", quoted(description)))
+            }
             body += indent(aligned(attributes))
 
             for component in zone.components {
@@ -65,9 +69,32 @@ struct ArchitectureWriter {
         }
 
         for flow in source.flows {
-            body.append("flow \(flow.sourceId) -> \(flow.targetId)")
+            if flow.kind == "network" && flow.description == nil {
+                body.append("flow \(flow.sourceId) -> \(flow.targetId)")
+                continue
+            }
+            body.append("flow \(flow.sourceId) -> \(flow.targetId) {")
+            var attributes: [(String, String)] = [("kind", quoted(flow.kind))]
+            if let description = flow.description {
+                attributes.append(("description", quoted(description)))
+            }
+            body += indent(aligned(attributes))
+            body.append("}")
+            body.append("")
         }
-        if source.flows.isEmpty == false { body.append("") }
+        if source.flows.isEmpty == false && body.last != "" { body.append("") }
+
+        for edge in source.mitigates {
+            body.append("mitigates \(edge.sourceId) -> \(edge.targetId) {")
+            body += indent(
+                aligned([
+                    ("threats", "[" + edge.threatIds.map(quoted).joined(separator: ", ") + "]"),
+                    ("reduces_risk_by", String(edge.reducesRiskBy))
+                ])
+            )
+            body.append("}")
+            body.append("")
+        }
 
         while body.last == "" { body.removeLast() }
         lines += indent(body)
@@ -80,8 +107,15 @@ struct ArchitectureWriter {
         var attributes: [(String, String)] = [("technology", quoted(component.technologyId))]
         if let name = component.name { attributes.append(("name", quoted(name))) }
         attributes.append(("data", quoted(component.data)))
+        if component.runsAs != "user" { attributes.append(("runs_as", quoted(component.runsAs))) }
         if component.raisesThreats == false { attributes.append(("threats", "false")) }
         lines += indent(aligned(attributes))
+        for asset in component.assets {
+            lines.append("")
+            lines.append("  asset \(quoted(asset.name)) {")
+            lines.append("    data = \(quoted(asset.data))")
+            lines.append("  }")
+        }
         lines.append("}")
         return lines
     }

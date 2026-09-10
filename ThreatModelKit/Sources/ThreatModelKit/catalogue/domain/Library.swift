@@ -8,12 +8,20 @@ public struct Library: Equatable, Sendable {
     public let provider: Provider
     public let technologies: [Technology]
     public let threats: [Threat]
+    public let pathwayMitigations: [PathwayMitigationDefinition]
 
-    public init(label: String, provider: Provider, technologies: [Technology], threats: [Threat]) {
+    public init(
+        label: String,
+        provider: Provider,
+        technologies: [Technology],
+        threats: [Threat],
+        pathwayMitigations: [PathwayMitigationDefinition] = []
+    ) {
         self.label = label
         self.provider = provider
         self.technologies = technologies
         self.threats = threats
+        self.pathwayMitigations = pathwayMitigations
     }
 }
 
@@ -22,6 +30,9 @@ public enum LibraryBuildFault: Equatable, Sendable {
     case unknownCategory(technologyId: String, value: String)
     case unknownSeverity(threatId: String, value: String)
     case unknownStride(threatId: String, value: String)
+    case unknownFlowKind(threatId: String, value: String)
+    case unknownBoundary(threatId: String, value: String)
+    case unknownPrivilegeLevel(threatId: String, value: String)
 
     public var message: String {
         switch self {
@@ -34,6 +45,15 @@ public enum LibraryBuildFault: Equatable, Sendable {
         case .unknownStride(let threatId, let value):
             "the threat \"\(threatId)\" names the stride category \"\(value)\", "
                 + "which the taxonomy does not hold"
+        case .unknownFlowKind(let threatId, let value):
+            "the threat \"\(threatId)\" applies to the flow kind \"\(value)\", "
+                + "which the application does not hold"
+        case .unknownBoundary(let threatId, let value):
+            "the threat \"\(threatId)\" names the boundary \"\(value)\", "
+                + "which the application does not hold"
+        case .unknownPrivilegeLevel(let threatId, let value):
+            "the threat \"\(threatId)\" applies to the privilege level \"\(value)\", "
+                + "which the application does not hold"
         }
     }
 }
@@ -49,6 +69,7 @@ public extension Library {
     ) -> (library: Library?, faults: [LibraryBuildFault]) {
         var faults: [LibraryBuildFault] = []
         let declared = Set(source.threats.map(\.id))
+        let declaredTechnologies = Set(source.technologies.map(\.id))
 
         func prefixed(_ id: String) -> String { "\(source.label)-\(id)" }
 
@@ -82,6 +103,27 @@ public extension Library {
             where taxonomy.strideCategory(id: StrideId(stride)) == nil {
                 faults.append(.unknownStride(threatId: threat.id, value: stride))
             }
+            let flowKinds = threat.appliesTo.compactMap { raw -> FlowKind? in
+                guard let kind = FlowKind(rawValue: raw) else {
+                    faults.append(.unknownFlowKind(threatId: threat.id, value: raw))
+                    return nil
+                }
+                return kind
+            }
+            let levels = threat.runsAs.compactMap { raw -> PrivilegeLevel? in
+                guard let level = PrivilegeLevel(rawValue: raw) else {
+                    faults.append(.unknownPrivilegeLevel(threatId: threat.id, value: raw))
+                    return nil
+                }
+                return level
+            }
+            var boundary: ZoneBoundary?
+            if let raw = threat.boundary {
+                boundary = ZoneBoundary(rawValue: raw)
+                if boundary == nil {
+                    faults.append(.unknownBoundary(threatId: threat.id, value: raw))
+                }
+            }
             return Threat(
                 id: ThreatId(prefixed(threat.id)),
                 name: threat.name,
@@ -97,7 +139,26 @@ public extension Library {
                 },
                 isConnectionThreat: threat.isConnectionThreat,
                 isZoneThreat: threat.isZoneThreat,
-                zoneContext: threat.zoneContext
+                isPathwayThreat: threat.isPathwayThreat,
+                zoneContext: threat.zoneContext,
+                appliesToFlowKinds: flowKinds,
+                boundary: boundary,
+                appliesToPrivilegeLevels: levels
+            )
+        }
+
+        let mitigations = source.mitigations.map { mitigation in
+            PathwayMitigationDefinition(
+                id: PathwayMitigationId(prefixed(mitigation.id)),
+                label: mitigation.name,
+                description: mitigation.description,
+                mitigatesThreatIds: mitigation.mitigatesThreatIds.map {
+                    ThreatId(declared.contains($0) ? prefixed($0) : $0)
+                },
+                technologyIds: mitigation.technologyIds.map {
+                    TechnologyId(declaredTechnologies.contains($0) ? prefixed($0) : $0)
+                },
+                reducesRiskBy: mitigation.reducesRiskBy
             )
         }
 
@@ -110,7 +171,8 @@ public extension Library {
                     displayName: source.displayName ?? source.label
                 ),
                 technologies: technologies,
-                threats: threats
+                threats: threats,
+                pathwayMitigations: mitigations
             ),
             []
         )

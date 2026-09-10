@@ -8,11 +8,21 @@ public struct Connection: Equatable, Sendable {
     public let id: ConnectionId
     public let source: ComponentId
     public let target: ComponentId
+    public var kind: FlowKind
+    public var description: String?
 
-    public init(id: ConnectionId, source: ComponentId, target: ComponentId) {
+    public init(
+        id: ConnectionId,
+        source: ComponentId,
+        target: ComponentId,
+        kind: FlowKind = .default,
+        description: String? = nil
+    ) {
         self.id = id
         self.source = source
         self.target = target
+        self.kind = kind
+        self.description = description
     }
 
     /// True when the component is either end of this connection.

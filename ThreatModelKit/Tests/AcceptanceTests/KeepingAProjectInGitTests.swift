@@ -36,7 +36,8 @@ struct KeepingAProjectInGitTests {
                 componentId: componentId,
                 name: "Customer Database",
                 sensitivity: "restricted",
-                threatsDisabled: false
+                threatsDisabled: false,
+                runsAs: "user"
             )
         )
         _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))

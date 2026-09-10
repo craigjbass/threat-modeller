@@ -100,7 +100,8 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                         note: control.note
                     )
                 },
-                compensating: onScreen.compensating[answer.key] ?? answer.compensating
+                compensating: onScreen.compensating[answer.key] ?? answer.compensating,
+                recommendations: answer.recommendations
             )
             if updated.isAnswered { answered += 1 } else { unanswered += 1 }
             return updated

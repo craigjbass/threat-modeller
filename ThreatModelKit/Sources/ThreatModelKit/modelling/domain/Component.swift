@@ -14,6 +14,8 @@ public struct Component: Equatable, Sendable {
     /// When true the component raises no threats and suppresses threats on
     /// anything attached to it. Honoured from Milestone 2 onwards.
     public var threatsDisabled: Bool
+    public var runsAs: PrivilegeLevel
+    public var assets: [Asset]
 
     public init(
         id: ComponentId,
@@ -21,7 +23,9 @@ public struct Component: Equatable, Sendable {
         position: Point,
         sensitivity: DataSensitivity,
         customName: String? = nil,
-        threatsDisabled: Bool = false
+        threatsDisabled: Bool = false,
+        runsAs: PrivilegeLevel = .default,
+        assets: [Asset] = []
     ) {
         self.id = id
         self.technologyId = technologyId
@@ -29,10 +33,21 @@ public struct Component: Equatable, Sendable {
         self.sensitivity = sensitivity
         self.customName = customName
         self.threatsDisabled = threatsDisabled
+        self.runsAs = runsAs
+        self.assets = assets
     }
 
     /// The centre of the footprint. `ZoneContainment` tests this point.
     public var centre: Point {
         Point(x: position.x + Self.size.width / 2, y: position.y + Self.size.height / 2)
+    }
+
+    /// The sensitivity the score uses: the highest of the component's own and
+    /// every asset it holds. An asset never lowers what the component states.
+    public var effectiveSensitivity: DataSensitivity {
+        SensitivityLadder.higher(
+            sensitivity,
+            SensitivityLadder.highest(of: assets.map(\.sensitivity)) ?? sensitivity
+        )
     }
 }

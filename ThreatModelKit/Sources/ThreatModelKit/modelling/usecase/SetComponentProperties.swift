@@ -10,17 +10,22 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
     public let sensitivity: String
     /// True to leave the node on the diagram but raise nothing for it.
     public let threatsDisabled: Bool
+    /// The privilege the component runs at: user, admin, root, system or
+    /// kernel.
+    public let runsAs: String
 
     public init(
         componentId: String,
         name: String?,
         sensitivity: String,
-        threatsDisabled: Bool
+        threatsDisabled: Bool,
+        runsAs: String
     ) {
         self.componentId = componentId
         self.name = name
         self.sensitivity = sensitivity
         self.threatsDisabled = threatsDisabled
+        self.runsAs = runsAs
     }
 }
 
@@ -28,6 +33,7 @@ public enum SetComponentPropertiesResponse: Equatable, Sendable {
     case updated
     case unknownComponent
     case unknownSensitivity
+    case unknownPrivilegeLevel
 }
 
 /// Changes what a node is called, how sensitive its data is, and whether it
@@ -47,6 +53,9 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
         guard let sensitivity = DataSensitivity(rawValue: request.sensitivity) else {
             return .unknownSensitivity
         }
+        guard let runsAs = PrivilegeLevel(rawValue: request.runsAs) else {
+            return .unknownPrivilegeLevel
+        }
         let name = request.name?.trimmingWhitespace() ?? ""
 
         return models.mutate { model in
@@ -57,6 +66,7 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
             model.components[index].customName = name.isEmpty ? nil : name
             model.components[index].sensitivity = sensitivity
             model.components[index].threatsDisabled = request.threatsDisabled
+            model.components[index].runsAs = runsAs
             return .updated
         }
     }

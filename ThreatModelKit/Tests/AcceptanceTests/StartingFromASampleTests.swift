@@ -44,7 +44,8 @@ struct StartingFromASampleTests {
                 componentId: componentId,
                 name: "The One That Matters",
                 sensitivity: "restricted",
-                threatsDisabled: false
+                threatsDisabled: false,
+                runsAs: "user"
             )
         )
 
@@ -74,7 +75,7 @@ struct StartingFromASampleTests {
         let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest())
 
         #expect(markdown.markdown.contains("## Threats"))
-        #expect(markdown.markdown.contains("| Name | Technology | Sensitivity | Zone |"))
+        #expect(markdown.markdown.contains("| Name | Technology | Sensitivity | Privilege | Zone | Assets |"))
         #expect(markdown.markdown.contains("## Threats\n\nNone.") == false)
     }
 

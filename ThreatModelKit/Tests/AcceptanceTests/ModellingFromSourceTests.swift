@@ -82,7 +82,8 @@ struct ModellingFromSourceTests {
                 componentId: componentId,
                 name: "Reporting Store",
                 sensitivity: "restricted",
-                threatsDisabled: false
+                threatsDisabled: false,
+                runsAs: "user"
             )
         )
 

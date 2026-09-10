@@ -18,6 +18,12 @@ public struct ThreatModel: Equatable, Sendable {
     /// What compensates a threat the catalogue's own controls do not answer.
     /// Spec section 5: the one thing in a controls file that moves a score.
     public var compensatingControls: [ThreatKey: [CompensatingControl]]
+    /// One component answering a named threat on another. Task 9 reads these;
+    /// until then the resolver carries them without acting on them.
+    public var mitigatesEdges: [MitigatesEdge]
+    /// What a person says should be done about a threat, keyed the way a
+    /// compensating control is.
+    public var recommendations: [ThreatKey: [Recommendation]]
 
     /// Every control the user has recorded as in place.
     ///
@@ -57,6 +63,8 @@ public struct ThreatModel: Equatable, Sendable {
         implementedControls: Set<ControlKey> = [],
         controlStatuses: [ControlKey: ControlStatus] = [:],
         compensatingControls: [ThreatKey: [CompensatingControl]] = [:],
+        mitigatesEdges: [MitigatesEdge] = [],
+        recommendations: [ThreatKey: [Recommendation]] = [:],
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
         createdAt: Date = Date(timeIntervalSince1970: 0),
@@ -70,6 +78,8 @@ public struct ThreatModel: Equatable, Sendable {
         self.severityOverrides = severityOverrides
         self.controlStatuses = controlStatuses
         self.compensatingControls = compensatingControls
+        self.mitigatesEdges = mitigatesEdges
+        self.recommendations = recommendations
         // The two ways of saying the same thing meet here: a caller may pass
         // either, and a recorded control is a status.
         for key in implementedControls {

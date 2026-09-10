@@ -96,6 +96,66 @@ struct ReportingTests {
         #expect(connection.targetName.isEmpty == false)
         #expect(connection.sourceName != connection.targetName)
     }
+
+    @Test func namesAComponentsPrivilege() throws {
+        let id = add("aws-ec2")
+        _ = app.setComponentProperties().execute(
+            SetComponentPropertiesRequest(
+                componentId: id,
+                name: nil,
+                sensitivity: "internal",
+                threatsDisabled: false,
+                runsAs: "root"
+            )
+        )
+
+        let component = try #require(report().components.first)
+
+        #expect(component.privilegeLabel == "Root")
+    }
+
+    @Test func namesAConnectionsKindAndDescription() throws {
+        let source = add("aws-ec2")
+        let target = add("aws-rds")
+        guard case .connected(let connectionId) = app.connectComponents().execute(
+            ConnectComponentsRequest(sourceComponentId: source, targetComponentId: target)
+        ) else {
+            Issue.record("the components were not connected")
+            return
+        }
+        _ = app.setConnectionProperties().execute(
+            SetConnectionPropertiesRequest(connectionId: connectionId, kind: "ipc", description: "XPC call")
+        )
+
+        let connection = try #require(report().connections.first)
+
+        #expect(connection.kindLabel == "Local IPC")
+        #expect(connection.description == "XPC call")
+    }
+
+    @Test func namesAZonesBoundary() throws {
+        guard case .added(let zoneId) = app.addZone().execute(
+            AddZoneRequest(x: -100, y: -100, width: 800, height: 700)
+        ) else {
+            Issue.record("the zone was not added")
+            return
+        }
+        _ = app.setZoneProperties().execute(
+            SetZonePropertiesRequest(
+                zoneId: zoneId,
+                name: nil,
+                networkZone: "private",
+                networkType: "generic",
+                riskReductionEnabled: true,
+                riskReductionPercent: 20,
+                boundary: "privilege"
+            )
+        )
+
+        let zone = try #require(report().zones.first)
+
+        #expect(zone.boundaryLabel == "Privilege Boundary")
+    }
 }
 
 @Suite("Writing a report as Markdown")
@@ -136,9 +196,80 @@ struct MarkdownExportTests {
 
         let markdown = markdown()
 
-        #expect(markdown.contains("| Name | Technology | Sensitivity | Zone |"))
-        #expect(markdown.contains("| --- | --- | --- | --- |"))
-        #expect(markdown.contains("| aws-ec2 | Restricted | \u{2014} |"))
+        #expect(markdown.contains("| Name | Technology | Sensitivity | Privilege | Zone | Assets |"))
+        #expect(markdown.contains("| --- | --- | --- | --- | --- | --- |"))
+        #expect(markdown.contains("| EC2 | aws-ec2 | Restricted | User | \u{2014} |  |"))
+    }
+
+    @Test func writesEachComponentsAssetsInTheAssetsColumn() {
+        let architecture = """
+        system "Vault" {
+          component "secrets" {
+            technology = "aws-ec2"
+            data       = "confidential"
+
+            asset "ssh-keys" { data = "restricted" }
+          }
+        }
+        """
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: architecture))
+
+        let markdown = markdown()
+
+        // The component states "confidential", but its "ssh-keys" asset
+        // states "restricted". The score uses the higher of the two, so the
+        // table names the sensitivity the score used, not the one declared.
+        #expect(markdown.contains("| EC2 | aws-ec2 | Restricted | User | \u{2014} | ssh-keys |"))
+    }
+
+    @Test func writesEachConnectionsKindAndDescription() throws {
+        let architecture = """
+        system "Endpoint" {
+          component "devtools" { technology = "aws-ec2" }
+          component "secrets"  { technology = "aws-rds" }
+
+          flow devtools -> secrets {
+            kind        = "ipc"
+            description = "XPC call to read a secret"
+          }
+        }
+        """
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: architecture))
+
+        let markdown = markdown()
+
+        #expect(
+            markdown.contains(
+                "- EC2 \u{2192} RDS, by Local IPC: XPC call to read a secret"
+            )
+        )
+    }
+
+    @Test func writesAZonesBoundary() throws {
+        _ = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-ec2", x: 100, y: 100, sensitivity: "internal")
+        )
+        guard case .added(let zoneId) = app.addZone().execute(
+            AddZoneRequest(x: -100, y: -100, width: 800, height: 700)
+        ) else {
+            Issue.record("the zone was not added")
+            return
+        }
+        _ = app.setZoneProperties().execute(
+            SetZonePropertiesRequest(
+                zoneId: zoneId,
+                name: nil,
+                networkZone: "private",
+                networkType: "generic",
+                riskReductionEnabled: true,
+                riskReductionPercent: 20,
+                boundary: "privilege"
+            )
+        )
+
+        let markdown = markdown()
+
+        #expect(markdown.contains("- Boundary: Privilege Boundary"))
     }
 
     @Test func writesAControlAsATickBox() {
@@ -180,6 +311,31 @@ struct MarkdownExportTests {
 
         #expect(markdown.contains("- Compensated by: Watched by the SIEM (50%,"))
         #expect(markdown.contains("  - Rationale: It alerts on use."))
+    }
+
+    @Test func writesWhatAMitigatesEdgeReduced() throws {
+        guard case .added(let guardId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-waf", x: 0, y: 0, sensitivity: "internal")
+        ), case .added(let storeId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-ec2", x: 200, y: 0, sensitivity: "restricted")
+        ) else {
+            Issue.record("the components were not added")
+            return
+        }
+        app.modelStore.mutate { model in
+            model.mitigatesEdges = [
+                MitigatesEdge(
+                    source: ComponentId(guardId),
+                    target: ComponentId(storeId),
+                    threatIds: [ThreatId("credential-theft")],
+                    reducesRiskBy: 75
+                )
+            ]
+        }
+
+        let markdown = markdown()
+
+        #expect(markdown.contains("- Reduced by: WAF"))
     }
 
     @Test func countsTheControlsByStatus() throws {

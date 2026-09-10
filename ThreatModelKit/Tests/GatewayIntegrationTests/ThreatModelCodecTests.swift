@@ -77,7 +77,7 @@ struct ThreatModelCodecTests {
         )
 
         #expect(json["formatVersion"] as? Int == ThreatModelCodec.formatVersion)
-        #expect(ThreatModelCodec.formatVersion == 3)
+        #expect(ThreatModelCodec.formatVersion == 4)
         let catalogue = try #require(json["catalogue"] as? [String: Any])
         #expect(catalogue["tag"] as? String == "v1.0.1")
         #expect(json["customTechnologies"] as? [Any] != nil)
@@ -172,7 +172,7 @@ struct ThreatModelCodecTests {
         json["formatVersion"] = 99
         let data = try JSONSerialization.data(withJSONObject: json)
 
-        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 3)) {
+        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 4)) {
             try codec.decode(data)
         }
     }
@@ -192,6 +192,45 @@ struct ThreatModelCodecTests {
         json["zones"] = zones
 
         #expect(throws: ThreatModelFileError.unknownValue(field: "networkType", value: "mainframe")) {
+            try codec.decode(try JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
+    @Test func refusesARunsAsValueTheVocabularyDoesNotHold() throws {
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: try codec.encode(fullModel())) as? [String: Any]
+        )
+        var components = try #require(json["components"] as? [[String: Any]])
+        components[0]["runsAs"] = "hypervisor"
+        json["components"] = components
+
+        #expect(throws: ThreatModelFileError.unknownValue(field: "runsAs", value: "hypervisor")) {
+            try codec.decode(try JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
+    @Test func refusesAKindValueTheVocabularyDoesNotHold() throws {
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: try codec.encode(fullModel())) as? [String: Any]
+        )
+        var connections = try #require(json["connections"] as? [[String: Any]])
+        connections[0]["kind"] = "carrier-pigeon"
+        json["connections"] = connections
+
+        #expect(throws: ThreatModelFileError.unknownValue(field: "kind", value: "carrier-pigeon")) {
+            try codec.decode(try JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
+    @Test func refusesABoundaryValueTheVocabularyDoesNotHold() throws {
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: try codec.encode(fullModel())) as? [String: Any]
+        )
+        var zones = try #require(json["zones"] as? [[String: Any]])
+        zones[0]["boundary"] = "orbit"
+        json["zones"] = zones
+
+        #expect(throws: ThreatModelFileError.unknownValue(field: "boundary", value: "orbit")) {
             try codec.decode(try JSONSerialization.data(withJSONObject: json))
         }
     }
@@ -239,9 +278,9 @@ struct ThreatModelCodecTests {
 
     @Test func refusesASnippetFromAVersionItDoesNotKnow() throws {
         let text = try codec.encodeSelection(snippet())
-            .replacingOccurrences(of: "\"formatVersion\" : 3", with: "\"formatVersion\" : 99")
+            .replacingOccurrences(of: "\"formatVersion\" : 4", with: "\"formatVersion\" : 99")
 
-        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 3)) {
+        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 4)) {
             try codec.decodeSelection(text)
         }
     }
