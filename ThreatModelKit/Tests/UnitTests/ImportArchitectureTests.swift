@@ -147,4 +147,93 @@ struct ImportArchitectureTests {
 
         #expect(view().components.isEmpty)
     }
+
+    @Test func carriesAnAssumedEdgeAsAssumedAndAPlainEdgeAsAdopted() throws {
+        _ = importIt("""
+        system "P" {
+          component "shield" { technology = "aws-ec2" }
+          component "host" { technology = "aws-ec2" }
+
+          mitigates shield -> host {
+            threats         = ["persistence"]
+            reduces_risk_by = 60
+            status          = "assumed"
+          }
+        }
+        """)
+
+        let model = app.modelStore.current()
+        let edge = try #require(model.mitigatesEdges.first)
+        #expect(edge.status == .assumed)
+    }
+
+    @Test func anEdgeWithNoStatusArrivesAdopted() throws {
+        _ = importIt("""
+        system "P" {
+          component "shield" { technology = "aws-ec2" }
+          component "host" { technology = "aws-ec2" }
+
+          mitigates shield -> host {
+            threats         = ["persistence"]
+            reduces_risk_by = 60
+          }
+        }
+        """)
+
+        let model = app.modelStore.current()
+        let edge = try #require(model.mitigatesEdges.first)
+        #expect(edge.status == .adopted)
+    }
+
+    @Test func carriesTheRiskToleranceTheFileStates() {
+        _ = importIt("""
+        system "P" {
+          risk_tolerance = "medium"
+          component "a" { technology = "aws-ec2" }
+        }
+        """)
+
+        #expect(app.modelStore.current().riskTolerance == .medium)
+    }
+
+    @Test func aSystemThatStatesNoToleranceIsLow() {
+        _ = importIt("""
+        system "P" {
+          component "a" { technology = "aws-ec2" }
+        }
+        """)
+
+        #expect(app.modelStore.current().riskTolerance == .low)
+    }
+
+    @Test func carriesAnAssumptionWithItsLabelTextAndOwner() throws {
+        _ = importIt("""
+        system "P" {
+          assumption "mdm-push" {
+            text  = "the hardening baseline is written, and MDM has not pushed it yet"
+            owner = "platform team"
+          }
+          component "a" { technology = "aws-ec2" }
+        }
+        """)
+
+        let assumption = try #require(app.modelStore.current().assumptions.first)
+        #expect(assumption.label == "mdm-push")
+        #expect(assumption.text == "the hardening baseline is written, and MDM has not pushed it yet")
+        #expect(assumption.owner == "platform team")
+    }
+
+    @Test func anAssumptionWithNoOwnerArrivesWithANilOwner() throws {
+        _ = importIt("""
+        system "P" {
+          assumption "mdm-push" {
+            text = "the hardening baseline is written, and MDM has not pushed it yet"
+          }
+          component "a" { technology = "aws-ec2" }
+        }
+        """)
+
+        let assumption = try #require(app.modelStore.current().assumptions.first)
+        #expect(assumption.owner == nil)
+    }
 }
