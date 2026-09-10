@@ -56,6 +56,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         var compensating: [ThreatKey: [CompensatingControl]] = [:]
         var recommendations: [ThreatKey: [Recommendation]] = [:]
         var likelihoods: [ThreatKey: LikelihoodFinding] = [:]
+        var decisions: [ThreatKey: SeverityDecision] = [:]
         var warnings = read.warnings
         var applied = 0
 
@@ -104,12 +105,29 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
             if let finding = answer.likelihood {
                 likelihoods[answer.key] = finding
             }
+
+            if let decision = answer.severityDecision {
+                if catalogue.taxonomy().severity(id: decision.severityId) == nil {
+                    warnings.append(
+                        Diagnostic(
+                            severity: .warning,
+                            line: 1,
+                            column: 1,
+                            message: "\"\(decision.severityId)\" is not a severity this catalogue holds, "
+                                + "so the severity_override on \"\(answer.threatId)\" is not applied"
+                        )
+                    )
+                } else {
+                    decisions[answer.key] = decision
+                }
+            }
         }
 
         let readStatuses = statuses
         let readCompensating = compensating
         let readRecommendations = recommendations
         let readLikelihoods = likelihoods
+        let readDecisions = decisions
         let count = applied
         let readWarnings = warnings
 
@@ -118,6 +136,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
             model.compensatingControls = readCompensating
             model.recommendations = readRecommendations
             model.likelihoodFindings = readLikelihoods
+            model.severityDecisions = readDecisions
             return .applied(answers: count, warnings: readWarnings)
         }
     }

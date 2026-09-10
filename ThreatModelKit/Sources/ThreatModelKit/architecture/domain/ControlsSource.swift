@@ -30,6 +30,9 @@ public struct SourceThreatAnswer: Equatable, Sendable {
     public let score: Int?
     /// What a person found out about how often this attack happens, or nil.
     public let likelihood: LikelihoodFinding?
+    /// What a person decided this threat's severity is, and why, or nil when
+    /// the catalogue's own severity stands.
+    public let severityDecision: SeverityDecision?
     public let controls: [SourceControlAnswer]
     public let compensating: [CompensatingControl]
     public let recommendations: [SourceRecommendation]
@@ -44,6 +47,7 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         severityLabel: String? = nil,
         score: Int? = nil,
         likelihood: LikelihoodFinding? = nil,
+        severityDecision: SeverityDecision? = nil,
         controls: [SourceControlAnswer] = [],
         compensating: [CompensatingControl] = [],
         recommendations: [SourceRecommendation] = [],
@@ -55,6 +59,7 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         self.severityLabel = severityLabel
         self.score = score
         self.likelihood = likelihood
+        self.severityDecision = severityDecision
         self.controls = controls
         self.compensating = compensating
         self.recommendations = recommendations

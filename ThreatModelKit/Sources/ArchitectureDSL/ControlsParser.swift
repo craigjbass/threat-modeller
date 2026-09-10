@@ -83,6 +83,7 @@ struct ControlsParser {
         var severityLabel: String?
         var score: Int?
         var likelihood: LikelihoodFinding?
+        var severityDecision: SeverityDecision?
         var controls: [SourceControlAnswer] = []
         var compensating: [CompensatingControl] = []
         var recommendations: [SourceRecommendation] = []
@@ -100,6 +101,15 @@ struct ControlsParser {
                         likelihood = finding
                     }
                 }
+            case "severity_override":
+                let token = current
+                if let decision = parseSeverityOverride() {
+                    if severityDecision != nil {
+                        record("this threat holds two severity_override blocks; it holds one", at: token)
+                    } else {
+                        severityDecision = decision
+                    }
+                }
             case "control":
                 if let control = parseControl() { controls.append(control) }
             case "compensating":
@@ -108,8 +118,8 @@ struct ControlsParser {
                 if let recommendation = parseRecommendation() { recommendations.append(recommendation) }
             default:
                 record(
-                    "a threat holds severity, score, likelihood, control, compensating and "
-                        + "recommendation, not \"\(current.text)\""
+                    "a threat holds severity, score, likelihood, severity_override, control, "
+                        + "compensating and recommendation, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -123,6 +133,7 @@ struct ControlsParser {
             severityLabel: severityLabel,
             score: score,
             likelihood: likelihood,
+            severityDecision: severityDecision,
             controls: controls,
             compensating: compensating,
             recommendations: recommendations,
@@ -203,6 +214,33 @@ struct ControlsParser {
             rationale: rationale,
             sources: sources
         )
+    }
+
+    private mutating func parseSeverityOverride() -> SeverityDecision? {
+        advance()
+        guard let label = expect(.string, "the severity the assessor chose") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var rationale: String?
+        var sources: [String] = []
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "rationale": rationale = parseTextAttribute()
+            case "sources": sources = parseListAttribute()
+            default:
+                record("a severity_override holds rationale and sources, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let rationale, rationale.isEmpty == false else {
+            // A severity decision nobody can justify is not one.
+            record("the severity_override \"\(label.text)\" has no rationale", at: label)
+            return nil
+        }
+        return SeverityDecision(severityId: label.text, rationale: rationale, sources: sources)
     }
 
     private mutating func parseControl() -> SourceControlAnswer? {

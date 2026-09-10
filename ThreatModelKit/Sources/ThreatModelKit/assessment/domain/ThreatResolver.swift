@@ -101,6 +101,9 @@ public struct ResolvedThreat: Equatable, Sendable {
     /// What a controls file found out about this threat's likelihood, or nil
     /// when the library's prior stands.
     public let likelihoodFinding: LikelihoodFinding?
+    /// What an assessor decided this threat's severity is, and why, or nil
+    /// when no decision names this threat on this source.
+    public let severityDecision: SeverityDecision?
 
     public init(
         threat: Threat,
@@ -121,7 +124,8 @@ public struct ResolvedThreat: Equatable, Sendable {
         mitigatedByComponents: [ComponentMitigation] = [],
         likelihood: Likelihood = .commodity,
         scoreBeforeLikelihood: Int? = nil,
-        likelihoodFinding: LikelihoodFinding? = nil
+        likelihoodFinding: LikelihoodFinding? = nil,
+        severityDecision: SeverityDecision? = nil
     ) {
         self.scoreBeforeControls = scoreBeforeControls ?? score.value
         self.compensating = compensating
@@ -142,6 +146,7 @@ public struct ResolvedThreat: Equatable, Sendable {
         self.likelihood = likelihood
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? score.value
         self.likelihoodFinding = likelihoodFinding
+        self.severityDecision = severityDecision
     }
 }
 
@@ -213,7 +218,11 @@ public struct ThreatResolver {
                     technologyId: component.technologyId,
                     threatId: threat.id
                 )
-                let chosen = severity(for: threat, overrideKey: overrideKey)
+                let chosen = severity(
+                    for: threat,
+                    overrideKey: overrideKey,
+                    sourceId: "component:\(component.id.value)"
+                )
                 let sensitivity = escalated(
                     threat: threat,
                     on: component,
@@ -264,7 +273,8 @@ public struct ThreatResolver {
                         mitigatedBy: mitigation.by,
                         scoreBeforePathwayMitigation: covered,
                         scoreBeforeControls: zoned.value,
-                        mitigatedByComponents: byComponents.by
+                        mitigatedByComponents: byComponents.by,
+                        severityDecision: chosen.decision
                     )
                 )
             }
@@ -291,7 +301,11 @@ public struct ThreatResolver {
                     crossesPrivilege: crossesPrivilege
                 ) else { continue }
                 let overrideKey = SeverityOverrideKey.forConnection(threatId: threat.id)
-                let chosen = severity(for: threat, overrideKey: overrideKey)
+                let chosen = severity(
+                    for: threat,
+                    overrideKey: overrideKey,
+                    sourceId: "connection:\(connection.id.value)"
+                )
                 let base = RiskScore(severity: chosen.severity, sensitivity: sensitivity)
                 let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard zoned.value > 0 else { continue }
@@ -332,7 +346,8 @@ public struct ThreatResolver {
                         overriddenSeverityId: chosen.overriddenId,
                         mitigatedBy: mitigation.by,
                         scoreBeforePathwayMitigation: covered,
-                        scoreBeforeControls: zoned.value
+                        scoreBeforeControls: zoned.value,
+                        severityDecision: chosen.decision
                     )
                 )
             }
@@ -350,7 +365,11 @@ public struct ThreatResolver {
                     boundary: zone.boundary
                 ) else { continue }
                 let overrideKey = SeverityOverrideKey.forZone(threatId: threat.id)
-                let chosen = severity(for: threat, overrideKey: overrideKey)
+                let chosen = severity(
+                    for: threat,
+                    overrideKey: overrideKey,
+                    sourceId: "zone:\(zone.id.value)"
+                )
                 let base = RiskScore(severity: chosen.severity, sensitivity: .internalData)
                 let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard zoned.value > 0 else { continue }
@@ -373,7 +392,8 @@ public struct ThreatResolver {
                         // nothing is upstream of it and nothing mitigates it.
                         mitigatedBy: [],
                         scoreBeforePathwayMitigation: score.value,
-                        scoreBeforeControls: zoned.value
+                        scoreBeforeControls: zoned.value,
+                        severityDecision: chosen.decision
                     )
                 )
             }
@@ -418,7 +438,8 @@ public struct ThreatResolver {
             mitigatedByComponents: threat.mitigatedByComponents,
             likelihood: likelihood,
             scoreBeforeLikelihood: threat.score.value,
-            likelihoodFinding: finding
+            likelihoodFinding: finding,
+            severityDecision: threat.severityDecision
         )
     }
 
@@ -453,21 +474,29 @@ public struct ThreatResolver {
             mitigatedByComponents: threat.mitigatedByComponents,
             likelihood: threat.likelihood,
             scoreBeforeLikelihood: threat.scoreBeforeLikelihood,
-            likelihoodFinding: threat.likelihoodFinding
+            likelihoodFinding: threat.likelihoodFinding,
+            severityDecision: threat.severityDecision
         )
     }
 
-    /// The severity a threat is scored with: the one the user overrode it to
-    /// when the taxonomy knows that id, else the threat's own. An override to
+    /// The severity a threat is scored with. An assessor's own decision for
+    /// this threat on this source wins, when the taxonomy knows the id it
+    /// names; else the user's technology-wide override, when the taxonomy
+    /// knows that id; else the threat's own. An override or decision naming
     /// an id the taxonomy has never heard of is ignored rather than trusted;
     /// a catalogue update can retire a severity.
-    private func severity(for threat: Threat, overrideKey: SeverityOverrideKey)
-        -> (severity: ThreatSeverity, overriddenId: String?) {
+    private func severity(for threat: Threat, overrideKey: SeverityOverrideKey, sourceId: String)
+        -> (severity: ThreatSeverity, overriddenId: String?, decision: SeverityDecision?) {
+        let key = ThreatKey(threatId: threat.id.value, sourceId: sourceId)
+        if let decision = model.severityDecisions[key],
+           let chosen = catalogue.taxonomy().severity(id: decision.severityId) {
+            return (chosen, decision.severityId, decision)
+        }
         guard let overriddenId = model.severityOverrides[overrideKey],
               let overridden = catalogue.taxonomy().severity(id: overriddenId) else {
-            return (threat.severity, nil)
+            return (threat.severity, nil, nil)
         }
-        return (overridden, overriddenId)
+        return (overridden, overriddenId, nil)
     }
 
     /// Spec section 5.3: a pathway threat escalates to the highest sensitivity

@@ -91,6 +91,17 @@ struct ControlsWriter {
             body.append("}")
         }
 
+        if let decision = answer.severityDecision {
+            if body.isEmpty == false { body.append("") }
+            body.append("severity_override \(quoted(decision.severityId)) {")
+            var inner: [(String, String)] = [("rationale", quoted(decision.rationale))]
+            if decision.sources.isEmpty == false {
+                inner.append(("sources", "[" + decision.sources.map(quoted).joined(separator: ", ") + "]"))
+            }
+            body += indent(aligned(inner))
+            body.append("}")
+        }
+
         for compensating in answer.compensating {
             if body.isEmpty == false { body.append("") }
             body.append("compensating \(quoted(compensating.label)) {")
