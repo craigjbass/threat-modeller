@@ -107,13 +107,21 @@ recognises by its position, so a keyword used anywhere else is an ordinary
 identifier, and a quoted string that reads as a keyword is a string.
 
 The architecture language reads these keywords: `system`, `catalogue`,
-`technology`, `zone`, `component`, `flow`, `name`, `category`, `description`,
-`threats`, `encrypts`, `kind`, `network`, `reduces_risk`, `reduces_risk_by`,
-`technology`, `data`, `mitigates`, `boundary`, `runs_as`, `asset`.
+`risk_tolerance`, `assumption`, `text`, `owner`, `technology`, `name`,
+`category`, `description`, `threats`, `encrypts`, `zone`, `kind`, `network`,
+`boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
+`asset`, `flow`, `mitigates`, `status`.
 
 The controls language reads these keywords: `controls`, `for`, `catalogue`,
-`stale`, `threat`, `on`, `severity`, `score`, `control`, `status`, `note`,
-`compensating`, `reduces_risk_by`, `rationale`, `recommendation`.
+`tolerance`, `stale`, `threat`, `on`, `severity`, `score`, `likelihood`,
+`tier`, `prior`, `rationale`, `sources`, `severity_override`, `control`,
+`status`, `note`, `compensating`, `reduces_risk_by`, `recommendation`.
+
+The library language reads these keywords: `library`, `name`, `catalogue`,
+`technology`, `category`, `description`, `threats`, `encrypts`, `threat`,
+`severity`, `stride`, `connection`, `zone`, `zone_context`, `applies_to`,
+`boundary`, `runs_as`, `pathway`, `likelihood`, `mitre`, `tactic`, `control`,
+`mitigation`, `mitigates`, `provided_by`, `reduces_risk_by`.
 
 ### 2.7 String literals
 
@@ -161,21 +169,32 @@ The lexer skips that character and reads on.
 
 ## 3. Block syntax
 
-Both languages are built from two forms: a block, and an attribute.
+The three languages are built from three forms: a block, an attribute, and a
+statement.
 
 ```
-Block     = Keyword { Label } "{" { BlockEntry } "}" ;
-Attribute = Keyword "=" Value ;
-Value     = String | Number | Boolean | StringList ;
+Block      = Keyword { Label } "{" { BlockEntry } "}" ;
+Attribute  = Keyword "=" Value ;
+Statement  = Keyword Label ;
+Value      = String | Number | Boolean | StringList ;
 StringList = "[" [ String { [ "," ] String } ] "]" ;
 ```
 
 - A **block** takes a keyword, zero or more labels, and a body in braces. A
-  label is a string. `component "api" { … }` is a block with the keyword
-  `component` and the label `api`.
+  label is usually a string: `component "api" { … }` is a block with the
+  keyword `component` and the label `api`. A flow header and a mitigates
+  header take two bare identifiers instead of a string label, joined by
+  `->`: `flow api -> ledger` is a block whose keyword is `flow` and whose two
+  labels are the identifiers `api` and `ledger`. A block's body is optional
+  when the block defines no required attribute: `flow api -> ledger` with no
+  braces is that same block with an empty body (`ArchitectureParser.swift:305-311`).
 - An **attribute** takes a keyword, an equals sign and one value. Each attribute
   is written on one line by convention; the grammar does not require it.
-- A block body holds attributes and nested blocks in any order.
+- A **statement** takes a keyword and one label, and no body. The library
+  language's `control "<description>"` is a statement: it names a control
+  with no status, because a library states what a control is and a
+  `.controls` file states its status (`LibraryParser.swift:308-311`).
+- A block body holds attributes, nested blocks and statements in any order.
 
 Two further rules:
 
@@ -542,6 +561,10 @@ Errors, which stop the import and produce no model:
 | a flow that ends at an undeclared component | `the flow ends at "<id>", which this file does not declare` |
 | a flow from a component to itself | `the flow "<id>" starts and ends at the same component` |
 | the same flow declared twice | `the flow "<id>" is declared twice` |
+| a mitigates edge that starts at an undeclared component | `the mitigates edge starts at "<id>", which this file does not declare` |
+| a mitigates edge that ends at an undeclared component | `the mitigates edge ends at "<id>", which this file does not declare` |
+| a mitigates edge from a component to itself | `the mitigates edge "<id>" starts and ends at the same component` |
+| the same mitigates edge declared twice | `the mitigates edge "<id>" is declared twice` |
 | an assumption label declared twice | `the assumption "<label>" is declared twice` |
 
 Warnings, which do not stop the import:
@@ -603,46 +626,17 @@ CompensatingAttr  = "reduces_risk_by" "=" Number
 RecommendationBlock = "recommendation" String "{" { RecommendationAttr } "}" ;
 RecommendationAttr  = "note"    "=" String
                     | "sources" "=" StringList ;
-
-(* the library language *)
-
-LibraryFile  = LibraryBlock ;
-
-LibraryBlock = "library" String "{" { LibraryEntry } "}" ;
-LibraryEntry = "name"      "=" String
-             | "catalogue" "=" String
-             | TechnologyBlock
-             | ThreatBlock
-             | MitigationBlock ;
-
-ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
-ThreatEntry = "name"         "=" String
-            | "description"  "=" String
-            | "severity"     "=" String
-            | "stride"       "=" StringList
-            | "connection"   "=" Boolean
-            | "zone"         "=" Boolean
-            | "zone_context" "=" String
-            | "likelihood"   "=" ( String | Number )
-            | MitreBlock
-            | ControlStatement ;
-
-MitreBlock = "mitre" String "{" { MitreAttr } "}" ;
-MitreAttr  = "name"   "=" String
-           | "tactic" "=" String ;
-
-ControlStatement = "control" String ;
-
-MitigationBlock = "mitigation" String "{" { MitigationAttr } "}" ;
-MitigationAttr  = "name"            "=" String
-                | "description"     "=" String
-                | "mitigates"       "=" StringList
-                | "provided_by"     "=" StringList
-                | "reduces_risk_by" "=" Number ;
 ```
 
 A file holds exactly one `controls for` block. Text after its closing brace is
 not read.
+
+A file that does not start with `controls` is the error `expected controls,
+not "<word>"`, and nothing is read. A `controls` block missing the keyword
+`for` is the error `expected for, not "<word>"`. Both messages read
+differently from the architecture and library files' `this file starts with
+<keyword>, not "<word>"`, because the controls parser checks the two keywords
+`controls` and `for` in turn, rather than one keyword.
 
 ### 5.2 `controls for`
 
@@ -702,8 +696,10 @@ An empty body means the threat is raised and nothing answers it:
 threat "t-lateral-movement" on zone "app" { }
 ```
 
-A source kind that is not `component`, `zone` or `flow` is the error
-`a threat is raised by a component, a zone or a flow, not "<word>"`.
+A threat block with no `on` keyword after the threat identifier is the error
+`a threat says what raised it: on component, on zone or on flow`. A source
+kind that is not `component`, `zone` or `flow` is the error `a threat is
+raised by a component, a zone or a flow, not "<word>"`.
 
 **`recommendation`.** A threat block may hold one or more `recommendation`
 blocks, alongside its controls.
@@ -865,14 +861,16 @@ A block states a tier or a prior, never both. `tier` names a band from the
 library language's three tiers; `prior` is a percentage a person measured or
 estimated directly.
 
-A block with no `rationale`, or an empty one, is the error `the likelihood
-"<label>" has no rationale`, and the block is dropped. A finding nobody can
-justify is not one. A block that states both a `tier` and a `prior` is the
-error `the likelihood "<label>" states a tier and a prior; it states one`. A
-block that states neither is the error `the likelihood "<label>" states no
-tier and no prior`. A `prior` outside 0 to 100 is the error `prior is <n>; it
-runs from 0 to 100`. A threat that holds a second `likelihood` block is the
-error `this threat holds two likelihood blocks; it holds one`.
+A `tier` outside `commodity`, `targeted` or `research` is the error `tier is
+"<raw>"; this application holds "commodity", "targeted", "research"`. A block
+with no `rationale`, or an empty one, is the error `the likelihood "<label>"
+has no rationale`, and the block is dropped. A finding nobody can justify is
+not one. A block that states both a `tier` and a `prior` is the error `the
+likelihood "<label>" states a tier and a prior; it states one`. A block that
+states neither is the error `the likelihood "<label>" states no tier and no
+prior`. A `prior` outside 0 to 100 is the error `prior is <n>; it runs from 0
+to 100`. A threat that holds a second `likelihood` block is the error `this
+threat holds two likelihood blocks; it holds one`.
 
 `threatmodeller check` counts a threat as answered by its likelihood only
 while the residual score sits at or below the project's risk tolerance.
@@ -1026,6 +1024,10 @@ ThreatEntry = "name"         "=" String
             | "connection"   "=" Boolean
             | "zone"         "=" Boolean
             | "zone_context" "=" String
+            | "applies_to"   "=" StringList
+            | "boundary"     "=" String
+            | "runs_as"      "=" StringList
+            | "pathway"      "=" Boolean
             | "likelihood"   "=" ( String | Number )
             | MitreBlock
             | ControlStatement ;
@@ -1116,6 +1118,7 @@ number runs from 0 to 100`.
 A `mitigation` block declares a pathway mitigation: a control a technology
 provides that lowers named threats. `reduces_risk_by` is the percentage the
 mitigation starts at; a project's settings may change it. A block with no
+`name` is the error `the mitigation "<id>" has no name`. A block with no
 `mitigates` is the error `the mitigation "<id>" names no threats`. A block
 with no `provided_by` is the error `the mitigation "<id>" names no
 technologies`.
@@ -1152,9 +1155,12 @@ Errors, which stop the project opening:
 | a file that does not start with `library` | `this file starts with library, not "<word>"` |
 | a duplicate technology id | `the technology "<id>" is declared twice` |
 | a duplicate threat id | `the threat "<id>" is declared twice` |
-| a technology with no `name` or no `category` | `the technology "<id>" has no name` |
-| a threat with no `name` or no `severity` | `the threat "<id>" has no severity` |
-| a `mitre` block with no `name` or no `tactic` | `the technique "<id>" has no tactic` |
+| a technology with no `name` | `the technology "<id>" has no name` |
+| a technology with no `category` | `the technology "<id>" has no category` |
+| a threat with no `name` | `the threat "<id>" has no name` |
+| a threat with no `severity` | `the threat "<id>" has no severity` |
+| a `mitre` block with no `name` | `the technique "<id>" has no name` |
+| a `mitre` block with no `tactic` | `the technique "<id>" has no tactic` |
 | a block or an attribute the grammar does not hold | `a library holds name, catalogue, technology, threat and mitigation, not "<word>"` |
 
 Warnings, which do not:
@@ -1214,6 +1220,35 @@ faults reports four rather than one.
 | a missing required attribute | records one diagnostic and drops the block |
 | an unknown character | records one diagnostic and skips that one character |
 
+### 7.4 What each block holds
+
+An entry that is not one of a block's own attributes or nested blocks is the
+message below. The parser then does what section 7.3 states for "an unknown
+entry" or "an unknown attribute".
+
+| Language | Block | Message |
+| --- | --- | --- |
+| architecture | `system` | `a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance and assumption, not "<word>"` |
+| architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
+| architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
+| architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
+| architecture | `component` | `a component holds technology, name, data, threats, runs_as and asset, not "<word>"` |
+| architecture | `asset` | `an asset holds data, not "<word>"` |
+| architecture | `flow` | `a flow holds kind and description, not "<word>"` |
+| architecture | `mitigates` | `a mitigates edge holds threats, reduces_risk_by and status, not "<word>"` |
+| controls | `controls for` | `a controls file holds catalogue, tolerance, threat and stale threat, not "<word>"` |
+| controls | `threat` | `a threat holds severity, score, likelihood, severity_override, control, compensating and recommendation, not "<word>"` |
+| controls | `likelihood` | `a likelihood holds tier, prior, rationale and sources, not "<word>"` |
+| controls | `severity_override` | `a severity_override holds rationale and sources, not "<word>"` |
+| controls | `control` | `a control holds status and note, not "<word>"` |
+| controls | `compensating` | `a compensating control holds reduces_risk_by, rationale and sources, not "<word>"` |
+| controls | `recommendation` | `a recommendation holds note and sources, not "<word>"` |
+| library | `library` | `a library holds name, catalogue, technology, threat and mitigation, not "<word>"` |
+| library | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
+| library | `threat` | `a threat holds name, description, severity, stride, connection, zone, zone_context, mitre, control, applies_to, boundary, runs_as, pathway and likelihood, not "<word>"` |
+| library | `mitre` | `a mitre technique holds name and tactic, not "<word>"` |
+| library | `mitigation` | `a mitigation holds name, description, mitigates, provided_by and reduces_risk_by, not "<word>"` |
+
 ## 8. Canonical form
 
 The writer emits one shape, so a rewrite of an unchanged source produces no
@@ -1231,15 +1266,17 @@ Both writers share these rules:
 - an attribute holding its default value is not written
 - comments are not written
 
-The architecture writer writes, in this order: `catalogue`, then the
-technologies, then the zones with their components nested in declaration order,
-then the top-level components, then the flows. Inside a block the attribute
-order is fixed, and it is the order of the tables in section 4.
+The architecture writer writes, in this order: `risk_tolerance`, then every
+`assumption` block, then `catalogue`, then the technologies, then the zones
+with their components nested in declaration order, then the top-level
+components, then the flows, then the `mitigates` edges. Inside a block the
+attribute order is fixed, and it is the order of the tables in section 4.
 
 The controls writer writes the live answers before the stale ones. Inside each
 group it writes the components, then the flows, then the zones; inside each, by
 source identifier; inside each, by threat identifier. Inside a threat block it
-writes `severity` and `score`, then the controls sorted by description, then the
+writes `severity` and `score`, then the `likelihood` block, then the controls
+sorted by description, then the `severity_override` block, then the
 compensating controls, then the recommendations.
 
 ## 9. A worked example
@@ -1450,6 +1487,10 @@ ThreatEntry = "name"         "=" String
             | "connection"   "=" Boolean
             | "zone"         "=" Boolean
             | "zone_context" "=" String
+            | "applies_to"   "=" StringList
+            | "boundary"     "=" String
+            | "runs_as"      "=" StringList
+            | "pathway"      "=" Boolean
             | "likelihood"   "=" ( String | Number )
             | MitreBlock
             | ControlStatement ;
