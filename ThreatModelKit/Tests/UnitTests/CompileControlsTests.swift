@@ -160,6 +160,32 @@ struct CompileControlsTests {
         #expect(second == first)
     }
 
+    @Test func keepsALikelihoodFindingAndASeverityDecisionThroughACompile() throws {
+        let first = text(of: compile(payments))
+        let edited = first.replacingOccurrences(
+            of: "  score",
+            with: """
+              likelihood "no in-the-wild use" {
+                tier      = "research"
+                rationale = "every bypass was researcher-found"
+                sources   = ["CVE-2021-30892"]
+              }
+
+              severity_override "high" {
+                rationale = "the exploit reads"
+              }
+
+              score
+            """
+        )
+
+        let again = text(of: compile(payments, edited))
+
+        #expect(again.contains("likelihood \"no in-the-wild use\""))
+        #expect(again.contains("severity_override \"high\""))
+        #expect(again.contains("CVE-2021-30892"))
+    }
+
     @Test func refusesAnArchitectureThatDidNotParse() {
         let response = compile("system \"P\" { component \"a\" { } }")
 

@@ -105,20 +105,33 @@ struct ControlsWriter {
         for compensating in answer.compensating {
             if body.isEmpty == false { body.append("") }
             body.append("compensating \(quoted(compensating.label)) {")
-            body += indent(
-                aligned([
-                    ("reduces_risk_by", String(compensating.reducesRiskBy)),
-                    ("rationale", quoted(compensating.rationale))
-                ])
-            )
+            var inner: [(String, String)] = [
+                ("reduces_risk_by", String(compensating.reducesRiskBy)),
+                ("rationale", quoted(compensating.rationale))
+            ]
+            if compensating.sources.isEmpty == false {
+                inner.append(
+                    ("sources", "[" + compensating.sources.map(quoted).joined(separator: ", ") + "]")
+                )
+            }
+            body += indent(aligned(inner))
             body.append("}")
         }
 
         for recommendation in answer.recommendations {
             if body.isEmpty == false { body.append("") }
             body.append("recommendation \(quoted(recommendation.text)) {")
+            var inner: [(String, String)] = []
             if let note = recommendation.note, note.isEmpty == false {
-                body += indent(aligned([("note", quoted(note))]))
+                inner.append(("note", quoted(note)))
+            }
+            if recommendation.sources.isEmpty == false {
+                inner.append(
+                    ("sources", "[" + recommendation.sources.map(quoted).joined(separator: ", ") + "]")
+                )
+            }
+            if inner.isEmpty == false {
+                body += indent(aligned(inner))
             }
             body.append("}")
         }

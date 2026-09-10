@@ -7,11 +7,14 @@ public struct CompensatingControl: Equatable, Sendable {
     /// 0 to 100.
     public let reducesRiskBy: Int
     public let rationale: String
+    /// Where the rationale comes from. Empty when a person names none.
+    public let sources: [String]
 
-    public init(label: String, reducesRiskBy: Int, rationale: String) {
+    public init(label: String, reducesRiskBy: Int, rationale: String, sources: [String] = []) {
         self.label = label
         self.reducesRiskBy = reducesRiskBy
         self.rationale = rationale
+        self.sources = sources
     }
 }
 

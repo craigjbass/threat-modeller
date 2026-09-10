@@ -94,10 +94,13 @@ public struct SourceThreatAnswer: Equatable, Sendable {
 public struct SourceRecommendation: Equatable, Sendable {
     public let text: String
     public let note: String?
+    /// Where the recommendation comes from. Empty when a person names none.
+    public let sources: [String]
 
-    public init(text: String, note: String? = nil) {
+    public init(text: String, note: String? = nil, sources: [String] = []) {
         self.text = text
         self.note = note
+        self.sources = sources
     }
 }
 

@@ -287,6 +287,7 @@ struct ControlsParser {
 
         var percent: Int?
         var rationale: String?
+        var sources: [String] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -298,8 +299,13 @@ struct ControlsParser {
                 }
             case "rationale":
                 rationale = parseTextAttribute()
+            case "sources":
+                sources = parseListAttribute()
             default:
-                record("a compensating control holds reduces_risk_by and rationale, not \"\(current.text)\"")
+                record(
+                    "a compensating control holds reduces_risk_by, rationale and sources, "
+                        + "not \"\(current.text)\""
+                )
                 skipAttribute()
             }
         }
@@ -313,7 +319,8 @@ struct ControlsParser {
         return CompensatingControl(
             label: label.text,
             reducesRiskBy: percent ?? 0,
-            rationale: rationale
+            rationale: rationale,
+            sources: sources
         )
     }
 
@@ -323,16 +330,18 @@ struct ControlsParser {
         guard expect(.leftBrace, "{") != nil else { return nil }
 
         var note: String?
+        var sources: [String] = []
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
             case "note": note = parseTextAttribute()
+            case "sources": sources = parseListAttribute()
             default:
-                record("a recommendation holds note, not \"\(current.text)\"")
+                record("a recommendation holds note and sources, not \"\(current.text)\"")
                 skipAttribute()
             }
         }
         _ = expect(.rightBrace, "}")
-        return SourceRecommendation(text: text.text, note: note)
+        return SourceRecommendation(text: text.text, note: note, sources: sources)
     }
 
     // MARK: the attributes

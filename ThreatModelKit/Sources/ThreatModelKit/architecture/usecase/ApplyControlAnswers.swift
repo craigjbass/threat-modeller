@@ -98,7 +98,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
 
             if answer.recommendations.isEmpty == false {
                 recommendations[answer.key] = answer.recommendations.map {
-                    Recommendation(text: $0.text, note: $0.note)
+                    Recommendation(text: $0.text, note: $0.note, sources: $0.sources)
                 }
             }
 
