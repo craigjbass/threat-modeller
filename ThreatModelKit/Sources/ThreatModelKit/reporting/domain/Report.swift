@@ -22,6 +22,10 @@ public struct Report: Equatable, Sendable {
     public let rollups: ReportRollupTables
     /// What the model takes on trust. Empty for a model that assumes nothing.
     public let assumptions: [ReportAssumption]
+    /// The `mitigates` edges marked assumed rather than adopted, in report
+    /// form. An edge names no assumption, so this travels beside
+    /// `assumptions` rather than nested inside one.
+    public let assumedMitigations: [ReportAssumedMitigation]
 
     public init(
         modelName: String,
@@ -36,7 +40,8 @@ public struct Report: Equatable, Sendable {
         attackPaths: [ReportAttackPath] = [],
         attackPathsNotListed: Int = 0,
         rollups: ReportRollupTables = .empty,
-        assumptions: [ReportAssumption] = []
+        assumptions: [ReportAssumption] = [],
+        assumedMitigations: [ReportAssumedMitigation] = []
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -51,6 +56,7 @@ public struct Report: Equatable, Sendable {
         self.attackPathsNotListed = attackPathsNotListed
         self.rollups = rollups
         self.assumptions = assumptions
+        self.assumedMitigations = assumedMitigations
     }
 }
 
@@ -294,14 +300,27 @@ public struct ReportAssumption: Equatable, Sendable {
     public let label: String
     public let text: String
     public let owner: String?
-    /// The edges this assumption stands behind, already worded for a reader.
-    public let edges: [String]
 
-    public init(label: String, text: String, owner: String? = nil, edges: [String] = []) {
+    public init(label: String, text: String, owner: String? = nil) {
         self.label = label
         self.text = text
         self.owner = owner
-        self.edges = edges
+    }
+}
+
+/// One `mitigates` edge marked assumed rather than adopted, in report form.
+public struct ReportAssumedMitigation: Equatable, Sendable {
+    public let protectorName: String
+    public let protectedName: String
+    /// The threats this edge would answer, by id.
+    public let threatIds: [String]
+    public let reducesRiskBy: Int
+
+    public init(protectorName: String, protectedName: String, threatIds: [String], reducesRiskBy: Int) {
+        self.protectorName = protectorName
+        self.protectedName = protectedName
+        self.threatIds = threatIds
+        self.reducesRiskBy = reducesRiskBy
     }
 }
 

@@ -100,22 +100,24 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             nameOf: nameOf
         )
 
-        // One line per assumed edge, shown under every assumption: the model
-        // carries no link from an assumption to the edge it excuses, so a
-        // reader sees the whole list of what the model is still trusting.
-        let assumedEdgeLines = model.mitigatesEdges
+        // An edge names no assumption, so the assumed `mitigates` edges
+        // travel as their own list rather than repeated under every
+        // assumption.
+        let assumedMitigations = model.mitigatesEdges
             .filter { $0.status == .assumed }
             .map {
-                "\(nameOf($0.source)) \u{2192} \(nameOf($0.target)),"
-                    + " mitigates \($0.threatIds.map(\.value).joined(separator: ", ")),"
-                    + " \u{2212}\($0.reducesRiskBy)%"
+                ReportAssumedMitigation(
+                    protectorName: nameOf($0.source),
+                    protectedName: nameOf($0.target),
+                    threatIds: $0.threatIds.map(\.value),
+                    reducesRiskBy: $0.reducesRiskBy
+                )
             }
         let assumptions = model.assumptions.map { assumption in
             ReportAssumption(
                 label: assumption.label,
                 text: assumption.text,
-                owner: assumption.owner,
-                edges: assumedEdgeLines
+                owner: assumption.owner
             )
         }
 
@@ -163,7 +165,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 attackPaths: attack.paths,
                 attackPathsNotListed: attack.notListed,
                 rollups: ReportRollups.build(threats: threats, zones: zones),
-                assumptions: assumptions
+                assumptions: assumptions,
+                assumedMitigations: assumedMitigations
             )
         )
     }

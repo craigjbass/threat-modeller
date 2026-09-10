@@ -47,7 +47,10 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         lines += MarkdownAttackPaths.lines(report.attackPaths, notListed: report.attackPathsNotListed)
         lines += MarkdownProtectionDependencies.lines(report.protectionDependencies)
         lines += MarkdownRecommendations.lines(report.recommendations)
-        lines += MarkdownAssumptions.lines(report.assumptions)
+        lines += MarkdownAssumptions.lines(
+            assumptions: report.assumptions,
+            assumedMitigations: report.assumedMitigations
+        )
         lines += threats(report.threats)
 
         return ExportModelAsMarkdownResponse(
@@ -173,11 +176,6 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             if threat.scoreIfAssumptionsHold != threat.riskScore {
                 lines.append("- If the assumptions hold: \(threat.scoreIfAssumptionsHold)")
             }
-            for compensating in threat.compensating where compensating.sources.isEmpty == false {
-                for source in compensating.sources {
-                    lines.append("  - Source: \(source)")
-                }
-            }
             if threat.strideLabels.isEmpty == false {
                 lines.append("- STRIDE: \(threat.strideLabels.joined(separator: ", "))")
             }
@@ -191,6 +189,9 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
                         + " \(threat.scoreBeforeCompensation) \u{2192} \(threat.riskScore))"
                 )
                 lines.append("  - Rationale: \(compensating.rationale)")
+                for source in compensating.sources {
+                    lines.append("  - Source: \(source)")
+                }
             }
             if threat.pathwayMitigationLabels.isEmpty == false {
                 lines.append(
