@@ -186,7 +186,7 @@ struct ApplyControlAnswersTests {
             CheckControlAnswersRequest(architectureText: payments)
         )
 
-        guard case .checked(let unanswered, let stale, _) = response else {
+        guard case .checked(let unanswered, let stale, _, _) = response else {
             Issue.record("expected the check to run, got \(response)")
             return
         }
@@ -242,7 +242,7 @@ struct ApplyControlAnswersTests {
             CheckControlAnswersRequest(architectureText: payments, controlsText: text)
         )
 
-        guard case .checked(_, let stale, _) = response else {
+        guard case .checked(_, let stale, _, _) = response else {
             Issue.record("expected the check to run, got \(response)")
             return
         }

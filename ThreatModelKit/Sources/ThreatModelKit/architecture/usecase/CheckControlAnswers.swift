@@ -5,10 +5,13 @@ public protocol CheckControlAnswersUseCase {
 public struct CheckControlAnswersRequest: Equatable, Sendable {
     public let architectureText: String
     public let controlsText: String?
+    /// A risk level that overrides what the architecture file states, or nil.
+    public let tolerance: String?
 
-    public init(architectureText: String, controlsText: String? = nil) {
+    public init(architectureText: String, controlsText: String? = nil, tolerance: String? = nil) {
         self.architectureText = architectureText
         self.controlsText = controlsText
+        self.tolerance = tolerance
     }
 }
 
@@ -31,11 +34,11 @@ public struct UnansweredThreat: Equatable, Sendable {
 }
 
 public enum CheckControlAnswersResponse: Equatable, Sendable {
-    case checked(unanswered: [UnansweredThreat], stale: [String], diagnostics: [Diagnostic])
+    case checked(unanswered: [UnansweredThreat], stale: [String], diagnostics: [Diagnostic], tolerance: String)
     case refused(diagnostics: [Diagnostic])
 
     public var isClean: Bool {
-        guard case .checked(let unanswered, let stale, _) = self else { return false }
+        guard case .checked(let unanswered, let stale, _, _) = self else { return false }
         return unanswered.isEmpty && stale.isEmpty
     }
 }
@@ -74,6 +77,10 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             return .refused(diagnostics: read.diagnostics)
         }
 
+        let tolerance = request.tolerance.flatMap(RiskLevel.init(rawValue:))
+            ?? source.riskTolerance.flatMap(RiskLevel.init(rawValue:))
+            ?? .low
+
         var unanswered: [UnansweredThreat] = []
         var stale: [String] = []
 
@@ -82,7 +89,7 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
                 stale.append(answer.key.value)
                 continue
             }
-            guard answer.isAnswered == false else { continue }
+            guard answer.isAnswered(within: tolerance) == false else { continue }
             unanswered.append(
                 UnansweredThreat(
                     threatId: answer.threatId,
@@ -93,6 +100,11 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             )
         }
 
-        return .checked(unanswered: unanswered, stale: stale, diagnostics: read.warnings)
+        return .checked(
+            unanswered: unanswered,
+            stale: stale,
+            diagnostics: read.warnings,
+            tolerance: tolerance.rawValue
+        )
     }
 }

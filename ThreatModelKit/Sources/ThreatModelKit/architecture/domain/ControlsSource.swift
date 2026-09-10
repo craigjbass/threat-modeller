@@ -2,15 +2,20 @@
 public struct ControlsSource: Equatable, Sendable {
     public let systemName: String
     public let catalogueTag: String?
+    /// The risk level a likelihood finding may answer up to, written by the
+    /// compiler from the architecture file. Nil means low.
+    public let riskTolerance: String?
     public let answers: [SourceThreatAnswer]
 
     public init(
         systemName: String,
         catalogueTag: String? = nil,
+        riskTolerance: String? = nil,
         answers: [SourceThreatAnswer] = []
     ) {
         self.systemName = systemName
         self.catalogueTag = catalogueTag
+        self.riskTolerance = riskTolerance
         self.answers = answers
     }
 
@@ -84,6 +89,17 @@ public struct SourceThreatAnswer: Equatable, Sendable {
 
     public var isAnswered: Bool {
         compensating.isEmpty == false || controls.contains { $0.status.isAnswered }
+    }
+
+    /// True when a person has answered this threat.
+    ///
+    /// A likelihood finding answers a threat only inside the project's
+    /// tolerance: evidence closes a threat nobody exploits, and it never
+    /// closes a High one.
+    public func isAnswered(within tolerance: RiskLevel) -> Bool {
+        if isAnswered { return true }
+        guard likelihood != nil, let score else { return false }
+        return RiskScore(value: score).level.rank <= tolerance.rank
     }
 }
 

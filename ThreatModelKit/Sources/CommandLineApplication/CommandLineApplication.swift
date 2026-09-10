@@ -50,6 +50,7 @@ public struct CommandLineApplication {
         var isQuiet = false
         var isForced = false
         var catalogueDirectory: String?
+        var tolerance: String?
 
         var flagless: [String] = []
         var index = 0
@@ -62,6 +63,9 @@ public struct CommandLineApplication {
             case "--catalogue":
                 index += 1
                 catalogueDirectory = index < words.count ? words[index] : nil
+            case "--tolerance":
+                index += 1
+                tolerance = index < words.count ? words[index] : nil
             case "-o":
                 index += 1
                 if index < words.count { flagless.append("-o:" + words[index]) }
@@ -91,7 +95,7 @@ public struct CommandLineApplication {
         case "compile":
             return compile(root: root, isQuiet: isQuiet, output: output)
         case "check":
-            return check(root: root, output: output)
+            return check(root: root, tolerance: tolerance, output: output)
         case "library":
             return library(words: Array(words.dropFirst()), isForced: isForced, output: output)
         case "report":
@@ -199,7 +203,7 @@ public struct CommandLineApplication {
     }
 
     /// Says what a pull request has not answered.
-    private func check(root: String, output: (String) -> Void) -> Int32 {
+    private func check(root: String, tolerance: String?, output: (String) -> Void) -> Int32 {
         forEachSystem(root: root, output: output) { system, useCases in
             guard let architectureText = read(system.architecturePath, output) else {
                 return .fileFault
@@ -209,9 +213,13 @@ public struct CommandLineApplication {
                 : nil
 
             let response = useCases.checkControlAnswers().execute(
-                CheckControlAnswersRequest(architectureText: architectureText, controlsText: existing)
+                CheckControlAnswersRequest(
+                    architectureText: architectureText,
+                    controlsText: existing,
+                    tolerance: tolerance
+                )
             )
-            guard case .checked(let unanswered, let stale, _) = response else {
+            guard case .checked(let unanswered, let stale, _, let usedTolerance) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
                     output(diagnostic.described(in: system.architecturePath))
@@ -225,6 +233,7 @@ public struct CommandLineApplication {
             for key in stale {
                 output("\(system.controlsPath): \(key) is answered but no longer raised")
             }
+            output("\(system.name): checked against a \(usedTolerance) risk tolerance")
             if unanswered.isEmpty && stale.isEmpty {
                 output("\(system.name): every threat is answered")
                 return .success
@@ -582,10 +591,11 @@ public struct CommandLineApplication {
       threatmodeller library outdated [<root>]                say which libraries have a newer tag
 
     Options:
-      -o <dir>            write the reports into this directory
-      --catalogue <dir>   read the threat catalogue from this directory
-      -q, --quiet         say nothing about a file that did not change
-      -f, --force         remove a library a system still names
+      -o <dir>              write the reports into this directory
+      --catalogue <dir>     read the threat catalogue from this directory
+      --tolerance <level>   a likelihood finding answers a threat up to this level
+      -q, --quiet           say nothing about a file that did not change
+      -f, --force           remove a library a system still names
 
     add, update and outdated run `git`, so they use the access a person
     already has: their ssh-agent, their ~/.ssh/config and their credential

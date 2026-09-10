@@ -12,6 +12,16 @@ public enum RiskLevel: String, CaseIterable, Equatable, Sendable {
         case .critical: "Critical"
         }
     }
+
+    /// Weakest first, so a check can ask whether one level sits inside another.
+    public var rank: Int {
+        switch self {
+        case .low: 1
+        case .medium: 2
+        case .high: 3
+        case .critical: 4
+        }
+    }
 }
 
 /// Severity rank multiplied by data sensitivity rank, giving 1–16.

@@ -13,6 +13,11 @@ struct ControlsWriter {
         var body: [String] = []
         if let catalogueTag = source.catalogueTag {
             body.append("catalogue = \(quoted(catalogueTag))")
+        }
+        if let riskTolerance = source.riskTolerance {
+            body.append("tolerance = \(quoted(riskTolerance))")
+        }
+        if body.isEmpty == false {
             body.append("")
         }
 

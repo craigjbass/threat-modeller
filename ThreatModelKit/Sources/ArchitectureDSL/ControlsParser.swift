@@ -33,19 +33,35 @@ struct ControlsParser {
         guard expect(.leftBrace, "{") != nil else { return nil }
 
         var catalogueTag: String?
+        var riskTolerance: String?
         var answers: [SourceThreatAnswer] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
             case "catalogue":
                 catalogueTag = parseTextAttribute()
+            case "tolerance":
+                let token = current
+                let raw = parseTextAttribute() ?? ""
+                if RiskLevel(rawValue: raw) == nil {
+                    record(
+                        "tolerance is \"\(raw)\"; this application holds "
+                            + RiskLevel.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", "),
+                        at: token
+                    )
+                } else {
+                    riskTolerance = raw
+                }
             case "stale":
                 advance()
                 if let answer = parseThreat(isStale: true) { answers.append(answer) }
             case "threat":
                 if let answer = parseThreat(isStale: false) { answers.append(answer) }
             default:
-                record("a controls file holds catalogue, threat and stale threat, not \"\(current.text)\"")
+                record(
+                    "a controls file holds catalogue, tolerance, threat and stale threat, "
+                        + "not \"\(current.text)\""
+                )
                 skipToNextBlock()
             }
         }
@@ -56,7 +72,12 @@ struct ControlsParser {
             record("\(answer.key.value) is answered twice", at: tokens[0])
         }
 
-        return ControlsSource(systemName: name.text, catalogueTag: catalogueTag, answers: answers)
+        return ControlsSource(
+            systemName: name.text,
+            catalogueTag: catalogueTag,
+            riskTolerance: riskTolerance,
+            answers: answers
+        )
     }
 
     private mutating func parseThreat(isStale: Bool) -> SourceThreatAnswer? {
