@@ -54,6 +54,8 @@ public struct Zone: Equatable, Sendable {
     public var networkType: ZoneNetworkType
     public var riskReductionEnabled: Bool
     public var riskReductionPercent: Int
+    public var boundary: ZoneBoundary
+    public var description: String?
 
     public init(
         id: ZoneId,
@@ -62,7 +64,9 @@ public struct Zone: Equatable, Sendable {
         networkZone: NetworkZone = .privateZone,
         networkType: ZoneNetworkType = .generic,
         riskReductionEnabled: Bool = true,
-        riskReductionPercent: Int = Zone.defaultRiskReductionPercent
+        riskReductionPercent: Int = Zone.defaultRiskReductionPercent,
+        boundary: ZoneBoundary = .default,
+        description: String? = nil
     ) {
         self.id = id
         self.rect = rect
@@ -71,6 +75,8 @@ public struct Zone: Equatable, Sendable {
         self.networkType = networkType
         self.riskReductionEnabled = riskReductionEnabled
         self.riskReductionPercent = riskReductionPercent
+        self.boundary = boundary
+        self.description = description
     }
 
     /// Spec section 5.3: the user's own name, else the network type label when

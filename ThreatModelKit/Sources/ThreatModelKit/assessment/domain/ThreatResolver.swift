@@ -91,6 +91,8 @@ public struct ResolvedThreat: Equatable, Sendable {
     /// The score before the controls answered anything. Equal to `score.value`
     /// when no control was implemented.
     public let scoreBeforeControls: Int
+    /// The components whose `mitigates` edges lowered this threat.
+    public let mitigatedByComponents: [ComponentMitigation]
 
     public init(
         threat: Threat,
@@ -107,7 +109,8 @@ public struct ResolvedThreat: Equatable, Sendable {
         scoreBeforePathwayMitigation: Int,
         scoreBeforeControls: Int? = nil,
         compensating: [CompensatingControl] = [],
-        scoreBeforeCompensation: Int? = nil
+        scoreBeforeCompensation: Int? = nil,
+        mitigatedByComponents: [ComponentMitigation] = []
     ) {
         self.scoreBeforeControls = scoreBeforeControls ?? score.value
         self.compensating = compensating
@@ -124,6 +127,7 @@ public struct ResolvedThreat: Equatable, Sendable {
         self.overriddenSeverityId = overriddenSeverityId
         self.mitigatedBy = mitigatedBy
         self.scoreBeforePathwayMitigation = scoreBeforePathwayMitigation
+        self.mitigatedByComponents = mitigatedByComponents
     }
 }
 
@@ -166,10 +170,19 @@ public struct ThreatResolver {
                 holding: component.centre,
                 in: model.zones
             )
-            sensitivityById[component.id] = component.sensitivity
+            sensitivityById[component.id] = component.effectiveSensitivity
             technologyById[component.id] = component.technologyId
         }
         let graph = UpstreamGraph(connections: model.connections)
+
+        // Names every component once, for the `mitigates` stage to report
+        // which component answered a threat.
+        var nameById: [ComponentId: String] = [:]
+        for component in model.components {
+            nameById[component.id] = component.customName
+                ?? lookup.findById(component.technologyId)?.name
+                ?? component.technologyId.value
+        }
 
         for component in model.components {
             guard component.threatsDisabled == false else { continue }
@@ -178,6 +191,10 @@ public struct ThreatResolver {
             let multiplier = ZoneMultiplier.value(for: zonesByComponent[component.id])
 
             for threat in lookup.threatsFor(technologyId: component.technologyId) {
+                guard ThreatApplicability.appliesToComponent(
+                    threat: threat,
+                    runsAs: component.runsAs
+                ) else { continue }
                 let overrideKey = SeverityOverrideKey.forComponent(
                     technologyId: component.technologyId,
                     threatId: threat.id
@@ -205,7 +222,14 @@ public struct ThreatResolver {
                     graph: graph,
                     technologyById: technologyById
                 ) else { continue }
-                let score = RiskScore(value: mitigation.score)
+                let byComponents = ComponentMitigations.apply(
+                    score: mitigation.score,
+                    threatId: threat.id,
+                    target: component.id,
+                    edges: model.mitigatesEdges,
+                    nameOf: { nameById[$0] ?? $0.value }
+                )
+                let score = RiskScore(value: byComponents.score)
 
                 raise(
                     ResolvedThreat(
@@ -225,7 +249,8 @@ public struct ThreatResolver {
                         overriddenSeverityId: chosen.overriddenId,
                         mitigatedBy: mitigation.by,
                         scoreBeforePathwayMitigation: covered,
-                        scoreBeforeControls: zoned.value
+                        scoreBeforeControls: zoned.value,
+                        mitigatedByComponents: byComponents.by
                     )
                 )
             }
@@ -238,13 +263,19 @@ public struct ThreatResolver {
 
             let sourceTechnology = lookup.findById(source.technologyId)
             let targetTechnology = lookup.findById(target.technologyId)
-            let sensitivity = SensitivityLadder.higher(source.sensitivity, target.sensitivity)
+            let sensitivity = SensitivityLadder.higher(source.effectiveSensitivity, target.effectiveSensitivity)
             let multiplier = ZoneMultiplier.valueForConnection(
                 sourceZone: zonesByComponent[source.id],
                 targetZone: zonesByComponent[target.id]
             )
+            let crossesPrivilege = source.runsAs != target.runsAs
 
             for threat in catalogue.connectionThreats() {
+                guard ThreatApplicability.appliesToConnection(
+                    threat: threat,
+                    kind: connection.kind,
+                    crossesPrivilege: crossesPrivilege
+                ) else { continue }
                 let overrideKey = SeverityOverrideKey.forConnection(threatId: threat.id)
                 let chosen = severity(for: threat, overrideKey: overrideKey)
                 let base = RiskScore(severity: chosen.severity, sensitivity: sensitivity)
@@ -300,6 +331,10 @@ public struct ThreatResolver {
             let multiplier = ZoneMultiplier.value(for: zone)
 
             for threat in catalogue.zoneThreats() {
+                guard ThreatApplicability.appliesToZone(
+                    threat: threat,
+                    boundary: zone.boundary
+                ) else { continue }
                 let overrideKey = SeverityOverrideKey.forZone(threatId: threat.id)
                 let chosen = severity(for: threat, overrideKey: overrideKey)
                 let base = RiskScore(severity: chosen.severity, sensitivity: .internalData)
@@ -360,7 +395,8 @@ public struct ThreatResolver {
             scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
             scoreBeforeControls: threat.scoreBeforeControls,
             compensating: controls,
-            scoreBeforeCompensation: threat.score.value
+            scoreBeforeCompensation: threat.score.value,
+            mitigatedByComponents: threat.mitigatedByComponents
         )
     }
 
@@ -387,12 +423,12 @@ public struct ThreatResolver {
         graph: UpstreamGraph,
         sensitivityById: [ComponentId: DataSensitivity]
     ) -> DataSensitivity {
-        guard threat.isPathwayThreat else { return component.sensitivity }
+        guard threat.isPathwayThreat else { return component.effectiveSensitivity }
         let downstream = graph.directlyDownstream(of: component.id).compactMap { sensitivityById[$0] }
         guard let highest = SensitivityLadder.highest(of: downstream) else {
-            return component.sensitivity
+            return component.effectiveSensitivity
         }
-        return SensitivityLadder.higher(component.sensitivity, highest)
+        return SensitivityLadder.higher(component.effectiveSensitivity, highest)
     }
 
     /// What the mitigations upstream of a component do to a threat's score.
