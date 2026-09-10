@@ -85,7 +85,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 componentIds: held.map(\.id.value),
                 riskReductionPercent: zone.riskReductionEnabled
                     ? zone.riskReductionPercent
-                    : nil
+                    : nil,
+                boundaryLabel: zone.boundary.label
             )
         }
 
@@ -115,15 +116,18 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         name: nameById[component.id] ?? component.technologyId.value,
                         technologyId: component.technologyId.value,
                         categoryId: lookup.findById(component.technologyId)?.category.value ?? "",
-                        sensitivityLabel: component.sensitivity.label,
+                        sensitivityLabel: component.effectiveSensitivity.label,
                         zoneName: zoneByComponent[component.id]??.displayName,
-                        assetNames: component.assets.map(\.name)
+                        assetNames: component.assets.map(\.name),
+                        privilegeLabel: component.runsAs.label
                     )
                 },
                 connections: model.connections.map { connection in
                     ReportConnection(
                         sourceName: nameById[connection.source] ?? connection.source.value,
-                        targetName: nameById[connection.target] ?? connection.target.value
+                        targetName: nameById[connection.target] ?? connection.target.value,
+                        kindLabel: connection.kind.label,
+                        description: connection.description
                     )
                 },
                 zones: zones,
@@ -190,7 +194,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             pathwayMitigationLabels: assessed.pathwayMitigationLabels,
             compensating: compensating,
             scoreBeforeCompensation: assessed.scoreBeforeCompensation,
-            inherentScore: assessed.inherentScore
+            inherentScore: assessed.inherentScore,
+            mitigatedByComponentLabels: assessed.mitigatedByComponentLabels
         )
     }
 

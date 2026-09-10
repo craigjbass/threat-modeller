@@ -136,6 +136,33 @@ struct AttackPathTests {
         #expect(path.hops.last?.riskScore == 3)
     }
 
+    @Test func aHopStatesWhatAComponentMitigationReduced() throws {
+        let built = build(
+            components: [component("actor"), component("store", .restricted)],
+            connections: [flow("actor", "store")],
+            threats: [
+                ReportThreat(
+                    threatId: "credential-theft",
+                    name: "Credential theft",
+                    description: "",
+                    severityLabel: "High",
+                    riskScore: 3,
+                    riskLevel: "high",
+                    strideLabels: [],
+                    mitreTechniqueIds: [],
+                    sourceName: "store",
+                    sourceKind: "Component",
+                    sourceId: "component:store",
+                    controls: [],
+                    pathwayMitigationLabels: [],
+                    mitigatedByComponentLabels: ["WAF"]
+                )
+            ]
+        )
+        let path = try #require(built.paths.first)
+        #expect(path.hops.last?.reducedBy == ["WAF"])
+    }
+
     @Test func aCycleStopsTheWalk() {
         let built = build(
             components: [component("entry"), component("a"), component("b"), component("store", .restricted)],

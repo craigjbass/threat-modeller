@@ -95,6 +95,9 @@ public struct ReportComponent: Equatable, Sendable {
     /// The zone holding it, or nil when it sits outside every zone.
     public let zoneName: String?
     public let assetNames: [String]
+    /// The privilege level it runs at: User, Administrator, Root, System or
+    /// Kernel.
+    public let privilegeLabel: String
 
     public init(
         id: String,
@@ -103,7 +106,8 @@ public struct ReportComponent: Equatable, Sendable {
         categoryId: String,
         sensitivityLabel: String,
         zoneName: String?,
-        assetNames: [String] = []
+        assetNames: [String] = [],
+        privilegeLabel: String = PrivilegeLevel.default.label
     ) {
         self.id = id
         self.name = name
@@ -112,16 +116,27 @@ public struct ReportComponent: Equatable, Sendable {
         self.sensitivityLabel = sensitivityLabel
         self.zoneName = zoneName
         self.assetNames = assetNames
+        self.privilegeLabel = privilegeLabel
     }
 }
 
 public struct ReportConnection: Equatable, Sendable {
     public let sourceName: String
     public let targetName: String
+    /// The flow's kind: Network, Local IPC, File, System Call or Human.
+    public let kindLabel: String
+    public let description: String?
 
-    public init(sourceName: String, targetName: String) {
+    public init(
+        sourceName: String,
+        targetName: String,
+        kindLabel: String = FlowKind.default.label,
+        description: String? = nil
+    ) {
         self.sourceName = sourceName
         self.targetName = targetName
+        self.kindLabel = kindLabel
+        self.description = description
     }
 }
 
@@ -135,6 +150,8 @@ public struct ReportZone: Equatable, Sendable {
     /// a display name is not unique.
     public let componentIds: [String]
     public let riskReductionPercent: Int?
+    /// What the zone is a boundary of: Network Boundary or Privilege Boundary.
+    public let boundaryLabel: String
 
     public init(
         name: String,
@@ -142,7 +159,8 @@ public struct ReportZone: Equatable, Sendable {
         networkTypeLabel: String,
         componentNames: [String],
         componentIds: [String] = [],
-        riskReductionPercent: Int?
+        riskReductionPercent: Int?,
+        boundaryLabel: String = ZoneBoundary.default.label
     ) {
         self.name = name
         self.networkZoneLabel = networkZoneLabel
@@ -150,6 +168,7 @@ public struct ReportZone: Equatable, Sendable {
         self.componentNames = componentNames
         self.componentIds = componentIds
         self.riskReductionPercent = riskReductionPercent
+        self.boundaryLabel = boundaryLabel
     }
 }
 
@@ -179,6 +198,9 @@ public struct ReportThreat: Equatable, Sendable {
     public let scoreBeforeCompensation: Int
     /// The score before the implemented controls lowered it.
     public let inherentScore: Int
+    /// The components whose `mitigates` edges lowered this threat, by label.
+    /// Empty when none did.
+    public let mitigatedByComponentLabels: [String]
 
     public init(
         threatId: String,
@@ -196,12 +218,14 @@ public struct ReportThreat: Equatable, Sendable {
         pathwayMitigationLabels: [String],
         compensating: [ReportCompensatingControl] = [],
         scoreBeforeCompensation: Int? = nil,
-        inherentScore: Int? = nil
+        inherentScore: Int? = nil,
+        mitigatedByComponentLabels: [String] = []
     ) {
         self.sourceId = sourceId
         self.compensating = compensating
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
         self.inherentScore = inherentScore ?? riskScore
+        self.mitigatedByComponentLabels = mitigatedByComponentLabels
         self.threatId = threatId
         self.name = name
         self.description = description

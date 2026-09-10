@@ -74,13 +74,14 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         guard components.isEmpty == false else {
             return lines + ["None.", ""]
         }
-        lines.append("| Name | Technology | Sensitivity | Zone | Assets |")
-        lines.append("| --- | --- | --- | --- | --- |")
+        lines.append("| Name | Technology | Sensitivity | Privilege | Zone | Assets |")
+        lines.append("| --- | --- | --- | --- | --- | --- |")
         for component in components {
             lines.append(
                 "| \(Markdown.cell(component.name))"
                     + " | \(Markdown.cell(component.technologyId))"
                     + " | \(Markdown.cell(component.sensitivityLabel))"
+                    + " | \(Markdown.cell(component.privilegeLabel))"
                     + " | \(Markdown.cell(component.zoneName ?? "\u{2014}"))"
                     + " | \(Markdown.cell(component.assetNames.joined(separator: ", ")))"
                     + " |"
@@ -96,7 +97,11 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             return lines + ["None.", ""]
         }
         for connection in connections {
-            lines.append("- \(connection.sourceName) \u{2192} \(connection.targetName)")
+            var line = "- \(connection.sourceName) \u{2192} \(connection.targetName), by \(connection.kindLabel)"
+            if let description = connection.description {
+                line += ": \(description)"
+            }
+            lines.append(line)
         }
         lines.append("")
         return lines
@@ -112,6 +117,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             lines.append("")
             lines.append("- Network zone: \(zone.networkZoneLabel)")
             lines.append("- Network type: \(zone.networkTypeLabel)")
+            lines.append("- Boundary: \(zone.boundaryLabel)")
             if let percent = zone.riskReductionPercent {
                 lines.append("- Risk reduction: \(percent)%")
             }
@@ -162,6 +168,12 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
                 lines.append(
                     "- Answered upstream by: "
                         + threat.pathwayMitigationLabels.joined(separator: ", ")
+                )
+            }
+            if threat.mitigatedByComponentLabels.isEmpty == false {
+                lines.append(
+                    "- Reduced by: "
+                        + threat.mitigatedByComponentLabels.joined(separator: ", ")
                 )
             }
             if threat.controls.isEmpty == false {

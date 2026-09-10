@@ -39,6 +39,15 @@ struct ThreatApplicabilityTests {
         #expect(ThreatApplicability.appliesToConnection(threat: crossing, kind: .syscall, crossesPrivilege: false) == false)
     }
 
+    @Test func aPrivilegeBoundaryOnAConnectionThreatIgnoresAppliesTo() {
+        // `boundary` is read before `applies_to`, so a connection threat
+        // marked `boundary = .privilege` is raised only on a privilege
+        // crossing, whatever flow kinds `applies_to` names.
+        let crossing = threat(appliesTo: [.file, .ipc], boundary: .privilege)
+        #expect(ThreatApplicability.appliesToConnection(threat: crossing, kind: .network, crossesPrivilege: true))
+        #expect(ThreatApplicability.appliesToConnection(threat: crossing, kind: .file, crossesPrivilege: false) == false)
+    }
+
     @Test func aZoneRaisesOnlyTheThreatsOfItsOwnBoundary() {
         #expect(ThreatApplicability.appliesToZone(threat: threat(), boundary: .network))
         #expect(ThreatApplicability.appliesToZone(threat: threat(), boundary: .privilege) == false)

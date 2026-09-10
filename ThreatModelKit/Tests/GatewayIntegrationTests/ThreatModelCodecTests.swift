@@ -196,6 +196,45 @@ struct ThreatModelCodecTests {
         }
     }
 
+    @Test func refusesARunsAsValueTheVocabularyDoesNotHold() throws {
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: try codec.encode(fullModel())) as? [String: Any]
+        )
+        var components = try #require(json["components"] as? [[String: Any]])
+        components[0]["runsAs"] = "hypervisor"
+        json["components"] = components
+
+        #expect(throws: ThreatModelFileError.unknownValue(field: "runsAs", value: "hypervisor")) {
+            try codec.decode(try JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
+    @Test func refusesAKindValueTheVocabularyDoesNotHold() throws {
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: try codec.encode(fullModel())) as? [String: Any]
+        )
+        var connections = try #require(json["connections"] as? [[String: Any]])
+        connections[0]["kind"] = "carrier-pigeon"
+        json["connections"] = connections
+
+        #expect(throws: ThreatModelFileError.unknownValue(field: "kind", value: "carrier-pigeon")) {
+            try codec.decode(try JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
+    @Test func refusesABoundaryValueTheVocabularyDoesNotHold() throws {
+        var json = try #require(
+            try JSONSerialization.jsonObject(with: try codec.encode(fullModel())) as? [String: Any]
+        )
+        var zones = try #require(json["zones"] as? [[String: Any]])
+        zones[0]["boundary"] = "orbit"
+        json["zones"] = zones
+
+        #expect(throws: ThreatModelFileError.unknownValue(field: "boundary", value: "orbit")) {
+            try codec.decode(try JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
     private func snippet() -> SelectionSnippet {
         SelectionSnippet(
             components: [

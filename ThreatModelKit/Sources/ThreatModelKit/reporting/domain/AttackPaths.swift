@@ -106,7 +106,7 @@ public enum AttackPaths {
             flowKindLabel: arrivedBy.map(\.kind.label),
             worstThreatName: worst?.name,
             riskScore: worst?.riskScore ?? 0,
-            reducedBy: worst?.pathwayMitigationLabels ?? []
+            reducedBy: (worst?.pathwayMitigationLabels ?? []) + (worst?.mitigatedByComponentLabels ?? [])
         )
     }
 }

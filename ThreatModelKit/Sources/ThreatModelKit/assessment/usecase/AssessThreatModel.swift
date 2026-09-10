@@ -153,6 +153,9 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The score before the implemented controls lowered it. Equal to
     /// `riskScore` when nothing was implemented.
     public let inherentScore: Int
+    /// The components whose `mitigates` edges lowered this threat, by label.
+    /// Empty when none did.
+    public let mitigatedByComponentLabels: [String]
 
     public init(
         threatId: String,
@@ -175,7 +178,8 @@ public struct AssessedThreat: Hashable, Sendable {
         scoreBeforePathwayMitigation: Int = 0,
         compensatingLabels: [String] = [],
         scoreBeforeCompensation: Int? = nil,
-        inherentScore: Int? = nil
+        inherentScore: Int? = nil,
+        mitigatedByComponentLabels: [String] = []
     ) {
         self.threatId = threatId
         self.name = name
@@ -198,6 +202,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.compensatingLabels = compensatingLabels
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
         self.inherentScore = inherentScore ?? riskScore
+        self.mitigatedByComponentLabels = mitigatedByComponentLabels
     }
 }
 
@@ -268,7 +273,8 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
                     compensatingLabels: threat.compensating.map(\.label),
                     scoreBeforeCompensation: threat.scoreBeforeCompensation,
-                    inherentScore: threat.scoreBeforeControls
+                    inherentScore: threat.scoreBeforeControls,
+                    mitigatedByComponentLabels: threat.mitigatedByComponents.map(\.protectorName)
                 )
             },
             severities: catalogue.taxonomy().severities.map {

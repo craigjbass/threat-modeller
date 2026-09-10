@@ -110,7 +110,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
         return ThreatModel(
             name: document.name,
             components: try document.components.map(Self.component(from:)),
-            connections: document.connections.map(Self.connection(from:)),
+            connections: try document.connections.map(Self.connection(from:)),
             zones: try document.zones.map(Self.zone(from:)),
             severityOverrides: Dictionary(
                 uniqueKeysWithValues: document.severityOverrides.map {
@@ -210,7 +210,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
 
         return SelectionSnippet(
             components: try snippet.components.map(Self.component(from:)),
-            connections: snippet.connections.map(Self.connection(from:)),
+            connections: try snippet.connections.map(Self.connection(from:)),
             zones: try snippet.zones.map(Self.zone(from:))
         )
     }
@@ -294,7 +294,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             ),
             customName: json.customName,
             threatsDisabled: json.threatsDisabled,
-            runsAs: PrivilegeLevel(rawValue: json.runsAs ?? "") ?? .default,
+            runsAs: try optionalValue(PrivilegeLevel.self, field: "runsAs", raw: json.runsAs, default: .default),
             assets: (json.assets ?? []).map {
                 Asset(
                     name: $0.name,
@@ -304,12 +304,12 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
         )
     }
 
-    private static func connection(from json: ConnectionJSON) -> Connection {
+    private static func connection(from json: ConnectionJSON) throws -> Connection {
         Connection(
             id: ConnectionId(json.id),
             source: ComponentId(json.source),
             target: ComponentId(json.target),
-            kind: FlowKind(rawValue: json.kind ?? "") ?? .default,
+            kind: try optionalValue(FlowKind.self, field: "kind", raw: json.kind, default: .default),
             description: json.description
         )
     }
@@ -331,7 +331,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             ),
             riskReductionEnabled: json.riskReductionEnabled,
             riskReductionPercent: json.riskReductionPercent,
-            boundary: ZoneBoundary(rawValue: json.boundary ?? "") ?? .default,
+            boundary: try optionalValue(ZoneBoundary.self, field: "boundary", raw: json.boundary, default: .default),
             description: json.description
         )
     }
@@ -340,6 +340,23 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// the message says which field and which value rather than "corrupt file".
     private static func value<T>(_ decoded: T?, field: String, raw: String) throws -> T {
         guard let decoded else {
+            throw ThreatModelFileError.unknownValue(field: field, value: raw)
+        }
+        return decoded
+    }
+
+    /// A field added after version 1: an absent value takes the default, the
+    /// way every field this format has ever added does. A present value this
+    /// application does not hold is refused by name, the same as `value`
+    /// refuses one of its older, required neighbours.
+    private static func optionalValue<T: RawRepresentable>(
+        _ type: T.Type,
+        field: String,
+        raw: String?,
+        default fallback: T
+    ) throws -> T where T.RawValue == String {
+        guard let raw else { return fallback }
+        guard let decoded = T(rawValue: raw) else {
             throw ThreatModelFileError.unknownValue(field: field, value: raw)
         }
         return decoded

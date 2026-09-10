@@ -87,6 +87,26 @@ struct ComponentMitigationTests {
         #expect(threat.score.value == 1)
     }
 
+    @Test func theAssessedThreatNamesTheComponentThatMitigatedIt() throws {
+        let held = model([
+            MitigatesEdge(
+                source: ComponentId("guard"),
+                target: ComponentId("store"),
+                threatIds: [ThreatId("credential-theft")],
+                reducesRiskBy: 75
+            )
+        ])
+        let response = AssessThreatModel(
+            models: InMemoryThreatModelGateway(held),
+            catalogue: catalogue
+        ).execute(AssessThreatModelRequest())
+
+        let threat = try #require(
+            response.threats.first { $0.threatId == "credential-theft" && $0.source.id == "component:store" }
+        )
+        #expect(threat.mitigatedByComponentLabels == ["WAF"])
+    }
+
     @Test func theAssessmentNamesWhatTheReductionRestsOn() throws {
         let held = model([
             MitigatesEdge(
