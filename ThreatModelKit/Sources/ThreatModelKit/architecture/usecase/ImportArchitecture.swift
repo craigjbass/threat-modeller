@@ -122,9 +122,14 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 source: ComponentId(edge.sourceId),
                 target: ComponentId(edge.targetId),
                 threatIds: edge.threatIds.map(ThreatId.init),
-                reducesRiskBy: edge.reducesRiskBy
+                reducesRiskBy: edge.reducesRiskBy,
+                status: edge.status.flatMap(MitigationStatus.init(rawValue:)) ?? .adopted
             )
         }
+        model.assumptions = source.assumptions.map {
+            SystemAssumption(label: $0.label, text: $0.text, owner: $0.owner)
+        }
+        model.riskTolerance = source.riskTolerance.flatMap(RiskLevel.init(rawValue:)) ?? .low
 
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         var warnings = read.warnings

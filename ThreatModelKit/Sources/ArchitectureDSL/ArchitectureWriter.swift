@@ -11,6 +11,22 @@ struct ArchitectureWriter {
         lines.append("system \(quoted(source.systemName)) {")
 
         var body: [String] = []
+        if let riskTolerance = source.riskTolerance {
+            body += aligned([("risk_tolerance", quoted(riskTolerance))])
+            body.append("")
+        }
+
+        for assumption in source.assumptions {
+            body.append("assumption \(quoted(assumption.label)) {")
+            var attributes: [(String, String)] = [("text", quoted(assumption.text))]
+            if let owner = assumption.owner {
+                attributes.append(("owner", quoted(owner)))
+            }
+            body += indent(aligned(attributes))
+            body.append("}")
+            body.append("")
+        }
+
         if let catalogueTag = source.catalogueTag {
             body += aligned([("catalogue", quoted(catalogueTag))])
             body.append("")
@@ -86,12 +102,14 @@ struct ArchitectureWriter {
 
         for edge in source.mitigates {
             body.append("mitigates \(edge.sourceId) -> \(edge.targetId) {")
-            body += indent(
-                aligned([
-                    ("threats", "[" + edge.threatIds.map(quoted).joined(separator: ", ") + "]"),
-                    ("reduces_risk_by", String(edge.reducesRiskBy))
-                ])
-            )
+            var attributes: [(String, String)] = [
+                ("threats", "[" + edge.threatIds.map(quoted).joined(separator: ", ") + "]"),
+                ("reduces_risk_by", String(edge.reducesRiskBy))
+            ]
+            if let status = edge.status, status == "assumed" {
+                attributes.append(("status", quoted(status)))
+            }
+            body += indent(aligned(attributes))
             body.append("}")
             body.append("")
         }

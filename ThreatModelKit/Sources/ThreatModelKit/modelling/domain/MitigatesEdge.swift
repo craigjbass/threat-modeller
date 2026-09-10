@@ -8,17 +8,20 @@ public struct MitigatesEdge: Equatable, Sendable {
     public let target: ComponentId
     public let threatIds: [ThreatId]
     public let reducesRiskBy: Int
+    public let status: MitigationStatus
 
     public init(
         source: ComponentId,
         target: ComponentId,
         threatIds: [ThreatId],
-        reducesRiskBy: Int
+        reducesRiskBy: Int,
+        status: MitigationStatus = .adopted
     ) {
         self.source = source
         self.target = target
         self.threatIds = threatIds
         self.reducesRiskBy = reducesRiskBy
+        self.status = status
     }
 
     /// The identifier, minted the way a flow's is.
@@ -26,5 +29,18 @@ public struct MitigatesEdge: Equatable, Sendable {
 
     public func answers(_ threatId: ThreatId) -> Bool {
         threatIds.contains(threatId)
+    }
+}
+
+/// Whether a team has done the work an edge describes.
+public enum MitigationStatus: String, CaseIterable, Equatable, Sendable {
+    case adopted
+    case assumed
+
+    public var label: String {
+        switch self {
+        case .adopted: "Adopted"
+        case .assumed: "Assumed"
+        }
     }
 }

@@ -31,6 +31,10 @@ public struct ThreatModel: Equatable, Sendable {
     /// threat and source. Wins over `severityOverrides` for the threat it
     /// names.
     public var severityDecisions: [ThreatKey: SeverityDecision]
+    /// What the model takes on trust. The report gives them a section.
+    public var assumptions: [SystemAssumption]
+    /// The risk level a likelihood finding may answer up to.
+    public var riskTolerance: RiskLevel
 
     /// Every control the user has recorded as in place.
     ///
@@ -74,6 +78,8 @@ public struct ThreatModel: Equatable, Sendable {
         recommendations: [ThreatKey: [Recommendation]] = [:],
         likelihoodFindings: [ThreatKey: LikelihoodFinding] = [:],
         severityDecisions: [ThreatKey: SeverityDecision] = [:],
+        assumptions: [SystemAssumption] = [],
+        riskTolerance: RiskLevel = .low,
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
         createdAt: Date = Date(timeIntervalSince1970: 0),
@@ -91,6 +97,8 @@ public struct ThreatModel: Equatable, Sendable {
         self.recommendations = recommendations
         self.likelihoodFindings = likelihoodFindings
         self.severityDecisions = severityDecisions
+        self.assumptions = assumptions
+        self.riskTolerance = riskTolerance
         // The two ways of saying the same thing meet here: a caller may pass
         // either, and a recorded control is a status.
         for key in implementedControls {

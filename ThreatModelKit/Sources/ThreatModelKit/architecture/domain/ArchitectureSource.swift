@@ -12,6 +12,9 @@ public struct ArchitectureSource: Equatable, Sendable {
     public let components: [SourceComponent]
     public let flows: [SourceFlow]
     public let mitigates: [SourceMitigates]
+    /// The risk level a likelihood finding may answer up to. Nil means low.
+    public let riskTolerance: String?
+    public let assumptions: [SourceAssumption]
 
     public init(
         systemName: String,
@@ -20,7 +23,9 @@ public struct ArchitectureSource: Equatable, Sendable {
         zones: [SourceZone] = [],
         components: [SourceComponent] = [],
         flows: [SourceFlow] = [],
-        mitigates: [SourceMitigates] = []
+        mitigates: [SourceMitigates] = [],
+        riskTolerance: String? = nil,
+        assumptions: [SourceAssumption] = []
     ) {
         self.systemName = systemName
         self.catalogueTag = catalogueTag
@@ -29,6 +34,8 @@ public struct ArchitectureSource: Equatable, Sendable {
         self.components = components
         self.flows = flows
         self.mitigates = mitigates
+        self.riskTolerance = riskTolerance
+        self.assumptions = assumptions
     }
 
     /// Every component the file declares, wherever it declared it.
@@ -163,16 +170,38 @@ public struct SourceMitigates: Equatable, Sendable {
     public let targetId: String
     public let threatIds: [String]
     public let reducesRiskBy: Int
+    /// "adopted" or "assumed". Nil means adopted.
+    public let status: String?
 
-    public init(sourceId: String, targetId: String, threatIds: [String], reducesRiskBy: Int) {
+    public init(
+        sourceId: String,
+        targetId: String,
+        threatIds: [String],
+        reducesRiskBy: Int,
+        status: String? = nil
+    ) {
         self.sourceId = sourceId
         self.targetId = targetId
         self.threatIds = threatIds
         self.reducesRiskBy = reducesRiskBy
+        self.status = status
     }
 
     /// The identifier, minted the way a flow's is.
     public var id: String { "\(sourceId)->\(targetId)" }
+}
+
+/// Something the file takes on trust, and who owns it.
+public struct SourceAssumption: Equatable, Sendable {
+    public let label: String
+    public let text: String
+    public let owner: String?
+
+    public init(label: String, text: String, owner: String? = nil) {
+        self.label = label
+        self.text = text
+        self.owner = owner
+    }
 }
 
 /// What a read produced: a source when it could, and every fault it found.

@@ -50,6 +50,8 @@ struct ArchitectureParser {
         var components: [SourceComponent] = []
         var flows: [SourceFlow] = []
         var mitigates: [SourceMitigates] = []
+        var riskTolerance: String?
+        var assumptions: [SourceAssumption] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -65,8 +67,22 @@ struct ArchitectureParser {
                 if let flow = parseFlow() { flows.append(flow) }
             case "mitigates":
                 if let edge = parseMitigates() { mitigates.append(edge) }
+            case "risk_tolerance":
+                let token = current
+                let raw = parseTextAttribute() ?? ""
+                if RiskLevel(rawValue: raw) == nil {
+                    record(
+                        "risk_tolerance is \"\(raw)\"; this application holds "
+                            + RiskLevel.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", "),
+                        at: token
+                    )
+                } else {
+                    riskTolerance = raw
+                }
+            case "assumption":
+                if let assumption = parseAssumption() { assumptions.append(assumption) }
             default:
-                record("a system holds catalogue, technology, zone, component, flow and mitigates, not \"\(current.text)\"")
+                record("a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance and assumption, not \"\(current.text)\"")
                 skipToNextBlock()
             }
         }
@@ -79,8 +95,36 @@ struct ArchitectureParser {
             zones: zones,
             components: components,
             flows: flows,
-            mitigates: mitigates
+            mitigates: mitigates,
+            riskTolerance: riskTolerance,
+            assumptions: assumptions
         )
+    }
+
+    private mutating func parseAssumption() -> SourceAssumption? {
+        advance()
+        guard let label = expect(.string, "what the assumption is called") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var text: String?
+        var owner: String?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "text": text = parseTextAttribute()
+            case "owner": owner = parseTextAttribute()
+            default:
+                record("an assumption holds text and owner, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let text, text.isEmpty == false else {
+            record("the assumption \"\(label.text)\" has no text", at: label)
+            return nil
+        }
+        return SourceAssumption(label: label.text, text: text, owner: owner)
     }
 
     private mutating func parseTechnology() -> SourceTechnology? {
@@ -304,6 +348,7 @@ struct ArchitectureParser {
 
         var threatIds: [String] = []
         var reducesRiskBy: Int?
+        var status: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -315,8 +360,19 @@ struct ArchitectureParser {
                 if let percent = reducesRiskBy, percent < 0 || percent > 100 {
                     record("reduces_risk_by is \(percent); it runs from 0 to 100", at: token)
                 }
+            case "status":
+                let token = current
+                let raw = parseTextAttribute() ?? ""
+                if MitigationStatus(rawValue: raw) == nil {
+                    record(
+                        "status is \"\(raw)\"; a mitigates edge is \"adopted\" or \"assumed\"",
+                        at: token
+                    )
+                } else {
+                    status = raw
+                }
             default:
-                record("a mitigates edge holds threats and reduces_risk_by, not \"\(current.text)\"")
+                record("a mitigates edge holds threats, reduces_risk_by and status, not \"\(current.text)\"")
                 skipAttribute()
             }
         }
@@ -334,7 +390,8 @@ struct ArchitectureParser {
             sourceId: source.text,
             targetId: target.text,
             threatIds: threatIds,
-            reducesRiskBy: reducesRiskBy
+            reducesRiskBy: reducesRiskBy,
+            status: status
         )
     }
 
@@ -423,6 +480,11 @@ struct ArchitectureParser {
             if edges.insert(edge.id).inserted == false {
                 record("the mitigates edge \"\(edge.id)\" is declared twice", at: tokens[0])
             }
+        }
+
+        var labels: Set<String> = []
+        for assumption in source.assumptions where labels.insert(assumption.label).inserted == false {
+            record("the assumption \"\(assumption.label)\" is declared twice", at: tokens[0])
         }
     }
 
