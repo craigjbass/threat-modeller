@@ -132,12 +132,6 @@ struct DocumentFormatVersionFourTests {
         #expect(read.mitigatesEdges.first?.effectiveStatus == .adopted)
     }
 
-    @Test func theFormatVersionIsFour() throws {
-        let data = try ThreatModelCodec().encode(model())
-        let text = try #require(String(data: data, encoding: .utf8))
-        #expect(text.contains("\"formatVersion\" : 4"))
-    }
-
     @Test func aVersionThreeDocumentStillReads() throws {
         let text = """
         {

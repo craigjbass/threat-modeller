@@ -23,6 +23,32 @@ struct DocumentJSON: Codable {
     /// Version 4 adds these two. A version 1, 2 or 3 file has neither.
     let mitigatesEdges: [MitigatesEdgeJSON]?
     let recommendations: [String: [RecommendationJSON]]?
+    /// Version 5 adds these four. A version 1 through 4 file has none of
+    /// them.
+    let likelihoodFindings: [String: LikelihoodFindingJSON]?
+    let severityDecisions: [String: SeverityDecisionJSON]?
+    let assumptions: [SystemAssumptionJSON]?
+    /// Absent means the file states no tolerance, so a check uses `.low`.
+    let riskTolerance: String?
+}
+
+struct LikelihoodFindingJSON: Codable {
+    let label: String
+    let likelihood: String
+    let rationale: String
+    let sources: [String]?
+}
+
+struct SeverityDecisionJSON: Codable {
+    let severityId: String
+    let rationale: String
+    let sources: [String]?
+}
+
+struct SystemAssumptionJSON: Codable {
+    let label: String
+    let text: String
+    let owner: String?
 }
 
 struct AssetJSON: Codable {

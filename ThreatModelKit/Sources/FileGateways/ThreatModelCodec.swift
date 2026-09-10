@@ -14,8 +14,13 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// so a user's saved work does not stop opening. Version 4 adds a flow's
     /// kind and description, a component's privilege and assets, a zone's
     /// boundary and description, the mitigates edges and the recommendations.
-    public static let formatVersion = 4
-    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4]
+    /// Version 5 adds the likelihood findings, the severity decisions, the
+    /// assumptions and the risk tolerance. An older build does not know these
+    /// fields, so it would open a version 5 file and then drop them again on
+    /// the next save; refusing the file by its version number stops that
+    /// silent loss instead.
+    public static let formatVersion = 5
+    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5]
 
     public init() {}
 
@@ -92,7 +97,36 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                             }
                         )
                     }
-                )
+                ),
+                likelihoodFindings: Dictionary(
+                    uniqueKeysWithValues: model.likelihoodFindings.map { key, finding in
+                        (
+                            key.value,
+                            LikelihoodFindingJSON(
+                                label: finding.label,
+                                likelihood: finding.likelihood.id,
+                                rationale: finding.rationale,
+                                sources: finding.sources
+                            )
+                        )
+                    }
+                ),
+                severityDecisions: Dictionary(
+                    uniqueKeysWithValues: model.severityDecisions.map { key, decision in
+                        (
+                            key.value,
+                            SeverityDecisionJSON(
+                                severityId: decision.severityId,
+                                rationale: decision.rationale,
+                                sources: decision.sources
+                            )
+                        )
+                    }
+                ),
+                assumptions: model.assumptions.map {
+                    SystemAssumptionJSON(label: $0.label, text: $0.text, owner: $0.owner)
+                },
+                riskTolerance: model.riskTolerance?.rawValue
             )
         )
     }
@@ -161,6 +195,41 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     )
                 }
             ),
+            likelihoodFindings: Dictionary(
+                uniqueKeysWithValues: try (document.likelihoodFindings ?? [:]).map { key, json in
+                    (
+                        ThreatKey(key),
+                        LikelihoodFinding(
+                            label: json.label,
+                            likelihood: try Self.value(
+                                Self.likelihood(from: json.likelihood),
+                                field: "likelihood",
+                                raw: json.likelihood
+                            ),
+                            rationale: json.rationale,
+                            sources: json.sources ?? []
+                        )
+                    )
+                }
+            ),
+            severityDecisions: Dictionary(
+                uniqueKeysWithValues: (document.severityDecisions ?? [:]).map { key, json in
+                    (
+                        ThreatKey(key),
+                        SeverityDecision(
+                            severityId: json.severityId,
+                            rationale: json.rationale,
+                            sources: json.sources ?? []
+                        )
+                    )
+                }
+            ),
+            assumptions: (document.assumptions ?? []).map {
+                SystemAssumption(label: $0.label, text: $0.text, owner: $0.owner)
+            },
+            riskTolerance: try document.riskTolerance.map { raw in
+                try Self.value(RiskLevel(rawValue: raw), field: "riskTolerance", raw: raw)
+            },
             pathwayMitigations: PathwayMitigationSettings(
                 isMasterEnabled: document.pathwayMitigations.isMasterEnabled,
                 configs: Dictionary(
@@ -340,6 +409,13 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             boundary: try optionalValue(ZoneBoundary.self, field: "boundary", raw: json.boundary, default: .default),
             description: json.description
         )
+    }
+
+    /// A likelihood is a named tier or a whole-number prior, either read back
+    /// from the string a finding's `id` already is. Nil when the string is
+    /// neither.
+    private static func likelihood(from raw: String) -> Likelihood? {
+        Likelihood(rawValue: raw) ?? Int(raw).flatMap(Likelihood.init(prior:))
     }
 
     /// A vocabulary value this application does not hold is refused by name, so
