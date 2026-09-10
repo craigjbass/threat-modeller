@@ -433,16 +433,30 @@ different design.
 
 ## 13. Delivery
 
-Fourteen agents in four waves on one branch. Agents inside a wave own disjoint
-files. The implementation plan fixes every type and signature they share, so
-two agents in one wave never wait on each other.
+Seventeen agents in five waves on one branch. Agents inside a wave own
+disjoint files. A wave that needs new types starts with one contract task that
+adds the types, the fields and the call sites and changes no behaviour, so the
+consumer tasks of that wave never wait on each other.
 
 | Wave | Agents | What each owns |
 | --- | --- | --- |
-| 1 | A1, A2, A3 | the coverage stage in the assessment domain; the two scores in the report tree and the three renderers; `LANGUAGE.md` |
-| 2 | B1, B2, B3, B4 | the grammar for flow kinds, zone boundaries and the new library attributes; threat selection in the resolver; the panels and the document codec; `libraries/endpoint.lib` |
-| 3 | D1, D2, E1, E2 | the `mitigates` grammar; the `mitigates` scoring and the derived tamper surface; `runs_as` and the derived privilege crossing; the panels and the documents |
-| 4 | G1, G2, G3, H1 | recommendations; attack paths; the rollups; `description` and `asset` |
+| 1 | 1, 2, 3 | the coverage stage in the assessment domain; the two scores in the report tree and the three renderers; the language reference |
+| 2 | 4, 5, 6, 7 | the vocabularies, the model fields and the resolver hooks; the architecture language; the library language; the controls language and the reference |
+| 3 | 8, 9, 10, 11, 12 | threat applicability; the `mitigates` scoring and the derived tamper surface; the document format; the window's three pickers; `libraries/endpoint.lib` |
+| 4 | 13, 14, 15, 16 | the four report sections in the report tree; recommendations and protection dependencies; attack paths; the rollups |
+| 5 | 17 | one acceptance test of an endpoint model, from source to report |
 
 Each packet states the files it owns, the contract it must not change, the
-failing test it writes first, and the command that proves it.
+failing test it writes first, and the command that proves it. The plan is
+`docs/superpowers/plans/2026-09-10-host-and-endpoint-modelling.md`.
+
+## 14. What this design leaves out
+
+| Left out | Why |
+| --- | --- |
+| A report diff between two runs | It needs a stored baseline artefact, which is its own design. |
+| Per-asset threat resolution | One asset list per component removes the "one blob" fault. Resolving a threat per asset is a different design. |
+| Editing an asset in the window | An asset is written in the `.arch` file and read by the report. |
+| The four new sections in the PDF | The PDF gains the inherent score. The new sections are Markdown and report tree. |
+| Answer templates and answer reuse | Section 4 removes the reason for most of them: a local flow stops raising the threats a user was answering `not_applicable` dozens of times. |
+| Keeping comments through a rewrite | `description` on a flow and on a zone carries the rationale as data the model keeps. |
