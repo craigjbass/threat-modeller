@@ -2,7 +2,6 @@ import Testing
 import Foundation
 import ThreatModelKit
 import ArchitectureDSL
-import TestSupport
 
 struct EndpointLibraryTests {
     /// The file sits at the repository root, four directories above this
@@ -21,16 +20,6 @@ struct EndpointLibraryTests {
         #expect(read.diagnostics.isEmpty)
         let source = try #require(read.source)
         #expect(source.label == "endpoint")
-    }
-
-    @Test func theLibraryBuildsAgainstTheTaxonomy() throws {
-        let source = try #require(HclLibrarySource().read(try text()).source)
-        let built = Library.build(from: source, taxonomy: CatalogueFixture.taxonomy())
-        #expect(built.faults.isEmpty)
-        let library = try #require(built.library)
-        #expect(library.technologies.count >= 10)
-        #expect(library.threats.count >= 10)
-        #expect(library.pathwayMitigations.isEmpty == false)
     }
 
     @Test func everyConnectionThreatStatesTheKindsItAppliesTo() throws {

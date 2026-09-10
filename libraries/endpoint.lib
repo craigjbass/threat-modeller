@@ -8,41 +8,41 @@ library "endpoint" {
 
   technology "es-client" {
     name        = "Endpoint Security Client"
-    category    = "compute"
+    category    = "monitoring"
     description = "A user-space client of the Endpoint Security framework that receives authorization events for a process, a file and other system actions."
   }
 
   technology "keychain" {
     name        = "Keychain"
-    category    = "compute"
+    category    = "secrets"
     description = "The encrypted store for a password, a key and a certificate on the host."
     threats     = ["keychain-item-theft"]
   }
 
   technology "mdm-channel" {
     name        = "MDM Channel"
-    category    = "compute"
+    category    = "orchestration"
     description = "The connection between the host and a Mobile Device Management server that pushes a configuration profile and a command."
     threats     = ["profile-injection"]
   }
 
   technology "tcc" {
     name        = "TCC"
-    category    = "compute"
+    category    = "identity"
     description = "The privacy subsystem that gates a process's access to a protected resource such as the camera, contacts or full disk."
     threats     = ["tcc-bypass"]
   }
 
   technology "gatekeeper" {
     name        = "Gatekeeper"
-    category    = "compute"
+    category    = "identity"
     description = "The subsystem that checks a downloaded file's signature and notarisation before it runs."
     threats     = ["unsigned-code-load"]
   }
 
   technology "launchd" {
     name        = "launchd"
-    category    = "compute"
+    category    = "orchestration"
     description = "The system and user service manager that starts a daemon, an agent and a login item."
     threats     = ["persistence", "dylib-injection"]
   }
@@ -56,14 +56,14 @@ library "endpoint" {
 
   technology "xpc-service" {
     name        = "XPC Service"
-    category    = "compute"
+    category    = "messaging"
     description = "A helper process that a client reaches over Apple's inter-process communication mechanism."
     threats     = ["dylib-injection", "sandbox-escape"]
   }
 
   technology "unix-socket" {
     name        = "Unix Domain Socket"
-    category    = "compute"
+    category    = "messaging"
     description = "A local socket file that two processes on the same host use to exchange data."
     threats     = ["sandbox-escape", "boundary-bypass"]
   }
