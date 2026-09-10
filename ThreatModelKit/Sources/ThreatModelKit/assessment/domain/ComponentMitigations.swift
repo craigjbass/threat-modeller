@@ -3,11 +3,19 @@ public struct ComponentMitigation: Equatable, Sendable {
     public let protectorId: ComponentId
     public let protectorName: String
     public let reducesRiskBy: Int
+    /// Whether the edge this mitigation came from is adopted or assumed.
+    public let status: MitigationStatus
 
-    public init(protectorId: ComponentId, protectorName: String, reducesRiskBy: Int) {
+    public init(
+        protectorId: ComponentId,
+        protectorName: String,
+        reducesRiskBy: Int,
+        status: MitigationStatus = .adopted
+    ) {
         self.protectorId = protectorId
         self.protectorName = protectorName
         self.reducesRiskBy = reducesRiskBy
+        self.status = status
     }
 }
 
@@ -39,7 +47,8 @@ public enum ComponentMitigations {
                 ComponentMitigation(
                     protectorId: $0.source,
                     protectorName: nameOf($0.source),
-                    reducesRiskBy: $0.reducesRiskBy
+                    reducesRiskBy: $0.reducesRiskBy,
+                    status: $0.status
                 )
             }
         )

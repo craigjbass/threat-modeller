@@ -294,9 +294,7 @@ public struct ThreatResolver {
                         mitigatedByComponents: byComponents.by,
                         severityDecision: chosen.decision,
                         scoreIfAssumptionsHold: byAssumed.score,
-                        assumedMitigations: byAssumed.by.filter {
-                            assumed(edgeFrom: $0.protectorId, to: component.id, threat: threat.id)
-                        }
+                        assumedMitigations: byAssumed.by.filter { $0.status == .assumed }
                     )
                 )
             }
@@ -597,14 +595,6 @@ public struct ThreatResolver {
         }
 
         return (lowest, applied)
-    }
-
-    /// True when the edge that gives this mitigation is assumed, so the report
-    /// names only the work nobody has done yet.
-    private func assumed(edgeFrom source: ComponentId, to target: ComponentId, threat: ThreatId) -> Bool {
-        model.mitigatesEdges.contains {
-            $0.source == source && $0.target == target && $0.answers(threat) && $0.status == .assumed
-        }
     }
 
     private func componentControls(
