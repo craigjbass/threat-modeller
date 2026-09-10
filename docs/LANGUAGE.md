@@ -295,8 +295,16 @@ The label names the assumption.
 | `owner` | string | any | none |
 
 A block with no `text`, or an empty one, is the error `the assumption "<label>"
-has no text`, and the block is dropped. Nothing else in this application reads
-an assumption; it is a record for a person.
+has no text`, and the block is dropped.
+
+The report's `## Assumptions` section lists every assumption, by label, text
+and owner, in the order the `.arch` file declares them. The same section also
+lists every assumed `mitigates` edge, under an `### Assumed mitigations`
+subheading, because an edge names no assumption of its own. `BuildThreatModelReport`
+fills both lists from the model, `MarkdownAssumptions` writes the section, and
+`ExportModelAsMarkdown` places it after the recommendations. A model that
+states no assumption and assumes no mitigation writes no `## Assumptions`
+section at all.
 
 ### 4.3 `technology`
 
@@ -485,7 +493,9 @@ edge is "adopted" or "assumed"`.
 An `assumed` edge never lowers the residual score: it states a mitigation the
 team plans but has not put in place. The report shows the score both with and
 without it, in an "If assumed hold" column, so a reader sees the risk today
-and the risk once the assumption is true.
+and the risk once the assumption is true. The report's `## Assumptions`
+section also lists the edge itself, under an `### Assumed mitigations`
+subheading, alongside the `assumption` blocks of section 4.2.
 
 Two `mitigates` edges that lower the same threat on the same component give
 the stronger reduction, not the sum.
@@ -806,6 +816,9 @@ The label is what the compensating control is called.
 | `rationale` | string | any, and not empty | **required** |
 | `sources` | list of strings | any | empty |
 
+`sources` is a URL, a CVE identifier, or any other text that says where the
+compensating control comes from.
+
 A block with no `rationale`, or an empty one, is the error
 `the compensating control "<label>" has no rationale`, and the block is dropped.
 A reduction nobody can justify is not one.
@@ -844,6 +857,9 @@ block.
 | `prior` | number | 0 to 100 | one of `tier` or `prior` is **required** |
 | `rationale` | string | any, and not empty | **required** |
 | `sources` | list of strings | any | empty |
+
+`sources` is a URL, a CVE identifier, or any other text that says where the
+finding comes from.
 
 A block states a tier or a prior, never both. `tier` names a band from the
 library language's three tiers; `prior` is a percentage a person measured or
@@ -885,6 +901,9 @@ The label is the severity the assessor chose. A threat holds at most one
 | --- | --- | --- | --- |
 | `rationale` | string | any, and not empty | **required** |
 | `sources` | list of strings | any | empty |
+
+`sources` is a URL, a CVE identifier, or any other text that says where the
+decision comes from.
 
 A block with no `rationale`, or an empty one, is the error `the
 severity_override "<label>" has no rationale`, and the block is dropped. A
@@ -1464,7 +1483,7 @@ MitigationAttr  = "name"            "=" String
 | [`Library.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/Library.swift) | the prefix rule of section 6.4, and the taxonomy check |
 | [`MergedCatalogue.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/MergedCatalogue.swift) | how a library and the vendored catalogue read as one |
 | [`Diagnostic.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/Diagnostic.swift) | section 7 |
-| [`ControlsSource.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ControlsSource.swift) | the value tree, and the threat key of section 5.7 |
+| [`ControlsSource.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ControlsSource.swift) | the value tree, and the threat key of section 5.9 |
 | [`ProjectConvention.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ProjectConvention.swift) | how a `.arch` file pairs with its `.controls` and its `.md` |
 
 Related documents:
