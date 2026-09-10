@@ -103,4 +103,64 @@ struct ModellingFromSourceTests {
 
         #expect(app.viewThreatModel().execute(ViewThreatModelRequest()) == first)
     }
+
+    @Test func exportsAnAssumedEdgeTwoAssumptionsAndTheTolerance() {
+        let withAnAssumption = """
+        system "S" {
+          risk_tolerance = "high"
+
+          assumption "mdm-push" {
+            text  = "the hardening baseline is written, and MDM has not pushed it yet"
+            owner = "platform team"
+          }
+
+          assumption "network-review" {
+            text  = "network segmentation was reviewed last quarter"
+            owner = "network team"
+          }
+
+          component "laptop" { technology = "aws-ec2" data = "confidential" }
+          component "baseline" { technology = "actor-user" data = "internal" }
+
+          mitigates baseline -> laptop {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 60
+            status          = "assumed"
+          }
+        }
+        """
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: withAnAssumption))
+
+        let text = app.exportArchitecture().execute(ExportArchitectureRequest()).text
+
+        #expect(text.contains("risk_tolerance = \"high\""))
+        #expect(text.contains("assumption \"mdm-push\" {"))
+        #expect(text.contains("\"platform team\""))
+        #expect(text.contains("assumption \"network-review\" {"))
+        #expect(text.contains("\"network team\""))
+        #expect(text.contains("mitigates baseline -> laptop {"))
+        #expect(text.contains("\"assumed\""))
+    }
+
+    @Test func exportsNoStatusNoAssumptionAndNoToleranceAtTheirDefaults() {
+        let withNoAssumption = """
+        system "S" {
+          component "laptop" { technology = "aws-ec2" data = "confidential" }
+          component "baseline" { technology = "actor-user" data = "internal" }
+
+          mitigates baseline -> laptop {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 60
+          }
+        }
+        """
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: withNoAssumption))
+
+        let text = app.exportArchitecture().execute(ExportArchitectureRequest()).text
+
+        #expect(text.contains("mitigates baseline -> laptop {"))
+        #expect(text.contains("status") == false)
+        #expect(text.contains("assumption") == false)
+        #expect(text.contains("risk_tolerance") == false)
+    }
 }

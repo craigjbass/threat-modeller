@@ -93,6 +93,8 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                 sourceId: answer.sourceId,
                 severityLabel: answer.severityLabel,
                 score: answer.score,
+                likelihood: answer.likelihood,
+                severityDecision: answer.severityDecision,
                 controls: answer.controls.map { control in
                     SourceControlAnswer(
                         description: control.description,
@@ -113,6 +115,7 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                     ControlsSource(
                         systemName: compiled.systemName,
                         catalogueTag: compiled.catalogueTag,
+                        riskTolerance: compiled.riskTolerance,
                         answers: answers
                     )
                 ),

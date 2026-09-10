@@ -65,7 +65,21 @@ public enum ArchitectureSourceBuilder {
                         sourceId: edge.source.value,
                         targetId: edge.target.value,
                         threatIds: edge.threatIds.map(\.value),
-                        reducesRiskBy: edge.reducesRiskBy
+                        reducesRiskBy: edge.reducesRiskBy,
+                        // Nil at the default, so an adopted edge writes no
+                        // line and a file that never stated one round trips
+                        // unchanged.
+                        status: edge.status == .assumed ? edge.status.rawValue : nil
+                    )
+                },
+                // Nil at the default, so a file that never states a tolerance
+                // still writes back exactly as it read.
+                riskTolerance: model.riskTolerance == .low ? nil : model.riskTolerance.rawValue,
+                assumptions: model.assumptions.map { assumption in
+                    SourceAssumption(
+                        label: assumption.label,
+                        text: assumption.text,
+                        owner: assumption.owner
                     )
                 }
             )
