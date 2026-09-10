@@ -20,6 +20,26 @@ struct DocumentJSON: Codable {
     let controlStatuses: [String: String]?
     let compensatingControls: [String: [CompensatingControlJSON]]?
     let pathwayMitigations: PathwayMitigationsJSON
+    /// Version 4 adds these three. A version 1, 2 or 3 file has none.
+    let mitigatesEdges: [MitigatesEdgeJSON]?
+    let recommendations: [String: [RecommendationJSON]]?
+}
+
+struct AssetJSON: Codable {
+    let name: String
+    let sensitivity: String
+}
+
+struct MitigatesEdgeJSON: Codable {
+    let source: String
+    let target: String
+    let threatIds: [String]
+    let reducesRiskBy: Int
+}
+
+struct RecommendationJSON: Codable {
+    let text: String
+    let note: String?
 }
 
 struct CustomTechnologyJSON: Codable {
@@ -44,12 +64,16 @@ struct ComponentJSON: Codable {
     let sensitivity: String
     let customName: String?
     let threatsDisabled: Bool
+    let runsAs: String?
+    let assets: [AssetJSON]?
 }
 
 struct ConnectionJSON: Codable {
     let id: String
     let source: String
     let target: String
+    let kind: String?
+    let description: String?
 }
 
 struct ZoneJSON: Codable {
@@ -63,6 +87,8 @@ struct ZoneJSON: Codable {
     let networkType: String
     let riskReductionEnabled: Bool
     let riskReductionPercent: Int
+    let boundary: String?
+    let description: String?
 }
 
 struct CompensatingControlJSON: Codable {

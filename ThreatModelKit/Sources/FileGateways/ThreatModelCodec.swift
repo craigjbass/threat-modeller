@@ -11,9 +11,11 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// Version 2 adds the technologies a model defines for itself. Version 3
     /// adds a status per control and the compensating controls. An older file
     /// has neither, and its recorded controls become `implemented` statuses,
-    /// so a user's saved work does not stop opening.
-    public static let formatVersion = 3
-    private static let readableFormatVersions: Set<Int> = [1, 2, 3]
+    /// so a user's saved work does not stop opening. Version 4 adds a flow's
+    /// kind and description, a component's privilege and assets, a zone's
+    /// boundary and description, the mitigates edges and the recommendations.
+    public static let formatVersion = 4
+    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4]
 
     public init() {}
 
@@ -70,6 +72,24 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                             )
                         }
                     )
+                ),
+                mitigatesEdges: model.mitigatesEdges.map {
+                    MitigatesEdgeJSON(
+                        source: $0.source.value,
+                        target: $0.target.value,
+                        threatIds: $0.threatIds.map(\.value),
+                        reducesRiskBy: $0.reducesRiskBy
+                    )
+                },
+                recommendations: Dictionary(
+                    uniqueKeysWithValues: model.recommendations.map { key, recommendations in
+                        (
+                            key.value,
+                            recommendations.map {
+                                RecommendationJSON(text: $0.text, note: $0.note)
+                            }
+                        )
+                    }
                 )
             )
         )
@@ -113,6 +133,24 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                                 reducesRiskBy: $0.reducesRiskBy,
                                 rationale: $0.rationale
                             )
+                        }
+                    )
+                }
+            ),
+            mitigatesEdges: (document.mitigatesEdges ?? []).map {
+                MitigatesEdge(
+                    source: ComponentId($0.source),
+                    target: ComponentId($0.target),
+                    threatIds: $0.threatIds.map(ThreatId.init),
+                    reducesRiskBy: $0.reducesRiskBy
+                )
+            },
+            recommendations: Dictionary(
+                uniqueKeysWithValues: (document.recommendations ?? [:]).map { key, recommendations in
+                    (
+                        ThreatKey(key),
+                        recommendations.map {
+                            Recommendation(text: $0.text, note: $0.note)
                         }
                     )
                 }
@@ -187,7 +225,11 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             y: component.position.y,
             sensitivity: component.sensitivity.rawValue,
             customName: component.customName,
-            threatsDisabled: component.threatsDisabled
+            threatsDisabled: component.threatsDisabled,
+            runsAs: component.runsAs.rawValue,
+            assets: component.assets.map {
+                AssetJSON(name: $0.name, sensitivity: $0.sensitivity.rawValue)
+            }
         )
     }
 
@@ -217,7 +259,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
         ConnectionJSON(
             id: connection.id.value,
             source: connection.source.value,
-            target: connection.target.value
+            target: connection.target.value,
+            kind: connection.kind.rawValue,
+            description: connection.description
         )
     }
 
@@ -232,7 +276,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             networkZone: zone.networkZone.rawValue,
             networkType: zone.networkType.rawValue,
             riskReductionEnabled: zone.riskReductionEnabled,
-            riskReductionPercent: zone.riskReductionPercent
+            riskReductionPercent: zone.riskReductionPercent,
+            boundary: zone.boundary.rawValue,
+            description: zone.description
         )
     }
 
@@ -247,7 +293,14 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 raw: json.sensitivity
             ),
             customName: json.customName,
-            threatsDisabled: json.threatsDisabled
+            threatsDisabled: json.threatsDisabled,
+            runsAs: PrivilegeLevel(rawValue: json.runsAs ?? "") ?? .default,
+            assets: (json.assets ?? []).map {
+                Asset(
+                    name: $0.name,
+                    sensitivity: DataSensitivity(rawValue: $0.sensitivity) ?? .internalData
+                )
+            }
         )
     }
 
@@ -255,7 +308,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
         Connection(
             id: ConnectionId(json.id),
             source: ComponentId(json.source),
-            target: ComponentId(json.target)
+            target: ComponentId(json.target),
+            kind: FlowKind(rawValue: json.kind ?? "") ?? .default,
+            description: json.description
         )
     }
 
@@ -275,7 +330,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 raw: json.networkType
             ),
             riskReductionEnabled: json.riskReductionEnabled,
-            riskReductionPercent: json.riskReductionPercent
+            riskReductionPercent: json.riskReductionPercent,
+            boundary: ZoneBoundary(rawValue: json.boundary ?? "") ?? .default,
+            description: json.description
         )
     }
 
