@@ -73,4 +73,52 @@ struct LikelihoodFindingTests {
         #expect(threat.riskScore == 10)
         #expect(threat.likelihoodRationale == nil)
     }
+
+    /// A finding wins in both directions. A `commodity` finding against a
+    /// `research` prior raises the score back to the unfactored one, and
+    /// still reports the rationale the finding carries.
+    @Test func aCommodityFindingRaisesTheScoreBackWhenThePriorIsResearch() throws {
+        let componentId = aComponentRaisingAThreat(likelihood: "research")
+        let key = ThreatKey(threatId: "endpoint-sip-bypass", sourceId: "component:\(componentId)")
+
+        app.modelStore.mutate { model in
+            model.likelihoodFindings[key] = LikelihoodFinding(
+                label: "seen in the wild",
+                likelihood: .commodity,
+                rationale: "exploit kits carry it now",
+                sources: ["CVE-2022-11111"]
+            )
+        }
+
+        let threat = try #require(threats().first)
+        #expect(threat.scoreBeforeLikelihood == 16)
+        #expect(threat.riskScore == 16)
+        #expect(threat.likelihoodId == "commodity")
+        #expect(threat.likelihoodRationale == "exploit kits carry it now")
+        #expect(threat.likelihoodSources == ["CVE-2022-11111"])
+    }
+
+    /// A `commodity` finding on a threat whose prior is already `commodity`
+    /// still attaches: the score is unchanged, but the rationale reaches the
+    /// report.
+    @Test func aCommodityFindingOnAPlainThreatKeepsTheScoreAndReportsTheRationale() throws {
+        let componentId = aComponentRaisingAThreat(likelihood: "commodity")
+        let key = ThreatKey(threatId: "endpoint-sip-bypass", sourceId: "component:\(componentId)")
+
+        app.modelStore.mutate { model in
+            model.likelihoodFindings[key] = LikelihoodFinding(
+                label: "confirmed common",
+                likelihood: .commodity,
+                rationale: "widely automated already",
+                sources: ["CVE-2019-22222"]
+            )
+        }
+
+        let threat = try #require(threats().first)
+        #expect(threat.scoreBeforeLikelihood == 16)
+        #expect(threat.riskScore == 16)
+        #expect(threat.likelihoodId == "commodity")
+        #expect(threat.likelihoodRationale == "widely automated already")
+        #expect(threat.likelihoodSources == ["CVE-2019-22222"])
+    }
 }

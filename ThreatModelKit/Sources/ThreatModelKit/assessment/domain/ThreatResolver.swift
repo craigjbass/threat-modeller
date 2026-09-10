@@ -387,14 +387,16 @@ public struct ThreatResolver {
     /// likelihood finding and a control are separate evidence.
     ///
     /// A finding from the controls file wins over the library's prior for
-    /// that one threat on that one source. It reads the finding before it
-    /// checks for `commodity`, so a finding that raises the tier back up
-    /// takes effect too.
+    /// that one threat on that one source, in both directions: a finding can
+    /// raise the tier back to `commodity` as well as lower it. It reads the
+    /// finding before it checks for `commodity`, and it rebuilds the threat
+    /// whenever a finding exists, even a `commodity` one, so the finding's
+    /// rationale and sources always reach the report.
     private func likelihooded(_ threat: ResolvedThreat) -> ResolvedThreat {
         let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
         let finding = model.likelihoodFindings[key]
         let likelihood = finding?.likelihood ?? threat.threat.likelihood
-        guard likelihood != .commodity else { return threat }
+        guard finding != nil || likelihood != .commodity else { return threat }
         let reduced = Likelihood.apply(to: threat.score.value, likelihood: likelihood)
 
         return ResolvedThreat(
