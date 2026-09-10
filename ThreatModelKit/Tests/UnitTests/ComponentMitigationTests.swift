@@ -147,8 +147,39 @@ struct ComponentMitigationTests {
         ).execute(AssessThreatModelRequest())
 
         #expect(response.protectionDependencies.first?.unanswered.isEmpty == false)
+        // One reduction depends on this protector, so the count reads
+        // correctly at one: "1 risk reduction depends on", not "1 risk
+        // reductions depend on".
         #expect(response.warnings.contains {
-            $0.contains("risk reductions depend on") && $0.contains("EC2")
+            $0.contains("1 risk reduction depends on") && $0.contains("EC2")
+        })
+    }
+
+    @Test func theWarningCountsThreatsActuallyAnsweredNotDeclaredPairs() throws {
+        // The edge declares two threats on "store", but "phantom-threat" is
+        // never raised there, so it never answers anything.
+        let held = ThreatModel(
+            name: "S",
+            components: [component("guard"), component("store")],
+            mitigatesEdges: [
+                MitigatesEdge(
+                    source: ComponentId("guard"),
+                    target: ComponentId("store"),
+                    threatIds: [ThreatId("credential-theft"), ThreatId("phantom-threat")],
+                    reducesRiskBy: 75
+                )
+            ]
+        )
+        let response = AssessThreatModel(
+            models: InMemoryThreatModelGateway(held),
+            catalogue: catalogue
+        ).execute(AssessThreatModelRequest())
+
+        let dependency = try #require(response.protectionDependencies.first)
+        #expect(dependency.protects.count == 2)
+        #expect(dependency.answeredCount == 1)
+        #expect(response.warnings.contains {
+            $0.contains("1 risk reduction depends on") && $0.contains("EC2")
         })
     }
 }

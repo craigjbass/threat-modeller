@@ -22,7 +22,8 @@ struct SetConnectionPropertiesTests {
                 ],
                 connections: [
                     Connection(id: ConnectionId("a->b"), source: ComponentId("a"), target: ComponentId("b"))
-                ]
+                ],
+                zones: [Zone(id: ZoneId("z"), rect: Rect(x: 0, y: 0, width: 400, height: 300))]
             )
         )
     }
@@ -66,9 +67,32 @@ struct SetConnectionPropertiesTests {
         _ = SetConnectionProperties(models: models).execute(
             SetConnectionPropertiesRequest(connectionId: "a->b", kind: "file", description: nil)
         )
+        _ = SetComponentProperties(models: models).execute(
+            SetComponentPropertiesRequest(
+                componentId: "a",
+                name: nil,
+                sensitivity: "internal",
+                threatsDisabled: false,
+                runsAs: "root"
+            )
+        )
+        _ = SetZoneProperties(models: models).execute(
+            SetZonePropertiesRequest(
+                zoneId: "z",
+                name: nil,
+                networkZone: "private",
+                networkType: "generic",
+                riskReductionEnabled: true,
+                riskReductionPercent: 20,
+                boundary: "privilege"
+            )
+        )
+
         let view = ViewThreatModel(models: models, catalogue: CatalogueFixture.catalogue())
             .execute(ViewThreatModelRequest())
+
         #expect(view.connections.first?.kindId == "file")
-        #expect(view.components.first?.runsAsId == "user")
+        #expect(view.components.first?.runsAsId == "root")
+        #expect(view.zones.first?.boundaryId == "privilege")
     }
 }

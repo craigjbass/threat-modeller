@@ -163,6 +163,31 @@ struct AttackPathTests {
         #expect(path.hops.last?.reducedBy == ["WAF"])
     }
 
+    @Test func aComponentInAPublicZoneIsAStartEvenWithInboundFlow() {
+        let publicZone = Zone(
+            id: ZoneId("dmz"),
+            rect: Rect(x: 0, y: 0, width: 200, height: 200),
+            networkZone: .publicZone
+        )
+        let gateway = Component(
+            id: ComponentId("gateway"),
+            technologyId: TechnologyId("aws-ec2"),
+            position: Point(x: 20, y: 20),
+            sensitivity: .internalData
+        )
+        // "gateway" has an inbound flow from "far", so the no-inbound half of
+        // the start rule does not make it a start on its own. Only the
+        // public-zone half does.
+        let built = AttackPaths.build(
+            components: [component("far"), gateway, component("store", .restricted)],
+            connections: [flow("far", "gateway"), flow("gateway", "store")],
+            zones: [publicZone],
+            threats: [],
+            nameOf: { $0.value }
+        )
+        #expect(built.paths.contains { $0.startName == "gateway" })
+    }
+
     @Test func aCycleStopsTheWalk() {
         let built = build(
             components: [component("entry"), component("a"), component("b"), component("store", .restricted)],

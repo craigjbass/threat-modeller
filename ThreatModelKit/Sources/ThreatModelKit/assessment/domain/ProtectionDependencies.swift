@@ -20,17 +20,23 @@ public struct ProtectionDependency: Equatable, Sendable {
     /// The reductions this protector gives, as "<threat id> on <component id>".
     public let protects: [String]
     public let unanswered: [UnansweredProtectorThreat]
+    /// How many threats this protector actually lowered. Can be lower than
+    /// `protects.count`: an edge can name a threat that is never raised on the
+    /// target, declared but never answered.
+    public let answeredCount: Int
 
     public init(
         protectorId: String,
         protectorName: String,
         protects: [String],
-        unanswered: [UnansweredProtectorThreat]
+        unanswered: [UnansweredProtectorThreat],
+        answeredCount: Int? = nil
     ) {
         self.protectorId = protectorId
         self.protectorName = protectorName
         self.protects = protects
         self.unanswered = unanswered
+        self.answeredCount = answeredCount ?? protects.count
     }
 }
 
@@ -61,9 +67,19 @@ public enum ProtectionDependencies {
                 protectorId: protector.value,
                 protectorName: nameOf(protector),
                 protects: protects[protector] ?? [],
-                unanswered: unanswered(on: protector, in: resolved)
+                unanswered: unanswered(on: protector, in: resolved),
+                answeredCount: answeredCount(for: protector, in: resolved)
             )
         }
+    }
+
+    /// How many threats this protector actually lowered: the resolved threats
+    /// whose `mitigatedByComponents` names it. A declared pair the model never
+    /// raises is not counted, because it answered nothing.
+    private static func answeredCount(for protector: ComponentId, in resolved: [ResolvedThreat]) -> Int {
+        resolved.filter { threat in
+            threat.mitigatedByComponents.contains { $0.protectorId == protector }
+        }.count
     }
 
     /// The threats raised on the protector that no control and no compensating
@@ -96,7 +112,9 @@ public enum ProtectionDependencies {
                 $0.levelLabel == "High" || $0.levelLabel == "Critical"
             }
             guard serious.isEmpty == false else { return nil }
-            return "\(dependency.protects.count) risk reductions depend on "
+            let count = dependency.answeredCount
+            let subject = count == 1 ? "risk reduction depends" : "risk reductions depend"
+            return "\(count) \(subject) on "
                 + "\"\(dependency.protectorName)\", which has \(serious.count) "
                 + "unanswered threats"
         }
