@@ -1,0 +1,261 @@
+library "endpoint" {
+  technology "system-extension" {
+    name        = "System Extension"
+    category    = "compute"
+    description = "A user-space extension that replaces a kernel extension for endpoint security, network and driver features."
+    threats     = ["persistence", "unsigned-code-load"]
+  }
+
+  technology "es-client" {
+    name        = "Endpoint Security Client"
+    category    = "compute"
+    description = "A user-space client of the Endpoint Security framework that receives authorization events for a process, a file and other system actions."
+  }
+
+  technology "keychain" {
+    name        = "Keychain"
+    category    = "compute"
+    description = "The encrypted store for a password, a key and a certificate on the host."
+    threats     = ["keychain-item-theft"]
+  }
+
+  technology "mdm-channel" {
+    name        = "MDM Channel"
+    category    = "compute"
+    description = "The connection between the host and a Mobile Device Management server that pushes a configuration profile and a command."
+    threats     = ["profile-injection"]
+  }
+
+  technology "tcc" {
+    name        = "TCC"
+    category    = "compute"
+    description = "The privacy subsystem that gates a process's access to a protected resource such as the camera, contacts or full disk."
+    threats     = ["tcc-bypass"]
+  }
+
+  technology "gatekeeper" {
+    name        = "Gatekeeper"
+    category    = "compute"
+    description = "The subsystem that checks a downloaded file's signature and notarisation before it runs."
+    threats     = ["unsigned-code-load"]
+  }
+
+  technology "launchd" {
+    name        = "launchd"
+    category    = "compute"
+    description = "The system and user service manager that starts a daemon, an agent and a login item."
+    threats     = ["persistence", "dylib-injection"]
+  }
+
+  technology "kernel-extension" {
+    name        = "Kernel Extension"
+    category    = "compute"
+    description = "Legacy code that runs in kernel space with unrestricted access to hardware and memory."
+    threats     = ["raw-device-read", "privilege-escalation"]
+  }
+
+  technology "xpc-service" {
+    name        = "XPC Service"
+    category    = "compute"
+    description = "A helper process that a client reaches over Apple's inter-process communication mechanism."
+    threats     = ["dylib-injection", "sandbox-escape"]
+  }
+
+  technology "unix-socket" {
+    name        = "Unix Domain Socket"
+    category    = "compute"
+    description = "A local socket file that two processes on the same host use to exchange data."
+    threats     = ["sandbox-escape", "boundary-bypass"]
+  }
+
+  threat "raw-device-read" {
+    name        = "Raw Device Read"
+    description = "A kernel extension reads a raw block device directly and bypasses file system permissions."
+    severity    = "critical"
+    stride      = ["information-disclosure"]
+    pathway     = true
+
+    mitre "T1006" {
+      name   = "Direct Volume Access"
+      tactic = "Defense Evasion"
+    }
+
+    control "Deny raw device access to any process that is not an approved kernel extension"
+    control "Log every open of a raw device node and alert on an unexpected caller"
+  }
+
+  threat "dylib-injection" {
+    name        = "Dynamic Library Injection"
+    description = "An attacker inserts a malicious dynamic library into a running process to run code inside it."
+    severity    = "high"
+    stride      = ["tampering", "elevation-of-privilege"]
+    connection  = true
+    pathway     = true
+    applies_to  = ["file", "ipc"]
+
+    mitre "T1574.006" {
+      name   = "Dynamic Linker Hijacking"
+      tactic = "Persistence"
+    }
+
+    control "Deny the write with an Endpoint Security rule that blocks an unsigned library load"
+    control "Turn on library validation so a process loads only a library signed by the same team"
+  }
+
+  threat "persistence" {
+    name        = "Persistence"
+    description = "An attacker installs a launch agent, a launch daemon or a login item so code runs again after every restart."
+    severity    = "high"
+    stride      = ["tampering"]
+    pathway     = true
+    runs_as     = ["user", "admin", "root"]
+
+    mitre "T1543.001" {
+      name   = "Launch Agent"
+      tactic = "Persistence"
+    }
+
+    control "Watch every launch agent and launch daemon property list with an Endpoint Security file rule"
+    control "Deny an unsigned launch agent or launch daemon from loading"
+  }
+
+  threat "tcc-bypass" {
+    name        = "TCC Bypass"
+    description = "An attacker reads or writes a protected resource without a TCC consent prompt, by way of a trusted process or a stolen entitlement."
+    severity    = "high"
+    stride      = ["elevation-of-privilege", "information-disclosure"]
+    connection  = true
+    applies_to  = ["ipc", "syscall"]
+
+    mitre "T1548" {
+      name   = "Abuse Elevation Control Mechanism"
+      tactic = "Defense Evasion"
+    }
+
+    control "Grant Full Disk Access only to a process that has passed review and carries a valid signature"
+    control "Alert when a process reads the TCC database file directly instead of asking the user"
+  }
+
+  threat "profile-injection" {
+    name        = "Profile Injection"
+    description = "An attacker enrols the host with a rogue MDM server or pushes a malicious configuration profile through the MDM channel."
+    severity    = "critical"
+    stride      = ["tampering", "elevation-of-privilege"]
+    pathway     = true
+    runs_as     = ["root", "system"]
+
+    mitre "T1553.004" {
+      name   = "Install Root Certificate"
+      tactic = "Defense Evasion"
+    }
+
+    control "Require a signed MDM enrollment profile and reject an unsigned one"
+    control "Alert when a new configuration profile installs a root certificate"
+  }
+
+  threat "privilege-escalation" {
+    name        = "Privilege Escalation"
+    description = "An attacker crosses a privilege boundary and gains root or kernel rights from a process that runs as a standard user."
+    severity    = "critical"
+    stride      = ["elevation-of-privilege"]
+    connection  = true
+    zone        = true
+    pathway     = true
+    boundary    = "privilege"
+
+    mitre "T1068" {
+      name   = "Exploitation for Privilege Escalation"
+      tactic = "Privilege Escalation"
+    }
+
+    control "Patch the kernel and every privileged helper tool on a fixed schedule"
+    control "Run a helper tool with the least privilege it needs, never as root"
+  }
+
+  threat "sandbox-escape" {
+    name        = "Sandbox Escape"
+    description = "A sandboxed application breaks out of its container and reaches a resource its entitlements do not cover."
+    severity    = "high"
+    stride      = ["elevation-of-privilege", "tampering"]
+    connection  = true
+    zone        = true
+    pathway     = true
+    boundary    = "privilege"
+
+    mitre "T1611" {
+      name   = "Escape to Host"
+      tactic = "Privilege Escalation"
+    }
+
+    control "Keep the app sandbox entitlements minimal and review them at each release"
+    control "Deny an XPC connection from a sandboxed process to a service it has no entitlement for"
+  }
+
+  threat "boundary-bypass" {
+    name        = "Boundary Bypass"
+    description = "A process on one side of a privilege boundary reaches a resource on the other side through a permitted channel used the wrong way."
+    severity    = "medium"
+    stride      = ["elevation-of-privilege"]
+    connection  = true
+    zone        = true
+    boundary    = "privilege"
+
+    mitre "T1559" {
+      name   = "Inter-Process Communication"
+      tactic = "Execution"
+    }
+
+    control "Check the caller's code signature before an XPC service performs a privileged action"
+    control "Deny an unentitled process from opening a privileged unix domain socket"
+  }
+
+  threat "keychain-item-theft" {
+    name        = "Keychain Item Theft"
+    description = "An attacker reads a password, a key or a certificate out of the keychain without the owning application's consent."
+    severity    = "critical"
+    stride      = ["information-disclosure"]
+    pathway     = true
+
+    mitre "T1555.001" {
+      name   = "Keychain"
+      tactic = "Credential Access"
+    }
+
+    control "Set a keychain item's access control list to the owning application only"
+    control "Require Touch ID or the login password before an item with an access control list releases"
+  }
+
+  threat "unsigned-code-load" {
+    name        = "Unsigned Code Load"
+    description = "The operating system loads and runs a binary or a library that is neither signed nor notarised."
+    severity    = "high"
+    stride      = ["tampering"]
+    connection  = true
+    pathway     = true
+    applies_to  = ["file"]
+
+    mitre "T1553.002" {
+      name   = "Code Signing"
+      tactic = "Defense Evasion"
+    }
+
+    control "Refuse to run a binary that is neither signed nor notarised with a Gatekeeper assessment"
+    control "Deny an unsigned dynamic library from loading with library validation"
+  }
+
+  mitigation "es-client-protection" {
+    name            = "Endpoint Security client"
+    description     = "Denies unsigned code and watches the file system"
+    mitigates       = ["dylib-injection", "unsigned-code-load", "persistence"]
+    provided_by     = ["es-client"]
+    reduces_risk_by = 60
+  }
+
+  mitigation "gatekeeper-assessment" {
+    name            = "Gatekeeper assessment"
+    description     = "Refuses to run code that is neither signed nor notarised"
+    mitigates       = ["unsigned-code-load"]
+    provided_by     = ["gatekeeper"]
+    reduces_risk_by = 40
+  }
+}
