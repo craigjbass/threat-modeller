@@ -22,9 +22,12 @@ public enum ComponentMitigations {
         threatId: ThreatId,
         target: ComponentId,
         edges: [MitigatesEdge],
+        statuses: Set<MitigationStatus> = [.adopted],
         nameOf: (ComponentId) -> String
     ) -> (score: Int, by: [ComponentMitigation]) {
-        let answering = edges.filter { $0.target == target && $0.answers(threatId) }
+        let answering = edges.filter {
+            $0.target == target && $0.answers(threatId) && statuses.contains($0.status)
+        }
         guard answering.isEmpty == false else { return (score, []) }
 
         let strongest = answering.map(\.reducesRiskBy).max() ?? 0

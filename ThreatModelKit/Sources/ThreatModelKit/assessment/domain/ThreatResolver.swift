@@ -104,6 +104,11 @@ public struct ResolvedThreat: Equatable, Sendable {
     /// What an assessor decided this threat's severity is, and why, or nil
     /// when no decision names this threat on this source.
     public let severityDecision: SeverityDecision?
+    /// The score when every assumed mitigation is in place. Equal to
+    /// `score.value` when no assumed edge answers this threat.
+    public let scoreIfAssumptionsHold: Int
+    /// The assumed edges that lowered the target posture.
+    public let assumedMitigations: [ComponentMitigation]
 
     public init(
         threat: Threat,
@@ -125,7 +130,9 @@ public struct ResolvedThreat: Equatable, Sendable {
         likelihood: Likelihood = .commodity,
         scoreBeforeLikelihood: Int? = nil,
         likelihoodFinding: LikelihoodFinding? = nil,
-        severityDecision: SeverityDecision? = nil
+        severityDecision: SeverityDecision? = nil,
+        scoreIfAssumptionsHold: Int? = nil,
+        assumedMitigations: [ComponentMitigation] = []
     ) {
         self.scoreBeforeControls = scoreBeforeControls ?? score.value
         self.compensating = compensating
@@ -147,6 +154,8 @@ public struct ResolvedThreat: Equatable, Sendable {
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? score.value
         self.likelihoodFinding = likelihoodFinding
         self.severityDecision = severityDecision
+        self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? score.value
+        self.assumedMitigations = assumedMitigations
     }
 }
 
@@ -250,6 +259,15 @@ public struct ThreatResolver {
                     threatId: threat.id,
                     target: component.id,
                     edges: model.mitigatesEdges,
+                    statuses: [.adopted],
+                    nameOf: { nameById[$0] ?? $0.value }
+                )
+                let byAssumed = ComponentMitigations.apply(
+                    score: mitigation.score,
+                    threatId: threat.id,
+                    target: component.id,
+                    edges: model.mitigatesEdges,
+                    statuses: [.adopted, .assumed],
                     nameOf: { nameById[$0] ?? $0.value }
                 )
                 let score = RiskScore(value: byComponents.score)
@@ -274,7 +292,11 @@ public struct ThreatResolver {
                         scoreBeforePathwayMitigation: covered,
                         scoreBeforeControls: zoned.value,
                         mitigatedByComponents: byComponents.by,
-                        severityDecision: chosen.decision
+                        severityDecision: chosen.decision,
+                        scoreIfAssumptionsHold: byAssumed.score,
+                        assumedMitigations: byAssumed.by.filter {
+                            assumed(edgeFrom: $0.protectorId, to: component.id, threat: threat.id)
+                        }
                     )
                 )
             }
@@ -418,6 +440,7 @@ public struct ThreatResolver {
         let likelihood = finding?.likelihood ?? threat.threat.likelihood
         guard finding != nil || likelihood != .commodity else { return threat }
         let reduced = Likelihood.apply(to: threat.score.value, likelihood: likelihood)
+        let reducedTarget = Likelihood.apply(to: threat.scoreIfAssumptionsHold, likelihood: likelihood)
 
         return ResolvedThreat(
             threat: threat.threat,
@@ -439,7 +462,9 @@ public struct ThreatResolver {
             likelihood: likelihood,
             scoreBeforeLikelihood: threat.score.value,
             likelihoodFinding: finding,
-            severityDecision: threat.severityDecision
+            severityDecision: threat.severityDecision,
+            scoreIfAssumptionsHold: reducedTarget,
+            assumedMitigations: threat.assumedMitigations
         )
     }
 
@@ -454,6 +479,10 @@ public struct ThreatResolver {
 
         let strongest = controls.map(\.reducesRiskBy).max() ?? 0
         let reduced = max(1, Int((Double(threat.score.value) * (1 - Double(strongest) / 100)).rounded()))
+        let reducedTarget = max(
+            1,
+            Int((Double(threat.scoreIfAssumptionsHold) * (1 - Double(strongest) / 100)).rounded())
+        )
 
         return ResolvedThreat(
             threat: threat.threat,
@@ -475,7 +504,9 @@ public struct ThreatResolver {
             likelihood: threat.likelihood,
             scoreBeforeLikelihood: threat.scoreBeforeLikelihood,
             likelihoodFinding: threat.likelihoodFinding,
-            severityDecision: threat.severityDecision
+            severityDecision: threat.severityDecision,
+            scoreIfAssumptionsHold: reducedTarget,
+            assumedMitigations: threat.assumedMitigations
         )
     }
 
@@ -566,6 +597,14 @@ public struct ThreatResolver {
         }
 
         return (lowest, applied)
+    }
+
+    /// True when the edge that gives this mitigation is assumed, so the report
+    /// names only the work nobody has done yet.
+    private func assumed(edgeFrom source: ComponentId, to target: ComponentId, threat: ThreatId) -> Bool {
+        model.mitigatesEdges.contains {
+            $0.source == source && $0.target == target && $0.answers(threat) && $0.status == .assumed
+        }
     }
 
     private func componentControls(

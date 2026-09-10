@@ -168,6 +168,12 @@ public struct AssessedThreat: Hashable, Sendable {
     /// Where the likelihood finding comes from. Empty when the library's
     /// prior stands.
     public let likelihoodSources: [String]
+    /// The score when every assumed mitigation is in place. Equal to
+    /// `riskScore` when no assumed edge answers this threat.
+    public let scoreIfAssumptionsHold: Int
+    /// The components whose assumed `mitigates` edges lowered the target
+    /// posture, by label. Empty when none did.
+    public let assumedByComponentLabels: [String]
 
     public init(
         threatId: String,
@@ -196,7 +202,9 @@ public struct AssessedThreat: Hashable, Sendable {
         likelihoodLabel: String = Likelihood.commodity.label,
         scoreBeforeLikelihood: Int? = nil,
         likelihoodRationale: String? = nil,
-        likelihoodSources: [String] = []
+        likelihoodSources: [String] = [],
+        scoreIfAssumptionsHold: Int? = nil,
+        assumedByComponentLabels: [String] = []
     ) {
         self.threatId = threatId
         self.name = name
@@ -225,6 +233,8 @@ public struct AssessedThreat: Hashable, Sendable {
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
         self.likelihoodRationale = likelihoodRationale
         self.likelihoodSources = likelihoodSources
+        self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? riskScore
+        self.assumedByComponentLabels = assumedByComponentLabels
     }
 }
 
@@ -301,7 +311,9 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     likelihoodLabel: threat.likelihood.label,
                     scoreBeforeLikelihood: threat.scoreBeforeLikelihood,
                     likelihoodRationale: threat.likelihoodFinding?.rationale,
-                    likelihoodSources: threat.likelihoodFinding?.sources ?? []
+                    likelihoodSources: threat.likelihoodFinding?.sources ?? [],
+                    scoreIfAssumptionsHold: threat.scoreIfAssumptionsHold,
+                    assumedByComponentLabels: threat.assumedMitigations.map(\.protectorName)
                 )
             },
             severities: catalogue.taxonomy().severities.map {
