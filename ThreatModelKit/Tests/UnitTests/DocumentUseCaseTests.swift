@@ -142,6 +142,23 @@ struct DocumentUseCaseTests {
         #expect(models.current().name == "Payments")
     }
 
+    @Test func namesBothVersionsWhenANewerBuildWroteTheFile() {
+        _ = create("Payments")
+        let text = String(data: savedData(), encoding: .utf8)!
+            .replacingOccurrences(
+                of: "\"formatVersion\" : \(ThreatModelCodec.formatVersion)",
+                with: "\"formatVersion\" : 99"
+            )
+
+        guard case .unreadable(let reason) = open(Data(text.utf8)) else {
+            Issue.record("Expected the file to be refused")
+            return
+        }
+        #expect(reason.contains("99"))
+        #expect(reason.contains("\(ThreatModelCodec.formatVersion)"))
+        #expect(reason.contains("unsupportedFormatVersion") == false)
+    }
+
     @Test func reportsATechnologyTheCatalogueNoLongerHolds() {
         _ = create("Payments")
         models.mutate { model in

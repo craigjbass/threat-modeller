@@ -61,6 +61,13 @@ public struct OpenThreatModel: OpenThreatModelUseCase {
         let model: ThreatModel
         do {
             model = try files.decode(request.data)
+        } catch let ThreatModelFileError.unsupportedFormatVersion(found, supported) {
+            return .unreadable(reason: """
+                A newer build of the application wrote this file. \
+                This file holds format version \(found). \
+                This build reads up to format version \(supported). \
+                Open this file in a newer build of the application.
+                """)
         } catch {
             return .unreadable(reason: String(describing: error))
         }
