@@ -162,6 +162,12 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The score before the likelihood stage. Equal to `riskScore` when the
     /// likelihood is `commodity`.
     public let scoreBeforeLikelihood: Int
+    /// Why the likelihood is what it is, from the controls file, or nil when
+    /// the library's prior stands.
+    public let likelihoodRationale: String?
+    /// Where the likelihood finding comes from. Empty when the library's
+    /// prior stands.
+    public let likelihoodSources: [String]
 
     public init(
         threatId: String,
@@ -188,7 +194,9 @@ public struct AssessedThreat: Hashable, Sendable {
         mitigatedByComponentLabels: [String] = [],
         likelihoodId: String = Likelihood.commodity.id,
         likelihoodLabel: String = Likelihood.commodity.label,
-        scoreBeforeLikelihood: Int? = nil
+        scoreBeforeLikelihood: Int? = nil,
+        likelihoodRationale: String? = nil,
+        likelihoodSources: [String] = []
     ) {
         self.threatId = threatId
         self.name = name
@@ -215,6 +223,8 @@ public struct AssessedThreat: Hashable, Sendable {
         self.likelihoodId = likelihoodId
         self.likelihoodLabel = likelihoodLabel
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
+        self.likelihoodRationale = likelihoodRationale
+        self.likelihoodSources = likelihoodSources
     }
 }
 
@@ -289,7 +299,9 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     mitigatedByComponentLabels: threat.mitigatedByComponents.map(\.protectorName),
                     likelihoodId: threat.likelihood.id,
                     likelihoodLabel: threat.likelihood.label,
-                    scoreBeforeLikelihood: threat.scoreBeforeLikelihood
+                    scoreBeforeLikelihood: threat.scoreBeforeLikelihood,
+                    likelihoodRationale: threat.likelihoodFinding?.rationale,
+                    likelihoodSources: threat.likelihoodFinding?.sources ?? []
                 )
             },
             severities: catalogue.taxonomy().severities.map {

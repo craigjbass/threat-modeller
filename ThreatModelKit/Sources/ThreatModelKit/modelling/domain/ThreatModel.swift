@@ -24,6 +24,9 @@ public struct ThreatModel: Equatable, Sendable {
     /// What a person says should be done about a threat, keyed the way a
     /// compensating control is.
     public var recommendations: [ThreatKey: [Recommendation]]
+    /// What a person found out about how often each threat happens, keyed the
+    /// way a compensating control is.
+    public var likelihoodFindings: [ThreatKey: LikelihoodFinding]
 
     /// Every control the user has recorded as in place.
     ///
@@ -65,6 +68,7 @@ public struct ThreatModel: Equatable, Sendable {
         compensatingControls: [ThreatKey: [CompensatingControl]] = [:],
         mitigatesEdges: [MitigatesEdge] = [],
         recommendations: [ThreatKey: [Recommendation]] = [:],
+        likelihoodFindings: [ThreatKey: LikelihoodFinding] = [:],
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
         createdAt: Date = Date(timeIntervalSince1970: 0),
@@ -80,6 +84,7 @@ public struct ThreatModel: Equatable, Sendable {
         self.compensatingControls = compensatingControls
         self.mitigatesEdges = mitigatesEdges
         self.recommendations = recommendations
+        self.likelihoodFindings = likelihoodFindings
         // The two ways of saying the same thing meet here: a caller may pass
         // either, and a recorded control is a status.
         for key in implementedControls {

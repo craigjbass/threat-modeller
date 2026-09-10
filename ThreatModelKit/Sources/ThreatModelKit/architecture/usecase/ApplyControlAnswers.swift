@@ -55,6 +55,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         var statuses: [ControlKey: ControlStatus] = [:]
         var compensating: [ThreatKey: [CompensatingControl]] = [:]
         var recommendations: [ThreatKey: [Recommendation]] = [:]
+        var likelihoods: [ThreatKey: LikelihoodFinding] = [:]
         var warnings = read.warnings
         var applied = 0
 
@@ -99,11 +100,16 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
                     Recommendation(text: $0.text, note: $0.note)
                 }
             }
+
+            if let finding = answer.likelihood {
+                likelihoods[answer.key] = finding
+            }
         }
 
         let readStatuses = statuses
         let readCompensating = compensating
         let readRecommendations = recommendations
+        let readLikelihoods = likelihoods
         let count = applied
         let readWarnings = warnings
 
@@ -111,6 +117,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
             model.controlStatuses = readStatuses
             model.compensatingControls = readCompensating
             model.recommendations = readRecommendations
+            model.likelihoodFindings = readLikelihoods
             return .applied(answers: count, warnings: readWarnings)
         }
     }

@@ -98,6 +98,9 @@ public struct ResolvedThreat: Equatable, Sendable {
     /// The score the likelihood stage received. Equal to `score.value` when
     /// the likelihood is `commodity`.
     public let scoreBeforeLikelihood: Int
+    /// What a controls file found out about this threat's likelihood, or nil
+    /// when the library's prior stands.
+    public let likelihoodFinding: LikelihoodFinding?
 
     public init(
         threat: Threat,
@@ -117,7 +120,8 @@ public struct ResolvedThreat: Equatable, Sendable {
         scoreBeforeCompensation: Int? = nil,
         mitigatedByComponents: [ComponentMitigation] = [],
         likelihood: Likelihood = .commodity,
-        scoreBeforeLikelihood: Int? = nil
+        scoreBeforeLikelihood: Int? = nil,
+        likelihoodFinding: LikelihoodFinding? = nil
     ) {
         self.scoreBeforeControls = scoreBeforeControls ?? score.value
         self.compensating = compensating
@@ -137,6 +141,7 @@ public struct ResolvedThreat: Equatable, Sendable {
         self.mitigatedByComponents = mitigatedByComponents
         self.likelihood = likelihood
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? score.value
+        self.likelihoodFinding = likelihoodFinding
     }
 }
 
@@ -380,8 +385,15 @@ public struct ThreatResolver {
     /// Spec section 3: the likelihood stage runs after the `mitigates` edges
     /// and before the compensating control. It multiplies, because a
     /// likelihood finding and a control are separate evidence.
+    ///
+    /// A finding from the controls file wins over the library's prior for
+    /// that one threat on that one source. It reads the finding before it
+    /// checks for `commodity`, so a finding that raises the tier back up
+    /// takes effect too.
     private func likelihooded(_ threat: ResolvedThreat) -> ResolvedThreat {
-        let likelihood = threat.threat.likelihood
+        let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
+        let finding = model.likelihoodFindings[key]
+        let likelihood = finding?.likelihood ?? threat.threat.likelihood
         guard likelihood != .commodity else { return threat }
         let reduced = Likelihood.apply(to: threat.score.value, likelihood: likelihood)
 
@@ -403,7 +415,8 @@ public struct ThreatResolver {
             scoreBeforeCompensation: threat.scoreBeforeCompensation,
             mitigatedByComponents: threat.mitigatedByComponents,
             likelihood: likelihood,
-            scoreBeforeLikelihood: threat.score.value
+            scoreBeforeLikelihood: threat.score.value,
+            likelihoodFinding: finding
         )
     }
 
@@ -437,7 +450,8 @@ public struct ThreatResolver {
             scoreBeforeCompensation: threat.score.value,
             mitigatedByComponents: threat.mitigatedByComponents,
             likelihood: threat.likelihood,
-            scoreBeforeLikelihood: threat.scoreBeforeLikelihood
+            scoreBeforeLikelihood: threat.scoreBeforeLikelihood,
+            likelihoodFinding: threat.likelihoodFinding
         )
     }
 
