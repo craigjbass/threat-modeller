@@ -52,6 +52,51 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             }
         )
 
+        let threats = assessment.threats.map { assessed in
+            Self.threat(
+                from: assessed,
+                compensating: model.compensatingControls[
+                    ThreatKey(
+                        threatId: assessed.threatId,
+                        sourceId: assessed.source.id
+                    )
+                ]?.map {
+                    ReportCompensatingControl(
+                        label: $0.label,
+                        reducesRiskBy: $0.reducesRiskBy,
+                        rationale: $0.rationale
+                    )
+                } ?? [],
+                // The assessment names STRIDE by id. A report is read
+                // by people, so it names it by label.
+                strideLabels: assessed.stride.compactMap {
+                    taxonomy.strideCategory(id: StrideId($0))?.label
+                }
+            )
+        }
+
+        let zones = model.zones.map { zone in
+            ReportZone(
+                name: zone.displayName,
+                networkZoneLabel: zone.networkZone.label,
+                networkTypeLabel: zone.networkType.label,
+                componentNames: model.components
+                    .filter { zoneByComponent[$0.id] ?? nil == zone }
+                    .compactMap { nameById[$0.id] },
+                riskReductionPercent: zone.riskReductionEnabled
+                    ? zone.riskReductionPercent
+                    : nil
+            )
+        }
+
+        let attack = AttackPaths.build(
+            components: model.components,
+            connections: model.connections,
+            zones: model.zones,
+            threats: threats,
+            nameOf: { nameById[$0] ?? $0.value }
+        )
+
         return BuildThreatModelReportResponse(
             report: Report(
                 modelName: model.name,
@@ -71,7 +116,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         technologyId: component.technologyId.value,
                         categoryId: lookup.findById(component.technologyId)?.category.value ?? "",
                         sensitivityLabel: component.sensitivity.label,
-                        zoneName: zoneByComponent[component.id]??.displayName
+                        zoneName: zoneByComponent[component.id]??.displayName,
+                        assetNames: component.assets.map(\.name)
                     )
                 },
                 connections: model.connections.map { connection in
@@ -80,41 +126,18 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         targetName: nameById[connection.target] ?? connection.target.value
                     )
                 },
-                zones: model.zones.map { zone in
-                    ReportZone(
-                        name: zone.displayName,
-                        networkZoneLabel: zone.networkZone.label,
-                        networkTypeLabel: zone.networkType.label,
-                        componentNames: model.components
-                            .filter { zoneByComponent[$0.id] ?? nil == zone }
-                            .compactMap { nameById[$0.id] },
-                        riskReductionPercent: zone.riskReductionEnabled
-                            ? zone.riskReductionPercent
-                            : nil
-                    )
-                },
-                threats: assessment.threats.map { assessed in
-                    Self.threat(
-                        from: assessed,
-                        compensating: model.compensatingControls[
-                            ThreatKey(
-                                threatId: assessed.threatId,
-                                sourceId: assessed.source.id
-                            )
-                        ]?.map {
-                            ReportCompensatingControl(
-                                label: $0.label,
-                                reducesRiskBy: $0.reducesRiskBy,
-                                rationale: $0.rationale
-                            )
-                        } ?? [],
-                        // The assessment names STRIDE by id. A report is read
-                        // by people, so it names it by label.
-                        strideLabels: assessed.stride.compactMap {
-                            taxonomy.strideCategory(id: StrideId($0))?.label
-                        }
-                    )
-                }
+                zones: zones,
+                threats: threats,
+                recommendations: RecommendationsReport.build(
+                    threats: threats,
+                    recommendations: model.recommendations
+                ),
+                protectionDependencies: ProtectionDependenciesReport.build(
+                    assessment.protectionDependencies
+                ),
+                attackPaths: attack.paths,
+                attackPathsNotListed: attack.notListed,
+                rollups: ReportRollups.build(threats: threats, zones: zones)
             )
         )
     }
@@ -156,6 +179,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             mitreTechniqueIds: assessed.mitreTechniques.map(\.id),
             sourceName: assessed.source.displayName,
             sourceKind: kind(of: assessed.source),
+            sourceId: assessed.source.id,
             controls: assessed.controls.map {
                 ReportControl(
                     description: $0.description,

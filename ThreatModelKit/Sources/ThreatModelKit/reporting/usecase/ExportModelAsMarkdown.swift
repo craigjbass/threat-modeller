@@ -40,9 +40,13 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         }
 
         lines += summary(report.summary)
+        lines += MarkdownRollups.lines(report.rollups)
         lines += components(report.components)
         lines += connections(report.connections)
         lines += zones(report.zones)
+        lines += MarkdownAttackPaths.lines(report.attackPaths, notListed: report.attackPathsNotListed)
+        lines += MarkdownProtectionDependencies.lines(report.protectionDependencies)
+        lines += MarkdownRecommendations.lines(report.recommendations)
         lines += threats(report.threats)
 
         return ExportModelAsMarkdownResponse(
@@ -70,14 +74,16 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         guard components.isEmpty == false else {
             return lines + ["None.", ""]
         }
-        lines.append("| Name | Technology | Sensitivity | Zone |")
-        lines.append("| --- | --- | --- | --- |")
+        lines.append("| Name | Technology | Sensitivity | Zone | Assets |")
+        lines.append("| --- | --- | --- | --- | --- |")
         for component in components {
             lines.append(
                 "| \(Markdown.cell(component.name))"
                     + " | \(Markdown.cell(component.technologyId))"
                     + " | \(Markdown.cell(component.sensitivityLabel))"
-                    + " | \(Markdown.cell(component.zoneName ?? "\u{2014}")) |"
+                    + " | \(Markdown.cell(component.zoneName ?? "\u{2014}"))"
+                    + " | \(Markdown.cell(component.assetNames.joined(separator: ", ")))"
+                    + " |"
             )
         }
         lines.append("")

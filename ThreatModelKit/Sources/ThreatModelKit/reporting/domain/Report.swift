@@ -14,6 +14,12 @@ public struct Report: Equatable, Sendable {
     public let zones: [ReportZone]
     /// Worst first, then by source, so two reports of one model read the same.
     public let threats: [ReportThreat]
+    public let recommendations: [ReportRecommendation]
+    public let protectionDependencies: [ReportProtectionDependency]
+    public let attackPaths: [ReportAttackPath]
+    /// How many attack paths the trace found but did not list.
+    public let attackPathsNotListed: Int
+    public let rollups: ReportRollupTables
 
     public init(
         modelName: String,
@@ -22,7 +28,12 @@ public struct Report: Equatable, Sendable {
         components: [ReportComponent],
         connections: [ReportConnection],
         zones: [ReportZone],
-        threats: [ReportThreat]
+        threats: [ReportThreat],
+        recommendations: [ReportRecommendation] = [],
+        protectionDependencies: [ReportProtectionDependency] = [],
+        attackPaths: [ReportAttackPath] = [],
+        attackPathsNotListed: Int = 0,
+        rollups: ReportRollupTables = .empty
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -31,6 +42,11 @@ public struct Report: Equatable, Sendable {
         self.connections = connections
         self.zones = zones
         self.threats = threats
+        self.recommendations = recommendations
+        self.protectionDependencies = protectionDependencies
+        self.attackPaths = attackPaths
+        self.attackPathsNotListed = attackPathsNotListed
+        self.rollups = rollups
     }
 }
 
@@ -78,6 +94,7 @@ public struct ReportComponent: Equatable, Sendable {
     public let sensitivityLabel: String
     /// The zone holding it, or nil when it sits outside every zone.
     public let zoneName: String?
+    public let assetNames: [String]
 
     public init(
         id: String,
@@ -85,7 +102,8 @@ public struct ReportComponent: Equatable, Sendable {
         technologyId: String,
         categoryId: String,
         sensitivityLabel: String,
-        zoneName: String?
+        zoneName: String?,
+        assetNames: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -93,6 +111,7 @@ public struct ReportComponent: Equatable, Sendable {
         self.categoryId = categoryId
         self.sensitivityLabel = sensitivityLabel
         self.zoneName = zoneName
+        self.assetNames = assetNames
     }
 }
 
@@ -141,6 +160,10 @@ public struct ReportThreat: Equatable, Sendable {
     /// "Component", "Connection" or "Zone", so a reader can group by what
     /// raised the threat.
     public let sourceKind: String
+    /// The identifier `ThreatResolver` mints for the source: `component:<id>`,
+    /// `connection:<id>` or `zone:<id>`. Task 14 keys the recommendations on
+    /// it.
+    public let sourceId: String
     public let controls: [ReportControl]
     public let pathwayMitigationLabels: [String]
     /// What compensates this threat, and what it bought.
@@ -162,12 +185,14 @@ public struct ReportThreat: Equatable, Sendable {
         mitreTechniqueIds: [String],
         sourceName: String,
         sourceKind: String,
+        sourceId: String = "",
         controls: [ReportControl],
         pathwayMitigationLabels: [String],
         compensating: [ReportCompensatingControl] = [],
         scoreBeforeCompensation: Int? = nil,
         inherentScore: Int? = nil
     ) {
+        self.sourceId = sourceId
         self.compensating = compensating
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
         self.inherentScore = inherentScore ?? riskScore
