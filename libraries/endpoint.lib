@@ -21,7 +21,7 @@ library "endpoint" {
 
   technology "mdm-channel" {
     name        = "MDM Channel"
-    category    = "orchestration"
+    category    = "networking"
     description = "The connection between the host and a Mobile Device Management server that pushes a configuration profile and a command."
     threats     = ["profile-injection"]
   }
@@ -35,7 +35,7 @@ library "endpoint" {
 
   technology "gatekeeper" {
     name        = "Gatekeeper"
-    category    = "identity"
+    category    = "compute"
     description = "The subsystem that checks a downloaded file's signature and notarisation before it runs."
     threats     = ["unsigned-code-load"]
   }
@@ -74,6 +74,7 @@ library "endpoint" {
     severity    = "critical"
     stride      = ["information-disclosure"]
     pathway     = true
+    runs_as     = ["root", "kernel"]
 
     mitre "T1006" {
       name   = "Direct Volume Access"
@@ -168,7 +169,7 @@ library "endpoint" {
       tactic = "Privilege Escalation"
     }
 
-    control "Patch the kernel and every privileged helper tool on a fixed schedule"
+    control "Require an Authorization Services right, approved by the user, before a helper tool performs a privileged action"
     control "Run a helper tool with the least privilege it needs, never as root"
   }
 
