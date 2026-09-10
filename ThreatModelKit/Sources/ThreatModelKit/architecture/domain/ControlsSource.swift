@@ -30,6 +30,7 @@ public struct SourceThreatAnswer: Equatable, Sendable {
     public let score: Int?
     public let controls: [SourceControlAnswer]
     public let compensating: [CompensatingControl]
+    public let recommendations: [SourceRecommendation]
     /// True when the architecture no longer raises this threat. Nothing deletes
     /// a stale answer. A person deletes it.
     public let isStale: Bool
@@ -42,6 +43,7 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         score: Int? = nil,
         controls: [SourceControlAnswer] = [],
         compensating: [CompensatingControl] = [],
+        recommendations: [SourceRecommendation] = [],
         isStale: Bool = false
     ) {
         self.threatId = threatId
@@ -51,6 +53,7 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         self.score = score
         self.controls = controls
         self.compensating = compensating
+        self.recommendations = recommendations
         self.isStale = isStale
     }
 
@@ -72,6 +75,20 @@ public struct SourceThreatAnswer: Equatable, Sendable {
 
     public var isAnswered: Bool {
         compensating.isEmpty == false || controls.contains { $0.status.isAnswered }
+    }
+}
+
+/// What a person says should be done about a threat.
+///
+/// It answers nothing. `isAnswered` ignores it, so `threatmodeller check`
+/// still exits 1 for a threat that holds a recommendation and no answer.
+public struct SourceRecommendation: Equatable, Sendable {
+    public let text: String
+    public let note: String?
+
+    public init(text: String, note: String? = nil) {
+        self.text = text
+        self.note = note
     }
 }
 

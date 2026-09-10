@@ -109,11 +109,11 @@ identifier, and a quoted string that reads as a keyword is a string.
 The architecture language reads these keywords: `system`, `catalogue`,
 `technology`, `zone`, `component`, `flow`, `name`, `category`, `description`,
 `threats`, `encrypts`, `kind`, `network`, `reduces_risk`, `reduces_risk_by`,
-`technology`, `data`.
+`technology`, `data`, `mitigates`, `boundary`, `runs_as`, `asset`.
 
 The controls language reads these keywords: `controls`, `for`, `catalogue`,
 `stale`, `threat`, `on`, `severity`, `score`, `control`, `status`, `note`,
-`compensating`, `reduces_risk_by`, `rationale`.
+`compensating`, `reduces_risk_by`, `rationale`, `recommendation`.
 
 ### 2.7 String literals
 
@@ -199,7 +199,8 @@ SystemEntry  = CatalogueAttr
              | TechnologyBlock
              | ZoneBlock
              | ComponentBlock
-             | FlowStatement ;
+             | FlowStatement
+             | MitigatesBlock ;
 
 CatalogueAttr = "catalogue" "=" String ;
 
@@ -213,18 +214,30 @@ TechnologyAttr  = "name"        "=" String
 ZoneBlock = "zone" String "{" { ZoneEntry } "}" ;
 ZoneEntry = "kind"            "=" String
           | "network"         "=" String
+          | "boundary"        "=" String
           | "name"            "=" String
+          | "description"     "=" String
           | "reduces_risk"    "=" Boolean
           | "reduces_risk_by" "=" Number
           | ComponentBlock ;
 
-ComponentBlock = "component" String "{" { ComponentAttr } "}" ;
-ComponentAttr  = "technology" "=" String
+ComponentBlock = "component" String "{" { ComponentEntry } "}" ;
+ComponentEntry = "technology" "=" String
                | "name"       "=" String
                | "data"       "=" String
-               | "threats"    "=" Boolean ;
+               | "runs_as"    "=" String
+               | "threats"    "=" Boolean
+               | AssetBlock ;
 
-FlowStatement = "flow" Identifier "->" Identifier ;
+AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;
+
+FlowStatement = "flow" Identifier "->" Identifier [ "{" { FlowEntry } "}" ] ;
+FlowEntry     = "kind"        "=" String
+              | "description" "=" String ;
+
+MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
+MitigatesEntry = "threats"         "=" StringList
+               | "reduces_risk_by" "=" Number ;
 ```
 
 A file holds exactly one `system` block. A file that starts with any other word
@@ -298,13 +311,21 @@ The label is the zone's identifier.
 | --- | --- | --- | --- |
 | `kind` | string | `public`, `private` | `private` |
 | `network` | string | `generic`, `vpc`, `subnet`, `on-premises`, `dmz`, `management`, `data` | `generic` |
+| `boundary` | string | `network`, `privilege` | `network` |
 | `name` | string | any | the zone's derived display name |
+| `description` | string | any | none |
 | `reduces_risk` | boolean | `true`, `false` | `true` |
 | `reduces_risk_by` | number | 0 to 100 | the application's default |
 
 A value outside a vocabulary is an error that names the field, the value and the
 values the application holds. A `reduces_risk_by` outside 0 to 100 is the error
 `reduces_risk_by is <n>; it runs from 0 to 100`.
+
+`boundary` states what kind of boundary the zone is. A `privilege` zone raises
+the privilege threat set: the threats a library marks `boundary = "privilege"`.
+A `network` zone raises the network threat set: the threats a library marks
+`zone = true` with no `boundary`, or with `boundary = "network"`. Neither zone
+raises the other's threat set.
 
 A zone body may hold `component` blocks. It may not hold another `zone` block:
 this application does not model nested zones.
@@ -316,6 +337,7 @@ component "api" {
   technology = "aws-ec2"
   name       = "Application Server"
   data       = "confidential"
+  runs_as    = "root"
   threats    = true
 }
 ```
@@ -327,6 +349,7 @@ The label is the component's identifier.
 | `technology` | string | a technology identifier | **required** |
 | `name` | string | any | the technology's name |
 | `data` | string | `public`, `internal`, `confidential`, `restricted` | `internal` |
+| `runs_as` | string | `user`, `admin`, `root`, `system`, `kernel` | `user` |
 | `threats` | boolean | `true`, `false` | `true` |
 
 `threats = false` stops the component raising threats at all.
@@ -338,19 +361,88 @@ A block with no `technology` is the error
 `component` block at the top level of the `system` block sits outside every
 zone.
 
+**`asset`.** A component may hold one or more `asset` blocks. An asset is a
+thing of value the component holds, separate from the component itself.
+
+```hcl
+component "workstation" {
+  technology = "generic-host"
+
+  asset "ssh-keys" {
+    data = "restricted"
+  }
+}
+```
+
+The label is the asset's name.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `data` | string | `public`, `internal`, `confidential`, `restricted` | `internal` |
+
+A component scores at the highest sensitivity among its own `data` value and
+every asset it holds. An asset never lowers what the component states: an
+asset with a lower `data` value than the component changes nothing.
+
 ### 4.6 `flow`
 
 ```hcl
 flow api -> ledger
 ```
 
-A flow is a statement, not a block. It takes no braces and no attributes. Its
-two ends are **bare identifiers, not strings**, and each must name a component
-the file declares.
+A flow's two ends are **bare identifiers, not strings**, and each must name a
+component the file declares.
 
 A flow is directed. `flow a -> b` and `flow b -> a` are two flows.
 
-### 4.7 Identity and namespaces
+A flow may take a body:
+
+```hcl
+flow guard -> store {
+  kind        = "ipc"
+  description = "XPC call"
+}
+```
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `kind` | string | `network`, `ipc`, `file`, `syscall`, `human` | `network` |
+| `description` | string | any | none |
+
+A flow with no body is a network flow: `flow a -> b` is the same as
+`flow a -> b { kind = "network" }`.
+
+A flow whose two ends run at different `runs_as` levels raises the privilege
+threat set as well as its own.
+
+### 4.7 `mitigates`
+
+A `mitigates` edge states that one component lowers the risk of a named threat
+set on another component.
+
+```hcl
+mitigates guard -> store {
+  threats         = ["credential-theft"]
+  reduces_risk_by = 80
+}
+```
+
+Its two ends are bare identifiers, the same as a flow's: the component that
+provides the mitigation, then the component it protects.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `threats` | list of strings | threat identifiers | **required** |
+| `reduces_risk_by` | number | 0 to 100 | **required** |
+
+A block with no `threats` is the error `the mitigates edge "<id>" names no
+threats`. A block with no `reduces_risk_by` is the error `the mitigates edge
+"<id>" has no reduces_risk_by`. Either error drops the block.
+
+Two `mitigates` edges that lower the same threat on the same component give
+the stronger reduction, not the sum.
+
+### 4.8 Identity and namespaces
 
 An identifier in quotation marks is identity, not display text. `component "api"`
 is the component `api`, whatever its `name` says.
@@ -370,14 +462,14 @@ WARNING: the `.controls` file keys on these identifiers. When you rename an
 identifier in `.arch`, the answers held against the old identifier are orphaned,
 and the next compile moves them into a `stale` block.
 
-### 4.8 Layout
+### 4.9 Layout
 
 The source holds no coordinates. The application lays the diagram out from
 declaration order, so the same source always draws the same picture, and a
 layout a user moves by hand is not written back. To change the picture, change
 the order of the declarations.
 
-### 4.9 Static checks
+### 4.10 Static checks
 
 The parser runs these checks after the whole file parses. Each one reports the
 first line of the file, because it is a fault of the file and not of one token.
@@ -424,7 +516,8 @@ SourceKind  = "component" | "zone" | "flow" ;
 ThreatEntry = "severity" "=" String
             | "score"    "=" Number
             | ControlBlock
-            | CompensatingBlock ;
+            | CompensatingBlock
+            | RecommendationBlock ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
 ControlAttr  = "status" "=" String
@@ -433,6 +526,8 @@ ControlAttr  = "status" "=" String
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number
                   | "rationale"       "=" String ;
+
+RecommendationBlock = "recommendation" String "{" [ "note" "=" String ] "}" ;
 
 (* the library language *)
 
@@ -494,7 +589,7 @@ A threat block takes two labels: the threat identifier, then, after the keyword
 `on`, what raised it. `on` takes a source kind — `component`, `zone` or `flow` —
 and then the identifier of that component, zone or flow **in quotation marks**.
 
-A flow identifier is `"<source>-><target>"`, which is what section 4.7 mints:
+A flow identifier is `"<source>-><target>"`, which is what section 4.8 mints:
 
 ```hcl
 threat "t-mitm" on flow "cdn->api" { }
@@ -517,6 +612,31 @@ threat "t-lateral-movement" on zone "app" { }
 
 A source kind that is not `component`, `zone` or `flow` is the error
 `a threat is raised by a component, a zone or a flow, not "<word>"`.
+
+**`recommendation`.** A threat block may hold one or more `recommendation`
+blocks, alongside its controls.
+
+```hcl
+threat "credential-theft" on component "c1" {
+  recommendation "Protect the managed preferences plist" {
+    note = "Deny write from anything but the MDM daemon."
+  }
+}
+```
+
+The label is what a person says should be done. `note` is optional free text.
+A threat may hold more than one recommendation.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `note` | string | any | none |
+
+A compile keeps a recommendation whole, the same way it keeps a control's
+status and a compensating control's rationale.
+
+A recommendation answers nothing. It does not count toward `isAnswered`, so
+`threatmodeller check` exits 1 for a threat that holds a recommendation and no
+answer.
 
 ### 5.4 `stale threat`
 
@@ -752,13 +872,31 @@ read.
 | | | `connection` | `true` or `false` | `false` |
 | | | `zone` | `true` or `false` | `false` |
 | | | `zone_context` | string | none |
+| | | `applies_to` | a list of flow kinds: `network`, `ipc`, `file`, `syscall`, `human` | empty |
+| | | `boundary` | `network`, `privilege` | none |
+| | | `runs_as` | a list of privilege levels: `user`, `admin`, `root`, `system`, `kernel` | empty |
+| | | `pathway` | `true` or `false` | `false` |
 | `mitre` | the technique id | `name` | string | **required** |
 | | | `tactic` | string | **required** |
 | `control` | the control's description | none | | |
+| `mitigation` | the mitigation id | `name` | string | **required** |
+| | | `description` | string | empty |
+| | | `mitigates` | a list of threat ids | **required** |
+| | | `provided_by` | a list of technology ids | **required** |
+| | | `reduces_risk_by` | number, 0 to 100 | `0` |
 
 `connection = true` makes the threat one a link between two components raises.
-`zone = true` makes it one a network zone raises. A library cannot define a
-pathway mitigation, and cannot mark a threat as a pathway threat.
+`zone = true` makes it one a network zone raises. `applies_to` narrows a
+connection threat to the flow kinds named; `boundary` narrows a zone threat to
+the zone boundary named. `runs_as` names the privilege levels the threat runs
+at. `pathway = true` marks the threat as one a pathway mitigation can lower.
+
+A `mitigation` block declares a pathway mitigation: a control a technology
+provides that lowers named threats. `reduces_risk_by` is the percentage the
+mitigation starts at; a project's settings may change it. A block with no
+`mitigates` is the error `the mitigation "<id>" names no threats`. A block
+with no `provided_by` is the error `the mitigation "<id>" names no
+technologies`.
 
 A `control` is a statement with a label and no body, because a library states
 what a control is and a `.controls` file states its status. Its key is minted
@@ -981,7 +1119,8 @@ SystemEntry  = CatalogueAttr
              | TechnologyBlock
              | ZoneBlock
              | ComponentBlock
-             | FlowStatement ;
+             | FlowStatement
+             | MitigatesBlock ;
 
 CatalogueAttr = "catalogue" "=" String ;
 
@@ -995,18 +1134,30 @@ TechnologyAttr  = "name"        "=" String
 ZoneBlock = "zone" String "{" { ZoneEntry } "}" ;
 ZoneEntry = "kind"            "=" String
           | "network"         "=" String
+          | "boundary"        "=" String
           | "name"            "=" String
+          | "description"     "=" String
           | "reduces_risk"    "=" Boolean
           | "reduces_risk_by" "=" Number
           | ComponentBlock ;
 
-ComponentBlock = "component" String "{" { ComponentAttr } "}" ;
-ComponentAttr  = "technology" "=" String
+ComponentBlock = "component" String "{" { ComponentEntry } "}" ;
+ComponentEntry = "technology" "=" String
                | "name"       "=" String
                | "data"       "=" String
-               | "threats"    "=" Boolean ;
+               | "runs_as"    "=" String
+               | "threats"    "=" Boolean
+               | AssetBlock ;
 
-FlowStatement = "flow" Identifier "->" Identifier ;
+AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;
+
+FlowStatement = "flow" Identifier "->" Identifier [ "{" { FlowEntry } "}" ] ;
+FlowEntry     = "kind"        "=" String
+              | "description" "=" String ;
+
+MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
+MitigatesEntry = "threats"         "=" StringList
+               | "reduces_risk_by" "=" Number ;
 
 (* the controls language *)
 
@@ -1021,7 +1172,8 @@ SourceKind  = "component" | "zone" | "flow" ;
 ThreatEntry = "severity" "=" String
             | "score"    "=" Number
             | ControlBlock
-            | CompensatingBlock ;
+            | CompensatingBlock
+            | RecommendationBlock ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
 ControlAttr  = "status" "=" String
@@ -1030,6 +1182,8 @@ ControlAttr  = "status" "=" String
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number
                   | "rationale"       "=" String ;
+
+RecommendationBlock = "recommendation" String "{" [ "note" "=" String ] "}" ;
 ```
 
 ## 11. Where the code is
