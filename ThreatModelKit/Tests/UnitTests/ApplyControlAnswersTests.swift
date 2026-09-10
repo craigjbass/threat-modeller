@@ -254,6 +254,10 @@ struct ApplyControlAnswersTests {
     }
 
     @Test func withNoRequestOverrideTheFilesOwnToleranceStands() throws {
+        // A check recompiles, so it applies this finding before it scores the
+        // threat: medium (2) times confidential (3) is 6, and "targeted" cuts
+        // that to 4 (rounded), the medium band's first score, which the
+        // file's own "low" tolerance does not cover.
         let text = """
         controls for "Payments" {
           tolerance = "low"
@@ -263,7 +267,7 @@ struct ApplyControlAnswersTests {
             score    = 6
 
             likelihood "no in-the-wild use" {
-              tier      = "research"
+              tier      = "targeted"
               rationale = "no known exploitation"
             }
           }

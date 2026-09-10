@@ -67,6 +67,15 @@ public struct CompileControls: CompileControlsUseCase {
                 return .refused(diagnostics: read.diagnostics)
             }
             existing = source
+            // A likelihood finding, a severity decision, a compensating
+            // control and an implemented control each change the score. The
+            // architecture alone carries none of them, so the file's own
+            // answers go onto the model before it is resolved, the way the
+            // report applies them before it exports. Without this the score
+            // this compile writes is always the raw one, and a likelihood
+            // finding can never answer a threat.
+            _ = ApplyControlAnswers(models: store, catalogue: catalogue, sources: controlsSources)
+                .execute(ApplyControlAnswersRequest(text: controlsText))
         }
 
         let model = store.current()

@@ -186,6 +186,33 @@ struct CompileControlsTests {
         #expect(again.contains("CVE-2021-30892"))
     }
 
+    /// The architecture alone never carries a likelihood finding, a severity
+    /// decision, a compensating control or an implemented control's status.
+    /// A compile that ignores the file it read would always write the raw
+    /// score, and a likelihood finding could never answer a threat.
+    @Test func aLikelihoodFindingLowersTheScoreTheNextTimeItCompiles() throws {
+        let existing = """
+        controls for "Payments" {
+          threat "misconfiguration" on component "api" {
+            severity = "medium"
+            score    = 6
+
+            likelihood "no in-the-wild use" {
+              tier      = "research"
+              rationale = "every bypass was researcher-found"
+            }
+          }
+        }
+        """
+
+        let source = try #require(controls.read(text(of: compile(payments, existing))).source)
+        let misconfiguration = try #require(source.answers.first { $0.threatId == "misconfiguration" })
+
+        // Medium (2) times confidential (3) is 6; "research" cuts that to 2.
+        #expect(misconfiguration.score == 2)
+        #expect(misconfiguration.likelihood?.likelihood == .research)
+    }
+
     @Test func refusesAnArchitectureThatDidNotParse() {
         let response = compile("system \"P\" { component \"a\" { } }")
 

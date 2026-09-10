@@ -180,6 +180,10 @@ struct CommandLineApplicationTests {
             """,
             at: "/work/threatmodel/payments.arch"
         )
+        // A check recompiles, so it applies this finding before it scores the
+        // threat: medium (2) times confidential (3) is 6, and "targeted"
+        // cuts that to 4 (rounded), the medium band's first score. Low does
+        // not cover it; medium does, which is what this test proves.
         project.put(
             """
             controls for "Payments" {
@@ -190,7 +194,7 @@ struct CommandLineApplicationTests {
                 score    = 6
 
                 likelihood "no in-the-wild use" {
-                  tier      = "research"
+                  tier      = "targeted"
                   rationale = "no known exploitation"
                 }
               }
