@@ -67,6 +67,35 @@ struct RecommendationsSectionTests {
         #expect(lines.contains("  - An endpoint rule."))
     }
 
+    /// Finding 3: nothing covered a recommendation's sources reaching the
+    /// page.
+    @Test func theMarkdownPrintsARecommendationsSources() {
+        let lines = MarkdownRecommendations.lines([
+            ReportRecommendation(
+                text: "Deny reads of /dev/rdisk**",
+                note: nil,
+                threatName: "Raw device read",
+                sourceName: "store",
+                riskScore: 12,
+                sources: ["https://example.test/rec"]
+            )
+        ])
+        #expect(lines.contains("  - Source: https://example.test/rec"))
+    }
+
+    @Test func theMarkdownPrintsNoSourceLineWhenTheRecommendationNamesNone() {
+        let lines = MarkdownRecommendations.lines([
+            ReportRecommendation(
+                text: "Deny reads of /dev/rdisk**",
+                note: nil,
+                threatName: "Raw device read",
+                sourceName: "store",
+                riskScore: 12
+            )
+        ])
+        #expect(lines.contains { $0.hasPrefix("  - Source:") } == false)
+    }
+
     @Test func recommendationsAreGroupedBySourceOrderedByTheGroupsWorst() throws {
         let lines = MarkdownRecommendations.lines([
             ReportRecommendation(text: "b", note: nil, threatName: "B", sourceName: "store", riskScore: 8),

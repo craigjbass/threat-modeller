@@ -5,7 +5,7 @@ import TestSupport
 /// Builds a threat through the library path, since the fixture catalogue
 /// exposes no `add` or `severity(id:)` helper. Follows the pattern
 /// `LikelihoodFindingTests` uses.
-private func endpointLibrary() -> Library {
+private func endpointLibrary(severityLabel: String = "critical") -> Library {
     let source = LibrarySource(
         label: "endpoint",
         technologies: [
@@ -20,7 +20,7 @@ private func endpointLibrary() -> Library {
             SourceLibraryThreat(
                 id: "sip-bypass",
                 name: "SIP Bypass",
-                severityLabel: "critical"
+                severityLabel: severityLabel
             )
         ]
     )
@@ -164,5 +164,59 @@ struct LikelihoodReportTests {
 
     @Test func aModelWithNoAssumptionAndNoAssumedEdgeWritesNoSection() throws {
         #expect(markdown().contains("## Assumptions") == false)
+    }
+
+    /// Finding 1: the stage floors at 1, so a threat already scoring 1 keeps
+    /// that number under any tier. Gating the block on the score changing
+    /// hid the tier, the rationale and the sources on exactly the threat
+    /// this evidence matters most for. The block must print because a
+    /// finding is recorded, not because the number moved, and the arrow is
+    /// left out when the two numbers are equal.
+    @Test func aThreatFlooredAtOneStillPublishesItsTierAndSources() throws {
+        app.useLibraries([endpointLibrary(severityLabel: "low")])
+        guard case .added(let componentId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "endpoint-laptop", x: 0, y: 0, sensitivity: "public")
+        ) else {
+            Issue.record("the component was not added")
+            return
+        }
+        app.modelStore.mutate { model in
+            model.likelihoodFindings[
+                ThreatKey(threatId: "endpoint-sip-bypass", sourceId: "component:\(componentId)")
+            ] = LikelihoodFinding(
+                label: "no in-the-wild use",
+                likelihood: .research,
+                rationale: "every bypass was researcher-found",
+                sources: ["https://example.test/floor"]
+            )
+        }
+
+        let text = markdown()
+        let lines = text.components(separatedBy: "\n")
+        #expect(text.contains("- Risk: low (1)"))
+        // No arrow: the score before and after the stage are both 1.
+        #expect(lines.contains("- Likelihood: Research"))
+        #expect(text.contains("  - Rationale: every bypass was researcher-found"))
+        #expect(text.contains("  - Source: https://example.test/floor"))
+    }
+
+    /// Finding 2: nothing covered the severity decision reaching the page.
+    /// This is the render path Task 12's scope grew to carry.
+    @Test func statesTheSeverityDecisionItsReasonAndItsSources() throws {
+        let componentId = aComponentRaisingTheThreat()
+        app.modelStore.mutate { model in
+            model.severityDecisions[
+                ThreatKey(threatId: "endpoint-sip-bypass", sourceId: "component:\(componentId)")
+            ] = SeverityDecision(
+                severityId: "high",
+                rationale: "No public exploit lowers this below High.",
+                sources: ["https://example.test/severity"]
+            )
+        }
+
+        let text = markdown()
+        #expect(text.contains("- Severity decided: Critical \u{2192} High"))
+        #expect(text.contains("  - Rationale: No public exploit lowers this below High."))
+        #expect(text.contains("  - Source: https://example.test/severity"))
     }
 }

@@ -154,24 +154,27 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
                         + " before controls \(threat.inherentScore)"
                 )
             }
-            if threat.scoreBeforeLikelihood != threat.riskScore {
+            // A finding is worth printing even when the stage floored at 1
+            // both before and after: the tier, the rationale and the
+            // sources are the evidence this block exists to publish, and a
+            // threat that already scored 1 must not hide them.
+            if threat.likelihoodRationale != nil || threat.likelihoodLabel != Likelihood.commodity.label {
+                let scoreChanged = threat.scoreBeforeLikelihood != threat.riskScore
                 lines.append(
                     "- Likelihood: \(threat.likelihoodLabel)"
-                        + " (\(threat.scoreBeforeLikelihood) \u{2192} \(threat.riskScore))"
+                        + (scoreChanged
+                            ? " (\(threat.scoreBeforeLikelihood) \u{2192} \(threat.riskScore))"
+                            : "")
                 )
                 if let rationale = threat.likelihoodRationale {
                     lines.append("  - Rationale: \(rationale)")
                 }
-                for source in threat.likelihoodSources {
-                    lines.append("  - Source: \(source)")
-                }
+                lines += Markdown.sourceLines(threat.likelihoodSources)
             }
             if let decision = threat.severityDecision {
                 lines.append("- Severity decided: \(decision.fromLabel) \u{2192} \(decision.toLabel)")
                 lines.append("  - Rationale: \(decision.rationale)")
-                for source in decision.sources {
-                    lines.append("  - Source: \(source)")
-                }
+                lines += Markdown.sourceLines(decision.sources)
             }
             if threat.scoreIfAssumptionsHold != threat.riskScore {
                 lines.append("- If the assumptions hold: \(threat.scoreIfAssumptionsHold)")
@@ -189,9 +192,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
                         + " \(threat.scoreBeforeCompensation) \u{2192} \(threat.riskScore))"
                 )
                 lines.append("  - Rationale: \(compensating.rationale)")
-                for source in compensating.sources {
-                    lines.append("  - Source: \(source)")
-                }
+                lines += Markdown.sourceLines(compensating.sources)
             }
             if threat.pathwayMitigationLabels.isEmpty == false {
                 lines.append(
@@ -222,10 +223,18 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
     }
 }
 
-/// Markdown needs one thing escaped in a table, and this is it.
+/// Markdown needs one thing escaped in a table, and every render path that
+/// lists where a piece of evidence comes from needs one shape for it.
 enum Markdown {
     static func cell(_ text: String) -> String {
         text.replacingPipes()
+    }
+
+    /// One "  - Source: <value>" line per source, so the likelihood block,
+    /// the severity decision, a compensating control and a recommendation
+    /// all write their sources the same way.
+    static func sourceLines(_ sources: [String]) -> [String] {
+        sources.map { "  - Source: \($0)" }
     }
 }
 
