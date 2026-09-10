@@ -559,10 +559,19 @@ answer is not kept.
 
 | Status | Counts as an answer | Lowers the score |
 | --- | --- | --- |
-| `implemented` | yes | yes |
-| `not_applicable` | yes | no |
-| `accepted` | yes | no |
+| `implemented` | yes | yes, by its share of the applicable controls |
+| `not_applicable` | yes | no, and it leaves the share |
+| `accepted` | yes | no, and it stays in the share |
 | `not_implemented` | no | no |
+
+The implemented controls lower the score together, not one at a time. The
+share is `implemented / applicable`, where `applicable` is every control whose
+status is not `not_applicable`. That share takes off at most 70% of the score,
+and a score never falls below 1. A threat with 5 controls and 3 implemented
+scores `round(12 * (1 - 0.6 * 0.70))` = 7 where it scored 12.
+
+WARNING: `accepted` answers a threat and lowers nothing. An accepted risk is
+still a risk, and the report states it at its full score.
 
 `not_implemented` is what a control starts as, so it does not count as an
 answer. `threatmodeller check` exits 1 while any threat holds no answered
