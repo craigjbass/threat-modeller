@@ -170,7 +170,7 @@ public struct SourceMitigates: Equatable, Sendable {
     public let targetId: String
     public let threatIds: [String]
     public let reducesRiskBy: Int
-    /// "adopted" or "assumed". Nil means adopted.
+    /// "adopted" or "assumed". Nil means the file states none.
     public let status: String?
 
     public init(

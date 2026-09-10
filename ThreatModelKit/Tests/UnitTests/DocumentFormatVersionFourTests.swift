@@ -107,11 +107,11 @@ struct DocumentFormatVersionFourTests {
         )
     }
 
-    /// An edge with no stated status is `adopted`, and the writer says
-    /// nothing about it: a file written before `status` existed keeps its
-    /// numbers, unchanged, on the next save.
-    @Test func anAdoptedEdgeWritesNoStatusKey() throws {
-        let adopted = ThreatModel(
+    /// An edge with no stated status carries no status, and reads back with
+    /// none: a file written before `status` existed keeps its numbers,
+    /// unchanged, on the next save, and still scores as an adopted edge.
+    @Test func anEdgeWithNoStatusWritesNoStatusKey() throws {
+        let noStatus = ThreatModel(
             name: "S",
             mitigatesEdges: [
                 MitigatesEdge(
@@ -123,12 +123,13 @@ struct DocumentFormatVersionFourTests {
             ]
         )
 
-        let data = try ThreatModelCodec().encode(adopted)
+        let data = try ThreatModelCodec().encode(noStatus)
         let text = try #require(String(data: data, encoding: .utf8))
         #expect(text.contains("\"status\"") == false)
 
         let read = try ThreatModelCodec().decode(data)
-        #expect(read.mitigatesEdges.first?.status == .adopted)
+        #expect(read.mitigatesEdges.first?.status == nil)
+        #expect(read.mitigatesEdges.first?.effectiveStatus == .adopted)
     }
 
     @Test func theFormatVersionIsFour() throws {

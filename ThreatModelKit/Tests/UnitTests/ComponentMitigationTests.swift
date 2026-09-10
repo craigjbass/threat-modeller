@@ -45,6 +45,29 @@ struct ComponentMitigationTests {
         #expect(threat.mitigatedByComponents.first?.reducesRiskBy == 75)
     }
 
+    @Test func anEdgeWithNoStatusLowersTheScoreTheSameAsAnAdoptedEdge() {
+        let noStatus = credentialTheft(model([
+            MitigatesEdge(
+                source: ComponentId("guard"),
+                target: ComponentId("store"),
+                threatIds: [ThreatId("credential-theft")],
+                reducesRiskBy: 75
+            )
+        ]))
+        let adopted = credentialTheft(model([
+            MitigatesEdge(
+                source: ComponentId("guard"),
+                target: ComponentId("store"),
+                threatIds: [ThreatId("credential-theft")],
+                reducesRiskBy: 75,
+                status: .adopted
+            )
+        ]))
+
+        #expect(noStatus.score.value == adopted.score.value)
+        #expect(noStatus.mitigatedByComponents.first?.status == .adopted)
+    }
+
     @Test func anEdgeNamingAnotherThreatChangesNothing() {
         let threat = credentialTheft(model([
             MitigatesEdge(

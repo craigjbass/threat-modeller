@@ -106,7 +106,7 @@ struct ArchitectureWriter {
                 ("threats", "[" + edge.threatIds.map(quoted).joined(separator: ", ") + "]"),
                 ("reduces_risk_by", String(edge.reducesRiskBy))
             ]
-            if let status = edge.status, status == "assumed" {
+            if let status = edge.status {
                 attributes.append(("status", quoted(status)))
             }
             body += indent(aligned(attributes))

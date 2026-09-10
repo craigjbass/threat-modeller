@@ -80,7 +80,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                         target: $0.target.value,
                         threatIds: $0.threatIds.map(\.value),
                         reducesRiskBy: $0.reducesRiskBy,
-                        status: $0.status == .adopted ? nil : $0.status.rawValue
+                        status: $0.status?.rawValue
                     )
                 },
                 recommendations: Dictionary(
@@ -146,12 +146,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     target: ComponentId($0.target),
                     threatIds: $0.threatIds.map(ThreatId.init),
                     reducesRiskBy: $0.reducesRiskBy,
-                    status: try Self.optionalValue(
-                        MitigationStatus.self,
-                        field: "status",
-                        raw: $0.status,
-                        default: .adopted
-                    )
+                    status: try $0.status.map { raw in
+                        try Self.value(MitigationStatus(rawValue: raw), field: "status", raw: raw)
+                    }
                 )
             },
             recommendations: Dictionary(

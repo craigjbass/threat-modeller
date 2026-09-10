@@ -142,6 +142,29 @@ struct ModellingFromSourceTests {
         #expect(text.contains("\"assumed\""))
     }
 
+    @Test func exportsAStatedLowToleranceAndAStatedAdoptedStatus() {
+        let statingTheDefaults = """
+        system "S" {
+          risk_tolerance = "low"
+
+          component "laptop" { technology = "aws-ec2" data = "confidential" }
+          component "baseline" { technology = "actor-user" data = "internal" }
+
+          mitigates baseline -> laptop {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 60
+            status          = "adopted"
+          }
+        }
+        """
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: statingTheDefaults))
+
+        let text = app.exportArchitecture().execute(ExportArchitectureRequest()).text
+
+        #expect(text.contains("risk_tolerance = \"low\""))
+        #expect(text.contains("status          = \"adopted\""))
+    }
+
     @Test func exportsNoStatusNoAssumptionAndNoToleranceAtTheirDefaults() {
         let withNoAssumption = """
         system "S" {

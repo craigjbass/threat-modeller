@@ -155,7 +155,7 @@ public struct CompileControls: CompileControlsUseCase {
                 ControlsSource(
                     systemName: model.name,
                     catalogueTag: model.catalogueVersion?.tag ?? catalogue.version().tag,
-                    riskTolerance: model.riskTolerance.rawValue,
+                    riskTolerance: model.effectiveRiskTolerance.rawValue,
                     answers: answers
                 )
             ),

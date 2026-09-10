@@ -293,7 +293,7 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
         }
         let dependencies = ProtectionDependencies.derive(
             from: resolved,
-            edges: model.mitigatesEdges.filter { $0.status == .adopted },
+            edges: model.mitigatesEdges.filter { $0.effectiveStatus == .adopted },
             nameOf: nameOf
         )
 

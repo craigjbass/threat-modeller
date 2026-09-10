@@ -104,7 +104,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         // travel as their own list rather than repeated under every
         // assumption.
         let assumedMitigations = model.mitigatesEdges
-            .filter { $0.status == .assumed }
+            .filter { $0.effectiveStatus == .assumed }
             .map {
                 ReportAssumedMitigation(
                     protectorName: nameOf($0.source),

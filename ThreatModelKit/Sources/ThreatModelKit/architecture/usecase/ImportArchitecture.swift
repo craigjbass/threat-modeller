@@ -117,22 +117,48 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             )
         }
 
+        var statusWarnings: [Diagnostic] = []
         model.mitigatesEdges = source.mitigates.map { edge in
-            MitigatesEdge(
+            let status = edge.status.flatMap(MitigationStatus.init(rawValue:))
+            if let raw = edge.status, status == nil {
+                statusWarnings.append(
+                    Diagnostic(
+                        severity: .warning,
+                        line: 1,
+                        column: 1,
+                        message: "status is \"\(raw)\"; a mitigates edge is \"adopted\" or \"assumed\""
+                    )
+                )
+            }
+            return MitigatesEdge(
                 source: ComponentId(edge.sourceId),
                 target: ComponentId(edge.targetId),
                 threatIds: edge.threatIds.map(ThreatId.init),
                 reducesRiskBy: edge.reducesRiskBy,
-                status: edge.status.flatMap(MitigationStatus.init(rawValue:)) ?? .adopted
+                status: status
             )
         }
         model.assumptions = source.assumptions.map {
             SystemAssumption(label: $0.label, text: $0.text, owner: $0.owner)
         }
-        model.riskTolerance = source.riskTolerance.flatMap(RiskLevel.init(rawValue:)) ?? .low
+
+        var toleranceWarnings: [Diagnostic] = []
+        let riskTolerance = source.riskTolerance.flatMap(RiskLevel.init(rawValue:))
+        if let raw = source.riskTolerance, riskTolerance == nil {
+            toleranceWarnings.append(
+                Diagnostic(
+                    severity: .warning,
+                    line: 1,
+                    column: 1,
+                    message: "risk_tolerance is \"\(raw)\"; this application holds "
+                        + RiskLevel.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", ")
+                )
+            )
+        }
+        model.riskTolerance = riskTolerance
 
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
-        var warnings = read.warnings
+        var warnings = read.warnings + statusWarnings + toleranceWarnings
         for component in source.everyComponent
         where lookup.findById(TechnologyId(component.technologyId)) == nil {
             warnings.append(

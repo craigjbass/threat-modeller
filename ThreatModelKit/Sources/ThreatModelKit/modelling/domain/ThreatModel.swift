@@ -33,8 +33,13 @@ public struct ThreatModel: Equatable, Sendable {
     public var severityDecisions: [ThreatKey: SeverityDecision]
     /// What the model takes on trust. The report gives them a section.
     public var assumptions: [SystemAssumption]
-    /// The risk level a likelihood finding may answer up to.
-    public var riskTolerance: RiskLevel
+    /// The risk level a likelihood finding may answer up to. Nil means the
+    /// file states none, so `effectiveRiskTolerance` is what a check uses.
+    public var riskTolerance: RiskLevel?
+
+    /// The risk level a check uses: what the file states, or `.low` when the
+    /// file states none.
+    public var effectiveRiskTolerance: RiskLevel { riskTolerance ?? .low }
 
     /// Every control the user has recorded as in place.
     ///
@@ -79,7 +84,7 @@ public struct ThreatModel: Equatable, Sendable {
         likelihoodFindings: [ThreatKey: LikelihoodFinding] = [:],
         severityDecisions: [ThreatKey: SeverityDecision] = [:],
         assumptions: [SystemAssumption] = [],
-        riskTolerance: RiskLevel = .low,
+        riskTolerance: RiskLevel? = nil,
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
         createdAt: Date = Date(timeIntervalSince1970: 0),

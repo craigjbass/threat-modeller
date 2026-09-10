@@ -152,6 +152,12 @@ struct CompileControlsTests {
         )
     }
 
+    @Test func aModelWithNoStatedToleranceCompilesAtLow() throws {
+        let text = text(of: compile(payments))
+
+        #expect(text.contains("tolerance = \"low\""))
+    }
+
     @Test func writesTheFileItReadWhenNothingChanged() throws {
         let first = text(of: compile(payments))
 

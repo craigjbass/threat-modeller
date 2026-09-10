@@ -167,7 +167,7 @@ struct ImportArchitectureTests {
         #expect(edge.status == .assumed)
     }
 
-    @Test func anEdgeWithNoStatusArrivesAdopted() throws {
+    @Test func anEdgeWithNoStatusArrivesWithNoStatusButEffectivelyAdopted() throws {
         _ = importIt("""
         system "P" {
           component "shield" { technology = "aws-ec2" }
@@ -182,7 +182,28 @@ struct ImportArchitectureTests {
 
         let model = app.modelStore.current()
         let edge = try #require(model.mitigatesEdges.first)
+        #expect(edge.status == nil)
+        #expect(edge.effectiveStatus == .adopted)
+    }
+
+    @Test func anEdgeThatStatesAdoptedCarriesTheStatedValue() throws {
+        _ = importIt("""
+        system "P" {
+          component "shield" { technology = "aws-ec2" }
+          component "host" { technology = "aws-ec2" }
+
+          mitigates shield -> host {
+            threats         = ["persistence"]
+            reduces_risk_by = 60
+            status          = "adopted"
+          }
+        }
+        """)
+
+        let model = app.modelStore.current()
+        let edge = try #require(model.mitigatesEdges.first)
         #expect(edge.status == .adopted)
+        #expect(edge.effectiveStatus == .adopted)
     }
 
     @Test func carriesTheRiskToleranceTheFileStates() {
@@ -196,14 +217,26 @@ struct ImportArchitectureTests {
         #expect(app.modelStore.current().riskTolerance == .medium)
     }
 
-    @Test func aSystemThatStatesNoToleranceIsLow() {
+    @Test func carriesAnExplicitlyStatedLowTolerance() {
+        _ = importIt("""
+        system "P" {
+          risk_tolerance = "low"
+          component "a" { technology = "aws-ec2" }
+        }
+        """)
+
+        #expect(app.modelStore.current().riskTolerance == .low)
+    }
+
+    @Test func aSystemThatStatesNoToleranceHasNoneButChecksAtLow() {
         _ = importIt("""
         system "P" {
           component "a" { technology = "aws-ec2" }
         }
         """)
 
-        #expect(app.modelStore.current().riskTolerance == .low)
+        #expect(app.modelStore.current().riskTolerance == nil)
+        #expect(app.modelStore.current().effectiveRiskTolerance == .low)
     }
 
     @Test func carriesAnAssumptionWithItsLabelTextAndOwner() throws {

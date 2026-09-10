@@ -8,14 +8,15 @@ public struct MitigatesEdge: Equatable, Sendable {
     public let target: ComponentId
     public let threatIds: [ThreatId]
     public let reducesRiskBy: Int
-    public let status: MitigationStatus
+    /// What the file states, or nil when the file states none.
+    public let status: MitigationStatus?
 
     public init(
         source: ComponentId,
         target: ComponentId,
         threatIds: [ThreatId],
         reducesRiskBy: Int,
-        status: MitigationStatus = .adopted
+        status: MitigationStatus? = nil
     ) {
         self.source = source
         self.target = target
@@ -26,6 +27,10 @@ public struct MitigatesEdge: Equatable, Sendable {
 
     /// The identifier, minted the way a flow's is.
     public var id: String { "\(source.value)->\(target.value)" }
+
+    /// What a check uses: what the file states, or `.adopted` when the file
+    /// states none.
+    public var effectiveStatus: MitigationStatus { status ?? .adopted }
 
     public func answers(_ threatId: ThreatId) -> Bool {
         threatIds.contains(threatId)

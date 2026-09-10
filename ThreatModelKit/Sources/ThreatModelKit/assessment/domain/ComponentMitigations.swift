@@ -34,7 +34,7 @@ public enum ComponentMitigations {
         nameOf: (ComponentId) -> String
     ) -> (score: Int, by: [ComponentMitigation]) {
         let answering = edges.filter {
-            $0.target == target && $0.answers(threatId) && statuses.contains($0.status)
+            $0.target == target && $0.answers(threatId) && statuses.contains($0.effectiveStatus)
         }
         guard answering.isEmpty == false else { return (score, []) }
 
@@ -48,7 +48,7 @@ public enum ComponentMitigations {
                     protectorId: $0.source,
                     protectorName: nameOf($0.source),
                     reducesRiskBy: $0.reducesRiskBy,
-                    status: $0.status
+                    status: $0.effectiveStatus
                 )
             }
         )
