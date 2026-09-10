@@ -52,6 +52,8 @@ public struct SourceLibraryThreat: Equatable, Sendable {
     public let runsAs: [String]
     /// Whether this threat is a pathway threat.
     public let isPathwayThreat: Bool
+    /// The tier id or the whole number a threat states, or nil for none.
+    public let likelihood: String?
 
     public init(
         id: String,
@@ -67,7 +69,8 @@ public struct SourceLibraryThreat: Equatable, Sendable {
         appliesTo: [String] = [],
         boundary: String? = nil,
         runsAs: [String] = [],
-        isPathwayThreat: Bool = false
+        isPathwayThreat: Bool = false,
+        likelihood: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -83,6 +86,7 @@ public struct SourceLibraryThreat: Equatable, Sendable {
         self.boundary = boundary
         self.runsAs = runsAs
         self.isPathwayThreat = isPathwayThreat
+        self.likelihood = likelihood
     }
 }
 

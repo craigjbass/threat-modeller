@@ -39,6 +39,9 @@ public struct Threat: Equatable, Sendable {
     public let boundary: ZoneBoundary?
     /// The privilege levels this threat applies to. Empty means every level.
     public let appliesToPrivilegeLevels: [PrivilegeLevel]
+    /// How often an attack of this kind happens. A threat that states none is
+    /// `commodity`, so an old catalogue keeps its numbers.
+    public let likelihood: Likelihood
 
     public init(
         id: ThreatId,
@@ -54,7 +57,8 @@ public struct Threat: Equatable, Sendable {
         zoneContext: String? = nil,
         appliesToFlowKinds: [FlowKind] = [],
         boundary: ZoneBoundary? = nil,
-        appliesToPrivilegeLevels: [PrivilegeLevel] = []
+        appliesToPrivilegeLevels: [PrivilegeLevel] = [],
+        likelihood: Likelihood = .commodity
     ) {
         self.id = id
         self.name = name
@@ -70,5 +74,6 @@ public struct Threat: Equatable, Sendable {
         self.appliesToFlowKinds = appliesToFlowKinds
         self.boundary = boundary
         self.appliesToPrivilegeLevels = appliesToPrivilegeLevels
+        self.likelihood = likelihood
     }
 }

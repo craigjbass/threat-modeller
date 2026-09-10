@@ -137,6 +137,7 @@ struct LibraryParser {
         var boundary: String?
         var runsAs: [String] = []
         var isPathwayThreat = false
+        var likelihood: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -155,11 +156,32 @@ struct LibraryParser {
             case "boundary": boundary = parseTextAttribute()
             case "runs_as": runsAs = parseListAttribute()
             case "pathway": isPathwayThreat = parseBooleanAttribute() ?? false
+            case "likelihood":
+                let token = current
+                if peekIsNumber() {
+                    let prior = parseNumberAttribute()
+                    if let prior, Likelihood(prior: prior) == nil {
+                        record("likelihood is \(prior); a whole number runs from 0 to 100", at: token)
+                    }
+                    likelihood = prior.map(String.init)
+                } else {
+                    let raw = parseTextAttribute() ?? ""
+                    if Likelihood(rawValue: raw) == nil {
+                        record(
+                            "likelihood is \"\(raw)\"; this application holds "
+                                + Likelihood.allTiers.map { "\"\($0.id)\"" }.joined(separator: ", ")
+                                + ", or a whole number from 0 to 100",
+                            at: token
+                        )
+                    } else {
+                        likelihood = raw
+                    }
+                }
             default:
                 record(
                     "a threat holds name, description, severity, stride, connection, zone, "
-                        + "zone_context, mitre, control, applies_to, boundary, runs_as and "
-                        + "pathway, not \"\(current.text)\""
+                        + "zone_context, mitre, control, applies_to, boundary, runs_as, "
+                        + "pathway and likelihood, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -188,7 +210,8 @@ struct LibraryParser {
             appliesTo: appliesTo,
             boundary: boundary,
             runsAs: runsAs,
-            isPathwayThreat: isPathwayThreat
+            isPathwayThreat: isPathwayThreat,
+            likelihood: likelihood
         )
     }
 
@@ -344,6 +367,11 @@ struct LibraryParser {
         guard expect(.equals, "=") != nil else { return nil }
         guard let token = expect(.number, "a whole number") else { return nil }
         return Int(token.text)
+    }
+
+    /// True when the value after `name =` is a number rather than a text.
+    private func peekIsNumber() -> Bool {
+        tokens[min(index + 2, tokens.count - 1)].kind == .number
     }
 
     private mutating func parseListAttribute() -> [String] {

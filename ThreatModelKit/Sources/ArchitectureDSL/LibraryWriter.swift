@@ -88,6 +88,10 @@ struct LibraryWriter {
             attributes.append(("description", quoted(threat.description)))
         }
         attributes.append(("severity", quoted(threat.severityLabel)))
+        if let likelihood = threat.likelihood {
+            let isNumber = Int(likelihood) != nil
+            attributes.append(("likelihood", isNumber ? likelihood : quoted(likelihood)))
+        }
         if threat.strideIds.isEmpty == false {
             attributes.append(
                 ("stride", "[" + threat.strideIds.map(quoted).joined(separator: ", ") + "]")

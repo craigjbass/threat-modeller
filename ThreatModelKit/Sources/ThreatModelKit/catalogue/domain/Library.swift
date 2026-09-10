@@ -143,7 +143,8 @@ public extension Library {
                 zoneContext: threat.zoneContext,
                 appliesToFlowKinds: flowKinds,
                 boundary: boundary,
-                appliesToPrivilegeLevels: levels
+                appliesToPrivilegeLevels: levels,
+                likelihood: threat.likelihood.flatMap(Self.likelihood(from:)) ?? .commodity
             )
         }
 
@@ -176,5 +177,12 @@ public extension Library {
             ),
             []
         )
+    }
+
+    /// A tier id, or a whole number, or nil for neither.
+    private static func likelihood(from raw: String) -> Likelihood? {
+        if let tier = Likelihood(rawValue: raw) { return tier }
+        guard let prior = Int(raw) else { return nil }
+        return Likelihood(prior: prior)
     }
 }
