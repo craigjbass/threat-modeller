@@ -139,6 +139,9 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The score before the compensating control. Equal to `riskScore` when
     /// none applied.
     public let scoreBeforeCompensation: Int
+    /// The score before the implemented controls lowered it. Equal to
+    /// `riskScore` when nothing was implemented.
+    public let inherentScore: Int
 
     public init(
         threatId: String,
@@ -160,7 +163,8 @@ public struct AssessedThreat: Hashable, Sendable {
         pathwayMitigationLabels: [String] = [],
         scoreBeforePathwayMitigation: Int = 0,
         compensatingLabels: [String] = [],
-        scoreBeforeCompensation: Int? = nil
+        scoreBeforeCompensation: Int? = nil,
+        inherentScore: Int? = nil
     ) {
         self.threatId = threatId
         self.name = name
@@ -182,6 +186,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.scoreBeforePathwayMitigation = scoreBeforePathwayMitigation
         self.compensatingLabels = compensatingLabels
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
+        self.inherentScore = inherentScore ?? riskScore
     }
 }
 
@@ -236,7 +241,8 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     pathwayMitigationLabels: threat.mitigatedBy.map(\.label),
                     scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
                     compensatingLabels: threat.compensating.map(\.label),
-                    scoreBeforeCompensation: threat.scoreBeforeCompensation
+                    scoreBeforeCompensation: threat.scoreBeforeCompensation,
+                    inherentScore: threat.scoreBeforeControls
                 )
             },
             severities: catalogue.taxonomy().severities.map {

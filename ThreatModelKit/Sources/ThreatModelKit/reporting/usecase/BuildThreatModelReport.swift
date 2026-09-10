@@ -165,7 +165,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             },
             pathwayMitigationLabels: assessed.pathwayMitigationLabels,
             compensating: compensating,
-            scoreBeforeCompensation: assessed.scoreBeforeCompensation
+            scoreBeforeCompensation: assessed.scoreBeforeCompensation,
+            inherentScore: assessed.inherentScore
         )
     }
 

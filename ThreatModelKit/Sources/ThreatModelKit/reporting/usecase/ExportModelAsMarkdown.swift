@@ -130,7 +130,14 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             lines.append("")
             lines.append("- Raised by: \(threat.sourceKind)")
             lines.append("- Severity: \(threat.severityLabel)")
-            lines.append("- Risk: \(threat.riskLevel) (\(threat.riskScore))")
+            if threat.inherentScore == threat.riskScore {
+                lines.append("- Risk: \(threat.riskLevel) (\(threat.riskScore))")
+            } else {
+                lines.append(
+                    "- Risk: \(threat.riskLevel) (\(threat.riskScore)),"
+                        + " before controls \(threat.inherentScore)"
+                )
+            }
             if threat.strideLabels.isEmpty == false {
                 lines.append("- STRIDE: \(threat.strideLabels.joined(separator: ", "))")
             }

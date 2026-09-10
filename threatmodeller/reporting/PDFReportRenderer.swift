@@ -133,10 +133,13 @@ nonisolated struct PDFReportRenderer: ReportRenderer {
                 )
             )
             text.append(body(threat.description))
+            let scoreText = threat.inherentScore == threat.riskScore
+                ? "\(threat.riskLevel) (\(threat.riskScore))"
+                : "\(threat.riskLevel) (\(threat.riskScore)), before controls \(threat.inherentScore)"
             text.append(
                 body(
                     "\(threat.sourceKind) \u{00B7} \(threat.severityLabel)"
-                        + " \u{00B7} \(threat.riskLevel) (\(threat.riskScore))"
+                        + " \u{00B7} \(scoreText)"
                 )
             )
             for compensating in threat.compensating {

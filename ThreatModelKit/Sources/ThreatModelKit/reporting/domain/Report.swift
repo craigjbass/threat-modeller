@@ -148,6 +148,8 @@ public struct ReportThreat: Equatable, Sendable {
     /// The score before the compensating control. Equal to `riskScore` when
     /// none applied.
     public let scoreBeforeCompensation: Int
+    /// The score before the implemented controls lowered it.
+    public let inherentScore: Int
 
     public init(
         threatId: String,
@@ -163,10 +165,12 @@ public struct ReportThreat: Equatable, Sendable {
         controls: [ReportControl],
         pathwayMitigationLabels: [String],
         compensating: [ReportCompensatingControl] = [],
-        scoreBeforeCompensation: Int? = nil
+        scoreBeforeCompensation: Int? = nil,
+        inherentScore: Int? = nil
     ) {
         self.compensating = compensating
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
+        self.inherentScore = inherentScore ?? riskScore
         self.threatId = threatId
         self.name = name
         self.description = description
