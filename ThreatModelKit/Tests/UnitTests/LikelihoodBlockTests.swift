@@ -59,6 +59,30 @@ struct LikelihoodBlockTests {
         #expect(found.first?.message.contains("rationale") == true)
     }
 
+    @Test func refusesATierItDoesNotHold() throws {
+        let text = controls("""
+            likelihood "unknown tier" {
+              tier      = "folklore"
+              rationale = "it names a tier that does not exist"
+            }
+        """)
+        let found = errors(text)
+        #expect(found.count == 1)
+        #expect(found.first?.message.contains("folklore") == true)
+    }
+
+    @Test func refusesAPriorOutsideTheRange() throws {
+        let text = controls("""
+            likelihood "prior out of range" {
+              prior     = 150
+              rationale = "it names a prior above 100"
+            }
+        """)
+        let found = errors(text)
+        #expect(found.count == 1)
+        #expect(found.first?.message.contains("150") == true)
+    }
+
     @Test func refusesABlockThatStatesBothATierAndAPrior() throws {
         let text = controls("""
             likelihood "two numbers" {

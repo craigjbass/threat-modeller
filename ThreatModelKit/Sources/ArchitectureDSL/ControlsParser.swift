@@ -137,12 +137,15 @@ struct ControlsParser {
 
         var tier: String?
         var prior: Int?
+        var sawTier = false
+        var sawPrior = false
         var rationale: String?
         var sources: [String] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
             case "tier":
+                sawTier = true
                 let token = current
                 let raw = parseTextAttribute() ?? ""
                 if Likelihood(rawValue: raw) == nil {
@@ -155,10 +158,15 @@ struct ControlsParser {
                     tier = raw
                 }
             case "prior":
+                sawPrior = true
                 let token = current
-                prior = parseNumberAttribute()
-                if let value = prior, Likelihood(prior: value) == nil {
-                    record("prior is \(value); it runs from 0 to 100", at: token)
+                let value = parseNumberAttribute()
+                if let value {
+                    if Likelihood(prior: value) == nil {
+                        record("prior is \(value); it runs from 0 to 100", at: token)
+                    } else {
+                        prior = value
+                    }
                 }
             case "rationale":
                 rationale = parseTextAttribute()
@@ -182,7 +190,11 @@ struct ControlsParser {
         }
         let read = tier.flatMap(Likelihood.init(rawValue:)) ?? prior.flatMap(Likelihood.init(prior:))
         guard let read else {
-            record("the likelihood \"\(label.text)\" states no tier and no prior", at: label)
+            // A rejected tier or prior already carries its own fault above; say
+            // "states no tier and no prior" only when neither was named at all.
+            if sawTier == false && sawPrior == false {
+                record("the likelihood \"\(label.text)\" states no tier and no prior", at: label)
+            }
             return nil
         }
         return LikelihoodFinding(
