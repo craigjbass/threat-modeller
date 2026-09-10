@@ -259,8 +259,9 @@ score:
 
 Two mitigations at the same stage — two `mitigates` edges, two pathway
 mitigations, or two compensating controls — give the stronger of the two, not
-the sum. The report and the threat card show the score before controls, before
-pathway mitigation and before compensation, alongside the residual score.
+the sum. The report shows the score before controls and before compensation,
+alongside the residual score. The threat card shows the score before pathway
+mitigation.
 
 A threat raised by a flow runs stages 1 to 4 and 6 to 7: it takes the source
 component's upstream pathway mitigations, but no `mitigates` edge targets a
@@ -295,8 +296,8 @@ Read [the language guide](docs/LANGUAGE.md) for the full grammar of
 `threatmodeller report` and *Generate Report* write the same `.md` file, in
 this order:
 
-1. **Summary** — the threat count, the controls recorded, and a count by
-   risk level.
+1. **Summary** — the threat count, the controls recorded, one line per control
+   status, and a count by risk level.
 2. **Where the risk sits** — a count by source kind: component, connection
    or zone.
 3. **By zone** — one row per zone: its components, its worst residual score,
@@ -306,10 +307,10 @@ this order:
    with the score before controls and, when a model carries an assumed
    edge, the target score.
 5. **Components**, **Connections**, **Zones** — what the architecture holds.
-6. **Attack paths** — a walk from an external actor to the components it can
-   reach, worst score first, with each hop's threat and score and what
-   reduced it. The walk is bounded, and the section says how many further
-   paths it left out.
+6. **Attack paths** — a walk from components without inbound flow or in public
+   zones to restricted components they can reach, worst score first, with each
+   hop's threat and score and what reduced it. The walk is bounded, and the
+   section says how many further paths it left out.
 7. **Protection dependencies** — for a component other components rely on:
    what it protects, and, when a threat on the protector itself has no
    answer, that the reduction it grants rests on an unanswered threat.
@@ -421,10 +422,8 @@ from anywhere.
   "lower the score" mode, a percent slider.
 - A threat's severity in the sidebar is a menu: choosing an entry sets a
   technology-wide override, and, once one is set, the menu offers "Use the
-  catalogue's severity" to clear it. The menu offers nothing when a
-  `severity_override` block in the `.controls` file already decides that
-  threat on that source; the sidebar disables the menu rather than let a
-  choice from it change nothing.
+  catalogue's severity" to clear it. The sidebar disables the menu rather
+  than let a choice from it change nothing.
 - A user creates, edits and deletes a custom technology from the canvas: its
   name, category and description, which catalogue threats it carries, and
   whether it encrypts what crosses it. See "Sharing an element library" below
