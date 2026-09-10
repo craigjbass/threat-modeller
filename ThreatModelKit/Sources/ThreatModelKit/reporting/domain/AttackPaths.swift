@@ -1,8 +1,15 @@
-/// Traces every attack path from an entry point to the sensitive data it can
-/// reach.
+/// Every way in, to everything worth taking.
 ///
-/// Task 15 fills this in.
+/// Spec section 9. The report already scores each threat on its own; this is
+/// the story that joins them, which is what a reader asks for first: how does
+/// an attacker get from the outside to the restricted data, and what stops
+/// them on the way.
 public enum AttackPaths {
+    /// A path longer than this is a story nobody reads.
+    public static let maximumHops = 6
+    /// The report lists this many, worst first, and states what it dropped.
+    public static let maximumPaths = 20
+
     public static func build(
         components: [Component],
         connections: [Connection],
@@ -10,6 +17,124 @@ public enum AttackPaths {
         threats: [ReportThreat],
         nameOf: (ComponentId) -> String
     ) -> (paths: [ReportAttackPath], notListed: Int) {
-        ([], 0)
+        guard components.isEmpty == false else { return ([], 0) }
+
+        var forward: [ComponentId: [Connection]] = [:]
+        for connection in connections {
+            forward[connection.source, default: []].append(connection)
+        }
+
+        // A component that only ever hears from something it can itself
+        // reach back has no feed from outside its own cycle. It is still a
+        // valid start: the cycle is the only way in, so the walk must be
+        // free to begin inside it. `hasExternalInbound` marks only the
+        // components that a genuinely separate component feeds.
+        var hasExternalInbound: Set<ComponentId> = []
+        for connection in connections {
+            let targetReachesSource = Self.reachable(from: connection.target, forward: forward)
+                .contains(connection.source)
+            if targetReachesSource == false {
+                hasExternalInbound.insert(connection.target)
+            }
+        }
+
+        let publicZones = zones.filter { $0.networkZone == .publicZone }
+        let starts = components.filter { component in
+            hasExternalInbound.contains(component.id) == false
+                || ZoneContainment.zone(holding: component.centre, in: publicZones) != nil
+        }
+        let ends = Set(
+            components
+                .filter { $0.effectiveSensitivity == .confidential || $0.effectiveSensitivity == .restricted }
+                .map(\.id)
+        )
+        guard ends.isEmpty == false else { return ([], 0) }
+
+        var found: [ReportAttackPath] = []
+
+        func walk(
+            _ component: ComponentId,
+            _ arrivedBy: Connection?,
+            _ hops: [ReportAttackPathHop],
+            _ seen: Set<ComponentId>
+        ) {
+            let hop = self.hop(
+                component,
+                arrivedBy: arrivedBy,
+                threats: threats,
+                nameOf: nameOf
+            )
+            let path = hops + [hop]
+
+            if ends.contains(component) && path.count > 1 {
+                found.append(
+                    ReportAttackPath(
+                        startName: path[0].componentName,
+                        endName: hop.componentName,
+                        hops: path,
+                        worstScore: path.map(\.riskScore).max() ?? 0
+                    )
+                )
+            }
+            guard path.count < maximumHops else { return }
+
+            for next in forward[component] ?? [] where seen.contains(next.target) == false {
+                walk(next.target, next, path, seen.union([next.target]))
+            }
+        }
+
+        for start in starts {
+            walk(start.id, nil, [], [start.id])
+        }
+
+        let ordered = found.sorted { left, right in
+            if left.worstScore != right.worstScore { return left.worstScore > right.worstScore }
+            if left.hops.count != right.hops.count { return left.hops.count < right.hops.count }
+            return left.endName < right.endName
+        }
+
+        return (
+            Array(ordered.prefix(maximumPaths)),
+            max(0, ordered.count - maximumPaths)
+        )
+    }
+
+    /// Every component reached by following one or more forward connections
+    /// from `start`. A component that sits on a cycle reaches itself.
+    private static func reachable(
+        from start: ComponentId,
+        forward: [ComponentId: [Connection]]
+    ) -> Set<ComponentId> {
+        var visited: Set<ComponentId> = []
+        var queue = (forward[start] ?? []).map(\.target)
+        while queue.isEmpty == false {
+            let next = queue.removeFirst()
+            guard visited.contains(next) == false else { continue }
+            visited.insert(next)
+            queue.append(contentsOf: (forward[next] ?? []).map(\.target))
+        }
+        return visited
+    }
+
+    /// One step of the story: what the attacker reached, how they got there,
+    /// and the worst thing that is still open on it.
+    private static func hop(
+        _ component: ComponentId,
+        arrivedBy: Connection?,
+        threats: [ReportThreat],
+        nameOf: (ComponentId) -> String
+    ) -> ReportAttackPathHop {
+        let name = nameOf(component)
+        let worst = threats
+            .filter { $0.sourceKind == "Component" && $0.sourceName == name }
+            .max { $0.riskScore < $1.riskScore }
+
+        return ReportAttackPathHop(
+            componentName: name,
+            flowKindLabel: arrivedBy.map(\.kind.label),
+            worstThreatName: worst?.name,
+            riskScore: worst?.riskScore ?? 0,
+            reducedBy: worst?.pathwayMitigationLabels ?? []
+        )
     }
 }
