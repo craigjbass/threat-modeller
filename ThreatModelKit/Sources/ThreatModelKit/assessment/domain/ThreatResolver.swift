@@ -458,7 +458,7 @@ public struct ThreatResolver {
         var applied: [PathwayMitigationDefinition] = []
 
         for definition in catalogue.pathwayMitigations() {
-            let config = settings.config(for: definition.id)
+            let config = settings.config(for: definition)
             guard config.isEnabled,
                   definition.mitigates(threat.id),
                   upstreamTechnologies.contains(where: definition.isProvidedBy) else { continue }

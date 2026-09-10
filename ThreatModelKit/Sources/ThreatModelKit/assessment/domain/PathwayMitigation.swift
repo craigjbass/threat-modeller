@@ -55,6 +55,19 @@ public struct PathwayMitigationSettings: Equatable, Sendable {
     public func config(for id: PathwayMitigationId) -> PathwayMitigationConfig {
         configs[id] ?? Self.defaultConfig
     }
+
+    /// The configuration for one definition. A definition nobody has
+    /// configured yet starts from the percentage the library states, or from
+    /// `defaultConfig` when the library states none.
+    public func config(for definition: PathwayMitigationDefinition) -> PathwayMitigationConfig {
+        if let config = configs[definition.id] { return config }
+        guard let reducesRiskBy = definition.reducesRiskBy else { return Self.defaultConfig }
+        return PathwayMitigationConfig(
+            isEnabled: Self.defaultConfig.isEnabled,
+            mode: Self.defaultConfig.mode,
+            reductionPercent: reducesRiskBy
+        )
+    }
 }
 
 /// What happened to a threat's score.

@@ -39,9 +39,9 @@ public struct MergedCatalogue: TechnologyCatalogue {
         base.zoneThreats() + store.all().flatMap { $0.threats.filter(\.isZoneThreat) }
     }
 
-    /// A library defines no pathway mitigation, so these are the vendored ones.
+    /// The vendored mitigations and every mitigation the libraries define.
     public func pathwayMitigations() -> [PathwayMitigationDefinition] {
-        base.pathwayMitigations()
+        base.pathwayMitigations() + store.all().flatMap(\.pathwayMitigations)
     }
 
     /// The vendored catalogue's version. A library's tag is in the lock file.

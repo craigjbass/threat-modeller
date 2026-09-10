@@ -33,6 +33,24 @@ struct LibraryWriter {
             body.append("")
         }
 
+        for mitigation in source.mitigations {
+            body.append("mitigation \(quoted(mitigation.id)) {")
+            var attributes: [(String, String)] = [("name", quoted(mitigation.name))]
+            if mitigation.description.isEmpty == false {
+                attributes.append(("description", quoted(mitigation.description)))
+            }
+            attributes.append(
+                ("mitigates", "[" + mitigation.mitigatesThreatIds.map(quoted).joined(separator: ", ") + "]")
+            )
+            attributes.append(
+                ("provided_by", "[" + mitigation.technologyIds.map(quoted).joined(separator: ", ") + "]")
+            )
+            attributes.append(("reduces_risk_by", String(mitigation.reducesRiskBy)))
+            body += indent(aligned(attributes))
+            body.append("}")
+            body.append("")
+        }
+
         while body.last == "" { body.removeLast() }
         lines += indent(body)
         lines.append("}")
@@ -79,6 +97,18 @@ struct LibraryWriter {
         if threat.isZoneThreat { attributes.append(("zone", "true")) }
         if let zoneContext = threat.zoneContext {
             attributes.append(("zone_context", quoted(zoneContext)))
+        }
+        if threat.isPathwayThreat { attributes.append(("pathway", "true")) }
+        if threat.appliesTo.isEmpty == false {
+            attributes.append(
+                ("applies_to", "[" + threat.appliesTo.map(quoted).joined(separator: ", ") + "]")
+            )
+        }
+        if let boundary = threat.boundary { attributes.append(("boundary", quoted(boundary))) }
+        if threat.runsAs.isEmpty == false {
+            attributes.append(
+                ("runs_as", "[" + threat.runsAs.map(quoted).joined(separator: ", ") + "]")
+            )
         }
         body += aligned(attributes)
 
