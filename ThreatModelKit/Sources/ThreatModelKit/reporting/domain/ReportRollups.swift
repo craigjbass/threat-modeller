@@ -15,7 +15,8 @@ public enum ReportRollups {
                     zoneName: zone.name,
                     componentCount: zone.componentNames.count,
                     byLevel: counts(of: raised.map(\.riskLevel)),
-                    worstScore: raised.map(\.riskScore).max() ?? 0
+                    worstScore: raised.map(\.riskScore).max() ?? 0,
+                    worstScoreIfAssumptionsHold: raised.map(\.scoreIfAssumptionsHold).max() ?? 0
                 )
             },
             topResidual: Array(

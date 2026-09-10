@@ -178,7 +178,7 @@ public struct CommandLineApplication {
             let response = useCases.compileControls().execute(
                 CompileControlsRequest(architectureText: architectureText, controlsText: existing)
             )
-            guard case .compiled(let text, let answered, let unanswered, let stale) = response else {
+            guard case .compiled(let text, let answered, let unanswered, let stale, let warnings) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
                     output(diagnostic.described(in: system.architecturePath))
@@ -191,6 +191,9 @@ public struct CommandLineApplication {
             } catch {
                 output("threatmodeller: \(Self.described(error))")
                 return .fileFault
+            }
+            for warning in warnings {
+                output(warning.described(in: system.controlsPath))
             }
             if isQuiet == false {
                 output(
@@ -219,7 +222,7 @@ public struct CommandLineApplication {
                     tolerance: tolerance
                 )
             )
-            guard case .checked(let unanswered, let stale, _, let usedTolerance) = response else {
+            guard case .checked(let unanswered, let stale, let diagnostics, let usedTolerance) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
                     output(diagnostic.described(in: system.architecturePath))
@@ -227,6 +230,9 @@ public struct CommandLineApplication {
                 return .didNotParse
             }
 
+            for diagnostic in diagnostics {
+                output(diagnostic.described(in: system.controlsPath))
+            }
             for threat in unanswered {
                 output("\(system.controlsPath): \(threat.described)")
             }
@@ -268,11 +274,16 @@ public struct CommandLineApplication {
                let controlsText = try? projects.read(path: system.controlsPath) {
                 let applied = useCases.applyControlAnswers()
                     .execute(ApplyControlAnswersRequest(text: controlsText))
-                if case .refused(let diagnostics) = applied {
+                switch applied {
+                case .refused(let diagnostics):
                     for diagnostic in diagnostics {
                         output(diagnostic.described(in: system.controlsPath))
                     }
                     return .didNotParse
+                case .applied(_, let warnings):
+                    for warning in warnings {
+                        output(warning.described(in: system.controlsPath))
+                    }
                 }
             }
 

@@ -108,17 +108,22 @@ public struct ReportZoneRollup: Equatable, Sendable {
     public let componentCount: Int
     public let byLevel: [ReportCount]
     public let worstScore: Int
+    /// The worst score among this zone's threats when every assumed edge
+    /// holds. Equal to `worstScore` when no assumed edge touches the zone.
+    public let worstScoreIfAssumptionsHold: Int
 
     public init(
         zoneName: String,
         componentCount: Int,
         byLevel: [ReportCount] = [],
-        worstScore: Int
+        worstScore: Int,
+        worstScoreIfAssumptionsHold: Int? = nil
     ) {
         self.zoneName = zoneName
         self.componentCount = componentCount
         self.byLevel = byLevel
         self.worstScore = worstScore
+        self.worstScoreIfAssumptionsHold = worstScoreIfAssumptionsHold ?? worstScore
     }
 }
 

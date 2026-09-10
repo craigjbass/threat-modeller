@@ -96,7 +96,7 @@ struct ReportRollupTests {
     }
 
     @Test func theMarkdownWritesNothingForAnEmptyModel() {
-        #expect(MarkdownRollups.lines(ReportRollupTables.empty).isEmpty)
+        #expect(MarkdownRollups.lines(ReportRollupTables.empty, showsAssumed: false).isEmpty)
     }
 
     @Test func theMarkdownDrawsTheTopResidualTable() {
@@ -105,9 +105,71 @@ struct ReportRollupTests {
                 byZone: [],
                 topResidual: [threat("Raw device read", source: "store", score: 12, level: "critical")],
                 bySourceKind: []
-            )
+            ),
+            showsAssumed: false
         )
         #expect(lines.contains("## Top residual risk"))
         #expect(lines.contains("| Raw device read | store | 12 | 12 | critical |"))
+    }
+
+    /// I3: the column reads off the model's own assumed edges, not off
+    /// whether a row in this table happens to differ under them. A threat
+    /// can drop out of the top-20 prefix while an assumed edge still stands
+    /// elsewhere, and the column must still show.
+    @Test func theTopResidualColumnShowsWhenTheModelHasAnAssumedEdgeEvenIfNoRowDiffers() {
+        let lines = MarkdownRollups.lines(
+            ReportRollupTables(
+                byZone: [],
+                topResidual: [threat("Raw device read", source: "store", score: 12, level: "critical")],
+                bySourceKind: []
+            ),
+            showsAssumed: true
+        )
+        #expect(lines.contains("| Threat | Raised by | Residual | If assumed hold | Before controls | Level |"))
+        #expect(lines.contains("| Raw device read | store | 12 | 12 | 12 | critical |"))
+    }
+
+    @Test func theTopResidualColumnHidesWhenTheModelHasNoAssumedEdge() {
+        let lines = MarkdownRollups.lines(
+            ReportRollupTables(
+                byZone: [],
+                topResidual: [threat("Raw device read", source: "store", score: 12, level: "critical")],
+                bySourceKind: []
+            ),
+            showsAssumed: false
+        )
+        #expect(lines.contains("| Threat | Raised by | Residual | Before controls | Level |"))
+        #expect(lines.contains { $0.contains("If assumed hold") } == false)
+    }
+
+    @Test func theByZoneTableGainsTheColumnWhenTheModelHasAnAssumedEdge() throws {
+        let tables = ReportRollups.build(
+            threats: [
+                ReportThreat(
+                    threatId: "a",
+                    name: "a",
+                    description: "",
+                    severityLabel: "High",
+                    riskScore: 12,
+                    riskLevel: "critical",
+                    strideLabels: [],
+                    mitreTechniqueIds: [],
+                    sourceName: "api",
+                    sourceKind: "Component",
+                    sourceId: "component:api",
+                    controls: [],
+                    pathwayMitigationLabels: [],
+                    scoreIfAssumptionsHold: 3
+                )
+            ],
+            zones: [zone("App VPC", ["api"])]
+        )
+        let rollup = try #require(tables.byZone.first)
+        #expect(rollup.worstScore == 12)
+        #expect(rollup.worstScoreIfAssumptionsHold == 3)
+
+        let lines = MarkdownRollups.lines(tables, showsAssumed: true)
+        #expect(lines.contains("| Zone | Components | Worst | If assumed hold | Levels |"))
+        #expect(lines.contains { $0.contains("App VPC") && $0.contains("| 12 | 3 |") })
     }
 }

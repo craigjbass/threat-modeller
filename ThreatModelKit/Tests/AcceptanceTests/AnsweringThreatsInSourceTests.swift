@@ -28,7 +28,7 @@ struct AnsweringThreatsInSourceTests {
     """
 
     private func compiled(_ existing: String? = nil) -> String {
-        guard case .compiled(let text, _, _, _) = app.compileControls().execute(
+        guard case .compiled(let text, _, _, _, _) = app.compileControls().execute(
             CompileControlsRequest(architectureText: payments, controlsText: existing)
         ) else {
             Issue.record("the controls did not compile")
@@ -178,7 +178,7 @@ struct AnsweringThreatsInSourceTests {
 
             """
         )
-        guard case .compiled(let text, _, _, let stale) = app.compileControls().execute(
+        guard case .compiled(let text, _, _, let stale, _) = app.compileControls().execute(
             CompileControlsRequest(architectureText: bigger, controlsText: answered)
         ) else {
             Issue.record("the controls did not compile")

@@ -41,17 +41,35 @@ struct DocumentFormatVersionFourTests {
                     description: "uid 0"
                 )
             ],
+            compensatingControls: [
+                ThreatKey(threatId: "credential-theft", sourceId: "component:store"):
+                    [
+                        CompensatingControl(
+                            label: "hardware-bound key",
+                            reducesRiskBy: 40,
+                            rationale: "the key never leaves the Secure Enclave",
+                            sources: ["https://example.internal/adr/17"]
+                        )
+                    ]
+            ],
             mitigatesEdges: [
                 MitigatesEdge(
                     source: ComponentId("guard"),
                     target: ComponentId("store"),
                     threatIds: [ThreatId("credential-theft")],
-                    reducesRiskBy: 80
+                    reducesRiskBy: 80,
+                    status: .assumed
                 )
             ],
             recommendations: [
                 ThreatKey(threatId: "credential-theft", sourceId: "component:store"):
-                    [Recommendation(text: "Deny reads of /dev/rdisk**", note: "An endpoint rule.")]
+                    [
+                        Recommendation(
+                            text: "Deny reads of /dev/rdisk**",
+                            note: "An endpoint rule.",
+                            sources: ["https://attack.mitre.org/techniques/T1218/"]
+                        )
+                    ]
             ]
         )
     }
@@ -68,6 +86,49 @@ struct DocumentFormatVersionFourTests {
         #expect(read.zones.first?.description == "uid 0")
         #expect(read.mitigatesEdges.first?.reducesRiskBy == 80)
         #expect(read.recommendations.values.first?.first?.text == "Deny reads of /dev/rdisk**")
+    }
+
+    /// D1: an edge's `status`, a compensating control's `sources` and a
+    /// recommendation's `sources` are carried whole through a round trip. A
+    /// codec that dropped `status` would turn an assumed edge into an
+    /// adopted one, and lower the model's residual score on the next open.
+    @Test func aRoundTripKeepsTheEdgeStatusAndEverySourcesList() throws {
+        let data = try ThreatModelCodec().encode(model())
+        let read = try ThreatModelCodec().decode(data)
+
+        #expect(read.mitigatesEdges.first?.status == .assumed)
+        #expect(
+            read.compensatingControls.values.first?.first?.sources
+                == ["https://example.internal/adr/17"]
+        )
+        #expect(
+            read.recommendations.values.first?.first?.sources
+                == ["https://attack.mitre.org/techniques/T1218/"]
+        )
+    }
+
+    /// An edge with no stated status is `adopted`, and the writer says
+    /// nothing about it: a file written before `status` existed keeps its
+    /// numbers, unchanged, on the next save.
+    @Test func anAdoptedEdgeWritesNoStatusKey() throws {
+        let adopted = ThreatModel(
+            name: "S",
+            mitigatesEdges: [
+                MitigatesEdge(
+                    source: ComponentId("guard"),
+                    target: ComponentId("store"),
+                    threatIds: [ThreatId("credential-theft")],
+                    reducesRiskBy: 80
+                )
+            ]
+        )
+
+        let data = try ThreatModelCodec().encode(adopted)
+        let text = try #require(String(data: data, encoding: .utf8))
+        #expect(text.contains("\"status\"") == false)
+
+        let read = try ThreatModelCodec().decode(data)
+        #expect(read.mitigatesEdges.first?.status == .adopted)
     }
 
     @Test func theFormatVersionIsFour() throws {

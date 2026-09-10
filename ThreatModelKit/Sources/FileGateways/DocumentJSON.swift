@@ -35,11 +35,15 @@ struct MitigatesEdgeJSON: Codable {
     let target: String
     let threatIds: [String]
     let reducesRiskBy: Int
+    /// Absent means `adopted`, so a file written before this field existed
+    /// keeps its numbers.
+    let status: String?
 }
 
 struct RecommendationJSON: Codable {
     let text: String
     let note: String?
+    let sources: [String]?
 }
 
 struct CustomTechnologyJSON: Codable {
@@ -95,6 +99,7 @@ struct CompensatingControlJSON: Codable {
     let label: String
     let reducesRiskBy: Int
     let rationale: String
+    let sources: [String]?
 }
 
 struct PathwayMitigationsJSON: Codable {

@@ -161,6 +161,11 @@ struct ThreatCard: View {
 
     /// The severity is a menu, because it is both a label and the one number
     /// on the card the user is allowed to disagree with.
+    ///
+    /// A controls-file severity decision is a different store to the
+    /// technology-wide override: it names one threat on one source, and the
+    /// resolver reads it ahead of the override. When one applies, the menu
+    /// offers nothing, because a choice from it would change nothing.
     private var severityMenu: some View {
         Menu {
             ForEach(severityChoices, id: \.id) { severity in
@@ -173,7 +178,7 @@ struct ThreatCard: View {
         } label: {
             HStack(spacing: 3) {
                 Text(threat.severityLabel)
-                if threat.overriddenSeverityId != nil {
+                if threat.overriddenSeverityId != nil || threat.severityDecision != nil {
                     Image(systemName: "pencil").font(.caption2)
                 }
             }
@@ -181,9 +186,18 @@ struct ThreatCard: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+        .disabled(threat.severityDecision != nil)
         .accessibilityIdentifier("override-\(threat.overrideKey)")
-        .help(threat.overriddenSeverityId == nil
-              ? "The catalogue's severity"
-              : "You set this severity. It applies everywhere this threat is raised from the same source kind.")
+        .help(severityHelpText)
+    }
+
+    private var severityHelpText: String {
+        if let decision = threat.severityDecision {
+            return decision.rationale
+        }
+        if threat.overriddenSeverityId != nil {
+            return "You set this severity. It applies everywhere this threat is raised from the same source kind."
+        }
+        return "The catalogue's severity"
     }
 }

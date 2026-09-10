@@ -52,7 +52,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                                 CompensatingControlJSON(
                                     label: $0.label,
                                     reducesRiskBy: $0.reducesRiskBy,
-                                    rationale: $0.rationale
+                                    rationale: $0.rationale,
+                                    sources: $0.sources
                                 )
                             }
                         )
@@ -78,7 +79,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                         source: $0.source.value,
                         target: $0.target.value,
                         threatIds: $0.threatIds.map(\.value),
-                        reducesRiskBy: $0.reducesRiskBy
+                        reducesRiskBy: $0.reducesRiskBy,
+                        status: $0.status == .adopted ? nil : $0.status.rawValue
                     )
                 },
                 recommendations: Dictionary(
@@ -86,7 +88,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                         (
                             key.value,
                             recommendations.map {
-                                RecommendationJSON(text: $0.text, note: $0.note)
+                                RecommendationJSON(text: $0.text, note: $0.note, sources: $0.sources)
                             }
                         )
                     }
@@ -131,18 +133,25 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                             CompensatingControl(
                                 label: $0.label,
                                 reducesRiskBy: $0.reducesRiskBy,
-                                rationale: $0.rationale
+                                rationale: $0.rationale,
+                                sources: $0.sources ?? []
                             )
                         }
                     )
                 }
             ),
-            mitigatesEdges: (document.mitigatesEdges ?? []).map {
+            mitigatesEdges: try (document.mitigatesEdges ?? []).map {
                 MitigatesEdge(
                     source: ComponentId($0.source),
                     target: ComponentId($0.target),
                     threatIds: $0.threatIds.map(ThreatId.init),
-                    reducesRiskBy: $0.reducesRiskBy
+                    reducesRiskBy: $0.reducesRiskBy,
+                    status: try Self.optionalValue(
+                        MitigationStatus.self,
+                        field: "status",
+                        raw: $0.status,
+                        default: .adopted
+                    )
                 )
             },
             recommendations: Dictionary(
@@ -150,7 +159,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     (
                         ThreatKey(key),
                         recommendations.map {
-                            Recommendation(text: $0.text, note: $0.note)
+                            Recommendation(text: $0.text, note: $0.note, sources: $0.sources ?? [])
                         }
                     )
                 }

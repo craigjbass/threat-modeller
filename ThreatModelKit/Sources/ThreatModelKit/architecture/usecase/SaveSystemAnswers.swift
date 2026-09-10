@@ -68,7 +68,7 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
         let merged = compiles.execute(
             CompileControlsRequest(architectureText: architectureText, controlsText: existing)
         )
-        guard case .compiled(let text, _, _, _) = merged else {
+        guard case .compiled(let text, _, _, _, _) = merged else {
             guard case .refused(let diagnostics) = merged else { return .refused(diagnostics: []) }
             return .refused(diagnostics: diagnostics)
         }

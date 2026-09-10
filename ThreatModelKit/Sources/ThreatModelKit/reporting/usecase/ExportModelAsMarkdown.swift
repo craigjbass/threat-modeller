@@ -40,7 +40,10 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         }
 
         lines += summary(report.summary)
-        lines += MarkdownRollups.lines(report.rollups)
+        lines += MarkdownRollups.lines(
+            report.rollups,
+            showsAssumed: report.assumedMitigations.isEmpty == false
+        )
         lines += components(report.components)
         lines += connections(report.connections)
         lines += zones(report.zones)
@@ -232,9 +235,15 @@ enum Markdown {
 
     /// One "  - Source: <value>" line per source, so the likelihood block,
     /// the severity decision, a compensating control and a recommendation
-    /// all write their sources the same way.
+    /// all write their sources the same way. A value starting `http://` or
+    /// `https://` renders as a link; any other text renders as it stands.
     static func sourceLines(_ sources: [String]) -> [String] {
-        sources.map { "  - Source: \($0)" }
+        sources.map { source in
+            let isLink = source.hasPrefix("http://") || source.hasPrefix("https://")
+            return isLink
+                ? "  - Source: [\(source)](\(source))"
+                : "  - Source: \(source)"
+        }
     }
 }
 

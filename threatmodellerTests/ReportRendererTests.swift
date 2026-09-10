@@ -48,6 +48,74 @@ struct PDFReportRendererTests {
         let document = try #require(PDFDocument(data: Data(bytes)))
         #expect(document.pageCount > 1)
     }
+
+    /// I5: `PDFReportRenderer` printed only "<level> (<score>), before
+    /// controls <inherent>", so a score a likelihood finding or a severity
+    /// decision moved read as if the controls had done it. The PDF must
+    /// carry the same evidence the Markdown export does: the likelihood
+    /// line, the severity decision, the target posture, and every source.
+    @Test func printsTheLikelihoodTheSeverityDecisionAndTheTargetPosture() throws {
+        let threat = ReportThreat(
+            threatId: "sip-bypass",
+            name: "SIP Bypass",
+            description: "An attacker disables System Integrity Protection.",
+            severityLabel: "High",
+            riskScore: 3,
+            riskLevel: "low",
+            strideLabels: [],
+            mitreTechniqueIds: [],
+            sourceName: "laptop",
+            sourceKind: "Component",
+            sourceId: "component:laptop",
+            controls: [],
+            pathwayMitigationLabels: [],
+            compensating: [
+                ReportCompensatingControl(
+                    label: "hardware-bound key",
+                    reducesRiskBy: 40,
+                    rationale: "the key never leaves the Secure Enclave",
+                    sources: ["https://example.internal/adr/17"]
+                )
+            ],
+            likelihoodLabel: "Research",
+            likelihoodRationale: "no in-the-wild use since Big Sur",
+            likelihoodSources: ["CVE-2021-30892"],
+            scoreBeforeLikelihood: 12,
+            scoreIfAssumptionsHold: 1,
+            severityDecision: ReportSeverityDecision(
+                fromLabel: "Critical",
+                toLabel: "High",
+                rationale: "the exploit reads; the write path stays gated",
+                sources: ["CVE-2021-30892"]
+            )
+        )
+        let built = Report(
+            modelName: "ClearanceKit",
+            catalogueTag: nil,
+            summary: ReportSummary(
+                totalThreats: 1,
+                byLevel: [],
+                byStride: [],
+                controlsOffered: 0,
+                controlsRecorded: 0
+            ),
+            components: [],
+            connections: [],
+            zones: [],
+            threats: [threat]
+        )
+
+        let bytes = try PDFReportRenderer().render(built)
+
+        let text = try #require(PDFDocument(data: Data(bytes))?.string)
+        #expect(text.contains("Likelihood: Research (12 \u{2192} 3)"))
+        #expect(text.contains("Rationale: no in-the-wild use since Big Sur"))
+        #expect(text.contains("Source: CVE-2021-30892"))
+        #expect(text.contains("Severity decided: Critical \u{2192} High"))
+        #expect(text.contains("Rationale: the exploit reads; the write path stays gated"))
+        #expect(text.contains("If the assumptions hold: 1"))
+        #expect(text.contains("Source: https://example.internal/adr/17"))
+    }
 }
 
 @MainActor

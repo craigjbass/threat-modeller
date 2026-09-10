@@ -80,7 +80,7 @@ struct RecommendationsSectionTests {
                 sources: ["https://example.test/rec"]
             )
         ])
-        #expect(lines.contains("  - Source: https://example.test/rec"))
+        #expect(lines.contains("  - Source: [https://example.test/rec](https://example.test/rec)"))
     }
 
     @Test func theMarkdownPrintsNoSourceLineWhenTheRecommendationNamesNone() {

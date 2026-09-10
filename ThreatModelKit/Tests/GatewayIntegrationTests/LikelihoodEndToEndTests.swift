@@ -107,7 +107,7 @@ struct LikelihoodEndToEndTests {
             controlsSources: controlsSources,
             layout: LayOutModel()
         )
-        guard case .compiled(let stub, _, let firstUnanswered, _) = compiles.execute(
+        guard case .compiled(let stub, _, let firstUnanswered, _, _) = compiles.execute(
             CompileControlsRequest(architectureText: architectureText)
         ) else {
             Issue.record("the first compile did not write a stub")
@@ -200,5 +200,12 @@ struct LikelihoodEndToEndTests {
         )
         #expect(markdown.contains("- Likelihood: Research (12 \u{2192} 3)"))
         #expect(markdown.contains("- If the assumptions hold: 1"))
+
+        // The model's only `mitigates` edge is assumed. The Protection
+        // dependencies section reports adopted edges only, so it must not
+        // state that "baseline" answers a threat the Assumptions section
+        // already calls assumed.
+        #expect(markdown.contains("## Protection dependencies") == false)
+        #expect(markdown.contains("Answers: endpoint-sip-bypass on laptop") == false)
     }
 }

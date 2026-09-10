@@ -519,7 +519,10 @@ public struct ThreatResolver {
         let key = ThreatKey(threatId: threat.id.value, sourceId: sourceId)
         if let decision = model.severityDecisions[key],
            let chosen = catalogue.taxonomy().severity(id: decision.severityId) {
-            return (chosen, decision.severityId, decision)
+            // `overriddenId` means only the user's technology-wide override.
+            // A controls-file decision is a different store, carried instead
+            // in `decision` and read back out as `severityDecision`.
+            return (chosen, nil, decision)
         }
         guard let overriddenId = model.severityOverrides[overrideKey],
               let overridden = catalogue.taxonomy().severity(id: overriddenId) else {

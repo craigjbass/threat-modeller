@@ -96,6 +96,11 @@ struct SeverityDecisionTests {
         )
         #expect(threat.severityId == "medium")
         #expect(threat.riskScore < 16)
+        // `overriddenSeverityId` means only the user's technology-wide
+        // override. A controls-file decision is a different store, read back
+        // through `severityDecision`, not through this field.
+        #expect(threat.overriddenSeverityId == nil)
+        #expect(threat.severityDecision?.toLabel == threat.severityLabel)
     }
 
     /// The file's block is keyed by threat and source, and the technology-wide
@@ -130,5 +135,9 @@ struct SeverityDecisionTests {
             app.assessThreatModel().execute(AssessThreatModelRequest()).threats.first
         )
         #expect(threat.severityId == "medium")
+        // The file's decision won, so the technology-wide override field
+        // must read nil, not the id the decision named. The application
+        // reads this field to decide whether the override menu can act.
+        #expect(threat.overriddenSeverityId == nil)
     }
 }

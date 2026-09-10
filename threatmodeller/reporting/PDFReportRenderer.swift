@@ -142,6 +142,36 @@ nonisolated struct PDFReportRenderer: ReportRenderer {
                         + " \u{00B7} \(scoreText)"
                 )
             )
+            // A finding is worth printing even when the stage floored at 1
+            // both before and after: the tier, the rationale and the
+            // sources are the evidence this block exists to publish.
+            if threat.likelihoodRationale != nil || threat.likelihoodLabel != Likelihood.commodity.label {
+                let scoreChanged = threat.scoreBeforeLikelihood != threat.riskScore
+                text.append(
+                    body(
+                        "Likelihood: \(threat.likelihoodLabel)"
+                            + (scoreChanged
+                                ? " (\(threat.scoreBeforeLikelihood) \u{2192} \(threat.riskScore))"
+                                : "")
+                    )
+                )
+                if let rationale = threat.likelihoodRationale {
+                    text.append(body("  Rationale: \(rationale)"))
+                }
+                for source in threat.likelihoodSources {
+                    text.append(body("  Source: \(source)"))
+                }
+            }
+            if let decision = threat.severityDecision {
+                text.append(body("Severity decided: \(decision.fromLabel) \u{2192} \(decision.toLabel)"))
+                text.append(body("  Rationale: \(decision.rationale)"))
+                for source in decision.sources {
+                    text.append(body("  Source: \(source)"))
+                }
+            }
+            if threat.scoreIfAssumptionsHold != threat.riskScore {
+                text.append(body("If the assumptions hold: \(threat.scoreIfAssumptionsHold)"))
+            }
             for compensating in threat.compensating {
                 text.append(
                     body(
@@ -151,6 +181,9 @@ nonisolated struct PDFReportRenderer: ReportRenderer {
                             + " \(compensating.rationale)"
                     )
                 )
+                for source in compensating.sources {
+                    text.append(body("  Source: \(source)"))
+                }
             }
             for control in threat.controls {
                 text.append(

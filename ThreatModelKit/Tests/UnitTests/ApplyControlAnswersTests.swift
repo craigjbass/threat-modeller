@@ -19,7 +19,7 @@ struct ApplyControlAnswersTests {
     """
 
     private func compiled(_ existing: String? = nil) -> String {
-        guard case .compiled(let text, _, _, _) = app.compileControls().execute(
+        guard case .compiled(let text, _, _, _, _) = app.compileControls().execute(
             CompileControlsRequest(architectureText: payments, controlsText: existing)
         ) else {
             Issue.record("the controls did not compile")
@@ -128,6 +128,47 @@ struct ApplyControlAnswersTests {
         #expect(warnings[0].message.contains("ghost-threat"))
     }
 
+    /// Spec section 4.2: "An id the taxonomy does not know is an error." The
+    /// block stays in the file and moves no score; the warning is what tells
+    /// a person why.
+    @Test func warnsAboutASeverityOverrideNamingASeverityTheCatalogueDoesNotHold() throws {
+        drawTheModel()
+        let source = try #require(controls.read(compiled()).source)
+        let first = source.answers[0]
+        let edited = SourceThreatAnswer(
+            threatId: first.threatId,
+            sourceKind: first.sourceKind,
+            sourceId: first.sourceId,
+            severityLabel: first.severityLabel,
+            score: first.score,
+            severityDecision: SeverityDecision(
+                severityId: "not-a-real-severity",
+                rationale: "a typo in the severity id"
+            ),
+            controls: first.controls,
+            compensating: first.compensating
+        )
+        let text = controls.write(
+            ControlsSource(
+                systemName: source.systemName,
+                catalogueTag: source.catalogueTag,
+                answers: [edited] + source.answers.dropFirst()
+            )
+        )
+
+        let response = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
+
+        guard case .applied(_, let warnings) = response else {
+            Issue.record("expected the answers to be applied, got \(response)")
+            return
+        }
+        #expect(warnings.count == 1)
+        #expect(warnings[0].message.contains("not-a-real-severity"))
+
+        let threat = try #require(threats().first { $0.threatId == first.threatId })
+        #expect(threat.severityDecision == nil)
+    }
+
     @Test func leavesAStaleAnswerOutOfTheModel() throws {
         drawTheModel()
         let source = try #require(controls.read(compiled()).source)
@@ -194,6 +235,44 @@ struct ApplyControlAnswersTests {
         #expect(unanswered.isEmpty == false)
         #expect(stale.isEmpty)
         #expect(unanswered[0].described.contains("has no answer"))
+    }
+
+    /// I2: `check` reads a compile's warnings among its own diagnostics, so a
+    /// `severity_override` naming an unknown severity reaches a person
+    /// running `check`, not only `compile`.
+    @Test func surfacesASeverityOverrideWarningAmongItsDiagnostics() throws {
+        let source = try #require(controls.read(compiled()).source)
+        let first = source.answers[0]
+        let edited = SourceThreatAnswer(
+            threatId: first.threatId,
+            sourceKind: first.sourceKind,
+            sourceId: first.sourceId,
+            severityLabel: first.severityLabel,
+            score: first.score,
+            severityDecision: SeverityDecision(
+                severityId: "not-a-real-severity",
+                rationale: "a typo in the severity id"
+            ),
+            controls: first.controls,
+            compensating: first.compensating
+        )
+        let text = controls.write(
+            ControlsSource(
+                systemName: source.systemName,
+                catalogueTag: source.catalogueTag,
+                answers: [edited] + source.answers.dropFirst()
+            )
+        )
+
+        let response = app.checkControlAnswers().execute(
+            CheckControlAnswersRequest(architectureText: payments, controlsText: text)
+        )
+
+        guard case .checked(_, _, let diagnostics, _) = response else {
+            Issue.record("expected the check to run, got \(response)")
+            return
+        }
+        #expect(diagnostics.contains { $0.message.contains("not-a-real-severity") })
     }
 
     @Test func passesWhenEveryThreatIsAnswered() throws {
@@ -293,7 +372,7 @@ struct ApplyControlAnswersTests {
           component "cache" { technology = "aws-rds" }
         }
         """
-        guard case .compiled(let text, _, _, _) = app.compileControls().execute(
+        guard case .compiled(let text, _, _, _, _) = app.compileControls().execute(
             CompileControlsRequest(architectureText: bigger)
         ) else {
             Issue.record("the controls did not compile")

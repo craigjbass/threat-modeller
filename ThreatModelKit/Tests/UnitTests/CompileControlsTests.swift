@@ -43,7 +43,7 @@ struct CompileControlsTests {
     }
 
     private func text(of response: CompileControlsResponse) -> String {
-        guard case .compiled(let text, _, _, _) = response else {
+        guard case .compiled(let text, _, _, _, _) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return ""
         }
@@ -53,7 +53,7 @@ struct CompileControlsTests {
     @Test func writesEveryThreatWithEveryControlUnanswered() throws {
         let response = compile(payments)
 
-        guard case .compiled(let text, let answered, let unanswered, let stale) = response else {
+        guard case .compiled(let text, let answered, let unanswered, let stale, _) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return
         }
@@ -122,7 +122,7 @@ struct CompileControlsTests {
 
         let response = compile(payments, answered)
 
-        guard case .compiled(let text, _, _, let stale) = response else {
+        guard case .compiled(let text, _, _, let stale, _) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return
         }
@@ -211,6 +211,33 @@ struct CompileControlsTests {
         // Medium (2) times confidential (3) is 6; "research" cuts that to 2.
         #expect(misconfiguration.score == 2)
         #expect(misconfiguration.likelihood?.likelihood == .research)
+    }
+
+    /// I2: a compile carries `ApplyControlAnswers`'s warnings out, so a
+    /// `severity_override` naming a severity the catalogue does not hold is
+    /// not silently dropped.
+    @Test func carriesTheSeverityOverrideWarningThroughACompile() throws {
+        let existing = """
+        controls for "Payments" {
+          threat "misconfiguration" on component "api" {
+            severity = "medium"
+            score    = 6
+
+            severity_override "not-a-real-severity" {
+              rationale = "a typo in the severity id"
+            }
+          }
+        }
+        """
+
+        let response = compile(payments, existing)
+
+        guard case .compiled(_, _, _, _, let warnings) = response else {
+            Issue.record("expected the controls to compile, got \(response)")
+            return
+        }
+        #expect(warnings.count == 1)
+        #expect(warnings[0].message.contains("not-a-real-severity"))
     }
 
     @Test func refusesAnArchitectureThatDidNotParse() {

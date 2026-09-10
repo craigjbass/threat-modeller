@@ -70,7 +70,7 @@ struct UsingASharedLibraryTests {
     @Test func compilesAStanzaForAThreatOnlyTheLibraryDefines() throws {
         let (_, catalogue) = try aProject()
 
-        guard case .compiled(let text, _, let unanswered, _) = compile(
+        guard case .compiled(let text, _, let unanswered, _, _) = compile(
             catalogue,
             architecture: payments
         ) else {
@@ -85,7 +85,7 @@ struct UsingASharedLibraryTests {
 
     @Test func keepsTheAnswerAPersonWroteIntoIt() throws {
         let (_, catalogue) = try aProject()
-        guard case .compiled(let stub, _, _, _) = compile(catalogue, architecture: payments) else {
+        guard case .compiled(let stub, _, _, _, _) = compile(catalogue, architecture: payments) else {
             Issue.record("the controls did not compile")
             return
         }
@@ -94,7 +94,7 @@ struct UsingASharedLibraryTests {
             with: "status = \"implemented\""
         )
 
-        guard case .compiled(let text, let answers, let unanswered, _) = compile(
+        guard case .compiled(let text, let answers, let unanswered, _, _) = compile(
             catalogue,
             architecture: payments,
             controls: answered
@@ -110,12 +110,12 @@ struct UsingASharedLibraryTests {
 
     @Test func marksTheAnswerStaleWhenTheComponentLeaves() throws {
         let (_, catalogue) = try aProject()
-        guard case .compiled(let stub, _, _, _) = compile(catalogue, architecture: payments) else {
+        guard case .compiled(let stub, _, _, _, _) = compile(catalogue, architecture: payments) else {
             Issue.record("the controls did not compile")
             return
         }
 
-        guard case .compiled(let text, _, _, let stale) = compile(
+        guard case .compiled(let text, _, _, let stale, _) = compile(
             catalogue,
             architecture: "system \"Payments\" { }",
             controls: stub
@@ -129,7 +129,7 @@ struct UsingASharedLibraryTests {
     }
 
     @Test func raisesNothingWhenTheLibraryIsNotLoaded() {
-        guard case .compiled(_, _, let unanswered, _) = compile(
+        guard case .compiled(_, _, let unanswered, _, _) = compile(
             CatalogueFixture.catalogue(),
             architecture: payments
         ) else {

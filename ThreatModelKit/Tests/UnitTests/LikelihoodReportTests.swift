@@ -64,7 +64,28 @@ struct LikelihoodReportTests {
         let text = markdown()
         #expect(text.contains("- Likelihood: Research (16 \u{2192} 4)"))
         #expect(text.contains("  - Rationale: every bypass was researcher-found"))
-        #expect(text.contains("  - Source: https://example.test/a"))
+        #expect(text.contains("  - Source: [https://example.test/a](https://example.test/a)"))
+    }
+
+    /// I4: spec section 6, "A value starting `http://` or `https://` renders
+    /// as a link; anything else renders as text." A CVE id is not a URL, so
+    /// it must render as it stands, beside a source that is one.
+    @Test func aUrlSourceRendersAsALinkAndAnyOtherTextAsItStands() throws {
+        let componentId = aComponentRaisingTheThreat()
+        app.modelStore.mutate { model in
+            model.likelihoodFindings[
+                ThreatKey(threatId: "endpoint-sip-bypass", sourceId: "component:\(componentId)")
+            ] = LikelihoodFinding(
+                label: "no in-the-wild use",
+                likelihood: .research,
+                rationale: "every bypass was researcher-found",
+                sources: ["https://example.test/a", "CVE-2021-30892"]
+            )
+        }
+
+        let text = markdown()
+        #expect(text.contains("  - Source: [https://example.test/a](https://example.test/a)"))
+        #expect(text.contains("  - Source: CVE-2021-30892"))
     }
 
     /// Fix 1: a compensating control's sources are sub-bullets of that
@@ -90,7 +111,7 @@ struct LikelihoodReportTests {
         let lines = markdown().components(separatedBy: "\n")
         let compensatedIndex = try #require(lines.firstIndex { $0.hasPrefix("- Compensated by:") })
         #expect(lines[compensatedIndex + 1] == "  - Rationale: The one account left alerts on use.")
-        #expect(lines[compensatedIndex + 2] == "  - Source: https://example.test/adr/17")
+        #expect(lines[compensatedIndex + 2] == "  - Source: [https://example.test/adr/17](https://example.test/adr/17)")
     }
 
     @Test func listsTheAssumptionsAndTheirEdges() throws {
@@ -197,7 +218,7 @@ struct LikelihoodReportTests {
         // No arrow: the score before and after the stage are both 1.
         #expect(lines.contains("- Likelihood: Research"))
         #expect(text.contains("  - Rationale: every bypass was researcher-found"))
-        #expect(text.contains("  - Source: https://example.test/floor"))
+        #expect(text.contains("  - Source: [https://example.test/floor](https://example.test/floor)"))
     }
 
     /// Finding 2: nothing covered the severity decision reaching the page.
@@ -217,6 +238,6 @@ struct LikelihoodReportTests {
         let text = markdown()
         #expect(text.contains("- Severity decided: Critical \u{2192} High"))
         #expect(text.contains("  - Rationale: No public exploit lowers this below High."))
-        #expect(text.contains("  - Source: https://example.test/severity"))
+        #expect(text.contains("  - Source: [https://example.test/severity](https://example.test/severity)"))
     }
 }

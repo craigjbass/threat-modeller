@@ -14,7 +14,7 @@ public struct CompileControlsRequest: Equatable, Sendable {
 }
 
 public enum CompileControlsResponse: Equatable, Sendable {
-    case compiled(text: String, answered: Int, unanswered: Int, stale: Int)
+    case compiled(text: String, answered: Int, unanswered: Int, stale: Int, warnings: [Diagnostic])
     case refused(diagnostics: [Diagnostic])
 }
 
@@ -61,6 +61,7 @@ public struct CompileControls: CompileControlsUseCase {
         }
 
         var existing: ControlsSource?
+        var applyWarnings: [Diagnostic] = []
         if let controlsText = request.controlsText, controlsText.isEmpty == false {
             let read = controlsSources.read(controlsText)
             guard let source = read.source, read.hasErrors == false else {
@@ -74,8 +75,15 @@ public struct CompileControls: CompileControlsUseCase {
             // report applies them before it exports. Without this the score
             // this compile writes is always the raw one, and a likelihood
             // finding can never answer a threat.
-            _ = ApplyControlAnswers(models: store, catalogue: catalogue, sources: controlsSources)
+            //
+            // A `severity_override` naming a severity the catalogue does not
+            // hold is a warning, not an error: the block stays in the file
+            // and a person reads why it moved no score.
+            let applied = ApplyControlAnswers(models: store, catalogue: catalogue, sources: controlsSources)
                 .execute(ApplyControlAnswersRequest(text: controlsText))
+            if case .applied(_, let warnings) = applied {
+                applyWarnings = warnings
+            }
         }
 
         let model = store.current()
@@ -153,7 +161,8 @@ public struct CompileControls: CompileControlsUseCase {
             ),
             answered: answered,
             unanswered: unanswered,
-            stale: stale
+            stale: stale,
+            warnings: applyWarnings
         )
     }
 
