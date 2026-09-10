@@ -93,6 +93,11 @@ public struct ResolvedThreat: Equatable, Sendable {
     public let scoreBeforeControls: Int
     /// The components whose `mitigates` edges lowered this threat.
     public let mitigatedByComponents: [ComponentMitigation]
+    /// How often an attack of this kind happens, and what the stage used.
+    public let likelihood: Likelihood
+    /// The score the likelihood stage received. Equal to `score.value` when
+    /// the likelihood is `commodity`.
+    public let scoreBeforeLikelihood: Int
 
     public init(
         threat: Threat,
@@ -110,7 +115,9 @@ public struct ResolvedThreat: Equatable, Sendable {
         scoreBeforeControls: Int? = nil,
         compensating: [CompensatingControl] = [],
         scoreBeforeCompensation: Int? = nil,
-        mitigatedByComponents: [ComponentMitigation] = []
+        mitigatedByComponents: [ComponentMitigation] = [],
+        likelihood: Likelihood = .commodity,
+        scoreBeforeLikelihood: Int? = nil
     ) {
         self.scoreBeforeControls = scoreBeforeControls ?? score.value
         self.compensating = compensating
@@ -128,6 +135,8 @@ public struct ResolvedThreat: Equatable, Sendable {
         self.mitigatedBy = mitigatedBy
         self.scoreBeforePathwayMitigation = scoreBeforePathwayMitigation
         self.mitigatedByComponents = mitigatedByComponents
+        self.likelihood = likelihood
+        self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? score.value
     }
 }
 
@@ -158,7 +167,7 @@ public struct ThreatResolver {
             let pair = "\(threat.threat.id.value)@\(threat.source.id)"
             guard raised.contains(pair) == false else { return }
             raised.insert(pair)
-            resolved.append(compensated(threat))
+            resolved.append(compensated(likelihooded(threat)))
         }
 
         // Derived, never stored. Spec section 5.2.
@@ -368,6 +377,36 @@ public struct ThreatResolver {
         return resolved.sorted(by: Self.ordering)
     }
 
+    /// Spec section 3: the likelihood stage runs after the `mitigates` edges
+    /// and before the compensating control. It multiplies, because a
+    /// likelihood finding and a control are separate evidence.
+    private func likelihooded(_ threat: ResolvedThreat) -> ResolvedThreat {
+        let likelihood = threat.threat.likelihood
+        guard likelihood != .commodity else { return threat }
+        let reduced = Likelihood.apply(to: threat.score.value, likelihood: likelihood)
+
+        return ResolvedThreat(
+            threat: threat.threat,
+            severity: threat.severity,
+            source: threat.source,
+            sensitivity: threat.sensitivity,
+            score: RiskScore(value: reduced),
+            controls: threat.controls,
+            context: threat.context,
+            isTlsMitigated: threat.isTlsMitigated,
+            overrideKey: threat.overrideKey,
+            overriddenSeverityId: threat.overriddenSeverityId,
+            mitigatedBy: threat.mitigatedBy,
+            scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
+            scoreBeforeControls: threat.scoreBeforeControls,
+            compensating: threat.compensating,
+            scoreBeforeCompensation: threat.scoreBeforeCompensation,
+            mitigatedByComponents: threat.mitigatedByComponents,
+            likelihood: likelihood,
+            scoreBeforeLikelihood: threat.score.value
+        )
+    }
+
     /// Spec section 5: a compensating control is applied last, after the zone
     /// reduction and after the pathway mitigation. Two on one threat give the
     /// stronger, not the sum, which is the rule the pathway mitigations follow.
@@ -396,7 +435,9 @@ public struct ThreatResolver {
             scoreBeforeControls: threat.scoreBeforeControls,
             compensating: controls,
             scoreBeforeCompensation: threat.score.value,
-            mitigatedByComponents: threat.mitigatedByComponents
+            mitigatedByComponents: threat.mitigatedByComponents,
+            likelihood: threat.likelihood,
+            scoreBeforeLikelihood: threat.scoreBeforeLikelihood
         )
     }
 

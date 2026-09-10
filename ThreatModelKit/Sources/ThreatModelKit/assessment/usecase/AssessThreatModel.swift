@@ -156,6 +156,12 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The components whose `mitigates` edges lowered this threat, by label.
     /// Empty when none did.
     public let mitigatedByComponentLabels: [String]
+    /// The likelihood tier the score used, and what a reader sees.
+    public let likelihoodId: String
+    public let likelihoodLabel: String
+    /// The score before the likelihood stage. Equal to `riskScore` when the
+    /// likelihood is `commodity`.
+    public let scoreBeforeLikelihood: Int
 
     public init(
         threatId: String,
@@ -179,7 +185,10 @@ public struct AssessedThreat: Hashable, Sendable {
         compensatingLabels: [String] = [],
         scoreBeforeCompensation: Int? = nil,
         inherentScore: Int? = nil,
-        mitigatedByComponentLabels: [String] = []
+        mitigatedByComponentLabels: [String] = [],
+        likelihoodId: String = Likelihood.commodity.id,
+        likelihoodLabel: String = Likelihood.commodity.label,
+        scoreBeforeLikelihood: Int? = nil
     ) {
         self.threatId = threatId
         self.name = name
@@ -203,6 +212,9 @@ public struct AssessedThreat: Hashable, Sendable {
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
         self.inherentScore = inherentScore ?? riskScore
         self.mitigatedByComponentLabels = mitigatedByComponentLabels
+        self.likelihoodId = likelihoodId
+        self.likelihoodLabel = likelihoodLabel
+        self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
     }
 }
 
@@ -274,7 +286,10 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     compensatingLabels: threat.compensating.map(\.label),
                     scoreBeforeCompensation: threat.scoreBeforeCompensation,
                     inherentScore: threat.scoreBeforeControls,
-                    mitigatedByComponentLabels: threat.mitigatedByComponents.map(\.protectorName)
+                    mitigatedByComponentLabels: threat.mitigatedByComponents.map(\.protectorName),
+                    likelihoodId: threat.likelihood.id,
+                    likelihoodLabel: threat.likelihood.label,
+                    scoreBeforeLikelihood: threat.scoreBeforeLikelihood
                 )
             },
             severities: catalogue.taxonomy().severities.map {
