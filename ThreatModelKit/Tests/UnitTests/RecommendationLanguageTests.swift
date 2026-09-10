@@ -113,4 +113,57 @@ struct RecommendationLanguageTests {
         let written = try #require(app.project.text(at: "/project/threatmodel/s.controls"))
         #expect(written.contains("recommendation \"Deny reads of /dev/rdisk**\""))
     }
+
+    @Test func aStaleAnswerKeepsItsRecommendation() throws {
+        let architectureRaisingTheThreat = """
+        system "S" {
+          component "c1" { technology = "aws-ec2" data = "confidential" }
+        }
+        """
+        let architectureWithNoSuchComponent = """
+        system "S" {
+        }
+        """
+        let controlsWithRecommendation = """
+        controls for "S" {
+          threat "credential-theft" on component "c1" {
+            recommendation "Deny reads of /dev/rdisk**" { }
+          }
+        }
+        """
+        let compile = CompileControls(
+            catalogue: CatalogueFixture.catalogue(),
+            architectureSources: HclArchitectureSource(),
+            controlsSources: HclControlsSource(),
+            layout: LayOutModel()
+        )
+
+        // A person adds a recommendation while the architecture still raises
+        // the threat.
+        guard case .compiled(let firstText, _, _, _) = compile.execute(
+            CompileControlsRequest(
+                architectureText: architectureRaisingTheThreat,
+                controlsText: controlsWithRecommendation
+            )
+        ) else {
+            Issue.record("the first compile refused the file")
+            return
+        }
+
+        // The component leaves the architecture, so the threat is no longer
+        // raised, and the answer moves into a stale block.
+        guard case .compiled(let secondText, _, _, let stale) = compile.execute(
+            CompileControlsRequest(
+                architectureText: architectureWithNoSuchComponent,
+                controlsText: firstText
+            )
+        ) else {
+            Issue.record("the second compile refused the file")
+            return
+        }
+
+        #expect(stale > 0)
+        #expect(secondText.contains("stale threat \"credential-theft\""))
+        #expect(secondText.contains("recommendation \"Deny reads of /dev/rdisk**\""))
+    }
 }

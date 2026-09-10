@@ -537,7 +537,8 @@ LibraryBlock = "library" String "{" { LibraryEntry } "}" ;
 LibraryEntry = "name"      "=" String
              | "catalogue" "=" String
              | TechnologyBlock
-             | ThreatBlock ;
+             | ThreatBlock
+             | MitigationBlock ;
 
 ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
 ThreatEntry = "name"         "=" String
@@ -555,6 +556,13 @@ MitreAttr  = "name"   "=" String
            | "tactic" "=" String ;
 
 ControlStatement = "control" String ;
+
+MitigationBlock = "mitigation" String "{" { MitigationAttr } "}" ;
+MitigationAttr  = "name"            "=" String
+                | "description"     "=" String
+                | "mitigates"       "=" StringList
+                | "provided_by"     "=" StringList
+                | "reduces_risk_by" "=" Number ;
 ```
 
 A file holds exactly one `controls for` block. Text after its closing brace is
@@ -828,7 +836,8 @@ LibraryBlock = "library" String "{" { LibraryEntry } "}" ;
 LibraryEntry = "name"      "=" String
              | "catalogue" "=" String
              | TechnologyBlock
-             | ThreatBlock ;
+             | ThreatBlock
+             | MitigationBlock ;
 
 ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
 ThreatEntry = "name"         "=" String
@@ -846,6 +855,13 @@ MitreAttr  = "name"   "=" String
            | "tactic" "=" String ;
 
 ControlStatement = "control" String ;
+
+MitigationBlock = "mitigation" String "{" { MitigationAttr } "}" ;
+MitigationAttr  = "name"            "=" String
+                | "description"     "=" String
+                | "mitigates"       "=" StringList
+                | "provided_by"     "=" StringList
+                | "reduces_risk_by" "=" Number ;
 ```
 
 `TechnologyBlock` is the block section 4.5's `.arch` file holds, read by the
@@ -1018,7 +1034,7 @@ The controls writer writes the live answers before the stale ones. Inside each
 group it writes the components, then the flows, then the zones; inside each, by
 source identifier; inside each, by threat identifier. Inside a threat block it
 writes `severity` and `score`, then the controls sorted by description, then the
-compensating controls.
+compensating controls, then the recommendations.
 
 ## 9. A worked example
 
