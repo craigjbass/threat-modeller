@@ -75,6 +75,27 @@ controls for "Payments" {
 }
 ```
 
+## Modelling a host
+
+A system is not only a network of services. It can also be a single host: the
+processes on it, the privilege each one runs at, and the calls between them.
+
+- A flow states its `kind`: `network`, `ipc`, `file`, `syscall`, and more. A
+  local call raises no network-only threat, such as a man-in-the-middle attack.
+- A zone states its `boundary`: `network` (the default) or `privilege`. A
+  privilege zone raises the threats a library marks for that boundary.
+- A component states the privilege it `runs_as`: `user`, `admin`, `root`,
+  `system` or `kernel`.
+- One component may mitigate a named threat on another, with the `mitigates`
+  block. A security product lowers the score of the threat it answers,
+  wherever that threat is raised.
+
+Read [the language guide](docs/LANGUAGE.md) for the full grammar of `flow`,
+`zone`, `runs_as` and `mitigates`. Read
+[`libraries/endpoint.lib`](libraries/endpoint.lib) for the technologies an
+endpoint model draws from: the operating system, its shells, its security
+products.
+
 ## The project layout
 
 ```

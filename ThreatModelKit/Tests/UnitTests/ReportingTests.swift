@@ -136,9 +136,27 @@ struct MarkdownExportTests {
 
         let markdown = markdown()
 
-        #expect(markdown.contains("| Name | Technology | Sensitivity | Zone |"))
-        #expect(markdown.contains("| --- | --- | --- | --- |"))
-        #expect(markdown.contains("| aws-ec2 | Restricted | \u{2014} |"))
+        #expect(markdown.contains("| Name | Technology | Sensitivity | Zone | Assets |"))
+        #expect(markdown.contains("| --- | --- | --- | --- | --- |"))
+        #expect(markdown.contains("| EC2 | aws-ec2 | Restricted | \u{2014} |  |"))
+    }
+
+    @Test func writesEachComponentsAssetsInTheAssetsColumn() {
+        let architecture = """
+        system "Vault" {
+          component "secrets" {
+            technology = "aws-ec2"
+            data       = "confidential"
+
+            asset "ssh-keys" { data = "restricted" }
+          }
+        }
+        """
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: architecture))
+
+        let markdown = markdown()
+
+        #expect(markdown.contains("| EC2 | aws-ec2 | Confidential | \u{2014} | ssh-keys |"))
     }
 
     @Test func writesAControlAsATickBox() {

@@ -75,7 +75,7 @@ struct StartingFromASampleTests {
         let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest())
 
         #expect(markdown.markdown.contains("## Threats"))
-        #expect(markdown.markdown.contains("| Name | Technology | Sensitivity | Zone |"))
+        #expect(markdown.markdown.contains("| Name | Technology | Sensitivity | Zone | Assets |"))
         #expect(markdown.markdown.contains("## Threats\n\nNone.") == false)
     }
 
