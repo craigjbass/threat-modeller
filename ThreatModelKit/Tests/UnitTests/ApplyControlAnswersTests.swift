@@ -85,15 +85,20 @@ struct ApplyControlAnswersTests {
 
     @Test func movesTheScoreWhenTheFileCompensatesAThreat() throws {
         drawTheModel()
+        let firstThreatId = try #require(threats().first).threatId
         let before = try #require(threats().first).riskScore
         let text = try answered(compiled(), compensate: true)
 
         _ = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
 
-        let after = try #require(threats().first)
+        // `answered` also ticks the first control of this threat, so the
+        // control coverage stage takes the score from 12 to 8 before the
+        // compensating control halves that 8 to 4. The threat now scores
+        // lower than an unanswered one, so it no longer sorts first.
+        let after = try #require(threats().first { $0.threatId == firstThreatId })
         #expect(after.riskScore < before)
         #expect(after.compensatingLabels == ["SIEM"])
-        #expect(after.scoreBeforeCompensation == before)
+        #expect(after.scoreBeforeCompensation == 8)
     }
 
     @Test func warnsAboutAnAnswerThisModelDoesNotRaise() throws {

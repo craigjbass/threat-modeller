@@ -88,6 +88,9 @@ public struct ResolvedThreat: Equatable, Sendable {
     /// The score before any pathway mitigation. Equal to `score.value` when
     /// none applied.
     public let scoreBeforePathwayMitigation: Int
+    /// The score before the controls answered anything. Equal to `score.value`
+    /// when no control was implemented.
+    public let scoreBeforeControls: Int
 
     public init(
         threat: Threat,
@@ -102,9 +105,11 @@ public struct ResolvedThreat: Equatable, Sendable {
         overriddenSeverityId: String?,
         mitigatedBy: [PathwayMitigationDefinition],
         scoreBeforePathwayMitigation: Int,
+        scoreBeforeControls: Int? = nil,
         compensating: [CompensatingControl] = [],
         scoreBeforeCompensation: Int? = nil
     ) {
+        self.scoreBeforeControls = scoreBeforeControls ?? score.value
         self.compensating = compensating
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? score.value
         self.threat = threat
@@ -187,9 +192,15 @@ public struct ThreatResolver {
                 let base = RiskScore(severity: chosen.severity, sensitivity: sensitivity)
                 let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard zoned.value > 0 else { continue }
+                let controls = componentControls(
+                    for: threat,
+                    on: technology,
+                    componentId: component.id
+                )
+                let covered = ControlCoverage.apply(to: zoned.value, controls: controls)
                 guard let mitigation = mitigated(
                     threat: threat,
-                    score: zoned.value,
+                    score: covered,
                     upstreamOf: component.id,
                     graph: graph,
                     technologyById: technologyById
@@ -207,17 +218,14 @@ public struct ThreatResolver {
                         ),
                         sensitivity: sensitivity,
                         score: score,
-                        controls: componentControls(
-                            for: threat,
-                            on: technology,
-                            componentId: component.id
-                        ),
+                        controls: controls,
                         context: technology.threatContext[threat.id],
                         isTlsMitigated: false,
                         overrideKey: overrideKey,
                         overriddenSeverityId: chosen.overriddenId,
                         mitigatedBy: mitigation.by,
-                        scoreBeforePathwayMitigation: zoned.value
+                        scoreBeforePathwayMitigation: covered,
+                        scoreBeforeControls: zoned.value
                     )
                 )
             }
@@ -242,11 +250,15 @@ public struct ThreatResolver {
                 let base = RiskScore(severity: chosen.severity, sensitivity: sensitivity)
                 let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard zoned.value > 0 else { continue }
+                // Spec section 5.3: a link always uses the threat's own
+                // controls, never a technology's mitigations.
+                let controls = sharedControls(for: threat, keyedBy: ControlIdentity.connectionControl)
+                let covered = ControlCoverage.apply(to: zoned.value, controls: controls)
                 // Spec section 5.3: a link takes the source component's
                 // upstream mitigations.
                 guard let mitigation = mitigated(
                     threat: threat,
-                    score: zoned.value,
+                    score: covered,
                     upstreamOf: source.id,
                     graph: graph,
                     technologyById: technologyById
@@ -264,9 +276,7 @@ public struct ThreatResolver {
                         ),
                         sensitivity: sensitivity,
                         score: score,
-                        // Spec section 5.3: a link always uses the threat's own
-                        // controls, never a technology's mitigations.
-                        controls: sharedControls(for: threat, keyedBy: ControlIdentity.connectionControl),
+                        controls: controls,
                         context: nil,
                         isTlsMitigated: ConnectionEncryption.isTlsMitigated(
                             threat: threat,
@@ -276,7 +286,8 @@ public struct ThreatResolver {
                         overrideKey: overrideKey,
                         overriddenSeverityId: chosen.overriddenId,
                         mitigatedBy: mitigation.by,
-                        scoreBeforePathwayMitigation: zoned.value
+                        scoreBeforePathwayMitigation: covered,
+                        scoreBeforeControls: zoned.value
                     )
                 )
             }
@@ -292,8 +303,10 @@ public struct ThreatResolver {
                 let overrideKey = SeverityOverrideKey.forZone(threatId: threat.id)
                 let chosen = severity(for: threat, overrideKey: overrideKey)
                 let base = RiskScore(severity: chosen.severity, sensitivity: .internalData)
-                let score = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
-                guard score.value > 0 else { continue }
+                let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
+                guard zoned.value > 0 else { continue }
+                let controls = sharedControls(for: threat, keyedBy: ControlIdentity.zoneControl)
+                let score = RiskScore(value: ControlCoverage.apply(to: zoned.value, controls: controls))
 
                 raise(
                     ResolvedThreat(
@@ -302,7 +315,7 @@ public struct ThreatResolver {
                         source: .zone(id: zone.id, name: zone.displayName),
                         sensitivity: .internalData,
                         score: score,
-                        controls: sharedControls(for: threat, keyedBy: ControlIdentity.zoneControl),
+                        controls: controls,
                         context: threat.zoneContext,
                         isTlsMitigated: false,
                         overrideKey: overrideKey,
@@ -310,7 +323,8 @@ public struct ThreatResolver {
                         // A zone sits nowhere in the connection graph, so
                         // nothing is upstream of it and nothing mitigates it.
                         mitigatedBy: [],
-                        scoreBeforePathwayMitigation: score.value
+                        scoreBeforePathwayMitigation: score.value,
+                        scoreBeforeControls: zoned.value
                     )
                 )
             }
@@ -344,6 +358,7 @@ public struct ThreatResolver {
             overriddenSeverityId: threat.overriddenSeverityId,
             mitigatedBy: threat.mitigatedBy,
             scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
+            scoreBeforeControls: threat.scoreBeforeControls,
             compensating: controls,
             scoreBeforeCompensation: threat.score.value
         )
