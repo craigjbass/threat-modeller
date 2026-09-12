@@ -78,6 +78,8 @@ nonisolated struct CanvasPicture: View {
             ConnectionsLayer(
                 connections: connections,
                 boxes: boxes,
+                componentsById: Dictionary(uniqueKeysWithValues: components.map { ($0.id, $0) }),
+                zones: zones,
                 risks: risks,
                 outOfScopeComponentIds: Set(components.filter(\.threatsDisabled).map(\.id)),
                 selectedConnectionIds: [],

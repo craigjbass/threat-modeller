@@ -134,6 +134,8 @@ struct CanvasView: View {
             ConnectionsLayer(
                 connections: session.canvas.connections,
                 boxes: boxes,
+                componentsById: componentsById,
+                zones: session.canvas.zones,
                 risks: session.elementRisks,
                 outOfScopeComponentIds: outOfScopeComponentIds,
                 selectedConnectionIds: canvas.selectedConnectionIds,
@@ -216,6 +218,12 @@ struct CanvasView: View {
         guard canvas.selectedConnectionIds.count == 1,
               let connectionId = canvas.selectedConnectionIds.first else { return nil }
         return session.canvas.connections.first { $0.id == connectionId }
+    }
+
+    /// Every component by id, so the link layer can read the zone each end of
+    /// a link sits in.
+    private var componentsById: [String: ViewedComponent] {
+        Dictionary(uniqueKeysWithValues: session.canvas.components.map { ($0.id, $0) })
     }
 
     /// The components the user turned threats off for. A flow either end of

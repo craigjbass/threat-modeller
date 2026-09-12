@@ -7,9 +7,17 @@ import ThreatModelKit
 /// A link takes the colour of the highest residual risk level it carries, and
 /// states its description, or its flow kind when the user wrote none. A link
 /// either end of which is out of scope draws grey and dashed.
+///
+/// Where a link crosses a zone edge the layer draws the dotted bow OWASP
+/// Threat Dragon uses for a trust boundary, across the link at a right angle.
 struct ConnectionsLayer: View {
     let connections: [ViewedConnection]
     let boxes: [String: ComponentBox]
+    /// Every component by id, so the layer can tell which zone each end of a
+    /// link sits in.
+    let componentsById: [String: ViewedComponent]
+    /// In drawing order, so the containment rule matches the core's.
+    let zones: [ViewedZone]
     /// The risk of every element, by source id. A link reads
     /// "connection:<id>".
     let risks: [String: ElementRisk]
@@ -30,6 +38,7 @@ struct ConnectionsLayer: View {
                     to: AnchorGeometry.point(anchors.target, of: target)
                 )
                 draw(connection, along: path, in: &context)
+                markBoundaries(of: connection, along: path, in: &context)
             }
 
             if let preview {
@@ -95,6 +104,29 @@ struct ConnectionsLayer: View {
         context.fill(arrow, with: .color(colour))
 
         write(connection, at: path.point(at: 0.5), colour: colour, in: &context)
+    }
+
+    /// The trust boundary marks this link crosses. A link out of scope draws
+    /// none: nothing about it is being assessed.
+    private func markBoundaries(
+        of connection: ViewedConnection,
+        along path: ConnectionPath,
+        in context: inout GraphicsContext
+    ) {
+        guard isOutOfScope(connection) == false else { return }
+
+        for crossing in BoundaryCrossings.of(
+            connection,
+            path: path,
+            components: componentsById,
+            zones: zones
+        ) {
+            context.stroke(
+                BoundaryCrossings.mark(for: crossing),
+                with: .color(crossing.networkZoneId == "private" ? .green : .orange),
+                style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [2, 5])
+            )
+        }
     }
 
     private func stroke(

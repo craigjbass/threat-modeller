@@ -4,10 +4,15 @@ import ThreatModelKit
 /// One zone: its dashed boundary, its header, and its resize grips when
 /// selected.
 ///
-/// Every zone draws dashed, the way a trust boundary does. The stroke colour
-/// states public against private, because the dash no longer can. The header
-/// states the name, the risk reduction, whether the zone is a privilege
-/// boundary, and how many threats on the zone no control answers.
+/// A resting zone draws quietly: a faint dotted outline that states where it
+/// is and keeps it selectable. What a reader looks at is the dotted bow
+/// `ConnectionsLayer` draws where a flow crosses the edge, which is the mark
+/// OWASP Threat Dragon uses for a trust boundary.
+///
+/// A selected zone draws loudly, so the thing being dragged is never faint.
+/// The stroke colour states public against private. The header states the
+/// name, the risk reduction, whether the zone is a privilege boundary, and how
+/// many threats on the zone no control answers.
 struct ZoneView: View {
     let zone: ViewedZone
     /// What the zone itself carries, or nil when it raises nothing.
@@ -34,14 +39,14 @@ struct ZoneView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 12)
-                .fill(tint.opacity(0.07))
+                .fill(tint.opacity(isSelected ? 0.07 : 0.04))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(
-                            isSelected ? Color.accentColor : tint.opacity(0.7),
+                            isSelected ? Color.accentColor : tint.opacity(0.35),
                             style: StrokeStyle(
-                                lineWidth: isSelected ? 3 : 2,
-                                dash: [8, 6]
+                                lineWidth: isSelected ? 3 : 1,
+                                dash: isSelected ? [8, 6] : [2, 4]
                             )
                         )
                 )

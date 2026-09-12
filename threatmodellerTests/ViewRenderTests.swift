@@ -536,6 +536,8 @@ struct ViewRenderTests {
                     )
                 ],
                 boxes: boxes,
+                componentsById: [:],
+                zones: [],
                 risks: [
                     "connection:f1": ElementRisk(
                         sourceId: "connection:f1",
@@ -602,6 +604,40 @@ struct ViewRenderTests {
                 size: CGSize(width: 900, height: 700)
             ),
             "the whole diagram"
+        )
+    }
+
+    /// Two zones with a flow between them, so the layer draws the trust
+    /// boundary marks as well as the link.
+    private func aCrossedModel() -> ThreatModelSession {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        _ = session.addZone(x: 40, y: 60, width: 320, height: 380)
+        _ = session.addZone(x: 480, y: 60, width: 340, height: 380)
+        session.add(technologyId: "actor-user", x: 100, y: 200)
+        session.add(technologyId: "aws-ec2", x: 560, y: 200)
+        let ids = session.canvas.components.map(\.id)
+        if ids.count == 2 {
+            session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
+        }
+        return session
+    }
+
+    @Test func drawsTheTrustBoundaryMarkWhereAFlowCrossesAZoneEdge() {
+        let session = aCrossedModel()
+
+        #expect(session.canvas.components.compactMap(\.zoneId).count == 2)
+        expectDrawn(
+            CanvasPicture(
+                components: session.canvas.components,
+                connections: session.canvas.connections,
+                zones: session.canvas.zones,
+                risks: session.elementRisks,
+                origin: .zero,
+                size: CGSize(width: 900, height: 520)
+            ),
+            width: 900,
+            height: 520,
+            "a diagram with a crossed trust boundary"
         )
     }
 }
