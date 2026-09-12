@@ -41,6 +41,11 @@ public enum CalloutPlacement {
     public static let reaches = [90.0, 150.0, 230.0, 320.0]
     /// How many ways out from the flow are tried, round the clock.
     public static let directions = 16
+    /// Where along a flow the leader may touch it. The ends are left out: a
+    /// dot on a node's edge says nothing about which flow it means.
+    public static let anchors = [0.35, 0.42, 0.5, 0.58, 0.65]
+    /// How far from every other flow the leader should touch down.
+    public static let clearOfOtherFlows = 18.0
     /// The blank two boxes keep between them. Boxes that merely miss each
     /// other read as one block of text.
     public static let breathingRoom = 30.0
@@ -61,12 +66,16 @@ public enum CalloutPlacement {
         nodes: [Rect],
         zoneHeaders: [Rect] = [],
         boundaryChips: [Rect] = [],
-        flows: [[Point]]
+        flows: [[Point]],
+        flowsById: [String: [Point]] = [:]
     ) -> [Callout] {
         var placed: [Callout] = []
 
         for label in labels where label.text.isEmpty == false {
-            let anchor = label.curve.point(at: 0.5)
+            let others = flowsById.isEmpty
+                ? flows
+                : flowsById.filter { $0.key != label.connectionId }.map(\.value)
+            let anchor = anchor(on: label.curve, clearOf: others)
             let box = size(of: label.text)
             let rect = bestRect(
                 for: box,
@@ -87,6 +96,55 @@ public enum CalloutPlacement {
         }
 
         return placed
+    }
+
+    /// Where the leader touches the flow.
+    ///
+    /// The middle of a flow is often where several of them run together, and a
+    /// dot there says nothing about which one the label is for. The leader
+    /// touches down where the flow is furthest from every other.
+    static func anchor(on curve: FlowCurve, clearOf others: [[Point]]) -> Point {
+        guard others.isEmpty == false else { return curve.point(at: 0.5) }
+
+        var best = curve.point(at: 0.5)
+        var clearest = -Double.greatestFiniteMagnitude
+
+        for t in anchors {
+            let point = curve.point(at: t)
+            let room = others
+                .map { nearest(point, to: $0) }
+                .min() ?? Double.greatestFiniteMagnitude
+
+            if room > clearest {
+                clearest = room
+                best = point
+            }
+            // Far enough from everything else; no need to look further.
+            if room >= clearOfOtherFlows { return point }
+        }
+
+        return best
+    }
+
+    /// The shortest distance from the point to the polyline.
+    public static func nearest(_ point: Point, to polyline: [Point]) -> Double {
+        guard polyline.count > 1 else { return .greatestFiniteMagnitude }
+
+        var shortest = Double.greatestFiniteMagnitude
+        for index in 0 ..< polyline.count - 1 {
+            shortest = min(shortest, distance(from: point, to: polyline[index], polyline[index + 1]))
+        }
+        return shortest
+    }
+
+    private static func distance(from point: Point, to start: Point, _ end: Point) -> Double {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let lengthSquared = dx * dx + dy * dy
+        guard lengthSquared > 0 else { return hypot(point.x - start.x, point.y - start.y) }
+
+        let along = min(1, max(0, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))
+        return hypot(point.x - (start.x + along * dx), point.y - (start.y + along * dy))
     }
 
     /// What a box covering something costs. A node or a zone's own name hidden

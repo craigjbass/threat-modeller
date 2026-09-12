@@ -52,6 +52,14 @@ public enum GridShape: Equatable, Sendable, CaseIterable {
     }
 }
 
+/// The order the zones are placed in.
+public enum ZoneOrder: Equatable, Sendable, CaseIterable {
+    /// The order the file declares.
+    case declaration
+    /// Zones that talk to each other placed next to each other.
+    case byConnection
+}
+
 /// Which side of the zones the band of loose components sits.
 public enum BandSide: Equatable, Sendable, CaseIterable {
     case above
@@ -76,6 +84,7 @@ public struct LayoutPlan: Equatable, Sendable {
     public var componentOrder: ComponentOrder
     public var grid: GridShape
     public var band: BandSide
+    public var zoneOrder: ZoneOrder
     /// The blank a zone leaves round its contents.
     public var zonePadding: Double
 
@@ -86,6 +95,7 @@ public struct LayoutPlan: Equatable, Sendable {
         componentOrder: ComponentOrder = .declaration,
         grid: GridShape = .square,
         band: BandSide = .above,
+        zoneOrder: ZoneOrder = .declaration,
         zonePadding: Double = 40
     ) {
         self.spacing = spacing
@@ -94,6 +104,7 @@ public struct LayoutPlan: Equatable, Sendable {
         self.componentOrder = componentOrder
         self.grid = grid
         self.band = band
+        self.zoneOrder = zoneOrder
         self.zonePadding = zonePadding
     }
 }

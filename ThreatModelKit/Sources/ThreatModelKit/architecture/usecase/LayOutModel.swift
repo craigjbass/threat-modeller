@@ -214,6 +214,15 @@ public struct LayOutModel: LayOutModelUseCase {
                     return moved
                 }
         },
+        LayoutTechnique(name: "zone order") { plan in
+            ZoneOrder.allCases
+                .filter { $0 != plan.zoneOrder }
+                .map { order in
+                    var sorted = plan
+                    sorted.zoneOrder = order
+                    return sorted
+                }
+        },
         LayoutTechnique(name: "zone padding") { plan in
             [40.0, 70.0, 110.0]
                 .filter { $0 != plan.zonePadding }
@@ -256,7 +265,7 @@ public struct LayOutModel: LayOutModelUseCase {
         var lowest = y
         var tallestInRow = 0.0
 
-        for zone in request.source.zones {
+        for zone in Self.ordered(request.source.zones, by: plan.zoneOrder, in: request) {
             var size = Self.size(
                 ofZoneHolding: zone.components.count,
                 spacing: spacing,
@@ -486,7 +495,8 @@ public struct LayOutModel: LayOutModelUseCase {
             nodes: nodes,
             zoneHeaders: headers,
             boundaryChips: chips,
-            flows: flows
+            flows: flows,
+            flowsById: curves.mapValues { CurveCrossing.samples(of: $0) }
         )
         var crowded = 0
         var reach = 0.0
@@ -808,6 +818,45 @@ public struct LayOutModel: LayOutModelUseCase {
                 return one == other ? first.offset < second.offset : one > other
             }
             .map(\.element)
+    }
+
+    /// The order the zones are placed in.
+    ///
+    /// `byConnection` starts with the zone declared first and keeps adding the
+    /// zone with most flows to what is already placed, so zones that talk to
+    /// each other end up next to each other and fewer flows have to cross the
+    /// diagram. A tie keeps declaration order, so the same source always draws
+    /// the same picture.
+    public static func ordered(
+        _ zones: [SourceZone],
+        by order: ZoneOrder,
+        in request: LayOutModelRequest
+    ) -> [SourceZone] {
+        guard order == .byConnection, zones.count > 2 else { return zones }
+
+        let zoneOf = zoneOfEachComponent(in: request)
+        var between: [String: [String: Int]] = [:]
+        for flow in request.source.flows {
+            guard let from = zoneOf[flow.sourceId], let to = zoneOf[flow.targetId], from != to
+            else { continue }
+            between[from, default: [:]][to, default: 0] += 1
+            between[to, default: [:]][from, default: 0] += 1
+        }
+
+        var left = zones
+        var placed = [left.removeFirst()]
+
+        while left.isEmpty == false {
+            let ranked = left.enumerated().max { one, other in
+                let toOne = placed.map { between[$0.id]?[one.element.id] ?? 0 }.reduce(0, +)
+                let toOther = placed.map { between[$0.id]?[other.element.id] ?? 0 }.reduce(0, +)
+                return toOne == toOther ? one.offset > other.offset : toOne < toOther
+            }
+            guard let ranked else { break }
+            placed.append(left.remove(at: ranked.offset))
+        }
+
+        return placed
     }
 
     /// The order components sit in inside their zone.

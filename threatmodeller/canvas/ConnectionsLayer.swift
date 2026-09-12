@@ -134,7 +134,7 @@ struct ConnectionsLayer: View {
             // crosses is unreadable.
             drawCallouts(
                 toLabel,
-                over: Array(sampled.values),
+                over: sampled,
                 clearOf: chipRects,
                 in: &context
             )
@@ -262,7 +262,7 @@ struct ConnectionsLayer: View {
     /// in a box it is whole.
     private func drawCallouts(
         _ labels: [(connectionId: String, text: String, curve: FlowCurve)],
-        over flows: [[Point]],
+        over flows: [String: [Point]],
         clearOf chips: [Rect],
         in context: inout GraphicsContext
     ) {
@@ -271,7 +271,8 @@ struct ConnectionsLayer: View {
             nodes: boxes.values.map(\.drawnRect),
             zoneHeaders: bandRects,
             boundaryChips: chips,
-            flows: flows
+            flows: Array(flows.values),
+            flowsById: flows
         )
 
         for callout in placed {

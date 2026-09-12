@@ -117,7 +117,8 @@ extension DiagramBuilder {
             nodes: nodes,
             zoneHeaders: bands,
             boundaryChips: chips,
-            flows: curves.values.map { CurveCrossing.samples(of: $0) }
+            flows: curves.values.map { CurveCrossing.samples(of: $0) },
+            flowsById: curves.mapValues { CurveCrossing.samples(of: $0) }
         )
         var built: [DrawnShape] = []
 

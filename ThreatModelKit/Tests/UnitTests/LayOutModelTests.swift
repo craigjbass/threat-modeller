@@ -333,3 +333,74 @@ struct ZoneNameWidthTests {
         #expect(zone.width > LayOutModel.width(ofName: "Edge"))
     }
 }
+
+@Suite("Placing the zones that talk to each other together")
+struct ZoneOrderTests {
+    private func component(_ id: String) -> SourceComponent {
+        SourceComponent(id: id, technologyId: "aws-ec2")
+    }
+
+    /// Three zones declared a, b, c, where a talks only to c.
+    private var source: ArchitectureSource {
+        ArchitectureSource(
+            systemName: "P",
+            zones: [
+                SourceZone(id: "a", components: [component("a1")]),
+                SourceZone(id: "b", components: [component("b1")]),
+                SourceZone(id: "c", components: [component("c1")])
+            ],
+            flows: [
+                SourceFlow(sourceId: "a1", targetId: "c1"),
+                SourceFlow(sourceId: "a1", targetId: "c1")
+            ]
+        )
+    }
+
+    @Test func keepsDeclarationOrderWhenItIsAsked() {
+        let ordered = LayOutModel.ordered(
+            source.zones,
+            by: .declaration,
+            in: LayOutModelRequest(source: source)
+        )
+
+        #expect(ordered.map(\.id) == ["a", "b", "c"])
+    }
+
+    @Test func putsTheZoneWithMostFlowsNextToTheFirst() {
+        let ordered = LayOutModel.ordered(
+            source.zones,
+            by: .byConnection,
+            in: LayOutModelRequest(source: source)
+        )
+
+        #expect(ordered.map(\.id) == ["a", "c", "b"])
+    }
+
+    @Test func keepsDeclarationOrderWhenNothingTalksToAnything() {
+        let apart = ArchitectureSource(
+            systemName: "P",
+            zones: [
+                SourceZone(id: "a", components: [component("a1")]),
+                SourceZone(id: "b", components: [component("b1")]),
+                SourceZone(id: "c", components: [component("c1")])
+            ]
+        )
+
+        let ordered = LayOutModel.ordered(
+            apart.zones,
+            by: .byConnection,
+            in: LayOutModelRequest(source: apart)
+        )
+
+        #expect(ordered.map(\.id) == ["a", "b", "c"])
+    }
+
+    @Test func ordersTheSameSourceTheSameWayTwice() {
+        let request = LayOutModelRequest(source: source)
+
+        #expect(
+            LayOutModel.ordered(source.zones, by: .byConnection, in: request).map(\.id)
+                == LayOutModel.ordered(source.zones, by: .byConnection, in: request).map(\.id)
+        )
+    }
+}
