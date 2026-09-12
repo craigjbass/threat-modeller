@@ -54,6 +54,20 @@ public struct Component: Equatable, Sendable {
         }
     }
 
+    /// The rectangle a shape paints, around the centre of the slot at
+    /// `position`. The core owns it because the generated layout measures the
+    /// picture it drew.
+    public static func footprintRect(at position: Point, shape: DiagramShape) -> Rect {
+        let drawn = footprint(for: shape)
+        let centre = Point(x: position.x + size.width / 2, y: position.y + size.height / 2)
+        return Rect(
+            x: centre.x - drawn.width / 2,
+            y: centre.y - drawn.height / 2,
+            width: drawn.width,
+            height: drawn.height
+        )
+    }
+
     /// The shape to draw: the user's own choice, else the map's answer.
     public func resolvedShape(providerId: String, categoryId: String) -> DiagramShape {
         shape ?? DiagramShapeMap.derived(providerId: providerId, categoryId: categoryId)
