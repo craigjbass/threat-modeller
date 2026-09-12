@@ -74,6 +74,8 @@ nonisolated struct CanvasPicture: View {
             ConnectionsLayer(
                 connections: connections,
                 boxes: boxes,
+                risks: [:],
+                outOfScopeComponentIds: [],
                 selectedConnectionIds: [],
                 preview: nil
             )

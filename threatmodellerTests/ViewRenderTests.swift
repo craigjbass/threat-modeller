@@ -517,4 +517,40 @@ struct ViewRenderTests {
             "a node with no threats"
         )
     }
+
+    @Test func drawsAFlowWithItsLabelAndItsOpenThreatCount() {
+        let boxes = [
+            "a": ComponentBox(x: 0, y: 0, shape: .process),
+            "b": ComponentBox(x: 400, y: 200, shape: .store)
+        ]
+
+        expectDrawn(
+            ConnectionsLayer(
+                connections: [
+                    ViewedConnection(
+                        id: "f1",
+                        sourceComponentId: "a",
+                        targetComponentId: "b",
+                        kindId: "network",
+                        description: "HTTPS"
+                    )
+                ],
+                boxes: boxes,
+                risks: [
+                    "connection:f1": ElementRisk(
+                        sourceId: "connection:f1",
+                        openCount: 2,
+                        totalCount: 3,
+                        highestLevelId: "critical"
+                    )
+                ],
+                outOfScopeComponentIds: [],
+                selectedConnectionIds: [],
+                preview: nil
+            ),
+            width: 600,
+            height: 400,
+            "a flow with a label"
+        )
+    }
 }

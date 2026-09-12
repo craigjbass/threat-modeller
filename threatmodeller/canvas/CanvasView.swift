@@ -133,6 +133,8 @@ struct CanvasView: View {
             ConnectionsLayer(
                 connections: session.canvas.connections,
                 boxes: boxes,
+                risks: [:],
+                outOfScopeComponentIds: [],
                 selectedConnectionIds: canvas.selectedConnectionIds,
                 preview: previewLine
             )
