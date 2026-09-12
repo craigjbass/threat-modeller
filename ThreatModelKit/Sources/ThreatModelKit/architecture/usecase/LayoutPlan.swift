@@ -113,6 +113,13 @@ public struct LayoutFitness: Equatable, Sendable {
     public let flowsOverUnrelatedZones: Int
     /// Detours the routing had to take.
     public let waypoints: Int
+    /// How far past a comfortable turn the flows go, added up, in radians. A
+    /// line that flows is followed; a line that corners is read as two lines.
+    public let sharpness: Double
+    /// Pairs of flows that cross each other.
+    public let flowCrossings: Int
+    /// Times a flow runs behind a node that is not one of its own ends.
+    public let flowsBehindNodes: Int
     public let width: Double
     public let height: Double
 
@@ -120,20 +127,29 @@ public struct LayoutFitness: Equatable, Sendable {
         brokenBoundaries: Int,
         flowsOverUnrelatedZones: Int,
         waypoints: Int,
+        sharpness: Double = 0,
+        flowCrossings: Int = 0,
+        flowsBehindNodes: Int = 0,
         width: Double,
         height: Double
     ) {
         self.brokenBoundaries = brokenBoundaries
         self.flowsOverUnrelatedZones = flowsOverUnrelatedZones
         self.waypoints = waypoints
+        self.sharpness = sharpness
+        self.flowCrossings = flowCrossings
+        self.flowsBehindNodes = flowsBehindNodes
         self.width = width
         self.height = height
     }
 
     public var score: Double {
         100 * Double(flowsOverUnrelatedZones)
-            + 10 * Double(brokenBoundaries)
+            + 25 * Double(brokenBoundaries)
             + 5 * Double(waypoints)
+            + 4 * sharpness
+            + 1 * Double(flowCrossings)
+            + 1 * Double(flowsBehindNodes)
             + (width + height) / 50
             + lopsidedness
     }

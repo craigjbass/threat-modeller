@@ -373,13 +373,65 @@ public struct LayOutModel: LayOutModelUseCase {
             height = max(height, zone.y + zone.height)
         }
 
+        let shape = readability(of: placed, in: request, curves: routed)
+
         return LayoutFitness(
             brokenBoundaries: brokenBoundaries(of: placed, in: request, curves: routed),
             flowsOverUnrelatedZones: flowsOverUnrelatedZones(of: placed, in: request, curves: routed),
             waypoints: routed.values.map(\.waypointCount).reduce(0, +),
+            sharpness: shape.sharpness,
+            flowCrossings: shape.crossings,
+            flowsBehindNodes: shape.behindNodes,
             width: width,
             height: height
         )
+    }
+
+    /// How easy the flows are to follow: how far they turn past comfortable,
+    /// how many pairs cross, and how often one runs behind a node.
+    ///
+    /// Two flows that share an end are not counted as crossing: they meet at a
+    /// node, which a reader reads as one picture rather than two lines.
+    static func readability(
+        of placed: LayOutModelResponse,
+        in request: LayOutModelRequest,
+        curves: [String: FlowCurve]
+    ) -> (sharpness: Double, crossings: Int, behindNodes: Int) {
+        let footprints = footprints(of: placed, in: request)
+        var sharpness = 0.0
+        var behindNodes = 0
+
+        for flow in request.source.flows {
+            guard let curve = curves["\(flow.sourceId)->\(flow.targetId)"] else { continue }
+            sharpness += FlowShape.sharpness(of: curve)
+            behindNodes += FlowShape.timesBehind(
+                curve,
+                footprints
+                    .filter { $0.key != flow.sourceId && $0.key != flow.targetId }
+                    .map(\.value)
+            )
+        }
+
+        var crossings = 0
+        let flows = request.source.flows
+
+        for first in flows.indices {
+            for second in (first + 1) ..< flows.count {
+                let one = flows[first]
+                let other = flows[second]
+                guard one.sourceId != other.sourceId,
+                      one.sourceId != other.targetId,
+                      one.targetId != other.sourceId,
+                      one.targetId != other.targetId else { continue }
+                guard let oneCurve = curves["\(one.sourceId)->\(one.targetId)"],
+                      let otherCurve = curves["\(other.sourceId)->\(other.targetId)"]
+                else { continue }
+
+                if FlowShape.crosses(oneCurve, otherCurve) { crossings += 1 }
+            }
+        }
+
+        return (sharpness, crossings, behindNodes)
     }
 
     /// Every flow's curve, routed round the zones it has nothing to do with,

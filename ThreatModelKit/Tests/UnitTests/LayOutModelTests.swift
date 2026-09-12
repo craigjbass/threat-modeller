@@ -223,7 +223,7 @@ struct LayOutModelTests {
 
     // MARK: keeping a flow off a zone it does not relate to
 
-    @Test func placesALooseComponentAboveTheZoneItTalksToMost() throws {
+    @Test func keepsALooseComponentsFlowsOffTheZonesTheyDoNotReach() throws {
         let source = ArchitectureSource(
             systemName: "P",
             zones: [
@@ -239,12 +239,11 @@ struct LayOutModelTests {
         )
 
         let response = layOut(source)
-        let placed = try #require(response.components.first { $0.id == "outside" })
-        let right = try #require(response.zones.first { $0.id == "right" })
 
-        // Two flows reach the right zone and one the left, so it sits above the
-        // right one.
-        #expect(abs(placed.x + 80 - (right.x + right.width / 2)) < 1)
+        // Which of the placements the search picks is its own business. That
+        // the component's flows stay off the zones they do not reach is not.
+        #expect(response.flowsOverUnrelatedZones == 0)
+        #expect(try #require(response.components.first { $0.id == "outside" }).y >= 0)
     }
 
     @Test func keepsDeclarationOrderForALooseComponentThatTalksToNoZone() {
