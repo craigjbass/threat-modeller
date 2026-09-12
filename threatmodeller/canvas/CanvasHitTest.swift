@@ -30,10 +30,13 @@ nonisolated enum CanvasHitTest {
     ) -> ConnectionPath? {
         guard let source = boxes[connection.sourceComponentId],
               let target = boxes[connection.targetComponentId] else { return nil }
-        let anchors = AnchorGeometry.nearestPair(from: source, to: target)
+        let anchors = AnchorGeometry.nearestPair(
+            from: source.rect.modelRect,
+            to: target.rect.modelRect
+        )
         return ConnectionPath(
-            from: AnchorGeometry.point(anchors.source, of: source),
-            to: AnchorGeometry.point(anchors.target, of: target)
+            from: CGPoint(AnchorGeometry.point(anchors.source, of: source.rect.modelRect)),
+            to: CGPoint(AnchorGeometry.point(anchors.target, of: target.rect.modelRect))
         )
     }
 

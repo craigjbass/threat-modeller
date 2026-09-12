@@ -31,14 +31,14 @@ nonisolated struct ComponentBox: Equatable {
         CGPoint(x: origin.x + Self.slotSize.width / 2, y: origin.y + Self.slotSize.height / 2)
     }
 
-    /// The footprint the canvas paints.
+    /// The footprint the canvas paints. The core owns the rule, because the
+    /// generated layout measures the picture it drew.
     var rect: CGRect {
-        let footprint = Component.footprint(for: shape)
-        return CGRect(
-            x: centre.x - footprint.width / 2,
-            y: centre.y - footprint.height / 2,
-            width: footprint.width,
-            height: footprint.height
+        CGRect(
+            Component.footprintRect(
+                at: Point(x: origin.x, y: origin.y),
+                shape: shape
+            )
         )
     }
 

@@ -149,7 +149,7 @@ struct ComponentNodeView: View {
 
     private func anchorHandle(_ anchor: ConnectionAnchor) -> some View {
         let box = ComponentBox(x: 0, y: 0, shape: shape)
-        let point = AnchorGeometry.point(anchor, of: box)
+        let point = CGPoint(AnchorGeometry.point(anchor, of: box.rect.modelRect))
         let origin = box.rect.origin
 
         return Circle()

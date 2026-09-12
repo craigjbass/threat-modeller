@@ -1,6 +1,16 @@
 import SwiftUI
 import ThreatModelKit
 
+extension BoundaryCrossings.BoundaryRun {
+    /// The bow this boundary draws.
+    var path: Path {
+        var built = Path()
+        built.move(to: CGPoint(start))
+        built.addQuadCurve(to: CGPoint(end), control: CGPoint(control))
+        return built
+    }
+}
+
 /// Every link drawn in one `Canvas` pass, plus the preview line while a
 /// connection drag is in flight. Spec section 9 sets this painting order.
 ///
@@ -46,21 +56,26 @@ struct ConnectionsLayer: View {
                 guard let source = boxes[connection.sourceComponentId],
                       let target = boxes[connection.targetComponentId] else { continue }
 
-                let anchors = AnchorGeometry.nearestPair(from: source, to: target)
+                let anchors = AnchorGeometry.nearestPair(
+                    from: source.rect.modelRect,
+                    to: target.rect.modelRect
+                )
                 let path = ConnectionPath(
-                    from: AnchorGeometry.point(anchors.source, of: source),
-                    to: AnchorGeometry.point(anchors.target, of: target)
+                    from: CGPoint(AnchorGeometry.point(anchors.source, of: source.rect.modelRect)),
+                    to: CGPoint(AnchorGeometry.point(anchors.target, of: target.rect.modelRect))
                 )
                 draw(connection, along: path, in: &context)
 
                 guard isOutOfScope(connection) == false else { continue }
                 marked += BoundaryCrossings.of(
-                    connection,
-                    path: path,
-                    components: componentsById,
-                    zones: zones
+                    connectionId: connection.id,
+                    sourceZoneId: componentsById[connection.sourceComponentId]?.zoneId,
+                    targetZoneId: componentsById[connection.targetComponentId]?.zoneId,
+                    curve: path.curve,
+                    zones: boundaryZones
                 ).map {
                     BoundaryCrossings.MarkedCrossing(
+                        connectionId: connection.id,
                         crossing: $0,
                         guards: guards(of: connection),
                         openCount: risk(of: connection)?.openCount ?? 0
@@ -73,7 +88,7 @@ struct ConnectionsLayer: View {
 
             for run in runs {
                 context.stroke(
-                    run.curve,
+                    run.path,
                     with: .color(tint(of: run)),
                     style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [2, 5])
                 )
@@ -95,6 +110,17 @@ struct ConnectionsLayer: View {
             }
         }
         .allowsHitTesting(false)
+    }
+
+    /// The zones as the core geometry reads them.
+    private var boundaryZones: [BoundaryZone] {
+        zones.map {
+            BoundaryZone(
+                id: $0.id,
+                networkZoneId: $0.networkZoneId,
+                rect: Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height)
+            )
+        }
     }
 
     private func tint(of run: BoundaryCrossings.BoundaryRun) -> Color {

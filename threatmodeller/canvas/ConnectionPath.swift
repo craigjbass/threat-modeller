@@ -1,7 +1,13 @@
 import CoreGraphics
 import Foundation
+import ThreatModelKit
 
 /// The curve a link draws, and the hit test for clicking it.
+///
+/// The curve itself is `FlowCurve` in the core, because the generated layout
+/// measures the picture it drew. This wrapper adds what only a canvas needs:
+/// the arrowhead and how near a click has to be.
+///
 /// Declared `nonisolated`: the app target defaults every type to the main
 /// actor, and this one is a pure value with no shared state.
 nonisolated struct ConnectionPath: Equatable {
@@ -9,31 +15,22 @@ nonisolated struct ConnectionPath: Equatable {
     /// model units.
     static let hitTolerance: CGFloat = 8
 
-    let start: CGPoint
-    let end: CGPoint
-    let control1: CGPoint
-    let control2: CGPoint
+    let curve: FlowCurve
 
     init(from start: CGPoint, to end: CGPoint) {
-        self.start = start
-        self.end = end
-        // The horizontal pull grows with the gap, with a floor so a short link
-        // still curves and a ceiling so a long one does not loop back.
-        let pull = max(30, min(abs(end.x - start.x) * 0.5, 150))
-        control1 = CGPoint(x: start.x + pull, y: start.y)
-        control2 = CGPoint(x: end.x - pull, y: end.y)
-    }
-
-    /// The point at `t`, where 0 is the start and 1 is the end.
-    func point(at t: CGFloat) -> CGPoint {
-        let u = 1 - t
-        return CGPoint(
-            x: u * u * u * start.x + 3 * u * u * t * control1.x
-                + 3 * u * t * t * control2.x + t * t * t * end.x,
-            y: u * u * u * start.y + 3 * u * u * t * control1.y
-                + 3 * u * t * t * control2.y + t * t * t * end.y
+        curve = FlowCurve(
+            from: Point(x: start.x, y: start.y),
+            to: Point(x: end.x, y: end.y)
         )
     }
+
+    var start: CGPoint { CGPoint(curve.start) }
+    var end: CGPoint { CGPoint(curve.end) }
+    var control1: CGPoint { CGPoint(curve.control1) }
+    var control2: CGPoint { CGPoint(curve.control2) }
+
+    /// The point at `t`, where 0 is the start and 1 is the end.
+    func point(at t: CGFloat) -> CGPoint { CGPoint(curve.point(at: t)) }
 
     /// The shortest distance from the point to the curve, sampled at 40 steps.
     /// Sampling is enough here: the gap between two samples is far smaller than
@@ -62,5 +59,30 @@ nonisolated struct ConnectionPath: Equatable {
             CGPoint(x: baseX - width / 2 * sin(angle), y: baseY + width / 2 * cos(angle)),
             CGPoint(x: baseX + width / 2 * sin(angle), y: baseY - width / 2 * cos(angle))
         ]
+    }
+}
+
+nonisolated extension CGPoint {
+    /// The core states a diagram point as its own `Point`. A canvas draws in
+    /// `CGPoint`, so every reading crosses here rather than in ten call sites.
+    init(_ point: Point) {
+        self.init(x: point.x, y: point.y)
+    }
+
+    var modelPoint: Point { Point(x: x, y: y) }
+}
+
+nonisolated extension CGRect {
+    init(_ rect: Rect) {
+        self.init(
+            x: rect.origin.x,
+            y: rect.origin.y,
+            width: rect.size.width,
+            height: rect.size.height
+        )
+    }
+
+    var modelRect: Rect {
+        Rect(x: origin.x, y: origin.y, width: size.width, height: size.height)
     }
 }

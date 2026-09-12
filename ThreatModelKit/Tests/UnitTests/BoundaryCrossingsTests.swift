@@ -1,12 +1,9 @@
-import CoreGraphics
 import Foundation
-import SwiftUI
 import Testing
 import ThreatModelKit
-@testable import threatmodeller
 
-/// Where a flow crosses a trust boundary, and which boundary it crossed.
-struct BoundaryCrossingTests {
+@Suite("Where a flow crosses a trust boundary")
+struct BoundaryCrossingsTests {
     private func zone(
         _ id: String,
         x: Double,
@@ -14,73 +11,40 @@ struct BoundaryCrossingTests {
         width: Double = 400,
         height: Double = 400,
         networkZoneId: String = "private"
-    ) -> ViewedZone {
-        ViewedZone(
+    ) -> BoundaryZone {
+        BoundaryZone(
             id: id,
-            name: id,
-            customName: nil,
             networkZoneId: networkZoneId,
-            networkTypeId: "generic",
-            riskReductionEnabled: true,
-            riskReductionPercent: 20,
-            x: x,
-            y: y,
-            width: width,
-            height: height
+            rect: Rect(x: x, y: y, width: width, height: height)
         )
     }
 
-    private func component(_ id: String, x: Double, y: Double, zoneId: String?) -> ViewedComponent {
-        ViewedComponent(
-            id: id,
-            technologyId: "aws-ec2",
-            name: id,
-            customName: nil,
-            providerId: "aws",
-            categoryId: "compute",
-            x: x,
-            y: y,
-            sensitivityId: "internal",
-            threatsDisabled: false,
-            isUnknownTechnology: false,
-            zoneId: zoneId
-        )
-    }
-
+    /// A level flow from one component's right edge to another's left edge, the
+    /// way the canvas draws one.
     private func crossings(
-        from source: ViewedComponent,
-        to target: ViewedComponent,
-        zones: [ViewedZone]
+        fromX: Double,
+        toX: Double,
+        y: Double = 186,
+        sourceZoneId: String?,
+        targetZoneId: String?,
+        zones: [BoundaryZone]
     ) -> [BoundaryCrossing] {
-        let connection = ViewedConnection(
-            id: "f1",
-            sourceComponentId: source.id,
-            targetComponentId: target.id
-        )
-        let boxes = CanvasHitTest.boxes(
-            for: [source, target],
-            selected: [],
-            dragTranslation: .zero
-        )
-        guard let path = CanvasHitTest.path(for: connection, boxes: boxes) else {
-            Issue.record("the flow drew no path")
-            return []
-        }
-
-        return BoundaryCrossings.of(
-            connection,
-            path: path,
-            components: [source.id: source, target.id: target],
+        BoundaryCrossings.of(
+            connectionId: "f1",
+            sourceZoneId: sourceZoneId,
+            targetZoneId: targetZoneId,
+            curve: FlowCurve(from: Point(x: fromX, y: y), to: Point(x: toX, y: y)),
             zones: zones
         )
     }
 
     @Test func marksNothingWhenBothEndsSitInTheSameZone() {
-        let inside = zone("z1", x: 0, y: 0, width: 800, height: 400)
         let marks = crossings(
-            from: component("a", x: 60, y: 100, zoneId: "z1"),
-            to: component("b", x: 500, y: 100, zoneId: "z1"),
-            zones: [inside]
+            fromX: 60,
+            toX: 700,
+            sourceZoneId: "z1",
+            targetZoneId: "z1",
+            zones: [zone("z1", x: 0, y: 0, width: 800)]
         )
 
         #expect(marks.isEmpty)
@@ -88,8 +52,10 @@ struct BoundaryCrossingTests {
 
     @Test func marksNothingWhenNeitherEndSitsInAZone() {
         let marks = crossings(
-            from: component("a", x: 0, y: 0, zoneId: nil),
-            to: component("b", x: 500, y: 0, zoneId: nil),
+            fromX: 0,
+            toX: 500,
+            sourceZoneId: nil,
+            targetZoneId: nil,
             zones: []
         )
 
@@ -97,26 +63,43 @@ struct BoundaryCrossingTests {
     }
 
     @Test func marksOnceWhereAFlowLeavesTheOnlyZone() {
-        let inside = zone("z1", x: 0, y: 0, width: 400, height: 400)
         let marks = crossings(
-            from: component("a", x: 60, y: 150, zoneId: "z1"),
-            to: component("b", x: 700, y: 150, zoneId: nil),
-            zones: [inside]
+            fromX: 192,
+            toX: 728,
+            sourceZoneId: "z1",
+            targetZoneId: nil,
+            zones: [zone("z1", x: 0, y: 0)]
         )
 
         #expect(marks.count == 1)
         #expect(marks[0].networkZoneId == "private")
-        // The zone's right edge is at 400, and the mark sits on it.
+        #expect(marks[0].zoneId == "z1")
         #expect(abs(marks[0].point.x - 400) < 6)
     }
 
-    @Test func marksTwiceWhereAFlowLeavesOneZoneAndEntersAnother() {
-        let left = zone("z1", x: 0, y: 0, width: 400, height: 400, networkZoneId: "public")
-        let right = zone("z2", x: 600, y: 0, width: 400, height: 400)
+    @Test func marksOnceWhereAFlowEntersTheOnlyZone() {
         let marks = crossings(
-            from: component("a", x: 60, y: 150, zoneId: "z1"),
-            to: component("b", x: 700, y: 150, zoneId: "z2"),
-            zones: [left, right]
+            fromX: 100,
+            toX: 728,
+            sourceZoneId: nil,
+            targetZoneId: "z1",
+            zones: [zone("z1", x: 600, y: 0)]
+        )
+
+        #expect(marks.count == 1)
+        #expect(abs(marks[0].point.x - 600) < 6)
+    }
+
+    @Test func marksTwiceWhereAFlowLeavesOneZoneAndEntersAnother() {
+        let marks = crossings(
+            fromX: 192,
+            toX: 728,
+            sourceZoneId: "z1",
+            targetZoneId: "z2",
+            zones: [
+                zone("z1", x: 0, y: 0, networkZoneId: "public"),
+                zone("z2", x: 600, y: 0)
+            ]
         )
 
         #expect(marks.count == 2)
@@ -126,30 +109,16 @@ struct BoundaryCrossingTests {
     }
 
     @Test func statesTheTangentOfAFlowRunningStraightAcross() {
-        let inside = zone("z1", x: 0, y: 0, width: 400, height: 400)
         let marks = crossings(
-            from: component("a", x: 60, y: 150, zoneId: "z1"),
-            to: component("b", x: 700, y: 150, zoneId: nil),
-            zones: [inside]
+            fromX: 192,
+            toX: 728,
+            sourceZoneId: "z1",
+            targetZoneId: nil,
+            zones: [zone("z1", x: 0, y: 0)]
         )
 
-        // A flow between two nodes at the same height leaves and arrives level,
-        // so its tangent at the crossing is horizontal and the curve drawn
-        // across it stands upright.
         #expect(marks.count == 1)
         #expect(abs(marks[0].angle) < 0.05)
-    }
-
-    @Test func marksOnceWhereAFlowEntersTheOnlyZone() {
-        let inside = zone("z1", x: 600, y: 0, width: 400, height: 400)
-        let marks = crossings(
-            from: component("a", x: 0, y: 150, zoneId: nil),
-            to: component("b", x: 700, y: 150, zoneId: "z1"),
-            zones: [inside]
-        )
-
-        #expect(marks.count == 1)
-        #expect(abs(marks[0].point.x - 600) < 6)
     }
 
     // MARK: one curve per boundary
@@ -158,13 +127,14 @@ struct BoundaryCrossingTests {
         _ zoneId: String,
         x: Double,
         y: Double,
-        angle: CGFloat = 0,
+        angle: Double = 0,
         guards: [EdgeGuard] = [],
         openCount: Int = 0
     ) -> BoundaryCrossings.MarkedCrossing {
         BoundaryCrossings.MarkedCrossing(
+            connectionId: "f-\(x)-\(y)",
             crossing: BoundaryCrossing(
-                point: CGPoint(x: x, y: y),
+                point: Point(x: x, y: y),
                 angle: angle,
                 zoneId: zoneId,
                 networkZoneId: "private"
@@ -183,7 +153,6 @@ struct BoundaryCrossingTests {
 
         #expect(runs.count == 1)
         #expect(runs[0].flowCount == 3)
-        // The curve reaches past the outermost flow through it.
         #expect(runs[0].start.y < 200)
         #expect(runs[0].end.y > 320)
     }
@@ -219,7 +188,6 @@ struct BoundaryCrossingTests {
     @Test func drawsTheCurveAcrossTheFlowsThroughIt() {
         let runs = BoundaryCrossings.runs([marked("z1", x: 400, y: 200, angle: 0)])
 
-        // The flows run level, so the curve stands upright through them.
         #expect(runs.count == 1)
         #expect(abs(runs[0].start.x - 400) < 0.001)
         #expect(abs(runs[0].end.x - 400) < 0.001)
@@ -242,14 +210,12 @@ struct BoundaryCrossingTests {
         #expect(runs[0].openCount == 5)
     }
 
-    @Test func namesTheZoneWhoseEdgeTheFlowCrosses() {
-        let inside = zone("z1", x: 0, y: 0, width: 400, height: 400)
-        let marks = crossings(
-            from: component("a", x: 60, y: 150, zoneId: "z1"),
-            to: component("b", x: 700, y: 150, zoneId: nil),
-            zones: [inside]
-        )
+    @Test func namesEveryFlowThroughTheCurve() {
+        let runs = BoundaryCrossings.runs([
+            marked("z1", x: 400, y: 200),
+            marked("z1", x: 400, y: 260)
+        ])
 
-        #expect(marks.first?.zoneId == "z1")
+        #expect(runs[0].connectionIds == ["f-400.0-200.0", "f-400.0-260.0"])
     }
 }
