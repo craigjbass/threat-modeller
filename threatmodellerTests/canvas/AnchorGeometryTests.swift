@@ -6,8 +6,8 @@ struct AnchorGeometryTests {
     private let box = ComponentBox(x: 0, y: 0)
 
     @Test func placesTheFourAnchorsOnTheEdges() {
-        let width = ComponentBox.size.width
-        let height = ComponentBox.size.height
+        let width = ComponentBox.slotSize.width
+        let height = ComponentBox.slotSize.height
 
         #expect(AnchorGeometry.point(.top, of: box) == CGPoint(x: width / 2, y: 0))
         #expect(AnchorGeometry.point(.right, of: box) == CGPoint(x: width, y: height / 2))

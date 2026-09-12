@@ -51,9 +51,17 @@ struct CanvasHitTestTests {
     @Test func findsTheComponentUnderAPoint() {
         let components = [component("c1", x: 0, y: 0), component("c2", x: 400, y: 0)]
 
-        #expect(CanvasHitTest.component(under: CGPoint(x: 20, y: 20), components: components) == "c1")
-        #expect(CanvasHitTest.component(under: CGPoint(x: 420, y: 20), components: components) == "c2")
+        // The helper builds a process, which draws as a circle centred on the
+        // slot, so the point that finds it is the centre, not the top corner.
+        #expect(CanvasHitTest.component(under: CGPoint(x: 80, y: 36), components: components) == "c1")
+        #expect(CanvasHitTest.component(under: CGPoint(x: 480, y: 36), components: components) == "c2")
         #expect(CanvasHitTest.component(under: CGPoint(x: 900, y: 900), components: components) == nil)
+    }
+
+    @Test func givesTheCornerOfAProcessCircleToWhateverIsBehindIt() {
+        let components = [component("c1", x: 0, y: 0)]
+
+        #expect(CanvasHitTest.component(under: CGPoint(x: 30, y: -14), components: components) == nil)
     }
 
     @Test func givesALaterComponentThePointWhenTwoOverlap() {
@@ -177,7 +185,7 @@ struct CanvasHitTestTests {
             zones: []
         )
 
-        #expect(size.width > 9000 + ComponentBox.size.width)
+        #expect(size.width > 9000 + ComponentBox(x: 9000, y: 40, shape: .process).rect.width)
         #expect(size.height == CanvasHitTest.minimumContentSize.height)
     }
 
@@ -198,6 +206,16 @@ struct CanvasHitTestTests {
 
         // The user has to be able to drag a node past whatever is currently
         // farthest out, so the layer is bigger than what it holds.
-        #expect(size.width >= 3000 + ComponentBox.size.width + CanvasHitTest.contentMargin)
+        let farthest = ComponentBox(x: 3000, y: 3000, shape: .process).rect.maxX
+        #expect(size.width >= farthest + CanvasHitTest.contentMargin)
+    }
+
+    @Test func leavesRoomForTheProcessCircleAtTheEdgeOfTheDiagram() {
+        let node = component("c1", x: 3800, y: 2900)
+        let size = CanvasHitTest.contentSize(components: [node], zones: [])
+        let box = ComponentBox(x: node.x, y: node.y, shape: .process)
+
+        #expect(size.width >= box.rect.maxX)
+        #expect(size.height >= box.rect.maxY)
     }
 }

@@ -54,7 +54,7 @@ struct ComponentNodeView: View {
                     }
                 }
             }
-            .frame(width: ComponentBox.size.width - 24, alignment: .leading)
+            .frame(width: ComponentBox.slotSize.width - 24, alignment: .leading)
 
             if isHovering || isSelected {
                 ForEach(ConnectionAnchor.allCases, id: \.self) { anchor in
@@ -62,7 +62,7 @@ struct ComponentNodeView: View {
                 }
             }
         }
-        .frame(width: ComponentBox.size.width, height: ComponentBox.size.height)
+        .frame(width: ComponentBox.slotSize.width, height: ComponentBox.slotSize.height)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         // Without an explicit element SwiftUI reports the node's texts

@@ -603,6 +603,8 @@ final class ThreatModelSession {
             errorMessage = "That sensitivity is not one this application holds."
         case .unknownPrivilegeLevel:
             errorMessage = "That privilege level is not recognised."
+        case .unknownShape:
+            errorMessage = "That shape is not one this application holds."
         }
 
         refresh()

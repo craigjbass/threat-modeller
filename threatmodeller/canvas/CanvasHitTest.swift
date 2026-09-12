@@ -18,10 +18,7 @@ nonisolated enum CanvasHitTest {
         var found: [String: ComponentBox] = [:]
         for component in components {
             let shift = selected.contains(component.id) ? dragTranslation : CGSize.zero
-            found[component.id] = ComponentBox(
-                x: component.x + shift.width,
-                y: component.y + shift.height
-            )
+            found[component.id] = Self.box(for: component, shiftedBy: shift)
         }
         return found
     }
@@ -54,7 +51,18 @@ nonisolated enum CanvasHitTest {
 
     /// The component under the point, or nil. A later component wins.
     static func component(under modelPoint: CGPoint, components: [ViewedComponent]) -> String? {
-        components.last { ComponentBox(x: $0.x, y: $0.y).contains(modelPoint) }?.id
+        components.last { Self.box(for: $0).contains(modelPoint) }?.id
+    }
+
+    /// Where one component draws, with a drag applied. A component whose word
+    /// this build does not hold draws as a process, the way the derivation
+    /// treats an unknown technology.
+    static func box(for component: ViewedComponent, shiftedBy shift: CGSize = .zero) -> ComponentBox {
+        ComponentBox(
+            x: component.x + shift.width,
+            y: component.y + shift.height,
+            shape: DiagramShape(rawValue: component.shapeId) ?? .process
+        )
     }
 
     /// The zone under the point, or nil. A later zone wins, matching
@@ -90,8 +98,9 @@ nonisolated enum CanvasHitTest {
         var height = minimumContentSize.height - contentMargin
 
         for component in components {
-            width = max(width, component.x + ComponentBox.size.width)
-            height = max(height, component.y + ComponentBox.size.height)
+            let rect = Self.box(for: component).rect
+            width = max(width, rect.maxX)
+            height = max(height, rect.maxY)
         }
         for zone in zones {
             width = max(width, zone.x + zone.width)
