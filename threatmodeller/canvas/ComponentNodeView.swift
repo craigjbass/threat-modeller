@@ -125,9 +125,11 @@ struct ComponentNodeView: View {
         HStack(spacing: 6) {
             Text(component.providerId.isEmpty ? "unknown" : component.providerId.uppercased())
                 .font(.caption2)
+                .lineLimit(1)
                 .foregroundStyle(.secondary)
             Text(component.sensitivityId.capitalized)
                 .font(.caption2)
+                .lineLimit(1)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 1)
                 .background(Capsule().fill(Color.secondary.opacity(0.15)))
@@ -140,6 +142,9 @@ struct ComponentNodeView: View {
                     .background(Capsule().fill(Color.green.opacity(0.18)))
             }
         }
+        // The row stays inside the slot, so a chip never reaches the node
+        // beside it. A long zone name truncates instead.
+        .frame(width: ComponentBox.slotSize.width - 8)
     }
 
     private func anchorHandle(_ anchor: ConnectionAnchor) -> some View {
