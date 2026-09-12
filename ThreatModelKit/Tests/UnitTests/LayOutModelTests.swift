@@ -198,4 +198,77 @@ struct LayOutModelTests {
         // centres on it.
         #expect(response.components == [LaidOutComponent(id: "a", x: 40, y: 40)])
     }
+
+    // MARK: keeping a flow off a zone it does not relate to
+
+    @Test func placesALooseComponentAboveTheZoneItTalksToMost() throws {
+        let source = ArchitectureSource(
+            systemName: "P",
+            zones: [
+                SourceZone(id: "left", components: [component("a")]),
+                SourceZone(id: "right", components: [component("b"), component("c")])
+            ],
+            components: [component("outside")],
+            flows: [
+                SourceFlow(sourceId: "outside", targetId: "b"),
+                SourceFlow(sourceId: "outside", targetId: "c"),
+                SourceFlow(sourceId: "outside", targetId: "a")
+            ]
+        )
+
+        let response = layOut(source)
+        let placed = try #require(response.components.first { $0.id == "outside" })
+        let right = try #require(response.zones.first { $0.id == "right" })
+
+        // Two flows reach the right zone and one the left, so it sits above the
+        // right one.
+        #expect(abs(placed.x + 80 - (right.x + right.width / 2)) < 1)
+    }
+
+    @Test func keepsDeclarationOrderForALooseComponentThatTalksToNoZone() {
+        let source = ArchitectureSource(
+            systemName: "P",
+            zones: [SourceZone(id: "z", components: [component("a")])],
+            components: [component("outside")]
+        )
+
+        let response = layOut(source)
+
+        #expect(response.components.first?.id == "outside")
+        #expect(response.components.first?.x == 40)
+    }
+
+    @Test func neverOverlapsTwoLooseComponentsWantingTheSamePlace() throws {
+        let source = ArchitectureSource(
+            systemName: "P",
+            zones: [SourceZone(id: "z", components: [component("a")])],
+            components: [component("one"), component("two")],
+            flows: [
+                SourceFlow(sourceId: "one", targetId: "a"),
+                SourceFlow(sourceId: "two", targetId: "a")
+            ]
+        )
+
+        let response = layOut(source)
+        let one = try #require(response.components.first { $0.id == "one" })
+        let two = try #require(response.components.first { $0.id == "two" })
+
+        #expect(abs(one.x - two.x) >= 160)
+    }
+
+    @Test func statesHowManyFlowsRunOverAZoneTheyDoNotRelateTo() {
+        let source = ArchitectureSource(
+            systemName: "P",
+            zones: [
+                SourceZone(id: "left", components: [component("a")]),
+                SourceZone(id: "right", components: [component("b")])
+            ],
+            components: [component("outside")],
+            flows: [SourceFlow(sourceId: "outside", targetId: "b")]
+        )
+
+        let response = layOut(source)
+
+        #expect(response.flowsOverUnrelatedZones == 0)
+    }
 }

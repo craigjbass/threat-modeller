@@ -52,15 +52,20 @@ public struct LayOutModelResponse: Equatable, Sendable {
     /// Flows that still cross a trust boundary they do not pass through. Zero
     /// when the widening cleared them all.
     public let unrelatedCrossings: Int
+    /// Flows that still run over a zone rectangle they have nothing to do
+    /// with.
+    public let flowsOverUnrelatedZones: Int
 
     public init(
         components: [LaidOutComponent],
         zones: [LaidOutZone],
-        unrelatedCrossings: Int = 0
+        unrelatedCrossings: Int = 0,
+        flowsOverUnrelatedZones: Int = 0
     ) {
         self.components = components
         self.zones = zones
         self.unrelatedCrossings = unrelatedCrossings
+        self.flowsOverUnrelatedZones = flowsOverUnrelatedZones
     }
 }
 
@@ -129,18 +134,18 @@ public struct LayOutModel: LayOutModelUseCase {
             zoneGap: Self.zoneGap
         )
         var best = place(request, spacing: spacing)
-        var bestCount = Self.unrelatedCrossings(of: best, in: request)
+        var bestFault = Self.faults(of: best, in: request)
 
         var pass = 1
-        while bestCount > 0 && pass < Self.passes {
+        while bestFault.total > 0 && pass < Self.passes {
             spacing = spacing.widened(by: Self.widenBy)
             let wider = place(request, spacing: spacing)
-            let count = Self.unrelatedCrossings(of: wider, in: request)
+            let fault = Self.faults(of: wider, in: request)
             // A wider pass is kept only when it is no worse, so the loop never
             // hands back a picture worse than one it already had.
-            if count <= bestCount {
+            if fault.total <= bestFault.total {
                 best = wider
-                bestCount = count
+                bestFault = fault
             }
             pass += 1
         }
@@ -148,7 +153,8 @@ public struct LayOutModel: LayOutModelUseCase {
         return LayOutModelResponse(
             components: best.components,
             zones: best.zones,
-            unrelatedCrossings: bestCount
+            unrelatedCrossings: bestFault.crossings,
+            flowsOverUnrelatedZones: bestFault.overZones
         )
     }
 
@@ -158,23 +164,14 @@ public struct LayOutModel: LayOutModelUseCase {
     ) -> LayOutModelResponse {
         var components: [LaidOutComponent] = []
         var zones: [LaidOutZone] = []
-        var y = Self.zonePadding
 
-        // Components outside every zone go in one band across the top.
+        // A component declared outside every zone goes in a band across the
+        // top. The band is placed last, above the zone each of its components
+        // talks to most, so its flows do not run over a zone they have nothing
+        // to do with.
         let loose = request.source.components
-        if loose.isEmpty == false {
-            for (index, component) in loose.enumerated() {
-                components.append(
-                    LaidOutComponent(
-                        id: component.id,
-                        x: Self.zonePadding + Double(index) * (Self.nodeWidth + spacing.columnGap),
-                        y: y
-                    )
-                )
-            }
-            y += Self.nodeHeight + spacing.rowGap * 2
-        }
-
+        let bandHeight = loose.isEmpty ? 0 : Self.nodeHeight + spacing.rowGap * 2
+        var y = Self.zonePadding + bandHeight
         var x = Self.zonePadding
         var tallestInRow = 0.0
 
@@ -195,6 +192,14 @@ public struct LayOutModel: LayOutModelUseCase {
             x += size.width + spacing.zoneGap
             tallestInRow = max(tallestInRow, size.height)
         }
+
+        components = Self.placeLoose(
+            loose,
+            above: zones,
+            in: request,
+            spacing: spacing,
+            y: Self.zonePadding
+        ) + components
 
         return LayOutModelResponse(components: components, zones: zones)
     }
@@ -245,6 +250,26 @@ public struct LayOutModel: LayOutModelUseCase {
     }
 
     // MARK: measuring the picture it drew
+
+    /// What is wrong with the picture. A flow must not cross a boundary it
+    /// does not pass through, and must not run over a zone it has nothing to
+    /// do with: a reader takes either for a statement the model does not make.
+    struct LayoutFault: Equatable {
+        let crossings: Int
+        let overZones: Int
+
+        var total: Int { crossings + overZones }
+    }
+
+    static func faults(
+        of placed: LayOutModelResponse,
+        in request: LayOutModelRequest
+    ) -> LayoutFault {
+        LayoutFault(
+            crossings: unrelatedCrossings(of: placed, in: request),
+            overZones: flowsOverUnrelatedZones(of: placed, in: request)
+        )
+    }
 
     /// How many flows cross a trust boundary they do not pass through.
     static func unrelatedCrossings(
@@ -352,5 +377,112 @@ public struct LayOutModel: LayOutModelUseCase {
             .filter { $0.targetId == flow.targetId }
             .map { EdgeGuard(label: $0.sourceId, isAssumed: $0.status == "assumed") }
             .sorted { $0.label < $1.label }
+    }
+
+    // MARK: the band across the top
+
+    /// Places every component declared outside a zone above the zone it talks
+    /// to most, so its flows do not run over a zone they have nothing to do
+    /// with. A component that talks to no zone keeps the place declaration
+    /// order gives it.
+    ///
+    /// Two components wanting the same place are pushed right in turn, so none
+    /// overlaps and the same source always draws the same picture.
+    static func placeLoose(
+        _ loose: [SourceComponent],
+        above zones: [LaidOutZone],
+        in request: LayOutModelRequest,
+        spacing: LayoutSpacing,
+        y: Double
+    ) -> [LaidOutComponent] {
+        guard loose.isEmpty == false else { return [] }
+
+        let zoneOf = zoneOfEachComponent(in: request)
+        var wanted: [(id: String, x: Double, index: Int)] = []
+
+        for (index, component) in loose.enumerated() {
+            let zoneId = mostConnectedZone(of: component.id, in: request, zoneOf: zoneOf)
+            let above = zones.first { $0.id == zoneId }.map { $0.x + $0.width / 2 - nodeWidth / 2 }
+            let inOrder = zonePadding + Double(index) * (nodeWidth + spacing.columnGap)
+            wanted.append((component.id, above ?? inOrder, index))
+        }
+
+        var placed: [LaidOutComponent] = []
+        var nextFree = -Double.greatestFiniteMagnitude
+
+        for entry in wanted.sorted(by: { $0.x == $1.x ? $0.index < $1.index : $0.x < $1.x }) {
+            let x = max(entry.x, nextFree)
+            placed.append(LaidOutComponent(id: entry.id, x: x, y: y))
+            nextFree = x + nodeWidth + spacing.columnGap
+        }
+
+        // Declaration order is what the rest of the response is in.
+        let byId = Dictionary(uniqueKeysWithValues: placed.map { ($0.id, $0) })
+        return loose.compactMap { byId[$0.id] }
+    }
+
+    /// The zone this component has most flows with, or nil when it has none.
+    /// A tie keeps the zone declared first, so the answer never depends on
+    /// dictionary order.
+    private static func mostConnectedZone(
+        of componentId: String,
+        in request: LayOutModelRequest,
+        zoneOf: [String: String]
+    ) -> String? {
+        var tally: [String: Int] = [:]
+
+        for flow in request.source.flows {
+            let other: String?
+            if flow.sourceId == componentId {
+                other = flow.targetId
+            } else if flow.targetId == componentId {
+                other = flow.sourceId
+            } else {
+                continue
+            }
+
+            guard let other, let zoneId = zoneOf[other] else { continue }
+            tally[zoneId, default: 0] += 1
+        }
+
+        return request.source.zones
+            .map(\.id)
+            .filter { tally[$0] != nil }
+            .max { (tally[$0] ?? 0) < (tally[$1] ?? 0) }
+    }
+
+    /// How many flows run over a zone rectangle they have nothing to do with.
+    ///
+    /// A reader takes a flow over a zone for a statement that the flow touches
+    /// what the zone holds, and it does not.
+    static func flowsOverUnrelatedZones(
+        of placed: LayOutModelResponse,
+        in request: LayOutModelRequest
+    ) -> Int {
+        let footprints = footprints(of: placed, in: request)
+        let zoneOf = zoneOfEachComponent(in: request)
+        var count = 0
+
+        for flow in request.source.flows {
+            guard let source = footprints[flow.sourceId],
+                  let target = footprints[flow.targetId] else { continue }
+
+            let anchors = AnchorGeometry.nearestPair(from: source, to: target)
+            let samples = CurveCrossing.samples(
+                of: FlowCurve(
+                    from: AnchorGeometry.point(anchors.source, of: source),
+                    to: AnchorGeometry.point(anchors.target, of: target)
+                ),
+                steps: 96
+            )
+
+            for zone in placed.zones
+            where zone.id != zoneOf[flow.sourceId] && zone.id != zoneOf[flow.targetId] {
+                let rect = Rect(x: zone.x, y: zone.y, width: zone.width, height: zone.height)
+                if samples.contains(where: { rect.contains($0) }) { count += 1 }
+            }
+        }
+
+        return count
     }
 }
