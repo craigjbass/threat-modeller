@@ -1,13 +1,17 @@
 import SwiftUI
 import ThreatModelKit
 
-/// One zone: its outline, its header, and its resize grips when selected.
+/// One zone: its dashed boundary, its header, and its resize grips when
+/// selected.
 ///
-/// A public zone is drawn with a dashed outline, because it reduces nothing
-/// and raises nothing — the difference has to be visible without reading the
-/// panel.
+/// Every zone draws dashed, the way a trust boundary does. The stroke colour
+/// states public against private, because the dash no longer can. The header
+/// states the name, the risk reduction, whether the zone is a privilege
+/// boundary, and how many threats on the zone no control answers.
 struct ZoneView: View {
     let zone: ViewedZone
+    /// What the zone itself carries, or nil when it raises nothing.
+    let risk: ElementRisk?
     /// The size to draw at. While a move or resize is in flight this is the
     /// size the drag produces, not the size the model holds, so the outline,
     /// the header and the grips all follow the pointer.
@@ -36,8 +40,8 @@ struct ZoneView: View {
                         .strokeBorder(
                             isSelected ? Color.accentColor : tint.opacity(0.7),
                             style: StrokeStyle(
-                                lineWidth: isSelected ? 2.5 : 1.5,
-                                dash: isPrivate ? [] : [6, 4]
+                                lineWidth: isSelected ? 3 : 2,
+                                dash: [8, 6]
                             )
                         )
                 )
@@ -63,6 +67,25 @@ struct ZoneView: View {
                     .padding(.horizontal, 5)
                     .padding(.vertical, 1)
                     .background(Capsule().fill(tint.opacity(0.2)))
+            }
+            if zone.boundaryId == "privilege" {
+                Text("Privilege")
+                    .font(.caption2)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.purple.opacity(0.2)))
+            }
+            if let risk, risk.openCount > 0 {
+                Text("\(risk.openCount)")
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(
+                        Capsule().fill(
+                            RiskPalette.background(forLevelId: risk.highestLevelId ?? "")
+                        )
+                    )
+                    .accessibilityIdentifier("zone-open-threats-\(zone.id)")
             }
             Spacer(minLength: 0)
         }

@@ -553,4 +553,39 @@ struct ViewRenderTests {
             "a flow with a label"
         )
     }
+
+    @Test func drawsAPrivilegeZoneWithItsChipAndItsCount() {
+        expectDrawn(
+            ZoneView(
+                zone: ViewedZone(
+                    id: "z1",
+                    name: "Kernel",
+                    customName: "Kernel",
+                    networkZoneId: "private",
+                    networkTypeId: "generic",
+                    riskReductionEnabled: true,
+                    riskReductionPercent: 20,
+                    x: 0,
+                    y: 0,
+                    width: 400,
+                    height: 300,
+                    boundaryId: "privilege"
+                ),
+                risk: ElementRisk(
+                    sourceId: "zone:z1",
+                    openCount: 4,
+                    totalCount: 6,
+                    highestLevelId: "critical"
+                ),
+                size: CGSize(width: 400, height: 300),
+                isSelected: false,
+                onSelect: {},
+                onDragChanged: { _, _ in },
+                onDragEnded: { _, _ in }
+            ),
+            width: 400,
+            height: 300,
+            "a privilege zone"
+        )
+    }
 }

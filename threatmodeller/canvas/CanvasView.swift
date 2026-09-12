@@ -109,6 +109,7 @@ struct CanvasView: View {
                 let rect = CanvasHitTest.rect(for: zone, drag: canvas.zoneDrag)
                 ZoneView(
                     zone: zone,
+                    risk: nil,
                     size: rect.size,
                     isSelected: canvas.isSelected(zoneId: zone.id),
                     onSelect: { canvas.select(zoneId: zone.id) },

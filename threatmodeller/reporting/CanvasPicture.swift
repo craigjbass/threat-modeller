@@ -46,6 +46,7 @@ nonisolated struct CanvasPicture: View {
     private func zoneShape(_ zone: ViewedZone) -> some View {
         ZoneView(
             zone: zone,
+            risk: nil,
             size: CGSize(width: zone.width, height: zone.height),
             isSelected: false,
             onSelect: {},
