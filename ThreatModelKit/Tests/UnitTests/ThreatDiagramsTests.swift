@@ -130,8 +130,8 @@ struct ThreatDiagramsTests {
     }
 }
 
-@Suite("A zone in a fragment")
-struct FocusedZoneTests {
+@Suite("A fragment placed on its own")
+struct FragmentLayoutTests {
     private func component(_ id: String, x: Double, zoneId: String?) -> ViewedComponent {
         ViewedComponent(
             id: id,
@@ -149,149 +149,85 @@ struct FocusedZoneTests {
         )
     }
 
-    private let wide = ViewedZone(
-        id: "z",
-        name: "z",
-        customName: nil,
-        networkZoneId: "private",
-        networkTypeId: "generic",
-        riskReductionEnabled: true,
-        riskReductionPercent: 20,
-        x: -500,
-        y: -500,
-        width: 3000,
-        height: 2000
-    )
-
-    @Test func cutsAZoneToWhatThePictureStillShows() {
-        let model = DiagramBuilder.Model(
-            components: [component("a", x: 0, zoneId: "z"), component("far", x: 2000, zoneId: "z")],
-            connections: [],
-            zones: [wide]
-        )
-
-        let focused = ThreatDiagrams.focus(model, on: "component:a")
-        let zone = focused?.zones.first
-
-        #expect(zone != nil)
-        #expect((zone?.width ?? 0) < 400)
-        #expect((zone?.height ?? 0) < 400)
-    }
-
-    @Test func keepsTheComponentInsideTheZoneItCutTo() {
-        let model = DiagramBuilder.Model(
-            components: [component("a", x: 0, zoneId: "z")],
-            connections: [],
-            zones: [wide]
-        )
-
-        let zone = ThreatDiagrams.focus(model, on: "component:a")?.zones.first
-        let centre = Point(x: 0 + 80, y: 0 + 36)
-
-        #expect(zone != nil)
-        let rect = Rect(
-            x: zone?.x ?? 0,
-            y: zone?.y ?? 0,
-            width: zone?.width ?? 0,
-            height: zone?.height ?? 0
-        )
-        #expect(rect.insetFromTop(by: ZoneContainment.headerHeight).contains(centre))
-    }
-
-    @Test func leavesAZoneAloneWhenNothingIsLeftInIt() {
-        let model = DiagramBuilder.Model(
-            components: [component("a", x: 0, zoneId: nil)],
-            connections: [],
-            zones: [wide]
-        )
-
-        // Nothing in the picture belongs to the zone, so the zone is not shown.
-        #expect(ThreatDiagrams.focus(model, on: "component:a")?.zones.isEmpty == true)
-    }
-}
-
-@Suite("Taking the blank out of a fragment")
-struct PackedFragmentTests {
-    private func component(_ id: String, x: Double, y: Double = 0) -> ViewedComponent {
-        ViewedComponent(
+    private func zone(_ id: String, x: Double) -> ViewedZone {
+        ViewedZone(
             id: id,
-            technologyId: "aws-ec2",
             name: id,
             customName: nil,
-            providerId: "aws",
-            categoryId: "compute",
+            networkZoneId: "private",
+            networkTypeId: "generic",
+            riskReductionEnabled: true,
+            riskReductionPercent: 20,
             x: x,
-            y: y,
-            sensitivityId: "internal",
-            threatsDisabled: false,
-            isUnknownTechnology: false,
-            zoneId: nil
+            y: -500,
+            width: 3000,
+            height: 2000
         )
     }
 
-    @Test func closesAWideBlankBetweenTwoThings() {
-        let packed = ThreatDiagrams.packed(
+    @Test func placesTheFragmentWhereAFragmentBelongs() {
+        let placed = ThreatDiagrams.laidOut(
             DiagramBuilder.Model(
-                components: [component("a", x: 0), component("far", x: 3000)],
+                components: [component("a", x: 5000, zoneId: "z")],
+                connections: [],
+                zones: [zone("z", x: 4000)]
+            )
+        )
+
+        // Nothing keeps the place a layout of thirty-five nodes gave it.
+        #expect(placed.components.first?.x ?? 0 < 400)
+        #expect(placed.zones.first?.x ?? 0 < 400)
+    }
+
+    @Test func cutsAZoneToWhatTheFragmentHolds() {
+        let placed = ThreatDiagrams.laidOut(
+            DiagramBuilder.Model(
+                components: [component("a", x: 0, zoneId: "z")],
+                connections: [],
+                zones: [zone("z", x: 0)]
+            )
+        )
+
+        #expect(placed.zones.first?.width ?? 0 < 400)
+        #expect(placed.zones.first?.height ?? 0 < 400)
+    }
+
+    @Test func keepsAComponentInsideItsZone() throws {
+        let placed = ThreatDiagrams.laidOut(
+            DiagramBuilder.Model(
+                components: [component("a", x: 0, zoneId: "z"), component("b", x: 900, zoneId: "z")],
+                connections: [],
+                zones: [zone("z", x: 0)]
+            )
+        )
+
+        let zone = try #require(placed.zones.first)
+        let rect = Rect(x: zone.x, y: zone.y, width: zone.width, height: zone.height)
+        for component in placed.components {
+            let centre = Point(x: component.x + 80, y: component.y + 36)
+            #expect(rect.insetFromTop(by: ZoneContainment.headerHeight).contains(centre))
+        }
+    }
+
+    @Test func placesTheSameFragmentTheSameWayTwice() {
+        let model = DiagramBuilder.Model(
+            components: [component("a", x: 0, zoneId: "z"), component("b", x: 900, zoneId: nil)],
+            connections: [ViewedConnection(id: "a-b", sourceComponentId: "a", targetComponentId: "b")],
+            zones: [zone("z", x: 0)]
+        )
+
+        #expect(ThreatDiagrams.laidOut(model) == ThreatDiagrams.laidOut(model))
+    }
+
+    @Test func keepsAComponentWhoseZoneIsNotInTheFragment() {
+        let placed = ThreatDiagrams.laidOut(
+            DiagramBuilder.Model(
+                components: [component("a", x: 0, zoneId: "gone")],
                 connections: [],
                 zones: []
             )
         )
 
-        let places = packed.components.map(\.x).sorted()
-        #expect(places[0] == 0)
-        #expect(places[1] < 400)
-    }
-
-    @Test func leavesATightPairAlone() {
-        let packed = ThreatDiagrams.packed(
-            DiagramBuilder.Model(
-                components: [component("a", x: 0), component("b", x: 220)],
-                connections: [],
-                zones: []
-            )
-        )
-
-        #expect(packed.components.map(\.x).sorted() == [0, 220])
-    }
-
-    @Test func closesTheBlankOnBothAxes() {
-        let packed = ThreatDiagrams.packed(
-            DiagramBuilder.Model(
-                components: [component("a", x: 0, y: 0), component("far", x: 2000, y: 2000)],
-                connections: [],
-                zones: []
-            )
-        )
-
-        let far = packed.components.first { $0.id == "far" }
-        #expect((far?.x ?? 0) < 400)
-        #expect((far?.y ?? 0) < 400)
-    }
-
-    @Test func keepsTheOrderItFound() {
-        let packed = ThreatDiagrams.packed(
-            DiagramBuilder.Model(
-                components: [
-                    component("a", x: 0),
-                    component("b", x: 1000),
-                    component("c", x: 2000)
-                ],
-                connections: [],
-                zones: []
-            )
-        )
-
-        let byId = Dictionary(uniqueKeysWithValues: packed.components.map { ($0.id, $0.x) })
-        #expect((byId["a"] ?? 0) < (byId["b"] ?? 0))
-        #expect((byId["b"] ?? 0) < (byId["c"] ?? 0))
-    }
-
-    @Test func leavesOneThingWhereItIs() {
-        let packed = ThreatDiagrams.packed(
-            DiagramBuilder.Model(components: [component("a", x: 900)], connections: [], zones: [])
-        )
-
-        #expect(packed.components.first?.x == 900)
+        #expect(placed.components.map(\.id) == ["a"])
     }
 }

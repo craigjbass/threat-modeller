@@ -13,7 +13,7 @@ public enum DiagramBuilder {
     public static let chipSize = 8.5
     public static let zoneNameSize = 13.0
 
-    public struct Model {
+    public struct Model: Equatable, Sendable {
         public let components: [ViewedComponent]
         public let connections: [ViewedConnection]
         public let zones: [ViewedZone]

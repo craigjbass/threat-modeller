@@ -293,3 +293,43 @@ struct LayOutModelTests {
         #expect(response.flowsOverUnrelatedZones == 0)
     }
 }
+
+@Suite("A zone wide enough for its own name")
+struct ZoneNameWidthTests {
+    private let useCase = LayOutModel()
+
+    @Test func widensAZoneToHoldALongName() throws {
+        let response = useCase.execute(
+            LayOutModelRequest(
+                source: ArchitectureSource(
+                    systemName: "P",
+                    zones: [
+                        SourceZone(
+                            id: "z",
+                            name: "Corporate Cloud (MDM + EDR management)",
+                            components: [SourceComponent(id: "a", technologyId: "aws-ec2")]
+                        )
+                    ]
+                )
+            )
+        )
+
+        let zone = try #require(response.zones.first)
+        #expect(zone.width >= LayOutModel.width(ofName: "Corporate Cloud (MDM + EDR management)"))
+    }
+
+    @Test func leavesAZoneWiderThanItsNameAlone() throws {
+        let wide = (0 ..< 6).map { SourceComponent(id: "c\($0)", technologyId: "aws-ec2") }
+        let response = useCase.execute(
+            LayOutModelRequest(
+                source: ArchitectureSource(
+                    systemName: "P",
+                    zones: [SourceZone(id: "z", name: "Edge", components: wide)]
+                )
+            )
+        )
+
+        let zone = try #require(response.zones.first)
+        #expect(zone.width > LayOutModel.width(ofName: "Edge"))
+    }
+}

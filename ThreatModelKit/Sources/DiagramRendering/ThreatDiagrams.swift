@@ -97,139 +97,138 @@ public enum ThreatDiagrams {
         let components = model.components.filter { componentIds.contains($0.id) }
         let zoneIds = Set(components.compactMap(\.zoneId)).union(kind == "zone" ? [id] : [])
 
-        return packed(
+        return laidOut(
             DiagramBuilder.Model(
                 components: components,
                 connections: model.connections.filter { connectionIds.contains($0.id) },
-                zones: model.zones
-                    .filter { zoneIds.contains($0.id) }
-                    .map { shrunk($0, around: components) },
+                zones: model.zones.filter { zoneIds.contains($0.id) },
                 risks: model.risks,
                 guards: model.guards
             )
         )
     }
 
-    /// The widest blank a fragment keeps between one thing and the next.
-    public static let widestBlank = 60.0
-
-    /// The fragment with the empty parts taken out.
+    /// The fragment placed on its own.
     ///
-    /// Positions come from the whole layout, so two zones that sit far apart
-    /// there sit far apart here, with nothing in between. Taking out the blank
-    /// keeps what is left where it was in relation to everything else, and
-    /// stops a picture of two nodes covering the space of thirty-five.
-    public static func packed(_ model: DiagramBuilder.Model) -> DiagramBuilder.Model {
-        let boxes = model.components.map {
-            Component.drawnRect(at: Point(x: $0.x, y: $0.y), shape: DiagramBuilder.shape(of: $0))
-        }
-        let zones = model.zones.map {
-            Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height)
-        }
-        let all = boxes + zones
-        guard all.count > 1 else { return model }
+    /// Taking the positions from the whole diagram left the pieces where a
+    /// layout of thirty-five nodes needed them, which is nowhere near where a
+    /// picture of three needs them. The same layout runs again over the
+    /// fragment alone, so every technique and the whole fitness apply to the
+    /// picture a reader actually sees.
+    public static func laidOut(_ model: DiagramBuilder.Model) -> DiagramBuilder.Model {
+        let placed = LayOutModel().execute(
+            LayOutModelRequest(
+                source: source(of: model),
+                shapes: Dictionary(
+                    uniqueKeysWithValues: model.components.map { ($0.id, $0.shapeId) }
+                )
+            )
+        )
 
-        let acrossX = blanks(in: all.map { ($0.minX, $0.maxX) })
-        let acrossY = blanks(in: all.map { ($0.minY, $0.maxY) })
-        guard acrossX.isEmpty == false || acrossY.isEmpty == false else { return model }
-
-        func moved(_ x: Double, _ y: Double) -> Point {
-            Point(x: x - taken(from: acrossX, before: x), y: y - taken(from: acrossY, before: y))
-        }
+        let at = Dictionary(
+            uniqueKeysWithValues: placed.components.map { ($0.id, Point(x: $0.x, y: $0.y)) }
+        )
+        let rects = Dictionary(uniqueKeysWithValues: placed.zones.map { ($0.id, $0) })
 
         return DiagramBuilder.Model(
             components: model.components.map { component in
-                let place = moved(component.x, component.y)
-                return ViewedComponent(
-                    id: component.id,
-                    technologyId: component.technologyId,
-                    name: component.name,
-                    customName: component.customName,
-                    providerId: component.providerId,
-                    categoryId: component.categoryId,
-                    x: place.x,
-                    y: place.y,
-                    sensitivityId: component.sensitivityId,
-                    threatsDisabled: component.threatsDisabled,
-                    isUnknownTechnology: component.isUnknownTechnology,
-                    zoneId: component.zoneId,
-                    runsAsId: component.runsAsId,
-                    shapeId: component.shapeId,
-                    shapeOverrideId: component.shapeOverrideId
-                )
+                let place = at[component.id] ?? Point(x: component.x, y: component.y)
+                return moved(component, to: place)
             },
             connections: model.connections,
-            zones: model.zones.map { zone in
-                let place = moved(zone.x, zone.y)
-                return ViewedZone(
-                    id: zone.id,
-                    name: zone.name,
-                    customName: zone.customName,
-                    networkZoneId: zone.networkZoneId,
-                    networkTypeId: zone.networkTypeId,
-                    riskReductionEnabled: zone.riskReductionEnabled,
-                    riskReductionPercent: zone.riskReductionPercent,
-                    x: place.x,
-                    y: place.y,
-                    width: zone.width,
-                    height: zone.height,
-                    boundaryId: zone.boundaryId
-                )
+            zones: model.zones.compactMap { zone in
+                guard let rect = rects[zone.id] else { return nil }
+                return sized(zone, to: rect)
             },
             risks: model.risks,
             guards: model.guards
         )
     }
 
-    /// The stretches of one axis that nothing covers and that are wider than
-    /// the widest blank a fragment keeps, as the range to close and how much
-    /// of it to close.
-    static func blanks(in spans: [(Double, Double)]) -> [(from: Double, remove: Double)] {
-        let sorted = spans.sorted { $0.0 < $1.0 }
-        var found: [(from: Double, remove: Double)] = []
-        var reached = sorted[0].1
-
-        for span in sorted.dropFirst() {
-            let blank = span.0 - reached
-            if blank > widestBlank { found.append((from: span.0, remove: blank - widestBlank)) }
-            reached = max(reached, span.1)
-        }
-
-        return found
-    }
-
-    /// How much has been taken out of the axis before this point.
-    static func taken(from blanks: [(from: Double, remove: Double)], before place: Double) -> Double {
-        blanks.filter { place >= $0.from }.map(\.remove).reduce(0, +)
-    }
-
-    /// How much blank a shrunk zone keeps round what it holds.
-    public static let zonePadding = 40.0
-
-    /// The zone, cut to the components this picture still shows.
+    /// The fragment as the layout reads one: components in their zones, the
+    /// flows between them, and what guards each one.
     ///
-    /// A fragment that kept the whole zone would draw one node inside a box
-    /// the size of the diagram it came from, which says nothing about either.
-    /// A zone with nothing left in it keeps its own size, because there is
-    /// nothing to cut it to.
-    static func shrunk(_ zone: ViewedZone, around components: [ViewedComponent]) -> ViewedZone {
-        let inside = components.filter { $0.zoneId == zone.id }
-        guard inside.isEmpty == false else { return zone }
-
-        let rects = inside.map {
-            Component.drawnRect(
-                at: Point(x: $0.x, y: $0.y),
-                shape: DiagramBuilder.shape(of: $0)
+    /// The guard is named by its label rather than a component id, because the
+    /// component doing the guarding is often not in the fragment. The layout
+    /// only groups boundaries by it, so a label serves.
+    static func source(of model: DiagramBuilder.Model) -> ArchitectureSource {
+        func sourceComponent(_ component: ViewedComponent) -> SourceComponent {
+            SourceComponent(
+                id: component.id,
+                technologyId: component.technologyId,
+                name: component.name,
+                data: component.sensitivityId,
+                raisesThreats: component.threatsDisabled == false,
+                runsAs: component.runsAsId,
+                shape: component.shapeId
             )
         }
-        let lowestX = rects.map(\.minX).min()! - zonePadding
-        let highestX = rects.map(\.maxX).max()! + zonePadding
-        // The band at the top holds the name, and a component's centre must
-        // sit below it for the zone to hold that component.
-        let lowestY = rects.map(\.minY).min()! - zonePadding - ZoneContainment.headerHeight
-        let highestY = rects.map(\.maxY).max()! + zonePadding
 
-        return ViewedZone(
+        let held = Set(model.zones.map(\.id))
+
+        return ArchitectureSource(
+            systemName: "fragment",
+            zones: model.zones.map { zone in
+                SourceZone(
+                    id: zone.id,
+                    kind: zone.networkZoneId,
+                    network: zone.networkTypeId,
+                    name: zone.customName,
+                    reducesRisk: zone.riskReductionEnabled,
+                    reducesRiskBy: zone.riskReductionPercent,
+                    components: model.components
+                        .filter { $0.zoneId == zone.id }
+                        .map(sourceComponent),
+                    boundary: zone.boundaryId
+                )
+            },
+            components: model.components
+                .filter { $0.zoneId.map { held.contains($0) == false } ?? true }
+                .map(sourceComponent),
+            flows: model.connections.map {
+                SourceFlow(
+                    sourceId: $0.sourceComponentId,
+                    targetId: $0.targetComponentId,
+                    kind: $0.kindId,
+                    description: $0.description
+                )
+            },
+            mitigates: model.components.flatMap { component in
+                (model.guards["component:\(component.id)"] ?? []).map { held in
+                    SourceMitigates(
+                        sourceId: held.label,
+                        targetId: component.id,
+                        threatIds: [],
+                        reducesRiskBy: 0,
+                        status: held.isAssumed ? "assumed" : "adopted"
+                    )
+                }
+            }
+        )
+    }
+
+    static func moved(_ component: ViewedComponent, to place: Point) -> ViewedComponent {
+        ViewedComponent(
+            id: component.id,
+            technologyId: component.technologyId,
+            name: component.name,
+            customName: component.customName,
+            providerId: component.providerId,
+            categoryId: component.categoryId,
+            x: place.x,
+            y: place.y,
+            sensitivityId: component.sensitivityId,
+            threatsDisabled: component.threatsDisabled,
+            isUnknownTechnology: component.isUnknownTechnology,
+            zoneId: component.zoneId,
+            runsAsId: component.runsAsId,
+            shapeId: component.shapeId,
+            shapeOverrideId: component.shapeOverrideId
+        )
+    }
+
+    static func sized(_ zone: ViewedZone, to rect: LaidOutZone) -> ViewedZone {
+        ViewedZone(
             id: zone.id,
             name: zone.name,
             customName: zone.customName,
@@ -237,10 +236,10 @@ public enum ThreatDiagrams {
             networkTypeId: zone.networkTypeId,
             riskReductionEnabled: zone.riskReductionEnabled,
             riskReductionPercent: zone.riskReductionPercent,
-            x: lowestX,
-            y: lowestY,
-            width: highestX - lowestX,
-            height: highestY - lowestY,
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
             boundaryId: zone.boundaryId
         )
     }

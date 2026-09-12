@@ -257,12 +257,17 @@ public struct LayOutModel: LayOutModelUseCase {
         var tallestInRow = 0.0
 
         for zone in request.source.zones {
-            let size = Self.size(
+            var size = Self.size(
                 ofZoneHolding: zone.components.count,
                 spacing: spacing,
                 grid: plan.grid,
                 zonePadding: plan.zonePadding
             )
+            // A zone states its name in a band across its top, so it is at
+            // least as wide as the name. A zone holding one component is
+            // narrower than a name of forty characters, and the name ran out
+            // of the box.
+            size.width = max(size.width, Self.width(ofName: zone.name ?? zone.id))
 
             if x > plan.zonePadding && x + size.width > plan.rowWidth {
                 x = plan.zonePadding
@@ -299,6 +304,14 @@ public struct LayOutModel: LayOutModelUseCase {
         ) + components
 
         return LayOutModelResponse(components: components, zones: zones)
+    }
+
+    /// About how wide a character is in the band a zone states its name in.
+    static let nameCharacterWidth = 7.4
+
+    /// How wide a zone has to be to state this name.
+    public static func width(ofName name: String) -> Double {
+        Double(name.count) * nameCharacterWidth + 40
     }
 
     /// A grid `ceil(sqrt(n))` columns wide, so four components make a square.
