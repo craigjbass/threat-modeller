@@ -62,7 +62,7 @@ struct BoundaryCrossingsTests {
         #expect(marks.isEmpty)
     }
 
-    @Test func marksOnceWhereAFlowLeavesTheOnlyZone() {
+    @Test func marksNothingWhereAFlowOnlyLeavesAZone() {
         let marks = crossings(
             fromX: 192,
             toX: 728,
@@ -71,10 +71,9 @@ struct BoundaryCrossingsTests {
             zones: [zone("z1", x: 0, y: 0)]
         )
 
-        #expect(marks.count == 1)
-        #expect(marks[0].networkZoneId == "private")
-        #expect(marks[0].zoneId == "z1")
-        #expect(abs(marks[0].point.x - 400) < 6)
+        // A boundary belongs to the zone it protects. Nothing protects what
+        // the flow arrives at, so nothing is marked.
+        #expect(marks.isEmpty)
     }
 
     @Test func marksOnceWhereAFlowEntersTheOnlyZone() {
@@ -90,7 +89,7 @@ struct BoundaryCrossingsTests {
         #expect(abs(marks[0].point.x - 600) < 6)
     }
 
-    @Test func marksTwiceWhereAFlowLeavesOneZoneAndEntersAnother() {
+    @Test func marksOnceWhereAFlowLeavesOneZoneAndEntersAnother() {
         let marks = crossings(
             fromX: 192,
             toX: 728,
@@ -102,19 +101,20 @@ struct BoundaryCrossingsTests {
             ]
         )
 
-        #expect(marks.count == 2)
-        #expect(marks[0].networkZoneId == "public")
-        #expect(marks[1].networkZoneId == "private")
-        #expect(marks[0].point.x < marks[1].point.x)
+        // One boundary, at the zone the flow arrives in. Marking the one it
+        // left drew the same boundary twice for one flow.
+        #expect(marks.count == 1)
+        #expect(marks[0].zoneId == "z2")
+        #expect(abs(marks[0].point.x - 600) < 6)
     }
 
     @Test func statesTheTangentOfAFlowRunningStraightAcross() {
         let marks = crossings(
-            fromX: 192,
+            fromX: 100,
             toX: 728,
-            sourceZoneId: "z1",
-            targetZoneId: nil,
-            zones: [zone("z1", x: 0, y: 0)]
+            sourceZoneId: nil,
+            targetZoneId: "z1",
+            zones: [zone("z1", x: 600, y: 0)]
         )
 
         #expect(marks.count == 1)

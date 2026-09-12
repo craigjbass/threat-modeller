@@ -138,7 +138,11 @@ public enum BoundaryCrossings {
         }
     }
 
-    /// Every place the flow crosses a zone edge.
+    /// Every place the flow enters a zone.
+    ///
+    /// A boundary belongs to the zone it protects, so the mark goes where the
+    /// flow arrives, not where it left. Marking both drew the same boundary
+    /// twice for one flow, and the leaving mark protects nothing.
     ///
     /// A flow whose two ends sit in the same zone crosses nothing: a curve that
     /// bulges outside its own zone and back is not a boundary crossing.
@@ -158,18 +162,19 @@ public enum BoundaryCrossings {
             let t = Double(step) / Double(steps)
             let point = curve.point(at: t)
             let entered = zone(holding: point, in: zones)
+            defer { held = entered }
             guard entered?.id != held?.id else { continue }
+            guard let entered else { continue }
 
             let before = curve.point(at: Double(step - 1) / Double(steps))
             found.append(
                 BoundaryCrossing(
                     point: Point(x: (before.x + point.x) / 2, y: (before.y + point.y) / 2),
                     angle: atan2(point.y - before.y, point.x - before.x),
-                    zoneId: (entered ?? held)?.id ?? "",
-                    networkZoneId: (entered ?? held)?.networkZoneId ?? "private"
+                    zoneId: entered.id,
+                    networkZoneId: entered.networkZoneId
                 )
             )
-            held = entered
         }
 
         return found
