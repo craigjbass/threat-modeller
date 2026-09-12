@@ -40,6 +40,10 @@ public struct ExportModelAsImageResponse: Equatable, Sendable {
 public struct ExportModelAsImage: ExportModelAsImageUseCase {
     /// The blank space left around everything the model holds.
     public static let margin = 40.0
+    /// The extra blank a model that can route a flow needs. A detour passes
+    /// `FlowRouting.clearance` outside a zone, and the curve's controls pull
+    /// up to 150 further, so a picture cut to the zones alone clips the flow.
+    public static let routingAllowance = 150.0
     /// What an empty model draws, so the file is a picture rather than nothing.
     public static let emptySize = 400.0
 
@@ -86,6 +90,14 @@ public struct ExportModelAsImage: ExportModelAsImageUseCase {
                 width: zone.rect.size.width,
                 height: zone.rect.size.height
             )
+        }
+
+        // Only a model with more than one zone can route a flow round one.
+        if model.zones.count > 1 {
+            lowestX -= Self.routingAllowance
+            lowestY -= Self.routingAllowance
+            highestX += Self.routingAllowance
+            highestY += Self.routingAllowance
         }
 
         guard model.components.isEmpty == false || model.zones.isEmpty == false else {

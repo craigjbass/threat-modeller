@@ -88,3 +88,28 @@ struct FlowRoutingTests {
         #expect(found.count <= FlowRouting.mostWaypoints)
     }
 }
+
+@Suite("Taking an upright flow round a zone")
+struct UprightFlowRoutingTests {
+    private let across = Rect(x: 0, y: 200, width: 400, height: 100)
+
+    @Test func goesRoundTheSideOfAZoneAcrossAnUprightFlow() {
+        let start = Point(x: 60, y: 0)
+        let end = Point(x: 60, y: 500)
+        let found = FlowRouting.waypoints(from: start, to: end, avoiding: [across])
+
+        #expect(found.isEmpty == false)
+        // The left edge is nearer than the right, so it goes round the left.
+        #expect(found[0].x == across.minX - FlowRouting.clearance)
+    }
+
+    @Test func goesRoundTheRightWhenTheRightIsNearer() {
+        let found = FlowRouting.waypoints(
+            from: Point(x: 340, y: 0),
+            to: Point(x: 340, y: 500),
+            avoiding: [across]
+        )
+
+        #expect(found[0].x == across.maxX + FlowRouting.clearance)
+    }
+}

@@ -34,6 +34,30 @@ public enum LoosePlacement: Equatable, Sendable, CaseIterable {
     case inDeclarationOrder
 }
 
+/// The grid a zone lays its components out on.
+public enum GridShape: Equatable, Sendable, CaseIterable {
+    /// `ceil(sqrt(n))` columns, so four components make a square.
+    case square
+    /// One column, so the zone is tall and narrow.
+    case oneColumn
+    /// Two columns.
+    case twoColumns
+
+    public func columns(for count: Int) -> Int {
+        switch self {
+        case .square: max(1, Int(Double(count).squareRoot().rounded(.up)))
+        case .oneColumn: 1
+        case .twoColumns: min(2, max(1, count))
+        }
+    }
+}
+
+/// Which side of the zones the band of loose components sits.
+public enum BandSide: Equatable, Sendable, CaseIterable {
+    case above
+    case below
+}
+
 /// The order components sit in inside their zone.
 public enum ComponentOrder: Equatable, Sendable, CaseIterable {
     /// The order the file declares.
@@ -50,17 +74,27 @@ public struct LayoutPlan: Equatable, Sendable {
     public var rowWidth: Double
     public var loose: LoosePlacement
     public var componentOrder: ComponentOrder
+    public var grid: GridShape
+    public var band: BandSide
+    /// The blank a zone leaves round its contents.
+    public var zonePadding: Double
 
     public init(
         spacing: LayoutSpacing,
         rowWidth: Double,
         loose: LoosePlacement = .aboveMostConnected,
-        componentOrder: ComponentOrder = .declaration
+        componentOrder: ComponentOrder = .declaration,
+        grid: GridShape = .square,
+        band: BandSide = .above,
+        zonePadding: Double = 40
     ) {
         self.spacing = spacing
         self.rowWidth = rowWidth
         self.loose = loose
         self.componentOrder = componentOrder
+        self.grid = grid
+        self.band = band
+        self.zonePadding = zonePadding
     }
 }
 
@@ -69,8 +103,11 @@ public struct LayoutPlan: Equatable, Sendable {
 /// A fault is twenty times a detour, and a detour is worth about 500 points of
 /// diagram, so nothing is ever taken for being bigger alone.
 public struct LayoutFitness: Equatable, Sendable {
-    /// Flows that cross a trust boundary they do not pass through.
-    public let unrelatedCrossings: Int
+    /// Breaks the gaps had to cut in a trust boundary to keep a flow that has
+    /// nothing to do with it from crossing it. A whole boundary reads best, so
+    /// this costs, but far less than a fault: the drawing holds the rule
+    /// whatever the layout achieves.
+    public let brokenBoundaries: Int
     /// Flows that run over a zone rectangle they have nothing to do with, after
     /// routing has done what it can.
     public let flowsOverUnrelatedZones: Int
@@ -80,13 +117,13 @@ public struct LayoutFitness: Equatable, Sendable {
     public let height: Double
 
     public init(
-        unrelatedCrossings: Int,
+        brokenBoundaries: Int,
         flowsOverUnrelatedZones: Int,
         waypoints: Int,
         width: Double,
         height: Double
     ) {
-        self.unrelatedCrossings = unrelatedCrossings
+        self.brokenBoundaries = brokenBoundaries
         self.flowsOverUnrelatedZones = flowsOverUnrelatedZones
         self.waypoints = waypoints
         self.width = width
@@ -94,10 +131,24 @@ public struct LayoutFitness: Equatable, Sendable {
     }
 
     public var score: Double {
-        100 * Double(unrelatedCrossings)
-            + 100 * Double(flowsOverUnrelatedZones)
+        100 * Double(flowsOverUnrelatedZones)
+            + 10 * Double(brokenBoundaries)
             + 5 * Double(waypoints)
-            + (width + height) / 100
+            + (width + height) / 50
+            + lopsidedness
+    }
+
+    /// What a picture far from square costs. A reader scrolls a diagram two
+    /// and a half times taller than it is wide, and reads a square one.
+    ///
+    /// A small picture is exempt: a single node is three times wider than it
+    /// is tall and nobody minds.
+    private var lopsidedness: Double {
+        let longer = max(width, height)
+        guard longer > 800 else { return 0 }
+
+        let shorter = max(min(width, height), 1)
+        return 20 * max(0, longer / shorter - 1.6)
     }
 }
 

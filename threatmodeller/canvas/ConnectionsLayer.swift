@@ -3,64 +3,23 @@ import ThreatModelKit
 
 /// Declared `nonisolated`: the app target defaults every type to the main
 /// actor, and this is a pure value computation with no shared state.
+/// Declared `nonisolated`: the app target defaults every type to the main
+/// actor, and this is a pure value computation with no shared state.
 nonisolated extension BoundaryCrossings.BoundaryRun {
-    /// How much of the curve is left out either side of a flow that crosses it
-    /// but does not pass through it, measured in samples.
-    static let gap = 3
-    /// How near a sample has to be to a flow to count as meeting it. A sample
-    /// that lands exactly on a flow crosses nothing by the straddle test, and
-    /// a reader still sees the two touch.
-    static let nearness = 2.0
-
-    /// The bow this boundary draws, with a gap wherever a flow crosses it that
-    /// it says nothing about.
-    ///
-    /// A reader takes a crossing for a statement that the boundary applies to
-    /// that flow. The generated layout widens the picture to remove most of
-    /// them; the gap holds the rule for the rest.
+    /// The bow this boundary draws, in the stretches no unrelated flow crosses.
     func path(avoiding unrelated: [[Point]]) -> Path {
-        let samples = CurveCrossing.samples(of: self)
-        var blocked = Set<Int>()
-
-        for flow in unrelated {
-            var met = CurveCrossing.crossings(samples, flow)
-            met += samples.indices.filter {
-                CurveCrossing.touches(samples[$0], flow, within: Self.nearness)
-            }
-
-            for index in met {
-                for near in (index - Self.gap)...(index + Self.gap) { blocked.insert(near) }
-            }
-        }
-
         var built = Path()
-        var drawing = false
 
-        for index in 0 ..< samples.count - 1 {
-            guard blocked.contains(index) == false else {
-                drawing = false
-                continue
-            }
-            if drawing == false {
-                built.move(to: CGPoint(samples[index]))
-                drawing = true
-            }
-            built.addLine(to: CGPoint(samples[index + 1]))
+        for stretch in BoundaryCrossings.stretches(of: self, avoiding: unrelated) {
+            guard let first = stretch.first else { continue }
+            built.move(to: CGPoint(first))
+            for point in stretch.dropFirst() { built.addLine(to: CGPoint(point)) }
         }
 
         return built
     }
 }
 
-/// Every link drawn in one `Canvas` pass, plus the preview line while a
-/// connection drag is in flight. Spec section 9 sets this painting order.
-///
-/// A link takes the colour of the highest residual risk level it carries, and
-/// states its description, or its flow kind when the user wrote none. A link
-/// either end of which is out of scope draws grey and dashed.
-///
-/// Where a link crosses a zone edge the layer draws the dotted bow OWASP
-/// Threat Dragon uses for a trust boundary, across the link at a right angle.
 struct ConnectionsLayer: View {
     /// How many guards a crossing names before it counts the rest.
     static let guardsShown = 2
@@ -98,18 +57,20 @@ struct ConnectionsLayer: View {
                 guard let source = boxes[connection.sourceComponentId],
                       let target = boxes[connection.targetComponentId] else { continue }
 
+                let avoid = CanvasHitTest.zonesToAvoid(
+                    connection,
+                    components: componentsById,
+                    zones: zones
+                )
                 let anchors = AnchorGeometry.nearestPair(
                     from: source.rect.modelRect,
-                    to: target.rect.modelRect
+                    to: target.rect.modelRect,
+                    avoiding: avoid
                 )
                 let path = ConnectionPath(
                     from: CGPoint(AnchorGeometry.point(anchors.source, of: source.rect.modelRect)),
                     to: CGPoint(AnchorGeometry.point(anchors.target, of: target.rect.modelRect)),
-                    avoiding: CanvasHitTest.zonesToAvoid(
-                        connection,
-                        components: componentsById,
-                        zones: zones
-                    )
+                    avoiding: avoid
                 )
                 draw(connection, along: path, in: &context)
 

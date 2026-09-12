@@ -44,16 +44,19 @@ public struct BoundaryCrossing: Equatable, Sendable {
 public enum BoundaryCrossings {
     /// The shortest a boundary curve may be. One flow through it still has to
     /// read as a boundary beside a 104 point node, not as a tick on the line.
-    public static let length = 96.0
+    public static let length = 72.0
     /// How far the curve bows.
     public static let bow = 18.0
     /// How far apart two crossings of one boundary may sit and still belong to
     /// the same run. Beyond this the boundary draws twice, because one curve
     /// across the gap would claim canvas it does not cross.
-    public static let together = 200.0
+    public static let together = 120.0
     /// The blank the run leaves past the outermost flow it crosses, so the
     /// curve reaches beyond every arrow through it.
-    public static let overhang = 34.0
+    public static let overhang = 14.0
+    /// How far short of a flow that is not in the run the curve stops. A
+    /// boundary that reached past one would say something about it.
+    public static let shyOf = 10.0
     /// How many points along the flow are tested.
     public static let steps = 200
 
@@ -194,7 +197,15 @@ public enum BoundaryCrossings {
         }
 
         return order.flatMap { key in
-            clusters(of: grouped[key] ?? []).map(run(of:))
+            clusters(of: grouped[key] ?? []).map { cluster in
+                let mine = Set(cluster.map(\.connectionId))
+                let others = marked
+                    .filter { $0.crossing.zoneId == cluster[0].crossing.zoneId }
+                    .filter { mine.contains($0.connectionId) == false }
+                    .map(\.crossing.point)
+
+                return run(of: cluster, stoppingShortOf: others)
+            }
         }
     }
 
@@ -225,8 +236,11 @@ public enum BoundaryCrossings {
     }
 
     /// The curve one cluster draws: across the flows, long enough to reach
-    /// past the outermost of them.
-    private static func run(of cluster: [MarkedCrossing]) -> BoundaryRun {
+    /// past the outermost of them, and never past a flow that is not in it.
+    private static func run(
+        of cluster: [MarkedCrossing],
+        stoppingShortOf others: [Point]
+    ) -> BoundaryRun {
         let points = cluster.map(\.crossing.point)
         let centre = Point(
             x: points.map(\.x).reduce(0, +) / Double(points.count),
@@ -241,10 +255,20 @@ public enum BoundaryCrossings {
         )
         let across = along + .pi / 2
 
-        let reach = points.map { point in
-            abs((point.x - centre.x) * cos(across) + (point.y - centre.y) * sin(across))
+        func alongTheBoundary(_ point: Point) -> Double {
+            (point.x - centre.x) * cos(across) + (point.y - centre.y) * sin(across)
         }
-        let half = max((reach.max() ?? 0) + overhang, length / 2)
+
+        let reach = points.map { abs(alongTheBoundary($0)) }
+        var half = max((reach.max() ?? 0) + overhang, length / 2)
+
+        // A boundary that reached past a flow it says nothing about would say
+        // something about it, so it stops short of the nearest one.
+        let nearestOther = others
+            .map { abs(alongTheBoundary($0)) }
+            .filter { $0 > (reach.max() ?? 0) }
+            .min()
+        if let nearestOther { half = min(half, max(nearestOther - shyOf, reach.max() ?? 0)) }
 
         return BoundaryRun(
             zoneId: cluster[0].crossing.zoneId,
@@ -256,5 +280,64 @@ public enum BoundaryCrossings {
             end: Point(x: centre.x + half * cos(across), y: centre.y + half * sin(across)),
             control: Point(x: centre.x - bow * cos(along), y: centre.y - bow * sin(along))
         )
+    }
+
+    // MARK: what a boundary can actually draw
+
+    /// How much of the curve is left out either side of a flow that crosses it
+    /// but does not pass through it, measured in samples.
+    public static let gap = 3
+    /// How near a sample has to be to a flow to count as meeting it. A sample
+    /// that lands exactly on a flow crosses nothing by the straddle test, and
+    /// a reader still sees the two touch.
+    public static let nearness = 2.0
+
+    /// The stretches of the boundary that no unrelated flow crosses.
+    ///
+    /// A flow that has nothing to do with a boundary must not cross its curve:
+    /// a reader takes a crossing for a statement that the boundary applies to
+    /// that flow. What is left is what the canvas draws. A boundary every flow
+    /// crosses draws nothing, which is correct: nothing about it can be stated
+    /// without a false crossing.
+    public static func stretches(
+        of run: BoundaryRun,
+        avoiding unrelated: [[Point]]
+    ) -> [[Point]] {
+        let samples = CurveCrossing.samples(of: run)
+        var blocked = Set<Int>()
+
+        for flow in unrelated {
+            var met = CurveCrossing.crossings(samples, flow)
+            met += samples.indices.filter {
+                CurveCrossing.touches(samples[$0], flow, within: nearness)
+            }
+
+            for index in met {
+                for near in (index - gap)...(index + gap) { blocked.insert(near) }
+            }
+        }
+
+        var built: [[Point]] = []
+        var piece: [Point] = []
+
+        for index in 0 ..< samples.count - 1 {
+            guard blocked.contains(index) == false else {
+                if piece.count > 1 { built.append(piece) }
+                piece = []
+                continue
+            }
+            if piece.isEmpty { piece.append(samples[index]) }
+            piece.append(samples[index + 1])
+        }
+        if piece.count > 1 { built.append(piece) }
+
+        return built
+    }
+
+    /// How badly the gaps break this boundary: one for each break, and one
+    /// more when nothing of it survives.
+    public static func breaks(of run: BoundaryRun, avoiding unrelated: [[Point]]) -> Int {
+        let pieces = stretches(of: run, avoiding: unrelated).count
+        return pieces == 0 ? 2 : pieces - 1
     }
 }

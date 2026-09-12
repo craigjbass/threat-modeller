@@ -33,7 +33,8 @@ nonisolated enum CanvasHitTest {
               let target = boxes[connection.targetComponentId] else { return nil }
         let anchors = AnchorGeometry.nearestPair(
             from: source.rect.modelRect,
-            to: target.rect.modelRect
+            to: target.rect.modelRect,
+            avoiding: zones
         )
         return ConnectionPath(
             from: CGPoint(AnchorGeometry.point(anchors.source, of: source.rect.modelRect)),

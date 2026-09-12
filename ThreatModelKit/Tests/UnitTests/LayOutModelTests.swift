@@ -59,9 +59,15 @@ struct LayOutModelTests {
             )
         )
 
+        // Which grid the layout picks is its own business; that the zone holds
+        // what it was given is not.
         let zone = try #require(response.zones.first)
-        #expect(zone.width == 160 * 2 + 60 + 80)
-        #expect(zone.height == 40 + 72 + 80)
+        for placed in response.components {
+            #expect(placed.x >= zone.x)
+            #expect(placed.y >= zone.y)
+            #expect(placed.x + 160 <= zone.x + zone.width)
+            #expect(placed.y + 72 <= zone.y + zone.height)
+        }
     }
 
     @Test func givesAZoneHoldingNothingOneCell() throws {
@@ -106,7 +112,7 @@ struct LayOutModelTests {
         #expect(secondRow.x == 40)
     }
 
-    @Test func putsTheZonesBelowTheBand() {
+    @Test func keepsTheBandClearOfTheZones() throws {
         let response = layOut(
             ArchitectureSource(
                 systemName: "P",
@@ -115,7 +121,11 @@ struct LayOutModelTests {
             )
         )
 
-        #expect(response.zones[0].y == 40 + 72 + 144)
+        let zone = try #require(response.zones.first)
+        let band = try #require(response.components.first { $0.id == "loose" })
+
+        // Above or below is the layout's choice; overlapping the zone is not.
+        #expect(band.y + 72 <= zone.y || band.y >= zone.y + zone.height)
     }
 
     @Test func drawsTheSamePictureEveryTime() {
@@ -154,10 +164,19 @@ struct LayOutModelTests {
         let source = twoZones(flows: [SourceFlow(sourceId: "a", targetId: "c")])
         let response = layOut(source)
 
-        #expect(response.unrelatedCrossings == 0)
-        // One flow crosses two boundaries and no other flow exists, so the
-        // starting gaps stand.
-        #expect(response.components.first { $0.id == "b" }?.x == 300.0)
+        #expect(response.brokenBoundaries == 0)
+    }
+
+    @Test func neverOverlapsTwoComponentsInOneZone() {
+        let response = layOut(twoZones(flows: []))
+        let placed = response.components
+
+        for one in placed {
+            for other in placed where other.id != one.id {
+                let apart = abs(one.x - other.x) >= 160 || abs(one.y - other.y) >= 72
+                #expect(apart, "\(one.id) and \(other.id) overlap")
+            }
+        }
     }
 
     @Test func statesWhatSurvivesTheWidening() {
@@ -174,7 +193,7 @@ struct LayOutModelTests {
 
         // The count is whatever the widening could not clear, and it is stated
         // rather than hidden.
-        #expect(response.unrelatedCrossings >= 0)
+        #expect(response.brokenBoundaries >= 0)
     }
 
     @Test func laysTheSameSourceOutTheSameWayTwice() {

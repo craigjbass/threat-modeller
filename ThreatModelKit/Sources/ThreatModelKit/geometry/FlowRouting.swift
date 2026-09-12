@@ -11,7 +11,7 @@ public enum FlowRouting {
     public static let clearance = 24.0
     /// How many detours one flow may take. A flow that is still over a zone
     /// after this keeps what it has, and the layout counts the fault.
-    public static let mostWaypoints = 2
+    public static let mostWaypoints = 4
     /// How many points along the flow are tested for entering a zone.
     public static let steps = 96
 
@@ -30,7 +30,14 @@ public enum FlowRouting {
         for _ in 0 ..< mostWaypoints {
             let curve = FlowCurve(from: start, through: found, to: end)
             guard let entered = firstZone(curve, enters: zones) else { break }
-            found.append(waypoint(round: entered.zone, at: entered.point))
+            found.append(
+                waypoint(
+                    round: entered.zone,
+                    at: entered.point,
+                    travellingFrom: start,
+                    to: end
+                )
+            )
         }
 
         return found
@@ -51,15 +58,30 @@ public enum FlowRouting {
         return nil
     }
 
-    /// The point the flow goes through to clear the zone: over its top edge or
-    /// under its bottom, whichever is nearer, at the x where the flow entered.
-    private static func waypoint(round zone: Rect, at entry: Point) -> Point {
-        let overTheTop = entry.y - zone.minY + clearance
-        let underTheBottom = zone.maxY - entry.y + clearance
-        let y = overTheTop <= underTheBottom
-            ? zone.minY - clearance
-            : zone.maxY + clearance
+    /// The point the flow goes through to clear the zone.
+    ///
+    /// The way out is across the flow, not along it: a level flow passes over
+    /// the top or under the bottom, and an upright flow round the left or the
+    /// right. Going round the near side would put the waypoint in front of the
+    /// zone and clear nothing.
+    private static func waypoint(
+        round zone: Rect,
+        at entry: Point,
+        travellingFrom start: Point,
+        to end: Point
+    ) -> Point {
+        let level = abs(end.x - start.x) >= abs(end.y - start.y)
 
-        return Point(x: min(max(entry.x, zone.minX), zone.maxX), y: y)
+        if level {
+            let alongX = min(max(entry.x, zone.minX), zone.maxX)
+            return entry.y - zone.minY <= zone.maxY - entry.y
+                ? Point(x: alongX, y: zone.minY - clearance)
+                : Point(x: alongX, y: zone.maxY + clearance)
+        }
+
+        let alongY = min(max(entry.y, zone.minY), zone.maxY)
+        return entry.x - zone.minX <= zone.maxX - entry.x
+            ? Point(x: zone.minX - clearance, y: alongY)
+            : Point(x: zone.maxX + clearance, y: alongY)
     }
 }
