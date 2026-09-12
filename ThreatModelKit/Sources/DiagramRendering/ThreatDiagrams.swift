@@ -97,15 +97,110 @@ public enum ThreatDiagrams {
         let components = model.components.filter { componentIds.contains($0.id) }
         let zoneIds = Set(components.compactMap(\.zoneId)).union(kind == "zone" ? [id] : [])
 
+        return packed(
+            DiagramBuilder.Model(
+                components: components,
+                connections: model.connections.filter { connectionIds.contains($0.id) },
+                zones: model.zones
+                    .filter { zoneIds.contains($0.id) }
+                    .map { shrunk($0, around: components) },
+                risks: model.risks,
+                guards: model.guards
+            )
+        )
+    }
+
+    /// The widest blank a fragment keeps between one thing and the next.
+    public static let widestBlank = 60.0
+
+    /// The fragment with the empty parts taken out.
+    ///
+    /// Positions come from the whole layout, so two zones that sit far apart
+    /// there sit far apart here, with nothing in between. Taking out the blank
+    /// keeps what is left where it was in relation to everything else, and
+    /// stops a picture of two nodes covering the space of thirty-five.
+    public static func packed(_ model: DiagramBuilder.Model) -> DiagramBuilder.Model {
+        let boxes = model.components.map {
+            Component.drawnRect(at: Point(x: $0.x, y: $0.y), shape: DiagramBuilder.shape(of: $0))
+        }
+        let zones = model.zones.map {
+            Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height)
+        }
+        let all = boxes + zones
+        guard all.count > 1 else { return model }
+
+        let acrossX = blanks(in: all.map { ($0.minX, $0.maxX) })
+        let acrossY = blanks(in: all.map { ($0.minY, $0.maxY) })
+        guard acrossX.isEmpty == false || acrossY.isEmpty == false else { return model }
+
+        func moved(_ x: Double, _ y: Double) -> Point {
+            Point(x: x - taken(from: acrossX, before: x), y: y - taken(from: acrossY, before: y))
+        }
+
         return DiagramBuilder.Model(
-            components: components,
-            connections: model.connections.filter { connectionIds.contains($0.id) },
-            zones: model.zones
-                .filter { zoneIds.contains($0.id) }
-                .map { shrunk($0, around: components) },
+            components: model.components.map { component in
+                let place = moved(component.x, component.y)
+                return ViewedComponent(
+                    id: component.id,
+                    technologyId: component.technologyId,
+                    name: component.name,
+                    customName: component.customName,
+                    providerId: component.providerId,
+                    categoryId: component.categoryId,
+                    x: place.x,
+                    y: place.y,
+                    sensitivityId: component.sensitivityId,
+                    threatsDisabled: component.threatsDisabled,
+                    isUnknownTechnology: component.isUnknownTechnology,
+                    zoneId: component.zoneId,
+                    runsAsId: component.runsAsId,
+                    shapeId: component.shapeId,
+                    shapeOverrideId: component.shapeOverrideId
+                )
+            },
+            connections: model.connections,
+            zones: model.zones.map { zone in
+                let place = moved(zone.x, zone.y)
+                return ViewedZone(
+                    id: zone.id,
+                    name: zone.name,
+                    customName: zone.customName,
+                    networkZoneId: zone.networkZoneId,
+                    networkTypeId: zone.networkTypeId,
+                    riskReductionEnabled: zone.riskReductionEnabled,
+                    riskReductionPercent: zone.riskReductionPercent,
+                    x: place.x,
+                    y: place.y,
+                    width: zone.width,
+                    height: zone.height,
+                    boundaryId: zone.boundaryId
+                )
+            },
             risks: model.risks,
             guards: model.guards
         )
+    }
+
+    /// The stretches of one axis that nothing covers and that are wider than
+    /// the widest blank a fragment keeps, as the range to close and how much
+    /// of it to close.
+    static func blanks(in spans: [(Double, Double)]) -> [(from: Double, remove: Double)] {
+        let sorted = spans.sorted { $0.0 < $1.0 }
+        var found: [(from: Double, remove: Double)] = []
+        var reached = sorted[0].1
+
+        for span in sorted.dropFirst() {
+            let blank = span.0 - reached
+            if blank > widestBlank { found.append((from: span.0, remove: blank - widestBlank)) }
+            reached = max(reached, span.1)
+        }
+
+        return found
+    }
+
+    /// How much has been taken out of the axis before this point.
+    static func taken(from blanks: [(from: Double, remove: Double)], before place: Double) -> Double {
+        blanks.filter { place >= $0.from }.map(\.remove).reduce(0, +)
     }
 
     /// How much blank a shrunk zone keeps round what it holds.

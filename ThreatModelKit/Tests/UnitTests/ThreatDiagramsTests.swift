@@ -209,3 +209,89 @@ struct FocusedZoneTests {
         #expect(ThreatDiagrams.focus(model, on: "component:a")?.zones.isEmpty == true)
     }
 }
+
+@Suite("Taking the blank out of a fragment")
+struct PackedFragmentTests {
+    private func component(_ id: String, x: Double, y: Double = 0) -> ViewedComponent {
+        ViewedComponent(
+            id: id,
+            technologyId: "aws-ec2",
+            name: id,
+            customName: nil,
+            providerId: "aws",
+            categoryId: "compute",
+            x: x,
+            y: y,
+            sensitivityId: "internal",
+            threatsDisabled: false,
+            isUnknownTechnology: false,
+            zoneId: nil
+        )
+    }
+
+    @Test func closesAWideBlankBetweenTwoThings() {
+        let packed = ThreatDiagrams.packed(
+            DiagramBuilder.Model(
+                components: [component("a", x: 0), component("far", x: 3000)],
+                connections: [],
+                zones: []
+            )
+        )
+
+        let places = packed.components.map(\.x).sorted()
+        #expect(places[0] == 0)
+        #expect(places[1] < 400)
+    }
+
+    @Test func leavesATightPairAlone() {
+        let packed = ThreatDiagrams.packed(
+            DiagramBuilder.Model(
+                components: [component("a", x: 0), component("b", x: 220)],
+                connections: [],
+                zones: []
+            )
+        )
+
+        #expect(packed.components.map(\.x).sorted() == [0, 220])
+    }
+
+    @Test func closesTheBlankOnBothAxes() {
+        let packed = ThreatDiagrams.packed(
+            DiagramBuilder.Model(
+                components: [component("a", x: 0, y: 0), component("far", x: 2000, y: 2000)],
+                connections: [],
+                zones: []
+            )
+        )
+
+        let far = packed.components.first { $0.id == "far" }
+        #expect((far?.x ?? 0) < 400)
+        #expect((far?.y ?? 0) < 400)
+    }
+
+    @Test func keepsTheOrderItFound() {
+        let packed = ThreatDiagrams.packed(
+            DiagramBuilder.Model(
+                components: [
+                    component("a", x: 0),
+                    component("b", x: 1000),
+                    component("c", x: 2000)
+                ],
+                connections: [],
+                zones: []
+            )
+        )
+
+        let byId = Dictionary(uniqueKeysWithValues: packed.components.map { ($0.id, $0.x) })
+        #expect((byId["a"] ?? 0) < (byId["b"] ?? 0))
+        #expect((byId["b"] ?? 0) < (byId["c"] ?? 0))
+    }
+
+    @Test func leavesOneThingWhereItIs() {
+        let packed = ThreatDiagrams.packed(
+            DiagramBuilder.Model(components: [component("a", x: 900)], connections: [], zones: [])
+        )
+
+        #expect(packed.components.first?.x == 900)
+    }
+}
