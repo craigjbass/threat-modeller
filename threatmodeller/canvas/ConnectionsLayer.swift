@@ -104,7 +104,12 @@ struct ConnectionsLayer: View {
                 )
                 let path = ConnectionPath(
                     from: CGPoint(AnchorGeometry.point(anchors.source, of: source.rect.modelRect)),
-                    to: CGPoint(AnchorGeometry.point(anchors.target, of: target.rect.modelRect))
+                    to: CGPoint(AnchorGeometry.point(anchors.target, of: target.rect.modelRect)),
+                    avoiding: CanvasHitTest.zonesToAvoid(
+                        connection,
+                        components: componentsById,
+                        zones: zones
+                    )
                 )
                 draw(connection, along: path, in: &context)
 
@@ -312,12 +317,8 @@ struct ConnectionsLayer: View {
         width: CGFloat,
         dashed: Bool
     ) {
-        var curve = Path()
-        curve.move(to: path.start)
-        curve.addCurve(to: path.end, control1: path.control1, control2: path.control2)
-
         context.stroke(
-            curve,
+            path.drawnPath,
             with: .color(colour),
             style: StrokeStyle(lineWidth: width, dash: dashed ? [6, 4] : [])
         )

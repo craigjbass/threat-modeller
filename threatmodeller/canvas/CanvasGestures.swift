@@ -27,7 +27,11 @@ struct CanvasGestures {
             if let connectionId = CanvasHitTest.connection(
                 under: point,
                 connections: session.canvas.connections,
-                boxes: boxes
+                boxes: boxes,
+                components: Dictionary(
+                    uniqueKeysWithValues: session.canvas.components.map { ($0.id, $0) }
+                ),
+                zones: session.canvas.zones
             ) {
                 canvas.select(connectionId: connectionId, addingToSelection: false)
             } else if let zoneId = CanvasHitTest.zone(under: point, zones: session.canvas.zones) {

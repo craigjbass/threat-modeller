@@ -26,7 +26,8 @@ nonisolated enum CanvasHitTest {
     /// The curve a link draws, or nil when either end is missing.
     static func path(
         for connection: ViewedConnection,
-        boxes: [String: ComponentBox]
+        boxes: [String: ComponentBox],
+        avoiding zones: [Rect] = []
     ) -> ConnectionPath? {
         guard let source = boxes[connection.sourceComponentId],
               let target = boxes[connection.targetComponentId] else { return nil }
@@ -36,7 +37,8 @@ nonisolated enum CanvasHitTest {
         )
         return ConnectionPath(
             from: CGPoint(AnchorGeometry.point(anchors.source, of: source.rect.modelRect)),
-            to: CGPoint(AnchorGeometry.point(anchors.target, of: target.rect.modelRect))
+            to: CGPoint(AnchorGeometry.point(anchors.target, of: target.rect.modelRect)),
+            avoiding: zones
         )
     }
 
@@ -45,11 +47,32 @@ nonisolated enum CanvasHitTest {
     static func connection(
         under modelPoint: CGPoint,
         connections: [ViewedConnection],
-        boxes: [String: ComponentBox]
+        boxes: [String: ComponentBox],
+        components: [String: ViewedComponent] = [:],
+        zones: [ViewedZone] = []
     ) -> String? {
         connections.last {
-            path(for: $0, boxes: boxes)?.containsClick(at: modelPoint) == true
+            path(
+                for: $0,
+                boxes: boxes,
+                avoiding: Self.zonesToAvoid($0, components: components, zones: zones)
+            )?.containsClick(at: modelPoint) == true
         }?.id
+    }
+
+    /// The zones a flow has nothing to do with, so it goes round them. A flow
+    /// whose ends this build cannot place avoids nothing, and draws straight.
+    static func zonesToAvoid(
+        _ connection: ViewedConnection,
+        components: [String: ViewedComponent],
+        zones: [ViewedZone]
+    ) -> [Rect] {
+        let source = components[connection.sourceComponentId]?.zoneId
+        let target = components[connection.targetComponentId]?.zoneId
+
+        return zones
+            .filter { $0.id != source && $0.id != target }
+            .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
     }
 
     /// The component under the point, or nil. A later component wins.

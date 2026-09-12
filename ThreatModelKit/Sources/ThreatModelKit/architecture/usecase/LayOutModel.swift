@@ -49,41 +49,30 @@ public struct LaidOutZone: Equatable, Sendable {
 public struct LayOutModelResponse: Equatable, Sendable {
     public let components: [LaidOutComponent]
     public let zones: [LaidOutZone]
-    /// Flows that still cross a trust boundary they do not pass through. Zero
-    /// when the widening cleared them all.
-    public let unrelatedCrossings: Int
-    /// Flows that still run over a zone rectangle they have nothing to do
-    /// with.
-    public let flowsOverUnrelatedZones: Int
+    /// What the layout could not clear, how far it had to route round, and how
+    /// big the picture is.
+    public let fitness: LayoutFitness
 
     public init(
         components: [LaidOutComponent],
         zones: [LaidOutZone],
-        unrelatedCrossings: Int = 0,
-        flowsOverUnrelatedZones: Int = 0
+        fitness: LayoutFitness = LayoutFitness(
+            unrelatedCrossings: 0,
+            flowsOverUnrelatedZones: 0,
+            waypoints: 0,
+            width: 0,
+            height: 0
+        )
     ) {
         self.components = components
         self.zones = zones
-        self.unrelatedCrossings = unrelatedCrossings
-        self.flowsOverUnrelatedZones = flowsOverUnrelatedZones
+        self.fitness = fitness
     }
-}
 
-/// How far apart a pass puts things. One pass widens every gap together, so
-/// the grid the declaration order describes is the grid the reader sees.
-struct LayoutSpacing: Equatable {
-    let columnGap: Double
-    let rowGap: Double
-    let zoneGap: Double
-
-    /// The next pass out.
-    func widened(by factor: Double) -> LayoutSpacing {
-        LayoutSpacing(
-            columnGap: columnGap * factor,
-            rowGap: rowGap * factor,
-            zoneGap: zoneGap * factor
-        )
-    }
+    /// Flows that cross a trust boundary they do not pass through.
+    public var unrelatedCrossings: Int { fitness.unrelatedCrossings }
+    /// Flows that run over a zone they have nothing to do with.
+    public var flowsOverUnrelatedZones: Int { fitness.flowsOverUnrelatedZones }
 }
 
 /// Places a diagram from declaration order alone.
@@ -120,48 +109,101 @@ public struct LayOutModel: LayOutModelUseCase {
 
     public init() {}
 
-    /// Places, measures its own picture, and widens until no flow crosses a
-    /// trust boundary it does not pass through.
+    /// Places, measures its own picture, and tries one technique after
+    /// another until each is exhausted.
     ///
-    /// A flow that crosses an unrelated boundary reads as a statement that the
-    /// boundary applies to that flow, and it does not. Widening every gap
-    /// together keeps the grid the declaration order describes; moving one
-    /// node would make a one-line change to the file move half the diagram.
+    /// A flow that crosses a boundary it does not pass through, or runs over a
+    /// zone it has nothing to do with, reads as a statement the model does not
+    /// make. Each technique offers a short list of candidates for one setting;
+    /// the lowest-scoring is kept and the loop moves on. It never goes back, so
+    /// it always finishes, and nothing about it is random.
     public func execute(_ request: LayOutModelRequest) -> LayOutModelResponse {
-        var spacing = LayoutSpacing(
-            columnGap: Self.columnGap,
-            rowGap: Self.rowGap,
-            zoneGap: Self.zoneGap
+        var plan = LayoutPlan(
+            spacing: LayoutSpacing(
+                columnGap: Self.columnGap,
+                rowGap: Self.rowGap,
+                zoneGap: Self.zoneGap
+            ),
+            rowWidth: Self.rowWidth
         )
-        var best = place(request, spacing: spacing)
-        var bestFault = Self.faults(of: best, in: request)
+        var best = placeAndScore(request, plan: plan)
 
-        var pass = 1
-        while bestFault.total > 0 && pass < Self.passes {
-            spacing = spacing.widened(by: Self.widenBy)
-            let wider = place(request, spacing: spacing)
-            let fault = Self.faults(of: wider, in: request)
-            // A wider pass is kept only when it is no worse, so the loop never
-            // hands back a picture worse than one it already had.
-            if fault.total <= bestFault.total {
-                best = wider
-                bestFault = fault
+        for technique in Self.techniques {
+            var chosen = plan
+            var chosenScore = best.fitness.score
+
+            for candidate in technique.candidates(plan) {
+                let scored = placeAndScore(request, plan: candidate)
+                guard scored.fitness.score < chosenScore else { continue }
+                chosen = candidate
+                chosenScore = scored.fitness.score
+                best = scored
             }
-            pass += 1
+
+            plan = chosen
         }
 
+        return best
+    }
+
+    /// The techniques, cheapest first. Widening changes no relationship at
+    /// all. The wrap width changes the shape but no order. The band placement
+    /// moves what sits outside every zone. The order inside a zone moves
+    /// components within one box. Nothing later undoes anything earlier.
+    static let techniques: [LayoutTechnique] = [
+        LayoutTechnique(name: "widen") { plan in
+            (1 ... 5).map { step in
+                var wider = plan
+                wider.spacing = plan.spacing.widened(by: pow(Self.widenBy, Double(step)))
+                return wider
+            }
+        },
+        LayoutTechnique(name: "wrap width") { plan in
+            [1000.0, 1400.0, 1900.0, 2600.0]
+                .filter { $0 != plan.rowWidth }
+                .map { width in
+                    var wrapped = plan
+                    wrapped.rowWidth = width
+                    return wrapped
+                }
+        },
+        LayoutTechnique(name: "loose placement") { plan in
+            LoosePlacement.allCases
+                .filter { $0 != plan.loose }
+                .map { rule in
+                    var placed = plan
+                    placed.loose = rule
+                    return placed
+                }
+        },
+        LayoutTechnique(name: "component order") { plan in
+            ComponentOrder.allCases
+                .filter { $0 != plan.componentOrder }
+                .map { order in
+                    var sorted = plan
+                    sorted.componentOrder = order
+                    return sorted
+                }
+        }
+    ]
+
+    private func placeAndScore(
+        _ request: LayOutModelRequest,
+        plan: LayoutPlan
+    ) -> LayOutModelResponse {
+        let placed = place(request, plan: plan)
         return LayOutModelResponse(
-            components: best.components,
-            zones: best.zones,
-            unrelatedCrossings: bestFault.crossings,
-            flowsOverUnrelatedZones: bestFault.overZones
+            components: placed.components,
+            zones: placed.zones,
+            fitness: Self.fitness(of: placed, in: request)
         )
     }
 
     private func place(
         _ request: LayOutModelRequest,
-        spacing: LayoutSpacing
+        plan: LayoutPlan
     ) -> LayOutModelResponse {
+        let spacing = plan.spacing
         var components: [LaidOutComponent] = []
         var zones: [LaidOutZone] = []
 
@@ -178,7 +220,7 @@ public struct LayOutModel: LayOutModelUseCase {
         for zone in request.source.zones {
             let size = Self.size(ofZoneHolding: zone.components.count, spacing: spacing)
 
-            if x > Self.zonePadding && x + size.width > Self.rowWidth {
+            if x > Self.zonePadding && x + size.width > plan.rowWidth {
                 x = Self.zonePadding
                 y += tallestInRow + spacing.zoneGap
                 tallestInRow = 0
@@ -187,7 +229,12 @@ public struct LayOutModel: LayOutModelUseCase {
             zones.append(
                 LaidOutZone(id: zone.id, x: x, y: y, width: size.width, height: size.height)
             )
-            components += Self.place(zone.components, inZoneAt: x, y, spacing: spacing)
+            components += Self.place(
+                Self.ordered(zone.components, by: plan.componentOrder, in: request),
+                inZoneAt: x,
+                y,
+                spacing: spacing
+            )
 
             x += size.width + spacing.zoneGap
             tallestInRow = max(tallestInRow, size.height)
@@ -197,7 +244,7 @@ public struct LayOutModel: LayOutModelUseCase {
             loose,
             above: zones,
             in: request,
-            spacing: spacing,
+            plan: plan,
             y: Self.zonePadding
         ) + components
 
@@ -251,32 +298,74 @@ public struct LayOutModel: LayOutModelUseCase {
 
     // MARK: measuring the picture it drew
 
-    /// What is wrong with the picture. A flow must not cross a boundary it
-    /// does not pass through, and must not run over a zone it has nothing to
-    /// do with: a reader takes either for a statement the model does not make.
-    struct LayoutFault: Equatable {
-        let crossings: Int
-        let overZones: Int
-
-        var total: Int { crossings + overZones }
-    }
-
-    static func faults(
+    /// What is wrong with the picture, how far it had to route round, and how
+    /// big it is. A flow must not cross a boundary it does not pass through,
+    /// and must not run over a zone it has nothing to do with: a reader takes
+    /// either for a statement the model does not make.
+    static func fitness(
         of placed: LayOutModelResponse,
         in request: LayOutModelRequest
-    ) -> LayoutFault {
-        LayoutFault(
-            crossings: unrelatedCrossings(of: placed, in: request),
-            overZones: flowsOverUnrelatedZones(of: placed, in: request)
+    ) -> LayoutFitness {
+        let routed = curves(of: placed, in: request)
+        var width = 0.0
+        var height = 0.0
+
+        for component in placed.components {
+            width = max(width, component.x + nodeWidth)
+            height = max(height, component.y + nodeHeight)
+        }
+        for zone in placed.zones {
+            width = max(width, zone.x + zone.width)
+            height = max(height, zone.y + zone.height)
+        }
+
+        return LayoutFitness(
+            unrelatedCrossings: unrelatedCrossings(of: placed, in: request, curves: routed),
+            flowsOverUnrelatedZones: flowsOverUnrelatedZones(of: placed, in: request, curves: routed),
+            waypoints: routed.values.map(\.waypointCount).reduce(0, +),
+            width: width,
+            height: height
         )
+    }
+
+    /// Every flow's curve, routed round the zones it has nothing to do with,
+    /// keyed by flow. The canvas builds the same curves from the same rule, so
+    /// the picture the layout measured is the picture a reader sees.
+    static func curves(
+        of placed: LayOutModelResponse,
+        in request: LayOutModelRequest
+    ) -> [String: FlowCurve] {
+        let footprints = footprints(of: placed, in: request)
+        let zoneOf = zoneOfEachComponent(in: request)
+        var built: [String: FlowCurve] = [:]
+
+        for flow in request.source.flows {
+            guard let source = footprints[flow.sourceId],
+                  let target = footprints[flow.targetId] else { continue }
+
+            let anchors = AnchorGeometry.nearestPair(from: source, to: target)
+            let start = AnchorGeometry.point(anchors.source, of: source)
+            let end = AnchorGeometry.point(anchors.target, of: target)
+            let avoid = placed.zones
+                .filter { $0.id != zoneOf[flow.sourceId] && $0.id != zoneOf[flow.targetId] }
+                .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
+
+            built["\(flow.sourceId)->\(flow.targetId)"] = FlowCurve(
+                from: start,
+                through: FlowRouting.waypoints(from: start, to: end, avoiding: avoid),
+                to: end
+            )
+        }
+
+        return built
     }
 
     /// How many flows cross a trust boundary they do not pass through.
     static func unrelatedCrossings(
         of placed: LayOutModelResponse,
-        in request: LayOutModelRequest
+        in request: LayOutModelRequest,
+        curves: [String: FlowCurve]
     ) -> Int {
-        let footprints = Self.footprints(of: placed, in: request)
         let zones = placed.zones.map {
             BoundaryZone(
                 id: $0.id,
@@ -288,20 +377,11 @@ public struct LayOutModel: LayOutModelUseCase {
         }
         let zoneOf = Self.zoneOfEachComponent(in: request)
 
-        var curves: [String: FlowCurve] = [:]
         var marked: [BoundaryCrossings.MarkedCrossing] = []
 
         for flow in request.source.flows {
-            guard let source = footprints[flow.sourceId],
-                  let target = footprints[flow.targetId] else { continue }
-
-            let anchors = AnchorGeometry.nearestPair(from: source, to: target)
-            let curve = FlowCurve(
-                from: AnchorGeometry.point(anchors.source, of: source),
-                to: AnchorGeometry.point(anchors.target, of: target)
-            )
             let id = "\(flow.sourceId)->\(flow.targetId)"
-            curves[id] = curve
+            guard let curve = curves[id] else { continue }
 
             marked += BoundaryCrossings.of(
                 connectionId: id,
@@ -392,7 +472,7 @@ public struct LayOutModel: LayOutModelUseCase {
         _ loose: [SourceComponent],
         above zones: [LaidOutZone],
         in request: LayOutModelRequest,
-        spacing: LayoutSpacing,
+        plan: LayoutPlan,
         y: Double
     ) -> [LaidOutComponent] {
         guard loose.isEmpty == false else { return [] }
@@ -401,9 +481,17 @@ public struct LayOutModel: LayOutModelUseCase {
         var wanted: [(id: String, x: Double, index: Int)] = []
 
         for (index, component) in loose.enumerated() {
-            let zoneId = mostConnectedZone(of: component.id, in: request, zoneOf: zoneOf)
+            let inOrder = zonePadding + Double(index) * (nodeWidth + plan.spacing.columnGap)
+            let ranked = connectedZones(of: component.id, in: request, zoneOf: zoneOf)
+            let zoneId: String?
+
+            switch plan.loose {
+            case .aboveMostConnected: zoneId = ranked.first
+            case .aboveSecondConnected: zoneId = ranked.count > 1 ? ranked[1] : ranked.first
+            case .inDeclarationOrder: zoneId = nil
+            }
+
             let above = zones.first { $0.id == zoneId }.map { $0.x + $0.width / 2 - nodeWidth / 2 }
-            let inOrder = zonePadding + Double(index) * (nodeWidth + spacing.columnGap)
             wanted.append((component.id, above ?? inOrder, index))
         }
 
@@ -413,7 +501,7 @@ public struct LayOutModel: LayOutModelUseCase {
         for entry in wanted.sorted(by: { $0.x == $1.x ? $0.index < $1.index : $0.x < $1.x }) {
             let x = max(entry.x, nextFree)
             placed.append(LaidOutComponent(id: entry.id, x: x, y: y))
-            nextFree = x + nodeWidth + spacing.columnGap
+            nextFree = x + nodeWidth + plan.spacing.columnGap
         }
 
         // Declaration order is what the rest of the response is in.
@@ -421,14 +509,13 @@ public struct LayOutModel: LayOutModelUseCase {
         return loose.compactMap { byId[$0.id] }
     }
 
-    /// The zone this component has most flows with, or nil when it has none.
-    /// A tie keeps the zone declared first, so the answer never depends on
-    /// dictionary order.
-    private static func mostConnectedZone(
+    /// The zones this component has flows with, most first. A tie keeps the
+    /// zone declared first, so the answer never depends on dictionary order.
+    private static func connectedZones(
         of componentId: String,
         in request: LayOutModelRequest,
         zoneOf: [String: String]
-    ) -> String? {
+    ) -> [String] {
         var tally: [String: Int] = [:]
 
         for flow in request.source.flows {
@@ -448,7 +535,42 @@ public struct LayOutModel: LayOutModelUseCase {
         return request.source.zones
             .map(\.id)
             .filter { tally[$0] != nil }
-            .max { (tally[$0] ?? 0) < (tally[$1] ?? 0) }
+            .enumerated()
+            .sorted { first, second in
+                let one = tally[first.element] ?? 0
+                let other = tally[second.element] ?? 0
+                return one == other ? first.offset < second.offset : one > other
+            }
+            .map(\.element)
+    }
+
+    /// The order components sit in inside their zone.
+    ///
+    /// `byConnectedZone` puts a component that talks out of the zone beside
+    /// one that talks to the same place, which shortens the flows between two
+    /// zones. A tie keeps declaration order.
+    static func ordered(
+        _ components: [SourceComponent],
+        by order: ComponentOrder,
+        in request: LayOutModelRequest
+    ) -> [SourceComponent] {
+        guard order == .byConnectedZone else { return components }
+
+        let zoneOf = zoneOfEachComponent(in: request)
+        let rank = Dictionary(
+            uniqueKeysWithValues: request.source.zones.enumerated().map { ($0.element.id, $0.offset) }
+        )
+
+        return components
+            .enumerated()
+            .sorted { first, second in
+                let one = connectedZones(of: first.element.id, in: request, zoneOf: zoneOf)
+                    .first.flatMap { rank[$0] } ?? Int.max
+                let other = connectedZones(of: second.element.id, in: request, zoneOf: zoneOf)
+                    .first.flatMap { rank[$0] } ?? Int.max
+                return one == other ? first.offset < second.offset : one < other
+            }
+            .map(\.element)
     }
 
     /// How many flows run over a zone rectangle they have nothing to do with.
@@ -457,24 +579,15 @@ public struct LayOutModel: LayOutModelUseCase {
     /// what the zone holds, and it does not.
     static func flowsOverUnrelatedZones(
         of placed: LayOutModelResponse,
-        in request: LayOutModelRequest
+        in request: LayOutModelRequest,
+        curves: [String: FlowCurve]
     ) -> Int {
-        let footprints = footprints(of: placed, in: request)
         let zoneOf = zoneOfEachComponent(in: request)
         var count = 0
 
         for flow in request.source.flows {
-            guard let source = footprints[flow.sourceId],
-                  let target = footprints[flow.targetId] else { continue }
-
-            let anchors = AnchorGeometry.nearestPair(from: source, to: target)
-            let samples = CurveCrossing.samples(
-                of: FlowCurve(
-                    from: AnchorGeometry.point(anchors.source, of: source),
-                    to: AnchorGeometry.point(anchors.target, of: target)
-                ),
-                steps: 96
-            )
+            guard let curve = curves["\(flow.sourceId)->\(flow.targetId)"] else { continue }
+            let samples = CurveCrossing.samples(of: curve, steps: 96)
 
             for zone in placed.zones
             where zone.id != zoneOf[flow.sourceId] && zone.id != zoneOf[flow.targetId] {

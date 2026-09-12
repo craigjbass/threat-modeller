@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 import ThreatModelKit
 
 /// The curve a link draws, and the hit test for clicking it.
@@ -17,11 +18,30 @@ nonisolated struct ConnectionPath: Equatable {
 
     let curve: FlowCurve
 
-    init(from start: CGPoint, to end: CGPoint) {
+    init(from start: CGPoint, to end: CGPoint, avoiding zones: [Rect] = []) {
+        let from = Point(x: start.x, y: start.y)
+        let to = Point(x: end.x, y: end.y)
         curve = FlowCurve(
-            from: Point(x: start.x, y: start.y),
-            to: Point(x: end.x, y: end.y)
+            from: from,
+            through: FlowRouting.waypoints(from: from, to: to, avoiding: zones),
+            to: to
         )
+    }
+
+    /// The path a canvas strokes, one piece per leg of the flow.
+    var drawnPath: Path {
+        var built = Path()
+        guard let first = curve.segments.first else { return built }
+
+        built.move(to: CGPoint(first.start))
+        for segment in curve.segments {
+            built.addCurve(
+                to: CGPoint(segment.end),
+                control1: CGPoint(segment.control1),
+                control2: CGPoint(segment.control2)
+            )
+        }
+        return built
     }
 
     var start: CGPoint { CGPoint(curve.start) }

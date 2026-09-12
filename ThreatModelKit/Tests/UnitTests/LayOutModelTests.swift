@@ -90,17 +90,20 @@ struct LayOutModelTests {
         #expect(response.zones[1].y == response.zones[0].y)
     }
 
-    @Test func wrapsARowThatWouldRunTooWide() {
+    @Test func wrapsARowThatWouldRunTooWide() throws {
         let wide = (0 ..< 12).map { index in
             SourceZone(id: "z\(index)", components: [component("c\(index)")])
         }
 
         let response = layOut(ArchitectureSource(systemName: "P", zones: wide))
 
-        // Each zone is 240 wide with a 60 gap, so four fit before the wrap.
-        #expect(response.zones[3].y == response.zones[0].y)
-        #expect(response.zones[4].y > response.zones[0].y)
-        #expect(response.zones[4].x == 40)
+        // Which wrap width the layout picks is its own business; that a row
+        // wraps at all, and that the next row starts at the left, is not.
+        let rows = Set(response.zones.map(\.y))
+        #expect(rows.count > 1)
+
+        let secondRow = try #require(response.zones.first { $0.y > response.zones[0].y })
+        #expect(secondRow.x == 40)
     }
 
     @Test func putsTheZonesBelowTheBand() {
