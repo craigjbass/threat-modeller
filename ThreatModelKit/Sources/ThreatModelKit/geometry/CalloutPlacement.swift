@@ -60,6 +60,7 @@ public enum CalloutPlacement {
         _ labels: [(connectionId: String, text: String, curve: FlowCurve)],
         nodes: [Rect],
         zoneHeaders: [Rect] = [],
+        boundaryChips: [Rect] = [],
         flows: [[Point]]
     ) -> [Callout] {
         var placed: [Callout] = []
@@ -71,6 +72,7 @@ public enum CalloutPlacement {
                 for: box,
                 from: anchor,
                 nodes: nodes + zoneHeaders,
+                chips: boundaryChips,
                 flows: flows,
                 taken: placed
             )
@@ -102,6 +104,7 @@ public enum CalloutPlacement {
         for box: Size,
         from anchor: Point,
         nodes: [Rect],
+        chips: [Rect],
         flows: [[Point]],
         taken: [Callout]
     ) -> Rect {
@@ -121,7 +124,14 @@ public enum CalloutPlacement {
                     width: box.width,
                     height: box.height
                 )
-                let cost = cost(of: rect, from: anchor, nodes: nodes, flows: flows, taken: taken)
+                let cost = cost(
+                    of: rect,
+                    from: anchor,
+                    nodes: nodes,
+                    chips: chips,
+                    flows: flows,
+                    taken: taken
+                )
 
                 if cost < lowest {
                     lowest = cost
@@ -137,12 +147,18 @@ public enum CalloutPlacement {
         of rect: Rect,
         from anchor: Point,
         nodes: [Rect],
+        chips: [Rect],
         flows: [[Point]],
         taken: [Callout]
     ) -> Double {
         var total = 0.0
 
         total += costOfANode * Double(nodes.count { overlap(rect, $0) })
+        // A chip naming what guards a boundary is a label like any other, and
+        // two labels touching read as one.
+        total += costOfABox * Double(chips.count { overlap(rect, $0) })
+        total += costOfCrowding
+            * Double(chips.count { overlap(rect, $0) == false && crowds(rect, $0) })
         total += costOfABox * Double(taken.count { overlap(rect, $0.rect) })
         total += costOfCrowding
             * Double(taken.count { overlap(rect, $0.rect) == false && crowds(rect, $0.rect) })

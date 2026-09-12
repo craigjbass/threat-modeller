@@ -454,6 +454,7 @@ public struct LayOutModel: LayOutModelUseCase {
             Rect(x: $0.x, y: $0.y, width: $0.width, height: ZoneContainment.headerHeight)
         }
         let flows = curves.values.map { CurveCrossing.samples(of: $0) }
+        let chips = boundaryChips(of: placed, in: request, curves: curves, headers: headers)
 
         let labels = request.source.flows.compactMap {
             flow -> (connectionId: String, text: String, curve: FlowCurve)? in
@@ -467,6 +468,7 @@ public struct LayOutModel: LayOutModelUseCase {
             labels,
             nodes: nodes,
             zoneHeaders: headers,
+            boundaryChips: chips,
             flows: flows
         )
         var crowded = 0
@@ -479,7 +481,7 @@ public struct LayOutModel: LayOutModelUseCase {
             )
             reach += hypot(centre.x - callout.anchor.x, centre.y - callout.anchor.y)
 
-            if (nodes + headers).contains(where: { CalloutPlacement.overlap(callout.rect, $0) }) {
+            if (nodes + headers + chips).contains(where: { CalloutPlacement.overlap(callout.rect, $0) }) {
                 crowded += 1
                 continue
             }
@@ -489,6 +491,56 @@ public struct LayOutModel: LayOutModelUseCase {
         }
 
         return (crowded, reach)
+    }
+
+    /// Where the chips naming each boundary's guards sit.
+    ///
+    /// The layout reads the guards from the source, so the names are the
+    /// component ids rather than what the catalogue calls them. The width is
+    /// close enough to keep a label off them, which is what this is for.
+    static func boundaryChips(
+        of placed: LayOutModelResponse,
+        in request: LayOutModelRequest,
+        curves: [String: FlowCurve],
+        headers: [Rect]
+    ) -> [Rect] {
+        let zones = placed.zones.map {
+            BoundaryZone(
+                id: $0.id,
+                networkZoneId: "private",
+                rect: Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height)
+            )
+        }
+        let zoneOf = zoneOfEachComponent(in: request)
+        var marked: [BoundaryCrossings.MarkedCrossing] = []
+
+        for flow in request.source.flows {
+            let id = "\(flow.sourceId)->\(flow.targetId)"
+            guard let curve = curves[id] else { continue }
+
+            marked += BoundaryCrossings.of(
+                connectionId: id,
+                sourceZoneId: zoneOf[flow.sourceId],
+                targetZoneId: zoneOf[flow.targetId],
+                curve: curve,
+                zones: zones
+            ).map {
+                BoundaryCrossings.MarkedCrossing(
+                    connectionId: id,
+                    crossing: $0,
+                    guards: guards(of: flow, in: request.source),
+                    openCount: 0
+                )
+            }
+        }
+
+        return BoundaryCrossings.runs(marked).flatMap { run in
+            BoundaryChips.rects(
+                of: run,
+                texts: run.guards.prefix(2).map(\.label),
+                zoneHeaders: headers
+            )
+        }
     }
 
     /// Every flow's curve, routed round the zones it has nothing to do with,

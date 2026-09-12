@@ -50,6 +50,7 @@ struct ConnectionsLayer: View {
             var marked: [BoundaryCrossings.MarkedCrossing] = []
             var sampled: [String: [Point]] = [:]
             var toLabel: [(connectionId: String, text: String, curve: FlowCurve)] = []
+            var chipRects: [Rect] = []
 
             for connection in connections {
                 guard let source = boxes[connection.sourceComponentId],
@@ -110,10 +111,18 @@ struct ConnectionsLayer: View {
             for run in runs {
                 writeGuards(of: run, in: &context)
             }
+            chipRects = runs.flatMap {
+                BoundaryChips.rects(of: $0, texts: chipTexts(of: $0), zoneHeaders: bandRects)
+            }
 
             // The labels go last, over everything, because a label a link
             // crosses is unreadable.
-            drawCallouts(toLabel, over: Array(sampled.values), in: &context)
+            drawCallouts(
+                toLabel,
+                over: Array(sampled.values),
+                clearOf: chipRects,
+                in: &context
+            )
 
             if let preview {
                 stroke(
@@ -239,19 +248,14 @@ struct ConnectionsLayer: View {
     private func drawCallouts(
         _ labels: [(connectionId: String, text: String, curve: FlowCurve)],
         over flows: [[Point]],
+        clearOf chips: [Rect],
         in context: inout GraphicsContext
     ) {
         let placed = CalloutPlacement.place(
             labels,
             nodes: boxes.values.map(\.rect.modelRect),
-            zoneHeaders: zones.map {
-                Rect(
-                    x: $0.x,
-                    y: $0.y,
-                    width: $0.width,
-                    height: Double(ZoneBox.headerHeight)
-                )
-            },
+            zoneHeaders: bandRects,
+            boundaryChips: chips,
             flows: flows
         )
 
@@ -332,60 +336,34 @@ struct ConnectionsLayer: View {
         return lines
     }
 
-    /// The components that guard this boundary, or the words that say none
-    /// does. An unguarded crossing carrying an open threat is what a reviewer
-    /// looks for, so it is stated rather than left blank.
+    /// What this boundary writes: the components that guard it, or the words
+    /// that say none does. An unguarded crossing carrying an open threat is
+    /// what a reviewer looks for, so it is stated rather than left blank.
+    private func chipTexts(of run: BoundaryCrossings.BoundaryRun) -> [String] {
+        let shown = Array(run.guards.prefix(Self.guardsShown))
+        let hidden = run.guards.count - shown.count
+
+        guard run.guards.isEmpty == false else {
+            return run.openCount > 0 ? ["no guard"] : []
+        }
+
+        var texts = shown.map { Self.name(of: $0.label) }
+        if hidden > 0 { texts.append("+\(hidden)") }
+        return texts
+    }
+
     private func writeGuards(
         of run: BoundaryCrossings.BoundaryRun,
         in context: inout GraphicsContext
     ) {
         let tint = tint(of: run)
-        let shown = Array(run.guards.prefix(Self.guardsShown))
-        let hidden = run.guards.count - shown.count
+        let texts = chipTexts(of: run)
+        let rects = BoundaryChips.rects(of: run, texts: texts, zoneHeaders: bandRects)
+        let assumed = Array(run.guards.prefix(Self.guardsShown)).map(\.isAssumed)
 
-        var chips: [(text: String, colour: Color, isAssumed: Bool)] = shown.map {
-            (Self.name(of: $0.label), tint, $0.isAssumed)
-        }
-        if hidden > 0 { chips.append(("+\(hidden)", tint, false)) }
-        // Nothing guards it. That is worth saying only while a threat through
-        // the boundary is still open.
-        if run.guards.isEmpty {
-            guard run.openCount > 0 else { return }
-            chips = [("no guard", .secondary, false)]
-        }
-
-        // The chips stack past the curve's far end, so they never sit on a
-        // flow's own label.
-        let reach = hypot(run.end.x - run.start.x, run.end.y - run.start.y)
-        guard reach > 0 else { return }
-        let step = CGPoint(x: (run.end.x - run.start.x) / reach, y: (run.end.y - run.start.y) / reach)
-        let x = run.end.x + 14 * step.x
-        var y = run.end.y + 14 * step.y
-
-        // A chip over a zone's name band hides which zone a reader is looking
-        // at, so it drops below the band.
-        for zone in zones {
-            let band = CGRect(
-                x: zone.x,
-                y: zone.y,
-                width: zone.width,
-                height: Double(ZoneBox.headerHeight)
-            )
-            guard band.contains(CGPoint(x: x, y: y)) else { continue }
-            y = band.maxY + 8
-        }
-
-        for chip in chips {
-            let resolved = context.resolve(
-                Text(chip.text).font(.caption2).foregroundStyle(chip.colour)
-            )
-            let size = resolved.measure(in: CGSize(width: 160, height: 30))
-            let box = CGRect(
-                x: x - size.width / 2 - 5,
-                y: y - size.height / 2 - 2,
-                width: size.width + 10,
-                height: size.height + 4
-            )
+        for (index, text) in texts.enumerated() where index < rects.count {
+            let colour: Color = run.guards.isEmpty ? .secondary : tint
+            let box = CGRect(rects[index])
 
             context.fill(
                 Path(roundedRect: box, cornerRadius: 4),
@@ -393,12 +371,24 @@ struct ConnectionsLayer: View {
             )
             context.stroke(
                 Path(roundedRect: box, cornerRadius: 4),
-                with: .color(chip.colour),
-                style: StrokeStyle(lineWidth: 1, dash: chip.isAssumed ? [3, 3] : [])
+                with: .color(colour),
+                style: StrokeStyle(
+                    lineWidth: 1,
+                    dash: index < assumed.count && assumed[index] ? [3, 3] : []
+                )
             )
-            context.draw(resolved, at: CGPoint(x: x, y: y), anchor: .center)
+            context.draw(
+                context.resolve(Text(text).font(.caption2).foregroundStyle(colour)),
+                at: CGPoint(x: box.midX, y: box.midY),
+                anchor: .center
+            )
+        }
+    }
 
-            y += box.height + 3
+    /// The name band of every zone. Nothing is drawn over one.
+    private var bandRects: [Rect] {
+        zones.map {
+            Rect(x: $0.x, y: $0.y, width: $0.width, height: Double(ZoneBox.headerHeight))
         }
     }
 
