@@ -38,9 +38,12 @@ public enum CalloutPlacement {
     public static let lineHeight = 14.0
     public static let padding = 10.0
     /// How far a box may sit from the flow it labels.
-    public static let reaches = [70.0, 130.0, 210.0]
+    public static let reaches = [90.0, 150.0, 230.0, 320.0]
     /// How many ways out from the flow are tried, round the clock.
-    public static let directions = 12
+    public static let directions = 16
+    /// The blank two boxes keep between them. Boxes that merely miss each
+    /// other read as one block of text.
+    public static let breathingRoom = 30.0
 
     /// What a box of this text measures.
     public static func size(of text: String) -> Size {
@@ -82,6 +85,10 @@ public enum CalloutPlacement {
     /// flow only makes the flow harder to follow.
     static let costOfANode = 1000.0
     static let costOfABox = 800.0
+    /// What a box sitting inside another's blank costs. Well under an overlap,
+    /// so a crowded diagram still places every label, and well over the reach,
+    /// so a box moves out rather than crowding.
+    static let costOfCrowding = 220.0
     static let costOfAFlow = 40.0
 
     private static func bestRect(
@@ -130,12 +137,27 @@ public enum CalloutPlacement {
 
         total += costOfANode * Double(nodes.count { overlap(rect, $0) })
         total += costOfABox * Double(taken.count { overlap(rect, $0.rect) })
+        total += costOfCrowding
+            * Double(taken.count { overlap(rect, $0.rect) == false && crowds(rect, $0.rect) })
         total += costOfAFlow * Double(flows.count { flow in flow.contains { rect.contains($0) } })
         // The nearer the flow, the easier the leader is to follow.
         total += hypot(rect.minX + rect.size.width / 2 - anchor.x,
                        rect.minY + rect.size.height / 2 - anchor.y) / 10
 
         return total
+    }
+
+    /// True when the two sit closer than the blank they should keep.
+    public static func crowds(_ one: Rect, _ other: Rect) -> Bool {
+        overlap(
+            Rect(
+                x: one.minX - breathingRoom,
+                y: one.minY - breathingRoom,
+                width: one.size.width + breathingRoom * 2,
+                height: one.size.height + breathingRoom * 2
+            ),
+            other
+        )
     }
 
     public static func overlap(_ one: Rect, _ other: Rect) -> Bool {

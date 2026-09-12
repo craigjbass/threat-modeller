@@ -84,3 +84,35 @@ struct CalloutPlacementTests {
         )
     }
 }
+
+@Suite("Labels keeping their distance")
+struct CalloutSpacingTests {
+    private func label(
+        _ id: String,
+        _ text: String,
+        y: Double
+    ) -> (connectionId: String, text: String, curve: FlowCurve) {
+        (id, text, FlowCurve(from: Point(x: 0, y: y), to: Point(x: 400, y: y)))
+    }
+
+    @Test func leavesBlankBetweenTwoLabels() {
+        let placed = CalloutPlacement.place(
+            [
+                label("f1", "MCP over unix domain socket", y: 0),
+                label("f2", "NSXPCConnection, signature-validated", y: 30)
+            ],
+            nodes: [],
+            flows: []
+        )
+
+        #expect(placed.count == 2)
+        #expect(CalloutPlacement.crowds(placed[0].rect, placed[1].rect) == false)
+    }
+
+    @Test func stillPlacesEveryLabelWhenThereIsNoRoomToSpare() {
+        let many = (0 ..< 8).map { label("f\($0)", "a label worth reading", y: Double($0) * 12) }
+        let placed = CalloutPlacement.place(many, nodes: [], flows: [])
+
+        #expect(placed.count == 8)
+    }
+}

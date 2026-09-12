@@ -121,6 +121,11 @@ public struct LayoutFitness: Equatable, Sendable {
     public let flowCrossings: Int
     /// Times a flow runs behind a node that is not one of its own ends.
     public let flowsBehindNodes: Int
+    /// Labels that could find nowhere clear: they cover a node, or another
+    /// label, or sit inside its blank.
+    public let crowdedCallouts: Int
+    /// How far the labels reach from the flows they name, added up.
+    public let calloutReach: Double
     public let width: Double
     public let height: Double
 
@@ -131,6 +136,8 @@ public struct LayoutFitness: Equatable, Sendable {
         tightness: Double = 0,
         flowCrossings: Int = 0,
         flowsBehindNodes: Int = 0,
+        crowdedCallouts: Int = 0,
+        calloutReach: Double = 0,
         width: Double,
         height: Double
     ) {
@@ -140,6 +147,8 @@ public struct LayoutFitness: Equatable, Sendable {
         self.tightness = tightness
         self.flowCrossings = flowCrossings
         self.flowsBehindNodes = flowsBehindNodes
+        self.crowdedCallouts = crowdedCallouts
+        self.calloutReach = calloutReach
         self.width = width
         self.height = height
     }
@@ -151,6 +160,8 @@ public struct LayoutFitness: Equatable, Sendable {
             + 4 * tightness
             + 1 * Double(flowCrossings)
             + 1 * Double(flowsBehindNodes)
+            + 8 * Double(crowdedCallouts)
+            + calloutReach / 500
             + (width + height) / 50
             + lopsidedness
     }

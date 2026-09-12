@@ -102,3 +102,45 @@ struct LayoutReadabilityFitnessTests {
         #expect(fitness().score == fitness(tightness: 0, crossings: 0, behind: 0).score)
     }
 }
+
+@Suite("Scoring where the labels went")
+struct LayoutCalloutFitnessTests {
+    private func fitness(
+        overZones: Int = 0,
+        broken: Int = 0,
+        crowded: Int = 0,
+        reach: Double = 0,
+        crossings: Int = 0,
+        width: Double = 1000,
+        height: Double = 1000
+    ) -> LayoutFitness {
+        LayoutFitness(
+            brokenBoundaries: broken,
+            flowsOverUnrelatedZones: overZones,
+            waypoints: 0,
+            tightness: 0,
+            flowCrossings: crossings,
+            flowsBehindNodes: 0,
+            crowdedCallouts: crowded,
+            calloutReach: reach,
+            width: width,
+            height: height
+        )
+    }
+
+    @Test func weighsALabelWithNowhereToGoAboveALineCrossing() {
+        #expect(fitness(crowded: 1).score > fitness(crossings: 7).score)
+    }
+
+    @Test func weighsABrokenBoundaryAboveThreeCrowdedLabels() {
+        #expect(fitness(broken: 1).score > fitness(crowded: 3).score)
+    }
+
+    @Test func prefersLabelsThatStayNearTheirFlows() {
+        #expect(fitness(reach: 8000).score > fitness(reach: 2000).score)
+    }
+
+    @Test func weighsOneCrowdedLabelAboveFourThousandPointsOfReach() {
+        #expect(fitness(crowded: 1).score > fitness(reach: 3900).score)
+    }
+}

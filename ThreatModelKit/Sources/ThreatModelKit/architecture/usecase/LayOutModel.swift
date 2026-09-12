@@ -374,6 +374,7 @@ public struct LayOutModel: LayOutModelUseCase {
         }
 
         let shape = readability(of: placed, in: request, curves: routed)
+        let labels = callouts(of: placed, in: request, curves: routed)
 
         return LayoutFitness(
             brokenBoundaries: brokenBoundaries(of: placed, in: request, curves: routed),
@@ -382,6 +383,8 @@ public struct LayOutModel: LayOutModelUseCase {
             tightness: shape.tightness,
             flowCrossings: shape.crossings,
             flowsBehindNodes: shape.behindNodes,
+            crowdedCallouts: labels.crowded,
+            calloutReach: labels.reach,
             width: width,
             height: height
         )
@@ -432,6 +435,50 @@ public struct LayOutModel: LayOutModelUseCase {
         }
 
         return (tightness, crossings, behindNodes)
+    }
+
+    /// Where every label goes, and how well it went.
+    ///
+    /// A label with nowhere clear covers a node or another label. The layout
+    /// spreads to make room, because a diagram whose labels cover it says less
+    /// than one that leaves space for them.
+    static func callouts(
+        of placed: LayOutModelResponse,
+        in request: LayOutModelRequest,
+        curves: [String: FlowCurve]
+    ) -> (crowded: Int, reach: Double) {
+        let nodes = Array(footprints(of: placed, in: request).values)
+        let flows = curves.values.map { CurveCrossing.samples(of: $0) }
+
+        let labels = request.source.flows.compactMap {
+            flow -> (connectionId: String, text: String, curve: FlowCurve)? in
+            let id = "\(flow.sourceId)->\(flow.targetId)"
+            guard let curve = curves[id] else { return nil }
+            let text = flow.description ?? flow.kind
+            return (id, text, curve)
+        }
+
+        let put = CalloutPlacement.place(labels, nodes: nodes, flows: flows)
+        var crowded = 0
+        var reach = 0.0
+
+        for (index, callout) in put.enumerated() {
+            let centre = Point(
+                x: callout.rect.minX + callout.rect.size.width / 2,
+                y: callout.rect.minY + callout.rect.size.height / 2
+            )
+            reach += hypot(centre.x - callout.anchor.x, centre.y - callout.anchor.y)
+
+            if nodes.contains(where: { CalloutPlacement.overlap(callout.rect, $0) }) {
+                crowded += 1
+                continue
+            }
+            if put.prefix(index).contains(where: { CalloutPlacement.crowds(callout.rect, $0.rect) }) {
+                crowded += 1
+            }
+        }
+
+        return (crowded, reach)
     }
 
     /// Every flow's curve, routed round the zones it has nothing to do with,
