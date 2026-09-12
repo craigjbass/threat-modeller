@@ -42,7 +42,21 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             return .refused(diagnostics: read.diagnostics)
         }
 
-        let placed = layout.execute(LayOutModelRequest(source: source))
+        // The layout holds no catalogue, and measures the picture it drew, so
+        // it needs the shape each component resolves to.
+        let shapes = Dictionary(
+            uniqueKeysWithValues: source.everyComponent.map { component -> (String, String) in
+                let technology = catalogue.findById(TechnologyId(component.technologyId))
+                let forced = component.shape.flatMap(DiagramShape.init(rawValue:))
+                let resolved = forced ?? DiagramShapeMap.derived(
+                    providerId: technology?.provider.value ?? "",
+                    categoryId: technology?.category.value ?? ""
+                )
+                return (component.id, resolved.rawValue)
+            }
+        )
+
+        let placed = layout.execute(LayOutModelRequest(source: source, shapes: shapes))
         let positions = Dictionary(
             uniqueKeysWithValues: placed.components.map { ($0.id, Point(x: $0.x, y: $0.y)) }
         )

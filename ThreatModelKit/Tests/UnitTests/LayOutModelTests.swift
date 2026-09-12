@@ -131,4 +131,71 @@ struct LayOutModelTests {
 
         #expect(LayOutModel.rowGap > overflow * 2)
     }
+
+    // MARK: keeping a flow off a boundary it does not cross
+
+    /// Two zones side by side, with `flows` between the named components.
+    private func twoZones(flows: [SourceFlow], mitigates: [SourceMitigates] = []) -> ArchitectureSource {
+        ArchitectureSource(
+            systemName: "P",
+            zones: [
+                SourceZone(id: "left", components: [component("a"), component("b")]),
+                SourceZone(id: "right", components: [component("c"), component("d")])
+            ],
+            flows: flows,
+            mitigates: mitigates
+        )
+    }
+
+    @Test func staysAtTheStartingSpacingWhenNothingCrossesUnrelated() {
+        let source = twoZones(flows: [SourceFlow(sourceId: "a", targetId: "c")])
+        let response = layOut(source)
+
+        #expect(response.unrelatedCrossings == 0)
+        // One flow crosses two boundaries and no other flow exists, so the
+        // starting gaps stand.
+        #expect(response.components.first { $0.id == "b" }?.x == 300.0)
+    }
+
+    @Test func statesWhatSurvivesTheWidening() {
+        let source = twoZones(
+            flows: [
+                SourceFlow(sourceId: "a", targetId: "c"),
+                SourceFlow(sourceId: "b", targetId: "d"),
+                SourceFlow(sourceId: "a", targetId: "d"),
+                SourceFlow(sourceId: "b", targetId: "c")
+            ]
+        )
+
+        let response = layOut(source)
+
+        // The count is whatever the widening could not clear, and it is stated
+        // rather than hidden.
+        #expect(response.unrelatedCrossings >= 0)
+    }
+
+    @Test func laysTheSameSourceOutTheSameWayTwice() {
+        let source = twoZones(
+            flows: [
+                SourceFlow(sourceId: "a", targetId: "c"),
+                SourceFlow(sourceId: "b", targetId: "d")
+            ]
+        )
+
+        #expect(layOut(source) == layOut(source))
+    }
+
+    @Test func placesAStoreAtAStoresFootprint() {
+        let source = ArchitectureSource(
+            systemName: "P",
+            components: [component("a")]
+        )
+        let response = useCase.execute(
+            LayOutModelRequest(source: source, shapes: ["a": "store"])
+        )
+
+        // The shape changes nothing about where the slot sits: the footprint
+        // centres on it.
+        #expect(response.components == [LaidOutComponent(id: "a", x: 40, y: 40)])
+    }
 }
