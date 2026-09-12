@@ -186,3 +186,46 @@ struct LayoutBoundaryOverNodeFitnessTests {
         #expect(fitness(overNodes: 0).score == fitness().score)
     }
 }
+
+@Suite("Scoring flows that run along each other")
+struct LayoutSharedPathFitnessTests {
+    private func fitness(
+        overZones: Int = 0,
+        broken: Int = 0,
+        shared: Int = 0,
+        crossings: Int = 0,
+        behind: Int = 0,
+        tightness: Double = 0
+    ) -> LayoutFitness {
+        LayoutFitness(
+            brokenBoundaries: broken,
+            boundariesOverNodes: 0,
+            flowsOverUnrelatedZones: overZones,
+            waypoints: 0,
+            tightness: tightness,
+            flowCrossings: crossings,
+            flowsSharingAPath: shared,
+            flowsBehindNodes: behind,
+            crowdedCallouts: 0,
+            calloutReach: 0,
+            width: 1000,
+            height: 1000
+        )
+    }
+
+    @Test func weighsTwoFlowsRunningTogetherAboveFiveThatCross() {
+        #expect(fitness(shared: 1).score > fitness(crossings: 5).score)
+    }
+
+    @Test func weighsTwoFlowsRunningTogetherAboveFiveBehindANode() {
+        #expect(fitness(shared: 1).score > fitness(behind: 5).score)
+    }
+
+    @Test func weighsABrokenBoundaryAboveFourFlowsRunningTogether() {
+        #expect(fitness(broken: 1).score > fitness(shared: 4).score)
+    }
+
+    @Test func weighsAFlowOverAZoneAboveSixteenRunningTogether() {
+        #expect(fitness(overZones: 1).score > fitness(shared: 16).score)
+    }
+}

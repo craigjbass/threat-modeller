@@ -123,6 +123,10 @@ public struct LayoutFitness: Equatable, Sendable {
     public let tightness: Double
     /// Pairs of flows that cross each other.
     public let flowCrossings: Int
+    /// Pairs of flows that run along each other for part of their length. Two
+    /// lines that cross are read as two lines; two that run together are read
+    /// as one.
+    public let flowsSharingAPath: Int
     /// Times a flow runs behind a node that is not one of its own ends.
     public let flowsBehindNodes: Int
     /// Labels that could find nowhere clear: they cover a node, or another
@@ -140,6 +144,7 @@ public struct LayoutFitness: Equatable, Sendable {
         waypoints: Int,
         tightness: Double = 0,
         flowCrossings: Int = 0,
+        flowsSharingAPath: Int = 0,
         flowsBehindNodes: Int = 0,
         crowdedCallouts: Int = 0,
         calloutReach: Double = 0,
@@ -152,6 +157,7 @@ public struct LayoutFitness: Equatable, Sendable {
         self.waypoints = waypoints
         self.tightness = tightness
         self.flowCrossings = flowCrossings
+        self.flowsSharingAPath = flowsSharingAPath
         self.flowsBehindNodes = flowsBehindNodes
         self.crowdedCallouts = crowdedCallouts
         self.calloutReach = calloutReach
@@ -165,6 +171,7 @@ public struct LayoutFitness: Equatable, Sendable {
             + 15 * Double(boundariesOverNodes)
             + 5 * Double(waypoints)
             + 4 * tightness
+            + 6 * Double(flowsSharingAPath)
             + 1 * Double(flowCrossings)
             + 1 * Double(flowsBehindNodes)
             + 8 * Double(crowdedCallouts)

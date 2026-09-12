@@ -396,6 +396,7 @@ public struct LayOutModel: LayOutModelUseCase {
             waypoints: routed.values.map(\.waypointCount).reduce(0, +),
             tightness: shape.tightness,
             flowCrossings: shape.crossings,
+            flowsSharingAPath: shape.shared,
             flowsBehindNodes: shape.behindNodes,
             crowdedCallouts: labels.crowded,
             calloutReach: labels.reach,
@@ -413,7 +414,7 @@ public struct LayOutModel: LayOutModelUseCase {
         of placed: LayOutModelResponse,
         in request: LayOutModelRequest,
         curves: [String: FlowCurve]
-    ) -> (tightness: Double, crossings: Int, behindNodes: Int) {
+    ) -> (tightness: Double, crossings: Int, shared: Int, behindNodes: Int) {
         let footprints = footprints(of: placed, in: request)
         var tightness = 0.0
         var behindNodes = 0
@@ -430,6 +431,7 @@ public struct LayOutModel: LayOutModelUseCase {
         }
 
         var crossings = 0
+        var shared = 0
         let flows = request.source.flows
 
         for first in flows.indices {
@@ -445,10 +447,11 @@ public struct LayOutModel: LayOutModelUseCase {
                 else { continue }
 
                 if FlowShape.crosses(oneCurve, otherCurve) { crossings += 1 }
+                if FlowShape.shareAPath(oneCurve, otherCurve) { shared += 1 }
             }
         }
 
-        return (tightness, crossings, behindNodes)
+        return (tightness, crossings, shared, behindNodes)
     }
 
     /// Where every label goes, and how well it went.

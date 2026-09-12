@@ -78,6 +78,34 @@ public enum FlowShape {
         )
     }
 
+    /// How near two flows have to run to read as one line.
+    public static let sameLine = 9.0
+    /// How much of a flow has to run that near before a reader loses which
+    /// line is which. Five of thirty-two samples is about a sixth of it.
+    public static let sharedSamples = 5
+
+    /// True when the two flows run along each other for part of their length.
+    ///
+    /// Two lines that cross are read as two lines. Two that run together for a
+    /// stretch are read as one, and a reader following either of them arrives
+    /// somewhere the model does not say.
+    public static func shareAPath(_ first: FlowCurve, _ second: FlowCurve) -> Bool {
+        let one = CurveCrossing.samples(of: first, steps: steps)
+        let other = CurveCrossing.samples(of: second, steps: steps)
+        var together = 0
+
+        for point in one {
+            guard CurveCrossing.touches(point, other, within: sameLine) else {
+                together = 0
+                continue
+            }
+            together += 1
+            if together >= sharedSamples { return true }
+        }
+
+        return false
+    }
+
     /// How many of the rectangles the flow passes behind.
     public static func timesBehind(_ curve: FlowCurve, _ rects: [Rect]) -> Int {
         guard rects.isEmpty == false else { return 0 }

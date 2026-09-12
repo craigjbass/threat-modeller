@@ -105,3 +105,47 @@ struct FlowShapeTests {
         #expect(FlowShape.timesBehind(curve, []) == 0)
     }
 }
+
+@Suite("Two flows running along each other")
+struct SharedPathTests {
+    @Test func saysSoWhenTwoFlowsRunTogether() {
+        let one = FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0))
+        let other = FlowCurve(from: Point(x: 0, y: 4), to: Point(x: 400, y: 4))
+
+        #expect(FlowShape.shareAPath(one, other))
+    }
+
+    @Test func saysNothingWhenTwoFlowsRunApart() {
+        let one = FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0))
+        let other = FlowCurve(from: Point(x: 0, y: 200), to: Point(x: 400, y: 200))
+
+        #expect(FlowShape.shareAPath(one, other) == false)
+    }
+
+    @Test func saysNothingWhenTwoFlowsOnlyCross() {
+        let one = FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 420))
+        let other = FlowCurve(from: Point(x: 0, y: 400), to: Point(x: 400, y: 10))
+
+        // They meet at a point and part again, which reads as two lines.
+        #expect(FlowShape.shareAPath(one, other) == false)
+    }
+
+    @Test func saysSoWhenTwoFlowsRunTogetherForPartOfTheWay() {
+        let one = FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 600, y: 0))
+        // Alongside for the first half, then away.
+        let other = FlowCurve(
+            from: Point(x: 0, y: 5),
+            through: [Point(x: 300, y: 5)],
+            to: Point(x: 600, y: 500)
+        )
+
+        #expect(FlowShape.shareAPath(one, other))
+    }
+
+    @Test func saysNothingWhenTwoFlowsOnlyBrush() {
+        let one = FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 600, y: 0))
+        let other = FlowCurve(from: Point(x: 300, y: -300), to: Point(x: 320, y: 300))
+
+        #expect(FlowShape.shareAPath(one, other) == false)
+    }
+}
