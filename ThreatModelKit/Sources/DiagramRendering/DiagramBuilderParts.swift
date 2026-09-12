@@ -63,24 +63,11 @@ extension DiagramBuilder {
             guard let source = boxes[connection.sourceComponentId],
                   let target = boxes[connection.targetComponentId] else { continue }
 
-            let avoid = FlowRouting.obstacles(
-                zones: model.zones
-                    .filter {
-                        $0.id != zoneOf[connection.sourceComponentId]
-                            && $0.id != zoneOf[connection.targetComponentId]
-                    }
-                    .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) },
-                nodes: model.components
-                    .filter {
-                        $0.id != connection.sourceComponentId
-                            && $0.id != connection.targetComponentId
-                    }
-                    .map {
-                        Component.drawnRect(
-                            at: Point(x: $0.x, y: $0.y),
-                            shape: DiagramBuilder.shape(of: $0)
-                        )
-                    }
+            let avoid = obstacles(
+                model,
+                between: connection.sourceComponentId,
+                and: connection.targetComponentId,
+                zoneOf: zoneOf
             )
             let anchors = AnchorGeometry.nearestPair(from: source, to: target, avoiding: avoid)
 
@@ -95,6 +82,99 @@ extension DiagramBuilder {
         }
 
         return FlowRouting.curves(of: routed)
+    }
+
+    /// What a line between two components goes round: every zone neither end
+    /// sits in, and every node that is not one of the two ends.
+    static func obstacles(
+        _ model: Model,
+        between source: String,
+        and target: String,
+        zoneOf: [String: String]
+    ) -> [Rect] {
+        FlowRouting.obstacles(
+            zones: model.zones
+                .filter { $0.id != zoneOf[source] && $0.id != zoneOf[target] }
+                .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) },
+            nodes: model.components
+                .filter { $0.id != source && $0.id != target }
+                .map {
+                    Component.drawnRect(
+                        at: Point(x: $0.x, y: $0.y),
+                        shape: DiagramBuilder.shape(of: $0)
+                    )
+                }
+        )
+    }
+
+    // MARK: what a control protects
+
+    /// The dashed line from a control to each component it answers a threat
+    /// on, with the count of threats it answers there.
+    ///
+    /// A control guards a component no flow reaches it from, so nothing else
+    /// in the picture states the pair. The line is dashed and takes its own
+    /// colour, because it carries no data and is not a trust boundary.
+    static func coverShapes(_ model: Model, boxes: [String: Rect]) -> [DrawnShape] {
+        guard let focus = model.focus, focus.hasPrefix("component:") else { return [] }
+        let protectorId = String(focus.dropFirst("component:".count))
+        guard let from = boxes[protectorId] else { return [] }
+
+        let zoneOf = Dictionary(
+            uniqueKeysWithValues: model.components.compactMap { component in
+                component.zoneId.map { (component.id, $0) }
+            }
+        )
+        var built: [DrawnShape] = []
+
+        for (sourceId, count) in model.covers.sorted(by: { $0.key < $1.key }) {
+            guard sourceId.hasPrefix("component:") else { continue }
+            let id = String(sourceId.dropFirst("component:".count))
+            guard id != protectorId, let to = boxes[id] else { continue }
+
+            let avoid = obstacles(model, between: protectorId, and: id, zoneOf: zoneOf)
+            let anchors = AnchorGeometry.nearestPair(from: from, to: to, avoiding: avoid)
+            let start = AnchorGeometry.point(anchors.source, of: from)
+            let end = AnchorGeometry.point(anchors.target, of: to)
+            let curve = FlowCurve(
+                from: start,
+                through: FlowRouting.waypoints(from: start, to: end, avoiding: avoid),
+                to: end
+            )
+
+            var steps: [PathStep] = [.move(curve.start)]
+            for segment in curve.segments {
+                steps.append(
+                    .cubic(control1: segment.control1, control2: segment.control2, to: segment.end)
+                )
+            }
+            built.append(
+                .path(steps, DiagramStyle(stroke: .protects, width: 1.5, dash: [5, 4]))
+            )
+
+            let middle = curve.point(at: 0.5)
+            let text = "\(count)"
+            let width = max(16.0, Double(text.count) * 6 + 8)
+            built.append(
+                .rectangle(
+                    Rect(x: middle.x - width / 2, y: middle.y - 8, width: width, height: 16),
+                    cornerRadius: 8,
+                    DiagramStyle(stroke: .protects, fill: .paper, width: 1)
+                )
+            )
+            built.append(
+                .text(
+                    text,
+                    at: Point(x: middle.x, y: middle.y + 3),
+                    anchor: .centre,
+                    size: chipSize,
+                    bold: true,
+                    .protects
+                )
+            )
+        }
+
+        return built
     }
 
     static func flowShapes(_ model: Model, curves: [String: FlowCurve]) -> [DrawnShape] {

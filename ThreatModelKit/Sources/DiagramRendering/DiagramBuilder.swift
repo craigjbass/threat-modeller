@@ -24,6 +24,11 @@ public enum DiagramBuilder {
         public let focus: String?
         /// What the picture says it is about, written across the top.
         public let title: String?
+        /// What the focus protects, by source id, with the count of threats it
+        /// answers there. A picture of a control draws a dashed line to each
+        /// one, because a control often guards a component no flow reaches it
+        /// from.
+        public let covers: [String: Int]
 
         public init(
             components: [ViewedComponent],
@@ -32,7 +37,8 @@ public enum DiagramBuilder {
             risks: [String: ElementRisk] = [:],
             guards: [String: [EdgeGuard]] = [:],
             focus: String? = nil,
-            title: String? = nil
+            title: String? = nil,
+            covers: [String: Int] = [:]
         ) {
             self.components = components
             self.connections = connections
@@ -41,13 +47,15 @@ public enum DiagramBuilder {
             self.guards = guards
             self.focus = focus
             self.title = title
+            self.covers = covers
         }
 
         /// How strongly one element draws. What the picture is not about draws
         /// at two fifths, so the eye finds what it is about.
         public func strength(of sourceId: String) -> Double {
             guard let focus else { return 1 }
-            return sourceId == focus ? 1 : 0.4
+            if sourceId == focus || covers[sourceId] != nil { return 1 }
+            return 0.4
         }
 
         public func isFocused(_ sourceId: String) -> Bool { focus == sourceId }
@@ -82,6 +90,7 @@ public enum DiagramBuilder {
         let chips = chipRects(runs, bands: bands)
         shapes += boundaryShapes(runs, curves: curves, bands: bands, model: model)
 
+        shapes += coverShapes(model, boxes: boxes)
         shapes += nodeShapes(model, boxes: boxes)
         shapes += calloutShapes(
             model,

@@ -27,7 +27,9 @@ public struct DiagramColour: Equatable, Sendable {
     public static let orange = DiagramColour(0.95, 0.55, 0.12)
     public static let yellow = DiagramColour(0.96, 0.78, 0.09)
     public static let red = DiagramColour(0.90, 0.22, 0.21)
-    public static let purple = DiagramColour(0.50, 0.30, 0.75)
+    /// The line from a control to what it protects. It is neither a risk
+    /// colour nor a zone tint, so it cannot be read as either.
+    public static let protects = DiagramColour(0.38, 0.31, 0.75)
 
     /// One colour per risk level, the same names the application shows.
     public static func forLevel(_ levelId: String?) -> DiagramColour {

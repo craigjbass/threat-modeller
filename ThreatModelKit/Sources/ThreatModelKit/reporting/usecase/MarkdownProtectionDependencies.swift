@@ -4,13 +4,20 @@
 /// unanswered threat is where the whole reduction fails, and this section
 /// says so rather than folding a guess into the score.
 public enum MarkdownProtectionDependencies {
-    public static func lines(_ dependencies: [ReportProtectionDependency]) -> [String] {
+    public static func lines(
+        _ dependencies: [ReportProtectionDependency],
+        pictures: [String: String] = [:]
+    ) -> [String] {
         guard dependencies.isEmpty == false else { return [] }
 
         var lines = ["## Protection dependencies", ""]
         for dependency in dependencies {
             lines.append("### \(dependency.protectorName)")
             lines.append("")
+            if let fileName = pictures[dependency.protectorId] {
+                lines.append("![What \(dependency.protectorName) protects](\(fileName))")
+                lines.append("")
+            }
             for answered in dependency.protects {
                 lines.append("- Answers: \(answered)")
             }

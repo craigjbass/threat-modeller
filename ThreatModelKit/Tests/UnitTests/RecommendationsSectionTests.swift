@@ -171,4 +171,54 @@ struct RecommendationsSectionTests {
         )
         #expect(built.map(\.text) == ["first", "second"])
     }
+
+    // MARK: a picture of each control
+
+    @Test func theDependencySectionShowsThePictureOfEachControl() throws {
+        let lines = MarkdownProtectionDependencies.lines(
+            [
+                ReportProtectionDependency(
+                    protectorName: "ClearanceKit",
+                    protects: ["credential-theft on store"],
+                    protectorId: "ck"
+                )
+            ],
+            pictures: ["ck": "model-control-1.svg"]
+        )
+
+        let heading = try #require(lines.firstIndex(of: "### ClearanceKit"))
+        let picture = try #require(
+            lines.firstIndex(of: "![What ClearanceKit protects](model-control-1.svg)")
+        )
+        let bullet = try #require(lines.firstIndex(of: "- Answers: credential-theft on store"))
+
+        #expect(heading < picture)
+        #expect(picture < bullet)
+    }
+
+    @Test func theDependencySectionShowsNoPictureWhenNoneWasDrawn() {
+        let lines = MarkdownProtectionDependencies.lines([
+            ReportProtectionDependency(protectorName: "ClearanceKit", protectorId: "ck")
+        ])
+
+        #expect(lines.contains { $0.hasPrefix("![") } == false)
+    }
+
+    @Test func theDependencyCountsWhatItAnswersOnEachComponent() {
+        let counted = ProtectionDependenciesReport.build([
+            ProtectionDependency(
+                protectorId: "okta",
+                protectorName: "Okta",
+                protects: [
+                    "credential-theft on store",
+                    "unauthorized-access on store",
+                    "account-takeover on github"
+                ],
+                unanswered: []
+            )
+        ])
+
+        #expect(counted.first?.protectorId == "okta")
+        #expect(counted.first?.answeredByElementId == ["store": 2, "github": 1])
+    }
 }

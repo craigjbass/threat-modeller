@@ -47,6 +47,92 @@ public enum ThreatDiagrams {
         }
     }
 
+    /// A picture of one control: what it protects.
+    public struct ControlPicture: Equatable, Sendable {
+        public let protectorId: String
+        public let fileName: String
+        public let svg: String
+
+        public init(protectorId: String, fileName: String, svg: String) {
+            self.protectorId = protectorId
+            self.fileName = fileName
+            self.svg = svg
+        }
+    }
+
+    /// One picture for each control, so a reader scrutinising a control sees
+    /// every component that rests on it in one place.
+    public static func controlPictures(
+        of model: DiagramBuilder.Model,
+        for dependencies: [ReportProtectionDependency],
+        stem: String
+    ) -> [ControlPicture] {
+        dependencies.enumerated().compactMap { index, dependency in
+            let covers = Dictionary(
+                uniqueKeysWithValues: dependency.answeredByElementId.map {
+                    ("component:\($0.key)", $0.value)
+                }
+            )
+            guard let drawn = protecting(
+                model,
+                by: dependency.protectorId,
+                covers: covers,
+                titled: title(of: dependency)
+            ) else { return nil }
+
+            return ControlPicture(
+                protectorId: dependency.protectorId,
+                fileName: "\(stem)-control-\(index + 1).svg",
+                svg: SvgWriter.svg(of: DiagramBuilder.drawing(of: drawn))
+            )
+        }
+    }
+
+    static func title(of dependency: ReportProtectionDependency) -> String {
+        let count = dependency.answeredByElementId.count
+        let threats = dependency.answeredByElementId.values.reduce(0, +)
+        return "\(dependency.protectorName) \u{2014} answers \(threats) "
+            + (threats == 1 ? "threat" : "threats")
+            + " on \(count) " + (count == 1 ? "element" : "elements")
+    }
+
+    /// The part of the model one control is about: the control, every
+    /// component it answers a threat on, the flows between any of them, and
+    /// the zones that hold them.
+    public static func protecting(
+        _ model: DiagramBuilder.Model,
+        by protectorId: String,
+        covers: [String: Int],
+        titled title: String? = nil
+    ) -> DiagramBuilder.Model? {
+        guard model.components.contains(where: { $0.id == protectorId }) else { return nil }
+
+        var componentIds: Set<String> = [protectorId]
+        for sourceId in covers.keys where sourceId.hasPrefix("component:") {
+            componentIds.insert(String(sourceId.dropFirst("component:".count)))
+        }
+
+        let components = model.components.filter { componentIds.contains($0.id) }
+        let connections = model.connections.filter {
+            componentIds.contains($0.sourceComponentId)
+                && componentIds.contains($0.targetComponentId)
+        }
+        let zoneIds = Set(components.compactMap(\.zoneId))
+
+        return laidOut(
+            DiagramBuilder.Model(
+                components: components,
+                connections: connections,
+                zones: model.zones.filter { zoneIds.contains($0.id) },
+                risks: model.risks,
+                guards: model.guards,
+                focus: "component:\(protectorId)",
+                title: title,
+                covers: covers
+            )
+        )
+    }
+
     /// The part of the model one threat is about.
     ///
     /// A threat on a component draws that component, every flow touching it
@@ -153,7 +239,8 @@ public enum ThreatDiagrams {
             risks: model.risks,
             guards: model.guards,
             focus: model.focus,
-            title: model.title
+            title: model.title,
+            covers: model.covers
         )
     }
 

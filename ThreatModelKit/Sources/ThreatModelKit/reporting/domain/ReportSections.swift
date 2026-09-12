@@ -30,15 +30,25 @@ public struct ReportProtectionDependency: Equatable, Sendable {
     public let protectorName: String
     public let protects: [String]
     public let unanswered: [ReportUnansweredThreat]
+    /// The component the reductions come from. A picture of this dependency
+    /// needs the id, and `protectorName` is a name a reader chose.
+    public let protectorId: String
+    /// How many threats this protector answers on each component it protects,
+    /// by component id. A picture labels the line to a component with it.
+    public let answeredByElementId: [String: Int]
 
     public init(
         protectorName: String,
         protects: [String] = [],
-        unanswered: [ReportUnansweredThreat] = []
+        unanswered: [ReportUnansweredThreat] = [],
+        protectorId: String = "",
+        answeredByElementId: [String: Int] = [:]
     ) {
         self.protectorName = protectorName
         self.protects = protects
         self.unanswered = unanswered
+        self.protectorId = protectorId
+        self.answeredByElementId = answeredByElementId
     }
 }
 

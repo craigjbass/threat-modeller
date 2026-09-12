@@ -129,6 +129,101 @@ struct ThreatDiagramsTests {
         )
     }
 
+    // MARK: a picture of one control
+
+    private func dependency(_ id: String, protects: [String: Int]) -> ReportProtectionDependency {
+        ReportProtectionDependency(
+            protectorName: id,
+            protects: protects.flatMap { element, count in
+                (0 ..< count).map { "threat-\($0) on \(element)" }
+            },
+            protectorId: id,
+            answeredByElementId: protects
+        )
+    }
+
+    @Test func drawsTheControlAndEveryElementItAnswersAThreatOn() throws {
+        let drawn = try #require(
+            ThreatDiagrams.protecting(model, by: "a", covers: ["component:c": 2])
+        )
+
+        #expect(Set(drawn.components.map(\.id)) == ["a", "c"])
+        #expect(drawn.focus == "component:a")
+        #expect(drawn.covers == ["component:c": 2])
+    }
+
+    @Test func drawsWhatAControlProtectsAtFullStrength() throws {
+        let drawn = try #require(
+            ThreatDiagrams.protecting(model, by: "a", covers: ["component:c": 2])
+        )
+
+        #expect(drawn.strength(of: "component:a") == 1)
+        #expect(drawn.strength(of: "component:c") == 1)
+        #expect(drawn.strength(of: "component:b") < 1)
+        #expect(drawn.isFocused("component:c") == false)
+    }
+
+    @Test func drawsADashedLineFromTheControlToEachElementItProtects() throws {
+        let drawn = try #require(
+            ThreatDiagrams.protecting(model, by: "a", covers: ["component:b": 3])
+        )
+        let dashed = DiagramBuilder.drawing(of: drawn).shapes.filter { shape in
+            guard case .path(_, let style) = shape else { return false }
+            return style.dash.isEmpty == false && style.stroke == .protects
+        }
+        let counts = DiagramBuilder.drawing(of: drawn).shapes.compactMap { shape -> String? in
+            guard case .text(let text, _, _, _, _, let ink) = shape, ink == .protects else {
+                return nil
+            }
+            return text
+        }
+
+        #expect(dashed.count == 1)
+        #expect(counts == ["3"])
+    }
+
+    @Test func drawsNoPictureForAControlTheModelDoesNotHold() {
+        #expect(ThreatDiagrams.protecting(model, by: "nobody", covers: [:]) == nil)
+    }
+
+    @Test func namesEachControlPictureAfterItsPlaceInTheList() {
+        let pictures = ThreatDiagrams.controlPictures(
+            of: model,
+            for: [
+                dependency("a", protects: ["b": 1]),
+                dependency("nobody", protects: ["b": 1]),
+                dependency("b", protects: ["c": 2])
+            ],
+            stem: "model"
+        )
+
+        #expect(pictures.map(\.protectorId) == ["a", "b"])
+        #expect(pictures.map(\.fileName) == ["model-control-1.svg", "model-control-3.svg"])
+    }
+
+    @Test func theControlPictureSaysWhatItAnswers() throws {
+        let pictures = ThreatDiagrams.controlPictures(
+            of: model,
+            for: [dependency("a", protects: ["b": 2, "c": 1])],
+            stem: "model"
+        )
+        let svg = try #require(pictures.first?.svg)
+
+        #expect(svg.contains("answers 3 threats on 2 elements"))
+    }
+
+    @Test func theControlPictureCountsOneThreatOnOneElementInTheSingular() throws {
+        let pictures = ThreatDiagrams.controlPictures(
+            of: model,
+            for: [dependency("a", protects: ["b": 1])],
+            stem: "model"
+        )
+        let svg = try #require(pictures.first?.svg)
+
+        #expect(svg.contains("answers 1 threat on 1 element"))
+    }
+
+
     // MARK: which element the picture calls out
 
     @Test func marksTheOneElementTheThreatIsOn() throws {

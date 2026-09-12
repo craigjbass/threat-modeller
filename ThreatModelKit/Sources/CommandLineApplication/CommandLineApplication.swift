@@ -302,18 +302,26 @@ public struct CommandLineApplication {
                 .execute(BuildThreatModelReportRequest()).report
             let canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
             let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
-            let pictures = ThreatDiagrams.pictures(
-                of: DiagramBuilder.Model(
-                    components: canvas.components,
-                    connections: canvas.connections,
-                    zones: canvas.zones,
-                    risks: ElementRiskRollup.byElement(
-                        assessment.threats,
-                        levelOrder: assessment.severities.map(\.id)
-                    ),
-                    guards: EdgeGuards.byElement(assessment.threats)
+            let drawn = DiagramBuilder.Model(
+                components: canvas.components,
+                connections: canvas.connections,
+                zones: canvas.zones,
+                risks: ElementRiskRollup.byElement(
+                    assessment.threats,
+                    levelOrder: assessment.severities.map(\.id)
                 ),
+                guards: EdgeGuards.byElement(assessment.threats)
+            )
+            let pictures = ThreatDiagrams.pictures(
+                of: drawn,
                 for: report.rollups.topResidual,
+                stem: system.name
+            )
+            // A picture of each control as well, for a reader scrutinising
+            // what one control carries rather than what one threat sits on.
+            let controls = ThreatDiagrams.controlPictures(
+                of: drawn,
+                for: report.protectionDependencies,
                 stem: system.name
             )
 
@@ -322,6 +330,9 @@ public struct CommandLineApplication {
                     ExportModelAsMarkdownRequest(
                         threatPictures: Dictionary(
                             uniqueKeysWithValues: pictures.map { ($0.key, $0.fileName) }
+                        ),
+                        controlPictures: Dictionary(
+                            uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) }
                         )
                     )
                 )
@@ -330,6 +341,14 @@ public struct CommandLineApplication {
             let beside = String(path.dropLast("\(system.name).md".count))
 
             for picture in pictures {
+                do {
+                    try projects.write(picture.svg, to: beside + picture.fileName)
+                } catch {
+                    output("threatmodeller: \(Self.described(error))")
+                    return .fileFault
+                }
+            }
+            for picture in controls {
                 do {
                     try projects.write(picture.svg, to: beside + picture.fileName)
                 } catch {
@@ -347,6 +366,9 @@ public struct CommandLineApplication {
                 output("wrote \(path)")
                 if pictures.isEmpty == false {
                     output("wrote \(pictures.count) threat diagrams beside it")
+                }
+                if controls.isEmpty == false {
+                    output("wrote \(controls.count) control diagrams beside it")
                 }
             }
             return .success

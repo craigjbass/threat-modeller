@@ -10,9 +10,16 @@ public struct ExportModelAsMarkdownRequest: Equatable, Sendable {
     /// section. The core cannot draw one itself: drawing depends on the core,
     /// so the core cannot depend on drawing.
     public let threatPictures: [String: String]
+    /// The picture drawn for each control, by file name, keyed by the id of
+    /// the component the protection comes from.
+    public let controlPictures: [String: String]
 
-    public init(threatPictures: [String: String] = [:]) {
+    public init(
+        threatPictures: [String: String] = [:],
+        controlPictures: [String: String] = [:]
+    ) {
         self.threatPictures = threatPictures
+        self.controlPictures = controlPictures
     }
 }
 
@@ -62,7 +69,10 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         lines += connections(report.connections)
         lines += zones(report.zones)
         lines += MarkdownAttackPaths.lines(report.attackPaths, notListed: report.attackPathsNotListed)
-        lines += MarkdownProtectionDependencies.lines(report.protectionDependencies)
+        lines += MarkdownProtectionDependencies.lines(
+            report.protectionDependencies,
+            pictures: request.controlPictures
+        )
         lines += MarkdownRecommendations.lines(report.recommendations)
         lines += MarkdownAssumptions.lines(
             assumptions: report.assumptions,
