@@ -67,4 +67,40 @@ public enum CurveCrossing {
 
         return (first > 0) != (second > 0) && (third > 0) != (fourth > 0)
     }
+
+    /// True when the point all but sits on the polyline.
+    ///
+    /// A crossing test alone misses the case where a sample lands exactly on
+    /// the other curve: every determinant is then zero and nothing straddles
+    /// anything. A canvas still shows the two touching, so the caller needs to
+    /// know.
+    public static func touches(_ point: Point, _ polyline: [Point], within reach: Double) -> Bool {
+        guard polyline.count > 1 else { return false }
+
+        for index in 0 ..< polyline.count - 1 {
+            if distance(from: point, to: polyline[index], polyline[index + 1]) <= reach {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /// The shortest distance from the point to the segment.
+    private static func distance(from point: Point, to start: Point, _ end: Point) -> Double {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let lengthSquared = dx * dx + dy * dy
+
+        guard lengthSquared > 0 else {
+            return hypot(point.x - start.x, point.y - start.y)
+        }
+
+        let along = min(
+            1,
+            max(0, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared)
+        )
+        let nearest = Point(x: start.x + along * dx, y: start.y + along * dy)
+        return hypot(point.x - nearest.x, point.y - nearest.y)
+    }
 }

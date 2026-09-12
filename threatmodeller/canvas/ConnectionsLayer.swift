@@ -1,12 +1,53 @@
 import SwiftUI
 import ThreatModelKit
 
-extension BoundaryCrossings.BoundaryRun {
-    /// The bow this boundary draws.
-    var path: Path {
+/// Declared `nonisolated`: the app target defaults every type to the main
+/// actor, and this is a pure value computation with no shared state.
+nonisolated extension BoundaryCrossings.BoundaryRun {
+    /// How much of the curve is left out either side of a flow that crosses it
+    /// but does not pass through it, measured in samples.
+    static let gap = 3
+    /// How near a sample has to be to a flow to count as meeting it. A sample
+    /// that lands exactly on a flow crosses nothing by the straddle test, and
+    /// a reader still sees the two touch.
+    static let nearness = 2.0
+
+    /// The bow this boundary draws, with a gap wherever a flow crosses it that
+    /// it says nothing about.
+    ///
+    /// A reader takes a crossing for a statement that the boundary applies to
+    /// that flow. The generated layout widens the picture to remove most of
+    /// them; the gap holds the rule for the rest.
+    func path(avoiding unrelated: [[Point]]) -> Path {
+        let samples = CurveCrossing.samples(of: self)
+        var blocked = Set<Int>()
+
+        for flow in unrelated {
+            var met = CurveCrossing.crossings(samples, flow)
+            met += samples.indices.filter {
+                CurveCrossing.touches(samples[$0], flow, within: Self.nearness)
+            }
+
+            for index in met {
+                for near in (index - Self.gap)...(index + Self.gap) { blocked.insert(near) }
+            }
+        }
+
         var built = Path()
-        built.move(to: CGPoint(start))
-        built.addQuadCurve(to: CGPoint(end), control: CGPoint(control))
+        var drawing = false
+
+        for index in 0 ..< samples.count - 1 {
+            guard blocked.contains(index) == false else {
+                drawing = false
+                continue
+            }
+            if drawing == false {
+                built.move(to: CGPoint(samples[index]))
+                drawing = true
+            }
+            built.addLine(to: CGPoint(samples[index + 1]))
+        }
+
         return built
     }
 }
@@ -51,6 +92,7 @@ struct ConnectionsLayer: View {
     var body: some View {
         Canvas { context, _ in
             var marked: [BoundaryCrossings.MarkedCrossing] = []
+            var sampled: [String: [Point]] = [:]
 
             for connection in connections {
                 guard let source = boxes[connection.sourceComponentId],
@@ -67,6 +109,7 @@ struct ConnectionsLayer: View {
                 draw(connection, along: path, in: &context)
 
                 guard isOutOfScope(connection) == false else { continue }
+                sampled[connection.id] = CurveCrossing.samples(of: path.curve)
                 marked += BoundaryCrossings.of(
                     connectionId: connection.id,
                     sourceZoneId: componentsById[connection.sourceComponentId]?.zoneId,
@@ -87,8 +130,12 @@ struct ConnectionsLayer: View {
             let runs = BoundaryCrossings.runs(marked)
 
             for run in runs {
+                let unrelated = sampled
+                    .filter { run.connectionIds.contains($0.key) == false }
+                    .map(\.value)
+
                 context.stroke(
-                    run.path,
+                    run.path(avoiding: unrelated),
                     with: .color(tint(of: run)),
                     style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [2, 5])
                 )
