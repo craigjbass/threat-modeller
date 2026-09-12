@@ -44,6 +44,14 @@ struct CommandLineDependencies {
         BuildThreatModelReport(models: models, catalogue: catalogue)
     }
 
+    func viewThreatModel() -> ViewThreatModelUseCase {
+        ViewThreatModel(models: models, catalogue: catalogue)
+    }
+
+    func assessThreatModel() -> AssessThreatModelUseCase {
+        AssessThreatModel(models: models, catalogue: catalogue)
+    }
+
     func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
         ExportModelAsMarkdown(reports: buildThreatModelReport())
     }

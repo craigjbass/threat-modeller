@@ -41,6 +41,45 @@ struct CommandLineApplicationTests {
 
     """
 
+    // MARK: drawing a picture
+
+    @Test func writesTheDiagramAsSvg() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run("draw", "/work")
+
+        #expect(result.code == 0)
+        #expect(result.lines == ["wrote /work/threatmodel/payments.svg"])
+        let svg = try #require(try project.read(path: "/work/threatmodel/payments.svg"))
+        #expect(svg.hasPrefix("<svg"))
+        #expect(svg.contains("EC2"))
+    }
+
+    @Test func writesTheDiagramWhereItIsTold() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run("draw", "/work", "-o", "/out")
+
+        #expect(result.code == 0)
+        #expect(result.lines == ["wrote /out/payments.svg"])
+    }
+
+    @Test func saysNothingAboutADiagramWhenAskedToBeQuiet() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        #expect(run("draw", "/work", "--quiet").lines.isEmpty)
+    }
+
+    @Test func refusesToDrawAFileThatDoesNotParse() throws {
+        project.put("system \"Broken\" {", at: "/work/threatmodel/broken.arch")
+
+        #expect(run("draw", "/work").code == 2)
+    }
+
+    @Test func offersDrawInTheHelp() {
+        #expect(run("help").lines.joined().contains("threatmodeller draw"))
+    }
+
     @Test func rewritesAFileInTheCanonicalShape() throws {
         project.put(untidy, at: "/work/threatmodel/payments.arch")
 

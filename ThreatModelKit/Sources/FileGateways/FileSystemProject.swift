@@ -66,6 +66,15 @@ public struct FileSystemProject: ProjectSourceGateway {
         }
     }
 
+    public func write(bytes: Data, to path: String) throws {
+        let url = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try bytes.write(to: url)
+    }
+
     public func delete(path: String) throws {
         guard manager.fileExists(atPath: path) else { return }
         do {

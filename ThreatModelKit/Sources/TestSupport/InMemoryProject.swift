@@ -65,6 +65,12 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
         put(text, at: path)
     }
 
+    /// A picture is bytes. This holds it as the text of its own byte count, so
+    /// a test can say a file was written without holding a bitmap.
+    public func write(bytes: Data, to path: String) throws {
+        put("<\(bytes.count) bytes>", at: path)
+    }
+
     public func delete(path: String) throws {
         files.removeValue(forKey: path)
     }

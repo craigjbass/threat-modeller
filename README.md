@@ -336,10 +336,16 @@ printed empty.
 threatmodeller compile [<root>]              # writes or merges every .controls file
 threatmodeller check   [<root>]              # says what has no answer
 threatmodeller report  [<root>] [-o <dir>]   # writes every .md report
+threatmodeller draw    [<root>] [-o <dir>]   # writes every diagram as SVG or PNG
 threatmodeller format  [<root>]              # rewrites every .arch file canonically
 threatmodeller library <operation> …         # manages the shared element libraries
 threatmodeller help                          # shows the usage text
 ```
+
+`draw` writes SVG by default. `--svg` and `--png` say which to write, and both
+may be given. SVG is written by the package itself, so every build writes it,
+including the static Linux one. PNG needs a drawing engine, which only a macOS
+build has; a Linux build says so rather than writing a broken file.
 
 Options: `-o <dir>` writes the reports into that directory. `--catalogue <dir>`
 reads the threat catalogue from that directory. `--tolerance <level>` sets the

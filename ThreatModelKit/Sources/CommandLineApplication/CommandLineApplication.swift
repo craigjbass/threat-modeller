@@ -1,5 +1,6 @@
 import ArchitectureDSL
 import CatalogueGateways
+import DiagramRendering
 import FileGateways
 import Foundation
 import ThreatModelKit
@@ -51,6 +52,7 @@ public struct CommandLineApplication {
         var isForced = false
         var catalogueDirectory: String?
         var tolerance: String?
+        var pictures: Set<DiagramFormat> = []
 
         var flagless: [String] = []
         var index = 0
@@ -66,6 +68,10 @@ public struct CommandLineApplication {
             case "--tolerance":
                 index += 1
                 tolerance = index < words.count ? words[index] : nil
+            case "--svg":
+                pictures.insert(.svg)
+            case "--png":
+                pictures.insert(.png)
             case "-o":
                 index += 1
                 if index < words.count { flagless.append("-o:" + words[index]) }
@@ -101,6 +107,9 @@ public struct CommandLineApplication {
         case "report":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return report(root: root, into: into, isQuiet: isQuiet, output: output)
+        case "draw":
+            let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
+            return draw(root: root, into: into, wants: pictures, isQuiet: isQuiet, output: output)
         case "help", "--help", "-h":
             output(Self.usage)
             return ExitCode.success.rawValue
@@ -298,6 +307,98 @@ public struct CommandLineApplication {
                 return .fileFault
             }
             if isQuiet == false { output("wrote \(path)") }
+            return .success
+        }
+    }
+
+    /// What `draw` writes.
+    public enum DiagramFormat: String, Sendable, CaseIterable {
+        case svg
+        case png
+    }
+
+    /// Writes every system as a picture.
+    ///
+    /// SVG is written by this package, so it works wherever the tool runs. PNG
+    /// needs a drawing engine, which only Apple's platforms supply here, so a
+    /// Linux build says so rather than writing nothing.
+    private func draw(
+        root: String,
+        into: String?,
+        wants: Set<DiagramFormat>,
+        isQuiet: Bool,
+        output: (String) -> Void
+    ) -> Int32 {
+        let formats = wants.isEmpty ? [DiagramFormat.svg] : wants
+
+        return forEachSystem(root: root, output: output) { system, useCases in
+            guard let architectureText = read(system.architecturePath, output) else {
+                return .fileFault
+            }
+
+            let imported = useCases.importArchitecture()
+                .execute(ImportArchitectureRequest(text: architectureText))
+            guard case .imported = imported else {
+                guard case .refused(let diagnostics) = imported else { return .didNotParse }
+                for diagnostic in diagnostics {
+                    output(diagnostic.described(in: system.architecturePath))
+                }
+                return .didNotParse
+            }
+
+            if projects.exists(path: system.controlsPath),
+               let controlsText = try? projects.read(path: system.controlsPath) {
+                _ = useCases.applyControlAnswers()
+                    .execute(ApplyControlAnswersRequest(text: controlsText))
+            }
+
+            let canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
+            let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+            let drawing = DiagramBuilder.drawing(
+                of: DiagramBuilder.Model(
+                    components: canvas.components,
+                    connections: canvas.connections,
+                    zones: canvas.zones,
+                    risks: ElementRiskRollup.byElement(
+                        assessment.threats,
+                        levelOrder: assessment.severities.map(\.id)
+                    ),
+                    guards: EdgeGuards.byElement(assessment.threats)
+                )
+            )
+
+            for format in formats.sorted(by: { $0.rawValue < $1.rawValue }) {
+                let name = "\(system.name).\(format.rawValue)"
+                let path = into.map { ProjectConvention.path($0, name) }
+                    ?? ProjectConvention.path(
+                        String(system.architecturePath.dropLast(system.name.count + 5)),
+                        name
+                    )
+
+                switch format {
+                case .svg:
+                    do {
+                        try projects.write(SvgWriter.svg(of: drawing), to: path)
+                    } catch {
+                        output("threatmodeller: \(Self.described(error))")
+                        return .fileFault
+                    }
+                case .png:
+                    guard let bytes = PngWriter.png(of: drawing) else {
+                        output("threatmodeller: this build writes no PNG; write SVG instead")
+                        return .fileFault
+                    }
+                    do {
+                        try projects.write(bytes: bytes, to: path)
+                    } catch {
+                        output("threatmodeller: \(Self.described(error))")
+                        return .fileFault
+                    }
+                }
+
+                if isQuiet == false { output("wrote \(path)") }
+            }
+
             return .success
         }
     }
@@ -590,6 +691,7 @@ public struct CommandLineApplication {
       threatmodeller compile [<root>]  write or merge every .controls file
       threatmodeller check   [<root>]  say what has no answer, and exit 1 if any has none
       threatmodeller report  [<root>]  write every .md report
+      threatmodeller draw    [<root>]  write every diagram as a picture
       threatmodeller format  [<root>]  rewrite every .arch file in the canonical shape
       threatmodeller help              show this text
 
@@ -603,6 +705,8 @@ public struct CommandLineApplication {
 
     Options:
       -o <dir>              write the reports into this directory
+      --svg                 draw as SVG, which every build writes
+      --png                 draw as PNG, which only a macOS build writes
       --catalogue <dir>     read the threat catalogue from this directory
       --tolerance <level>   a likelihood finding answers a threat up to this level
       -q, --quiet           say nothing about a file that did not change

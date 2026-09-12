@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "TestSupport", targets: ["TestSupport"]),
         .library(name: "FileGateways", targets: ["FileGateways"]),
         .library(name: "ArchitectureDSL", targets: ["ArchitectureDSL"]),
+        .library(name: "DiagramRendering", targets: ["DiagramRendering"]),
         // Named -cli so the binary does not sit beside threatmodeller.app in
         // one build directory, where the test runner reads the wrong one.
         // scripts/build-linux.sh installs it as `threatmodeller`.
@@ -29,10 +30,14 @@ let package = Package(
             resources: [.copy("Resources/Samples")]
         ),
         .target(name: "ArchitectureDSL", dependencies: ["ThreatModelKit"]),
+        // Draws a model without a window: the command line tool ships as a
+        // static Linux binary and cannot use SwiftUI.
+        .target(name: "DiagramRendering", dependencies: ["ThreatModelKit"]),
         .target(
             name: "CommandLineApplication",
             dependencies: [
-                "ThreatModelKit", "ArchitectureDSL", "FileGateways", "CatalogueGateways"
+                "ThreatModelKit", "ArchitectureDSL", "FileGateways", "CatalogueGateways",
+                "DiagramRendering"
             ]
         ),
         .executableTarget(
@@ -46,7 +51,8 @@ let package = Package(
         .testTarget(
             name: "UnitTests",
             dependencies: [
-                "ThreatModelKit", "ArchitectureDSL", "CommandLineApplication", "TestSupport"
+                "ThreatModelKit", "ArchitectureDSL", "CommandLineApplication", "TestSupport",
+                "DiagramRendering"
             ]
         ),
         .testTarget(name: "AcceptanceTests", dependencies: ["ThreatModelKit", "TestSupport"]),
