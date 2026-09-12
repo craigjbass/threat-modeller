@@ -11,9 +11,10 @@ nonisolated struct BoundaryCrossing: Equatable {
     let point: CGPoint
     /// The flow's tangent there. The mark draws across it, at a right angle.
     let angle: CGFloat
-    /// The kind of the zone whose edge the flow crosses: public or private.
-    /// The zone being entered when the flow enters one, else the zone it
-    /// leaves.
+    /// The zone whose edge the flow crosses. The zone being entered when the
+    /// flow enters one, else the zone it leaves.
+    let zoneId: String
+    /// That zone's kind: public or private.
     let networkZoneId: String
 }
 
@@ -63,6 +64,7 @@ nonisolated enum BoundaryCrossings {
                 BoundaryCrossing(
                     point: CGPoint(x: (before.x + point.x) / 2, y: (before.y + point.y) / 2),
                     angle: atan2(point.y - before.y, point.x - before.x),
+                    zoneId: (entered ?? held)?.id ?? "",
                     networkZoneId: (entered ?? held)?.networkZoneId ?? "private"
                 )
             )
@@ -76,6 +78,35 @@ nonisolated enum BoundaryCrossings {
     /// rectangle with the header band removed, and a later zone wins.
     private static func zone(holding point: CGPoint, in zones: [ViewedZone]) -> ViewedZone? {
         zones.last { ZoneBox(zone: $0).contentRect.contains(point) }
+    }
+
+    /// How near two crossings of one zone edge have to be to count as the
+    /// same place. Eight links across one edge then draw one mark, not a
+    /// hedge.
+    static let together: CGFloat = 28
+
+    /// One mark for each place a zone edge is crossed, whatever number of
+    /// flows cross it there.
+    ///
+    /// A crossing is dropped when a kept crossing of the same zone already
+    /// sits within `together` of it. The first one wins, so the same model
+    /// draws the same picture. Clustering by distance rather than by a grid
+    /// keeps two neighbours together when they fall either side of a grid
+    /// line.
+    static func places(_ crossings: [BoundaryCrossing]) -> [BoundaryCrossing] {
+        var kept: [BoundaryCrossing] = []
+
+        for crossing in crossings {
+            let isNew = kept.contains { held in
+                held.zoneId == crossing.zoneId
+                    && hypot(held.point.x - crossing.point.x, held.point.y - crossing.point.y)
+                        <= together
+            } == false
+
+            if isNew { kept.append(crossing) }
+        }
+
+        return kept
     }
 
     /// The mark itself: a bow across the flow, centred on the crossing.

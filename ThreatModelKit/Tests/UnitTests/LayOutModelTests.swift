@@ -97,10 +97,10 @@ struct LayOutModelTests {
 
         let response = layOut(ArchitectureSource(systemName: "P", zones: wide))
 
-        // Each zone is 240 wide with a 60 gap, so eight fit before the wrap.
-        #expect(response.zones[7].y == response.zones[0].y)
-        #expect(response.zones[8].y > response.zones[0].y)
-        #expect(response.zones[8].x == 40)
+        // Each zone is 240 wide with a 60 gap, so four fit before the wrap.
+        #expect(response.zones[3].y == response.zones[0].y)
+        #expect(response.zones[4].y > response.zones[0].y)
+        #expect(response.zones[4].x == 40)
     }
 
     @Test func putsTheZonesBelowTheBand() {

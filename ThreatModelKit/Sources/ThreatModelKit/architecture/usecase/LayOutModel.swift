@@ -67,7 +67,11 @@ public struct LayOutModel: LayOutModelUseCase {
     static let zoneHeader = 40.0
     static let zoneGap = 60.0
     /// A row of zones wraps once it would pass this width.
-    static let rowWidth = 2400.0
+    ///
+    /// A wide, short diagram reads badly: a flow runs the whole width, and its
+    /// label crosses everything between its two ends. Wrapping sooner squares
+    /// the picture up and keeps a flow short.
+    static let rowWidth = 1400.0
 
     public init() {}
 

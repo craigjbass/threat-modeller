@@ -37,6 +37,9 @@ struct ConnectionsLayer: View {
 
     var body: some View {
         Canvas { context, _ in
+            var everyCrossing: [BoundaryCrossing] = []
+            var chips: [(connection: ViewedConnection, crossing: BoundaryCrossing)] = []
+
             for connection in connections {
                 guard let source = boxes[connection.sourceComponentId],
                       let target = boxes[connection.targetComponentId] else { continue }
@@ -47,7 +50,34 @@ struct ConnectionsLayer: View {
                     to: AnchorGeometry.point(anchors.target, of: target)
                 )
                 draw(connection, along: path, in: &context)
-                markBoundaries(of: connection, along: path, in: &context)
+
+                guard isOutOfScope(connection) == false else { continue }
+                let crossings = BoundaryCrossings.of(
+                    connection,
+                    path: path,
+                    components: componentsById,
+                    zones: zones
+                )
+                everyCrossing += crossings
+                // A guard answers the flow, not one edge of it, so a flow that
+                // crosses two boundaries names its guards once.
+                if let first = crossings.first {
+                    chips.append((connection, first))
+                }
+            }
+
+            // One mark per place, however many flows cross the edge there.
+            for crossing in BoundaryCrossings.places(everyCrossing) {
+                context.stroke(
+                    BoundaryCrossings.mark(for: crossing),
+                    with: .color(tint(of: crossing)),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [2, 5])
+                )
+            }
+
+            // The chips go on last, so a link drawn later never covers one.
+            for chip in chips {
+                writeGuards(of: chip.connection, at: chip.crossing, in: &context)
             }
 
             if let preview {
@@ -61,6 +91,10 @@ struct ConnectionsLayer: View {
             }
         }
         .allowsHitTesting(false)
+    }
+
+    private func tint(of crossing: BoundaryCrossing) -> Color {
+        crossing.networkZoneId == "private" ? .green : .orange
     }
 
     // MARK: what one link looks like
@@ -121,46 +155,15 @@ struct ConnectionsLayer: View {
         write(connection, at: path.point(at: 0.5), colour: colour, in: &context)
     }
 
-    /// The trust boundary marks this link crosses. A link out of scope draws
-    /// none: nothing about it is being assessed.
-    private func markBoundaries(
-        of connection: ViewedConnection,
-        along path: ConnectionPath,
-        in context: inout GraphicsContext
-    ) {
-        guard isOutOfScope(connection) == false else { return }
-
-        let crossings = BoundaryCrossings.of(
-            connection,
-            path: path,
-            components: componentsById,
-            zones: zones
-        )
-
-        for (index, crossing) in crossings.enumerated() {
-            let tint: Color = crossing.networkZoneId == "private" ? .green : .orange
-            context.stroke(
-                BoundaryCrossings.mark(for: crossing),
-                with: .color(tint),
-                style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [2, 5])
-            )
-            // A guard answers the flow, not one edge of it, so a flow that
-            // crosses two boundaries names its guards once.
-            if index == 0 {
-                writeGuards(of: connection, at: crossing, tint: tint, in: &context)
-            }
-        }
-    }
-
     /// The components that guard this crossing, or the words that say none
-    /// does. An unguarded crossing is what a reviewer looks for, so it is
-    /// stated rather than left blank.
+    /// does. An unguarded crossing carrying an open threat is what a reviewer
+    /// looks for, so it is stated rather than left blank.
     private func writeGuards(
         of connection: ViewedConnection,
         at crossing: BoundaryCrossing,
-        tint: Color,
         in context: inout GraphicsContext
     ) {
+        let tint = tint(of: crossing)
         let held = guards["connection:\(connection.id)"] ?? []
         let shown = Array(held.prefix(Self.guardsShown))
         let hidden = held.count - shown.count
@@ -169,7 +172,12 @@ struct ConnectionsLayer: View {
             ($0.label, tint, $0.isAssumed)
         }
         if hidden > 0 { chips.append(("+\(hidden)", tint, false)) }
-        if held.isEmpty { chips = [("no guard", .secondary, false)] }
+        // Nothing guards it. That is worth saying only while a threat on the
+        // flow is still open: a crossing every control answers needs no chip.
+        if held.isEmpty {
+            guard (risk(of: connection)?.openCount ?? 0) > 0 else { return }
+            chips = [("no guard", .secondary, false)]
+        }
 
         // The chips stack beyond the mark's far end, so they never sit on the
         // flow's own label.

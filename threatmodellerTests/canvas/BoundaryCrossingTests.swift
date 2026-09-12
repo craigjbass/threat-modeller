@@ -172,4 +172,55 @@ struct BoundaryCrossingTests {
         #expect(marks.count == 1)
         #expect(abs(marks[0].point.x - 600) < 6)
     }
+
+    // MARK: one mark per place
+
+    private func crossing(_ zoneId: String, x: Double, y: Double) -> BoundaryCrossing {
+        BoundaryCrossing(
+            point: CGPoint(x: x, y: y),
+            angle: 0,
+            zoneId: zoneId,
+            networkZoneId: "private"
+        )
+    }
+
+    @Test func keepsOneMarkWhereSeveralFlowsCrossOneEdgeTogether() {
+        let places = BoundaryCrossings.places([
+            crossing("z1", x: 400, y: 200),
+            crossing("z1", x: 404, y: 206),
+            crossing("z1", x: 412, y: 214)
+        ])
+
+        #expect(places.count == 1)
+        #expect(places[0].point == CGPoint(x: 400, y: 200))
+    }
+
+    @Test func keepsBothMarksWhereTwoFlowsCrossOneEdgeFarApart() {
+        let places = BoundaryCrossings.places([
+            crossing("z1", x: 400, y: 200),
+            crossing("z1", x: 400, y: 400)
+        ])
+
+        #expect(places.count == 2)
+    }
+
+    @Test func keepsBothMarksWhereTwoZoneEdgesMeetAtOnePoint() {
+        let places = BoundaryCrossings.places([
+            crossing("z1", x: 400, y: 200),
+            crossing("z2", x: 402, y: 202)
+        ])
+
+        #expect(places.count == 2)
+    }
+
+    @Test func namesTheZoneWhoseEdgeTheFlowCrosses() {
+        let inside = zone("z1", x: 0, y: 0, width: 400, height: 400)
+        let marks = crossings(
+            from: component("a", x: 60, y: 150, zoneId: "z1"),
+            to: component("b", x: 700, y: 150, zoneId: nil),
+            zones: [inside]
+        )
+
+        #expect(marks.first?.zoneId == "z1")
+    }
 }
