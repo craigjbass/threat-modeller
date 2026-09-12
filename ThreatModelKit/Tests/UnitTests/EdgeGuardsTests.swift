@@ -113,4 +113,33 @@ struct EdgeGuardsTests {
         #expect(guards["component:c1"]?.map(\.label) == ["EDR"])
         #expect(guards["zone:z1"] == [EdgeGuard(label: "Firewall", isAssumed: true)])
     }
+
+    // MARK: reading two lists as one
+
+    @Test func readsTwoGuardListsAsOne() {
+        let merged = EdgeGuards.merge(
+            [EdgeGuard(label: "WAF", isAssumed: false)],
+            [EdgeGuard(label: "opfilter", isAssumed: true)]
+        )
+
+        #expect(
+            merged == [
+                EdgeGuard(label: "WAF", isAssumed: false),
+                EdgeGuard(label: "opfilter", isAssumed: true)
+            ]
+        )
+    }
+
+    @Test func namesAComponentInBothListsOnce() {
+        let merged = EdgeGuards.merge(
+            [EdgeGuard(label: "opfilter", isAssumed: true)],
+            [EdgeGuard(label: "opfilter", isAssumed: false)]
+        )
+
+        #expect(merged == [EdgeGuard(label: "opfilter", isAssumed: false)])
+    }
+
+    @Test func readsAnEmptyPairAsEmpty() {
+        #expect(EdgeGuards.merge([], []).isEmpty)
+    }
 }

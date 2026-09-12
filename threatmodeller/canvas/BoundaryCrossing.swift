@@ -29,8 +29,8 @@ nonisolated struct BoundaryCrossing: Equatable {
 /// Declared `nonisolated`: the app target defaults every type to the main
 /// actor, and this one holds no state at all.
 nonisolated enum BoundaryCrossings {
-    /// How long the mark is. It has to read as a boundary beside a 104 point
-    /// node, not as a tick on the line.
+    /// The shortest a boundary curve may be. One flow through it still has to
+    /// read as a boundary beside a 104 point node, not as a tick on the line.
     static let length: CGFloat = 96
     /// How far the mark bows, so it draws as a curve rather than a straight
     /// line.
@@ -80,58 +80,132 @@ nonisolated enum BoundaryCrossings {
         zones.last { ZoneBox(zone: $0).contentRect.contains(point) }
     }
 
-    /// How near two crossings of one zone edge have to be to count as the
-    /// same place. Eight links across one edge then draw one mark, not a
-    /// hedge.
-    static let together: CGFloat = 28
+    /// How far apart two crossings of one boundary may sit and still belong to
+    /// the same run. Beyond this the boundary draws twice, because one curve
+    /// across the gap would claim canvas it does not cross.
+    static let together: CGFloat = 200
 
-    /// One mark for each place a zone edge is crossed, whatever number of
-    /// flows cross it there.
-    ///
-    /// A crossing is dropped when a kept crossing of the same zone already
-    /// sits within `together` of it. The first one wins, so the same model
-    /// draws the same picture. Clustering by distance rather than by a grid
-    /// keeps two neighbours together when they fall either side of a grid
-    /// line.
-    static func places(_ crossings: [BoundaryCrossing]) -> [BoundaryCrossing] {
-        var kept: [BoundaryCrossing] = []
+    /// The blank the run leaves past the outermost flow it crosses, so the
+    /// curve reaches beyond every arrow through it.
+    static let overhang: CGFloat = 34
 
-        for crossing in crossings {
-            let isNew = kept.contains { held in
-                held.zoneId == crossing.zoneId
-                    && hypot(held.point.x - crossing.point.x, held.point.y - crossing.point.y)
-                        <= together
-            } == false
+    /// One crossing with what the flow through it carries.
+    nonisolated struct MarkedCrossing: Equatable {
+        let crossing: BoundaryCrossing
+        /// What guards the flow there: the components on the far end of it and
+        /// on the flow itself.
+        let guards: [EdgeGuard]
+        /// Threats on that flow no control answers.
+        let openCount: Int
 
-            if isNew { kept.append(crossing) }
+        /// Two crossings belong to the same boundary when they cross the same
+        /// zone and the same set of components guards them.
+        var boundaryKey: String {
+            let names = guards.map { "\($0.label)\($0.isAssumed ? "~" : "")" }.joined(separator: "+")
+            return "\(crossing.zoneId)|\(names)"
         }
-
-        return kept
     }
 
-    /// The mark itself: a bow across the flow, centred on the crossing.
-    static func mark(for crossing: BoundaryCrossing) -> Path {
-        let across = crossing.angle + .pi / 2
-        let half = length / 2
-        let start = CGPoint(
-            x: crossing.point.x - half * cos(across),
-            y: crossing.point.y - half * sin(across)
-        )
-        let end = CGPoint(
-            x: crossing.point.x + half * cos(across),
-            y: crossing.point.y + half * sin(across)
-        )
-        // The control point sits back along the flow, so the mark bows rather
-        // than running straight. Every mark leans the same way, whether the
-        // flow leaves a zone there or enters one.
-        let control = CGPoint(
-            x: crossing.point.x - bow * cos(crossing.angle),
-            y: crossing.point.y - bow * sin(crossing.angle)
-        )
+    /// One dotted curve for each boundary: one zone edge, one set of guards,
+    /// one run of flows through it.
+    nonisolated struct BoundaryRun: Equatable {
+        let zoneId: String
+        let networkZoneId: String
+        let guards: [EdgeGuard]
+        /// Threats no control answers, across every flow through this run.
+        let openCount: Int
+        /// How many flows pass through the curve.
+        let flowCount: Int
+        let start: CGPoint
+        let end: CGPoint
+        let control: CGPoint
 
-        var path = Path()
-        path.move(to: start)
-        path.addQuadCurve(to: end, control: control)
-        return path
+        var curve: Path {
+            var path = Path()
+            path.move(to: start)
+            path.addQuadCurve(to: end, control: control)
+            return path
+        }
+    }
+
+    /// Turns every crossing on the canvas into the boundaries a reader sees.
+    ///
+    /// Crossings of one zone that the same components guard, and that sit near
+    /// each other, make one run: one curve, long enough that every arrow in
+    /// the run passes through it, and one set of chips. Eight flows through
+    /// one guarded edge then draw one boundary rather than eight.
+    static func runs(_ marked: [MarkedCrossing]) -> [BoundaryRun] {
+        var order: [String] = []
+        var grouped: [String: [MarkedCrossing]] = [:]
+
+        for one in marked {
+            let key = one.boundaryKey
+            if grouped[key] == nil { order.append(key) }
+            grouped[key, default: []].append(one)
+        }
+
+        return order.flatMap { key in
+            clusters(of: grouped[key] ?? []).map(run(of:))
+        }
+    }
+
+    /// Crossings that share a boundary but sit far apart on it are separate
+    /// runs. A crossing joins a cluster when it is within `together` of any
+    /// crossing already in it.
+    private static func clusters(of marked: [MarkedCrossing]) -> [[MarkedCrossing]] {
+        var built: [[MarkedCrossing]] = []
+
+        for one in marked {
+            let joined = built.firstIndex { cluster in
+                cluster.contains { held in
+                    hypot(
+                        held.crossing.point.x - one.crossing.point.x,
+                        held.crossing.point.y - one.crossing.point.y
+                    ) <= together
+                }
+            }
+
+            if let joined {
+                built[joined].append(one)
+            } else {
+                built.append([one])
+            }
+        }
+
+        return built
+    }
+
+    /// The curve one cluster draws: across the flows, long enough to reach
+    /// past the outermost of them.
+    private static func run(of cluster: [MarkedCrossing]) -> BoundaryRun {
+        let points = cluster.map(\.crossing.point)
+        let centre = CGPoint(
+            x: points.map(\.x).reduce(0, +) / CGFloat(points.count),
+            y: points.map(\.y).reduce(0, +) / CGFloat(points.count)
+        )
+        // The mean flow direction, taken as a vector so two nearly opposite
+        // angles do not average to a right angle.
+        let angles = cluster.map(\.crossing.angle)
+        let along = atan2(
+            angles.map(sin).reduce(0, +) / CGFloat(angles.count),
+            angles.map(cos).reduce(0, +) / CGFloat(angles.count)
+        )
+        let across = along + .pi / 2
+
+        let reach = points.map { point in
+            abs((point.x - centre.x) * cos(across) + (point.y - centre.y) * sin(across))
+        }
+        let half = max((reach.max() ?? 0) + overhang, length / 2)
+
+        return BoundaryRun(
+            zoneId: cluster[0].crossing.zoneId,
+            networkZoneId: cluster[0].crossing.networkZoneId,
+            guards: cluster[0].guards,
+            openCount: cluster.map(\.openCount).reduce(0, +),
+            flowCount: cluster.count,
+            start: CGPoint(x: centre.x - half * cos(across), y: centre.y - half * sin(across)),
+            end: CGPoint(x: centre.x + half * cos(across), y: centre.y + half * sin(across)),
+            control: CGPoint(x: centre.x - bow * cos(along), y: centre.y - bow * sin(along))
+        )
     }
 }

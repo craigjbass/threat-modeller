@@ -16,6 +16,9 @@ struct ConnectionsLayer: View {
     /// How long a flow's label may be. A description is prose, and a whole
     /// sentence on the line covers the diagram.
     static let labelLimit = 28
+    /// How long a guard's name may be on a chip. A component's name carries
+    /// its product and its kind, and the whole of it covers the diagram.
+    static let guardLimit = 18
 
     let connections: [ViewedConnection]
     let boxes: [String: ComponentBox]
@@ -37,8 +40,7 @@ struct ConnectionsLayer: View {
 
     var body: some View {
         Canvas { context, _ in
-            var everyCrossing: [BoundaryCrossing] = []
-            var chips: [(connection: ViewedConnection, crossing: BoundaryCrossing)] = []
+            var marked: [BoundaryCrossings.MarkedCrossing] = []
 
             for connection in connections {
                 guard let source = boxes[connection.sourceComponentId],
@@ -52,32 +54,34 @@ struct ConnectionsLayer: View {
                 draw(connection, along: path, in: &context)
 
                 guard isOutOfScope(connection) == false else { continue }
-                let crossings = BoundaryCrossings.of(
+                marked += BoundaryCrossings.of(
                     connection,
                     path: path,
                     components: componentsById,
                     zones: zones
-                )
-                everyCrossing += crossings
-                // A guard answers the flow, not one edge of it, so a flow that
-                // crosses two boundaries names its guards once.
-                if let first = crossings.first {
-                    chips.append((connection, first))
+                ).map {
+                    BoundaryCrossings.MarkedCrossing(
+                        crossing: $0,
+                        guards: guards(of: connection),
+                        openCount: risk(of: connection)?.openCount ?? 0
+                    )
                 }
             }
 
-            // One mark per place, however many flows cross the edge there.
-            for crossing in BoundaryCrossings.places(everyCrossing) {
+            // One curve for each boundary, however many arrows pass through it.
+            let runs = BoundaryCrossings.runs(marked)
+
+            for run in runs {
                 context.stroke(
-                    BoundaryCrossings.mark(for: crossing),
-                    with: .color(tint(of: crossing)),
+                    run.curve,
+                    with: .color(tint(of: run)),
                     style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [2, 5])
                 )
             }
 
             // The chips go on last, so a link drawn later never covers one.
-            for chip in chips {
-                writeGuards(of: chip.connection, at: chip.crossing, in: &context)
+            for run in runs {
+                writeGuards(of: run, in: &context)
             }
 
             if let preview {
@@ -93,8 +97,19 @@ struct ConnectionsLayer: View {
         .allowsHitTesting(false)
     }
 
-    private func tint(of crossing: BoundaryCrossing) -> Color {
-        crossing.networkZoneId == "private" ? .green : .orange
+    private func tint(of run: BoundaryCrossings.BoundaryRun) -> Color {
+        run.networkZoneId == "private" ? .green : .orange
+    }
+
+    /// What guards a flow at a boundary: the components that guard the far end
+    /// of it, and any that guard the flow itself. A `mitigates` edge names a
+    /// component, so what stands in the way of a crossing is what guards the
+    /// component the crossing reaches.
+    private func guards(of connection: ViewedConnection) -> [EdgeGuard] {
+        EdgeGuards.merge(
+            guards["connection:\(connection.id)"] ?? [],
+            guards["component:\(connection.targetComponentId)"] ?? []
+        )
     }
 
     // MARK: what one link looks like
@@ -124,8 +139,13 @@ struct ConnectionsLayer: View {
         guard described.isEmpty == false else {
             return FlowKind(rawValue: connection.kindId)?.label ?? connection.kindId
         }
-        guard described.count > Self.labelLimit else { return described }
-        return described.prefix(Self.labelLimit - 1).trimmingCharacters(in: .whitespaces) + "\u{2026}"
+        return Self.cut(described, to: Self.labelLimit)
+    }
+
+    /// The text, or as much of it as fits, with an ellipsis for the rest.
+    static func cut(_ text: String, to limit: Int) -> String {
+        guard text.count > limit else { return text }
+        return text.prefix(limit - 1).trimmingCharacters(in: .whitespaces) + "\u{2026}"
     }
 
     private func draw(
@@ -155,35 +175,35 @@ struct ConnectionsLayer: View {
         write(connection, at: path.point(at: 0.5), colour: colour, in: &context)
     }
 
-    /// The components that guard this crossing, or the words that say none
+    /// The components that guard this boundary, or the words that say none
     /// does. An unguarded crossing carrying an open threat is what a reviewer
     /// looks for, so it is stated rather than left blank.
     private func writeGuards(
-        of connection: ViewedConnection,
-        at crossing: BoundaryCrossing,
+        of run: BoundaryCrossings.BoundaryRun,
         in context: inout GraphicsContext
     ) {
-        let tint = tint(of: crossing)
-        let held = guards["connection:\(connection.id)"] ?? []
-        let shown = Array(held.prefix(Self.guardsShown))
-        let hidden = held.count - shown.count
+        let tint = tint(of: run)
+        let shown = Array(run.guards.prefix(Self.guardsShown))
+        let hidden = run.guards.count - shown.count
 
         var chips: [(text: String, colour: Color, isAssumed: Bool)] = shown.map {
-            ($0.label, tint, $0.isAssumed)
+            (Self.cut($0.label, to: Self.guardLimit), tint, $0.isAssumed)
         }
         if hidden > 0 { chips.append(("+\(hidden)", tint, false)) }
-        // Nothing guards it. That is worth saying only while a threat on the
-        // flow is still open: a crossing every control answers needs no chip.
-        if held.isEmpty {
-            guard (risk(of: connection)?.openCount ?? 0) > 0 else { return }
+        // Nothing guards it. That is worth saying only while a threat through
+        // the boundary is still open.
+        if run.guards.isEmpty {
+            guard run.openCount > 0 else { return }
             chips = [("no guard", .secondary, false)]
         }
 
-        // The chips stack beyond the mark's far end, so they never sit on the
+        // The chips stack past the curve's far end, so they never sit on a
         // flow's own label.
-        let across = crossing.angle + .pi / 2
-        var y = crossing.point.y + (BoundaryCrossings.length / 2 + 12) * sin(across)
-        let x = crossing.point.x + (BoundaryCrossings.length / 2 + 12) * cos(across)
+        let reach = hypot(run.end.x - run.start.x, run.end.y - run.start.y)
+        guard reach > 0 else { return }
+        let step = CGPoint(x: (run.end.x - run.start.x) / reach, y: (run.end.y - run.start.y) / reach)
+        let x = run.end.x + 14 * step.x
+        var y = run.end.y + 14 * step.y
 
         for chip in chips {
             let resolved = context.resolve(

@@ -56,4 +56,17 @@ public enum EdgeGuards {
 
         return built
     }
+
+    /// Two guard lists read as one. A label in both is named once, and adopted
+    /// beats assumed, so a reader never sees the same component twice or takes
+    /// a plan for work that is done.
+    public static func merge(_ first: [EdgeGuard], _ second: [EdgeGuard]) -> [EdgeGuard] {
+        let all = first + second
+        let adopted = Set(all.filter { $0.isAssumed == false }.map(\.label))
+        let assumed = Set(all.filter(\.isAssumed).map(\.label)).subtracting(adopted)
+
+        return (adopted.map { EdgeGuard(label: $0, isAssumed: false) }
+            + assumed.map { EdgeGuard(label: $0, isAssumed: true) })
+            .sorted { $0.label < $1.label }
+    }
 }

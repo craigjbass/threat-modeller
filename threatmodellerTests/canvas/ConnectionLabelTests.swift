@@ -45,4 +45,19 @@ struct ConnectionLabelTests {
         #expect(written.hasSuffix("\u{2026}"))
         #expect(written.hasPrefix("MCP over unix"))
     }
+
+    @Test func cutsAGuardsNameToWhatFitsOnAChip() {
+        let written = ConnectionsLayer.cut(
+            "opfilter System Extension (Endpoint Security)",
+            to: ConnectionsLayer.guardLimit
+        )
+
+        #expect(written.count <= ConnectionsLayer.guardLimit)
+        #expect(written.hasSuffix("\u{2026}"))
+        #expect(written.hasPrefix("opfilter System"))
+    }
+
+    @Test func leavesAShortGuardNameWhole() {
+        #expect(ConnectionsLayer.cut("WAF", to: ConnectionsLayer.guardLimit) == "WAF")
+    }
 }
