@@ -123,11 +123,9 @@ struct BoundaryCrossingTests {
         #expect(marks[0].networkZoneId == "public")
         #expect(marks[1].networkZoneId == "private")
         #expect(marks[0].point.x < marks[1].point.x)
-        #expect(marks[0].isEntering == false)
-        #expect(marks[1].isEntering)
     }
 
-    @Test func bowsTheTwoMarksOfOneFlowTowardsEachOther() {
+    @Test func bowsEveryMarkBackAlongTheFlow() {
         let left = zone("z1", x: 0, y: 0, width: 400, height: 400, networkZoneId: "public")
         let right = zone("z2", x: 600, y: 0, width: 400, height: 400)
         let marks = crossings(
@@ -140,10 +138,12 @@ struct BoundaryCrossingTests {
         let leaving = BoundaryCrossings.mark(for: marks[0]).boundingRect
         let entering = BoundaryCrossings.mark(for: marks[1]).boundingRect
 
-        // The mark where the flow leaves bows forward, and the mark where it
-        // enters bows back, so the two face each other across the gap.
-        #expect(leaving.maxX > marks[0].point.x)
+        // Both marks bow back along the flow, so the pair reads the same way
+        // whether the flow leaves a zone there or enters one.
+        #expect(leaving.minX < marks[0].point.x)
+        #expect(leaving.maxX <= marks[0].point.x + 1)
         #expect(entering.minX < marks[1].point.x)
+        #expect(entering.maxX <= marks[1].point.x + 1)
     }
 
     @Test func statesTheTangentOfAFlowRunningStraightAcross() {

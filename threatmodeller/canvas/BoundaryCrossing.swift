@@ -15,10 +15,6 @@ nonisolated struct BoundaryCrossing: Equatable {
     /// The zone being entered when the flow enters one, else the zone it
     /// leaves.
     let networkZoneId: String
-    /// True when the flow enters a zone here, false when it leaves one. The
-    /// mark bows away from its own zone, so a flow that leaves one zone and
-    /// enters another draws two marks that face each other.
-    let isEntering: Bool
 }
 
 /// Finds where a flow crosses a trust boundary.
@@ -67,8 +63,7 @@ nonisolated enum BoundaryCrossings {
                 BoundaryCrossing(
                     point: CGPoint(x: (before.x + point.x) / 2, y: (before.y + point.y) / 2),
                     angle: atan2(point.y - before.y, point.x - before.x),
-                    networkZoneId: (entered ?? held)?.networkZoneId ?? "private",
-                    isEntering: entered != nil
+                    networkZoneId: (entered ?? held)?.networkZoneId ?? "private"
                 )
             )
             held = entered
@@ -95,13 +90,12 @@ nonisolated enum BoundaryCrossings {
             x: crossing.point.x + half * cos(across),
             y: crossing.point.y + half * sin(across)
         )
-        // The control point sits off to one side along the flow, so the mark
-        // bows rather than running straight. It leans away from its own zone:
-        // forward where the flow leaves a zone, backward where it enters one.
-        let lean = crossing.isEntering ? -bow : bow
+        // The control point sits back along the flow, so the mark bows rather
+        // than running straight. Every mark leans the same way, whether the
+        // flow leaves a zone there or enters one.
         let control = CGPoint(
-            x: crossing.point.x + lean * cos(crossing.angle),
-            y: crossing.point.y + lean * sin(crossing.angle)
+            x: crossing.point.x - bow * cos(crossing.angle),
+            y: crossing.point.y - bow * sin(crossing.angle)
         )
 
         var path = Path()
