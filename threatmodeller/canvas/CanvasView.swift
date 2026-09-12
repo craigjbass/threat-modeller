@@ -109,7 +109,7 @@ struct CanvasView: View {
                 let rect = CanvasHitTest.rect(for: zone, drag: canvas.zoneDrag)
                 ZoneView(
                     zone: zone,
-                    risk: nil,
+                    risk: session.elementRisks["zone:\(zone.id)"],
                     size: rect.size,
                     isSelected: canvas.isSelected(zoneId: zone.id),
                     onSelect: { canvas.select(zoneId: zone.id) },
@@ -134,8 +134,8 @@ struct CanvasView: View {
             ConnectionsLayer(
                 connections: session.canvas.connections,
                 boxes: boxes,
-                risks: [:],
-                outOfScopeComponentIds: [],
+                risks: session.elementRisks,
+                outOfScopeComponentIds: outOfScopeComponentIds,
                 selectedConnectionIds: canvas.selectedConnectionIds,
                 preview: previewLine
             )
@@ -145,7 +145,7 @@ struct CanvasView: View {
                 let componentBox = boxes[component.id] ?? ComponentBox(x: component.x, y: component.y)
                 ComponentNodeView(
                     component: component,
-                    risk: nil,
+                    risk: session.elementRisks["component:\(component.id)"],
                     isSelected: canvas.isSelected(componentId: component.id),
                     onSelect: { gestures.selectComponent(component.id, addingToSelection: $0) },
                     onDragChanged: { gestures.nodeDragChanged(component.id, $0) },
@@ -216,6 +216,12 @@ struct CanvasView: View {
         guard canvas.selectedConnectionIds.count == 1,
               let connectionId = canvas.selectedConnectionIds.first else { return nil }
         return session.canvas.connections.first { $0.id == connectionId }
+    }
+
+    /// The components the user turned threats off for. A flow either end of
+    /// which is one of these is out of scope too.
+    private var outOfScopeComponentIds: Set<String> {
+        Set(session.canvas.components.filter(\.threatsDisabled).map(\.id))
     }
 
     /// The drawing layer follows the model, so a saved diagram that reaches

@@ -23,6 +23,9 @@ final class ThreatModelSession {
         zones: []
     )
     private(set) var threats: [AssessedThreat] = []
+    /// The risk of every element on the diagram, by source id. The canvas
+    /// paints from this, so the picture and the threat list never disagree.
+    private(set) var elementRisks: [String: ElementRisk] = [:]
     private(set) var summary = SummariseRiskResponse(
         totalThreats: 0,
         byLevel: [],
@@ -578,13 +581,14 @@ final class ThreatModelSession {
     }
 
     /// Writes what the node panel shows. One call for the name, the
-    /// sensitivity and whether the node raises threats at all.
+    /// sensitivity, the shape and whether the node raises threats at all.
     func setComponentProperties(
         componentId: String,
         name: String?,
         sensitivityId: String,
         threatsDisabled: Bool,
-        runsAsId: String
+        runsAsId: String,
+        shapeId: String? = nil
     ) {
         switch useCases.setComponentProperties().execute(
             SetComponentPropertiesRequest(
@@ -592,7 +596,8 @@ final class ThreatModelSession {
                 name: name,
                 sensitivity: sensitivityId,
                 threatsDisabled: threatsDisabled,
-                runsAs: runsAsId
+                runsAs: runsAsId,
+                shape: shapeId
             )
         ) {
         case .updated:
@@ -670,6 +675,10 @@ final class ThreatModelSession {
         let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
         threats = assessment.threats
         severityChoices = assessment.severities
+        elementRisks = ElementRiskRollup.byElement(
+            assessment.threats,
+            levelOrder: assessment.severities.map(\.id)
+        )
         summary = useCases.summariseRisk().execute(SummariseRiskRequest())
         pathwayMitigations = useCases.listPathwayMitigations()
             .execute(ListPathwayMitigationsRequest())

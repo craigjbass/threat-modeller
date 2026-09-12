@@ -11,6 +11,9 @@ nonisolated struct CanvasPicture: View {
     let components: [ViewedComponent]
     let connections: [ViewedConnection]
     let zones: [ViewedZone]
+    /// The risk of every element, by source id. Empty draws the diagram with
+    /// no risk colour, which is what a model with no threats shows.
+    let risks: [String: ElementRisk]
     /// Where the picture starts in model coordinates, so a node at x = 900
     /// draws inside the image rather than off its edge.
     let origin: CGPoint
@@ -28,7 +31,7 @@ nonisolated struct CanvasPicture: View {
     private func node(_ component: ViewedComponent) -> some View {
         ComponentNodeView(
             component: component,
-            risk: nil,
+            risk: risks["component:\(component.id)"],
             isSelected: false,
             onSelect: { _ in },
             onDragChanged: { _ in },
@@ -46,7 +49,7 @@ nonisolated struct CanvasPicture: View {
     private func zoneShape(_ zone: ViewedZone) -> some View {
         ZoneView(
             zone: zone,
-            risk: nil,
+            risk: risks["zone:\(zone.id)"],
             size: CGSize(width: zone.width, height: zone.height),
             isSelected: false,
             onSelect: {},
@@ -75,8 +78,8 @@ nonisolated struct CanvasPicture: View {
             ConnectionsLayer(
                 connections: connections,
                 boxes: boxes,
-                risks: [:],
-                outOfScopeComponentIds: [],
+                risks: risks,
+                outOfScopeComponentIds: Set(components.filter(\.threatsDisabled).map(\.id)),
                 selectedConnectionIds: [],
                 preview: nil
             )

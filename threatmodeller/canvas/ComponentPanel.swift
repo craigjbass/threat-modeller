@@ -16,6 +16,14 @@ struct ComponentPanel: View {
         ("restricted", "Restricted")
     ]
 
+    /// The empty tag is Auto: the derivation decides.
+    private static let shapes = [
+        ("", "Auto"),
+        ("actor", "Actor"),
+        ("process", "Process"),
+        ("store", "Store")
+    ]
+
     private static let privileges = [
         ("user", "User"),
         ("admin", "Administrator"),
@@ -30,6 +38,13 @@ struct ComponentPanel: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 200)
                 .accessibilityIdentifier("component-name")
+
+            Picker("Shape", selection: shape) {
+                ForEach(Self.shapes, id: \.0) { Text(label(forShape: $0.0, $0.1)).tag($0.0) }
+            }
+            .labelsHidden()
+            .frame(width: 170)
+            .accessibilityIdentifier("component-shape")
 
             Picker("Sensitivity", selection: sensitivity) {
                 ForEach(Self.sensitivities, id: \.0) { Text($0.1).tag($0.0) }
@@ -66,15 +81,27 @@ struct ComponentPanel: View {
         name newName: String? = nil,
         sensitivity newSensitivity: String? = nil,
         threatsDisabled newThreatsDisabled: Bool? = nil,
-        runsAs newRunsAs: String? = nil
+        runsAs newRunsAs: String? = nil,
+        shape newShape: String? = nil
     ) {
+        let picked = newShape ?? component.shapeOverrideId ?? ""
+
         session.setComponentProperties(
             componentId: component.id,
             name: newName ?? component.customName,
             sensitivityId: newSensitivity ?? component.sensitivityId,
             threatsDisabled: newThreatsDisabled ?? component.threatsDisabled,
-            runsAsId: newRunsAs ?? component.runsAsId
+            runsAsId: newRunsAs ?? component.runsAsId,
+            shapeId: picked.isEmpty ? nil : picked
         )
+    }
+
+    /// Auto states what the derivation currently gives, so a user who forces
+    /// that same value sees no change and knows it.
+    private func label(forShape id: String, _ name: String) -> String {
+        guard id.isEmpty else { return name }
+        let derived = DiagramShape(rawValue: component.shapeId)?.label ?? component.shapeId
+        return "Auto \u{2014} \(derived)"
     }
 
     private var name: Binding<String> {
@@ -83,6 +110,13 @@ struct ComponentPanel: View {
 
     private var sensitivity: Binding<String> {
         Binding(get: { component.sensitivityId }, set: { write(sensitivity: $0) })
+    }
+
+    private var shape: Binding<String> {
+        Binding(
+            get: { component.shapeOverrideId ?? "" },
+            set: { write(shape: $0) }
+        )
     }
 
     private var runsAs: Binding<String> {

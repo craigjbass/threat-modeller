@@ -68,7 +68,11 @@ struct ReportExporter {
         let area = session.imageArea()
         do {
             return (
-                try CanvasImageRenderer().png(of: session.canvas, area: area),
+                try CanvasImageRenderer().png(
+                    of: session.canvas,
+                    risks: session.elementRisks,
+                    area: area
+                ),
                 area.fileName
             )
         } catch {

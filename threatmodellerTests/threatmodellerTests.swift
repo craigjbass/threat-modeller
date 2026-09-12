@@ -572,6 +572,75 @@ struct ComponentPanelSessionTests {
 
         #expect(session.errorMessage == "That sensitivity is not one this application holds.")
     }
+
+    @Test func statesTheRiskOfEveryElementForTheCanvas() throws {
+        let session = session()
+        let componentId = try #require(session.canvas.components.first?.id)
+
+        let risk = try #require(session.elementRisks["component:\(componentId)"])
+        #expect(risk.totalCount == session.threats.count)
+        #expect(risk.openCount > 0)
+        #expect(risk.highestLevelId != nil)
+    }
+
+    @Test func writesTheShapeThePanelPicks() throws {
+        let session = session()
+        let componentId = try #require(session.canvas.components.first?.id)
+
+        session.setComponentProperties(
+            componentId: componentId,
+            name: nil,
+            sensitivityId: "internal",
+            threatsDisabled: false,
+            runsAsId: "user",
+            shapeId: "store"
+        )
+
+        #expect(session.canvas.components.first?.shapeId == "store")
+        #expect(session.canvas.components.first?.shapeOverrideId == "store")
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func goesBackToTheDerivedShapeWhenThePanelPicksAuto() throws {
+        let session = session()
+        let componentId = try #require(session.canvas.components.first?.id)
+        session.setComponentProperties(
+            componentId: componentId,
+            name: nil,
+            sensitivityId: "internal",
+            threatsDisabled: false,
+            runsAsId: "user",
+            shapeId: "store"
+        )
+
+        session.setComponentProperties(
+            componentId: componentId,
+            name: nil,
+            sensitivityId: "internal",
+            threatsDisabled: false,
+            runsAsId: "user",
+            shapeId: nil
+        )
+
+        #expect(session.canvas.components.first?.shapeId == "process")
+        #expect(session.canvas.components.first?.shapeOverrideId == nil)
+    }
+
+    @Test func saysSoWhenTheShapeIsNotOneItHolds() throws {
+        let session = session()
+        let componentId = try #require(session.canvas.components.first?.id)
+
+        session.setComponentProperties(
+            componentId: componentId,
+            name: nil,
+            sensitivityId: "internal",
+            threatsDisabled: false,
+            runsAsId: "user",
+            shapeId: "cylinder"
+        )
+
+        #expect(session.errorMessage == "That shape is not one this application holds.")
+    }
 }
 
 @MainActor
