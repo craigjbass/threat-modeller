@@ -59,6 +59,7 @@ public enum CalloutPlacement {
     public static func place(
         _ labels: [(connectionId: String, text: String, curve: FlowCurve)],
         nodes: [Rect],
+        zoneHeaders: [Rect] = [],
         flows: [[Point]]
     ) -> [Callout] {
         var placed: [Callout] = []
@@ -66,7 +67,13 @@ public enum CalloutPlacement {
         for label in labels where label.text.isEmpty == false {
             let anchor = label.curve.point(at: 0.5)
             let box = size(of: label.text)
-            let rect = bestRect(for: box, from: anchor, nodes: nodes, flows: flows, taken: placed)
+            let rect = bestRect(
+                for: box,
+                from: anchor,
+                nodes: nodes + zoneHeaders,
+                flows: flows,
+                taken: placed
+            )
             placed.append(
                 Callout(
                     connectionId: label.connectionId,
@@ -80,8 +87,8 @@ public enum CalloutPlacement {
         return placed
     }
 
-    /// What a box covering something costs. A node hidden under a label is the
-    /// worst of it; a box on top of another box is nearly as bad; a box over a
+    /// What a box covering something costs. A node or a zone's own name hidden
+    /// under a label is the worst of it; a box on top of another box is nearly as bad; a box over a
     /// flow only makes the flow harder to follow.
     static let costOfANode = 1000.0
     static let costOfABox = 800.0

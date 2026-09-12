@@ -448,6 +448,11 @@ public struct LayOutModel: LayOutModelUseCase {
         curves: [String: FlowCurve]
     ) -> (crowded: Int, reach: Double) {
         let nodes = Array(footprints(of: placed, in: request).values)
+        // A zone states its name in a band across its top. A label over that
+        // band hides which zone a reader is looking at.
+        let headers = placed.zones.map {
+            Rect(x: $0.x, y: $0.y, width: $0.width, height: ZoneContainment.headerHeight)
+        }
         let flows = curves.values.map { CurveCrossing.samples(of: $0) }
 
         let labels = request.source.flows.compactMap {
@@ -458,7 +463,12 @@ public struct LayOutModel: LayOutModelUseCase {
             return (id, text, curve)
         }
 
-        let put = CalloutPlacement.place(labels, nodes: nodes, flows: flows)
+        let put = CalloutPlacement.place(
+            labels,
+            nodes: nodes,
+            zoneHeaders: headers,
+            flows: flows
+        )
         var crowded = 0
         var reach = 0.0
 
@@ -469,7 +479,7 @@ public struct LayOutModel: LayOutModelUseCase {
             )
             reach += hypot(centre.x - callout.anchor.x, centre.y - callout.anchor.y)
 
-            if nodes.contains(where: { CalloutPlacement.overlap(callout.rect, $0) }) {
+            if (nodes + headers).contains(where: { CalloutPlacement.overlap(callout.rect, $0) }) {
                 crowded += 1
                 continue
             }

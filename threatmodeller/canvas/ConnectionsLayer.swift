@@ -244,6 +244,14 @@ struct ConnectionsLayer: View {
         let placed = CalloutPlacement.place(
             labels,
             nodes: boxes.values.map(\.rect.modelRect),
+            zoneHeaders: zones.map {
+                Rect(
+                    x: $0.x,
+                    y: $0.y,
+                    width: $0.width,
+                    height: Double(ZoneBox.headerHeight)
+                )
+            },
             flows: flows
         )
 
@@ -353,6 +361,19 @@ struct ConnectionsLayer: View {
         let step = CGPoint(x: (run.end.x - run.start.x) / reach, y: (run.end.y - run.start.y) / reach)
         let x = run.end.x + 14 * step.x
         var y = run.end.y + 14 * step.y
+
+        // A chip over a zone's name band hides which zone a reader is looking
+        // at, so it drops below the band.
+        for zone in zones {
+            let band = CGRect(
+                x: zone.x,
+                y: zone.y,
+                width: zone.width,
+                height: Double(ZoneBox.headerHeight)
+            )
+            guard band.contains(CGPoint(x: x, y: y)) else { continue }
+            y = band.maxY + 8
+        }
 
         for chip in chips {
             let resolved = context.resolve(

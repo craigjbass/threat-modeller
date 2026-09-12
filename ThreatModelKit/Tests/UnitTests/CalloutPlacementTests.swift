@@ -116,3 +116,29 @@ struct CalloutSpacingTests {
         #expect(placed.count == 8)
     }
 }
+
+@Suite("Labels staying off a zone's own name")
+struct CalloutZoneHeaderTests {
+    @Test func staysOffAZoneHeader() throws {
+        // Every close place above the flow is a zone's name band.
+        let header = Rect(x: -400, y: -400, width: 1200, height: 380)
+        let placed = CalloutPlacement.place(
+            [("f1", "MCP over unix domain socket", FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0)))],
+            nodes: [],
+            zoneHeaders: [header],
+            flows: []
+        )
+
+        let callout = try #require(placed.first)
+        #expect(CalloutPlacement.overlap(callout.rect, header) == false)
+    }
+
+    @Test func placesAsBeforeWhenNoZoneStatesAName() {
+        let labels = [("f1", "HTTPS", FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0)))]
+
+        #expect(
+            CalloutPlacement.place(labels, nodes: [], zoneHeaders: [], flows: [])
+                == CalloutPlacement.place(labels, nodes: [], flows: [])
+        )
+    }
+}
