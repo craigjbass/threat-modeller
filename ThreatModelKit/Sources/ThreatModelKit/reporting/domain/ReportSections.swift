@@ -36,19 +36,60 @@ public struct ReportProtectionDependency: Equatable, Sendable {
     /// How many threats this protector answers on each component it protects,
     /// by component id. A picture labels the line to a component with it.
     public let answeredByElementId: [String: Int]
+    /// What this protector answers, by component, named for a reader. Empty
+    /// when the caller built no names, and then the section writes the
+    /// `protects` lines instead.
+    public let protectsElements: [ReportProtectedElement]
 
     public init(
         protectorName: String,
         protects: [String] = [],
         unanswered: [ReportUnansweredThreat] = [],
         protectorId: String = "",
-        answeredByElementId: [String: Int] = [:]
+        answeredByElementId: [String: Int] = [:],
+        protectsElements: [ReportProtectedElement] = []
     ) {
         self.protectorName = protectorName
         self.protects = protects
         self.unanswered = unanswered
         self.protectorId = protectorId
         self.answeredByElementId = answeredByElementId
+        self.protectsElements = protectsElements
+    }
+}
+
+/// A component a control protects, and what the control answers on it.
+public struct ReportProtectedElement: Equatable, Sendable {
+    public let elementId: String
+    public let elementName: String
+    public let zoneName: String?
+    public let threats: [ReportAnsweredThreat]
+
+    public init(
+        elementId: String,
+        elementName: String,
+        zoneName: String? = nil,
+        threats: [ReportAnsweredThreat] = []
+    ) {
+        self.elementId = elementId
+        self.elementName = elementName
+        self.zoneName = zoneName
+        self.threats = threats
+    }
+}
+
+/// A threat a control answers, with the risk that is left after it.
+public struct ReportAnsweredThreat: Equatable, Sendable {
+    public let threatId: String
+    public let name: String
+    public let riskScore: Int
+    public let riskLevel: String
+
+    public init(threatId: String, name: String, riskScore: Int, riskLevel: String) {
+        self.threatId = threatId
+        self.name = name
+        self.riskScore = riskScore
+        self.riskLevel = riskLevel
     }
 }
 

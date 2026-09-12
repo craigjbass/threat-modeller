@@ -128,6 +128,9 @@ public enum ThreatDiagrams {
                 guards: model.guards,
                 focus: "component:\(protectorId)",
                 title: title,
+                subtitle: "Heavy outline: the control. Dashed line: what it protects, "
+                    + "with the count of threats it answers there. "
+                    + "A badge on a node counts the threats still open on that node.",
                 covers: covers
             )
         )
@@ -199,7 +202,11 @@ public enum ThreatDiagrams {
                 risks: model.risks,
                 guards: model.guards,
                 focus: sourceId,
-                title: title
+                title: title,
+                subtitle: title == nil
+                    ? nil
+                    : "Heavy outline: the element this threat is raised on. "
+                        + "A badge on a node counts the threats still open on that node." 
             )
         )
     }
@@ -240,6 +247,7 @@ public enum ThreatDiagrams {
             guards: model.guards,
             focus: model.focus,
             title: model.title,
+            subtitle: model.subtitle,
             covers: model.covers
         )
     }

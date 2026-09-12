@@ -76,14 +76,22 @@ extension DiagramBuilder {
             )
 
             if outOfScope == false, let open = risk?.openCount, open > 0 {
-                let badge = Rect(x: rect.maxX - 8, y: rect.minY - 8, width: 18, height: 16)
+                // The badge says what it counts. Two badges of bare numbers,
+                // one on a node and one on a line, read as the same thing.
+                let text = "\(open) open"
+                let badge = Rect(
+                    x: rect.maxX - 8,
+                    y: rect.minY - 8,
+                    width: DiagramBuilder.badgeWidth(of: text),
+                    height: 16
+                )
                 built.append(
                     .rectangle(badge, cornerRadius: 8, DiagramStyle(stroke: colour, fill: .paper, width: 1))
                 )
                 built.append(
                     .text(
-                        "\(open)",
-                        at: Point(x: badge.minX + 9, y: badge.minY + 11),
+                        text,
+                        at: Point(x: badge.minX + badge.size.width / 2, y: badge.minY + 11),
                         anchor: .centre,
                         size: chipSize,
                         bold: true,

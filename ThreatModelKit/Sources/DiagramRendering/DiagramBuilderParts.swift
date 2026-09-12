@@ -153,8 +153,8 @@ extension DiagramBuilder {
             )
 
             let middle = curve.point(at: 0.5)
-            let text = "\(count)"
-            let width = max(16.0, Double(text.count) * 6 + 8)
+            let text = count == 1 ? "1 answered" : "\(count) answered"
+            let width = DiagramBuilder.badgeWidth(of: text)
             built.append(
                 .rectangle(
                     Rect(x: middle.x - width / 2, y: middle.y - 8, width: width, height: 16),

@@ -221,4 +221,106 @@ struct RecommendationsSectionTests {
         #expect(counted.first?.protectorId == "okta")
         #expect(counted.first?.answeredByElementId == ["store": 2, "github": 1])
     }
+
+    @Test func theDependencySectionNamesEveryElementAControlProtects() throws {
+        let lines = MarkdownProtectionDependencies.lines([
+            ReportProtectionDependency(
+                protectorName: "Okta",
+                protectorId: "okta",
+                protectsElements: [
+                    ReportProtectedElement(
+                        elementId: "store",
+                        elementName: "Credential Store",
+                        zoneName: "Corporate Cloud",
+                        threats: [
+                            ReportAnsweredThreat(
+                                threatId: "credential-theft",
+                                name: "Credential Theft",
+                                riskScore: 5,
+                                riskLevel: "medium"
+                            ),
+                            ReportAnsweredThreat(
+                                threatId: "unauthorized-access",
+                                name: "Unauthorized Access",
+                                riskScore: 3,
+                                riskLevel: "low"
+                            )
+                        ]
+                    )
+                ]
+            )
+        ])
+
+        #expect(
+            lines.contains(
+                "Answers 2 threats on 1 element."
+                    + " Every risk below is what is left after this control."
+            )
+        )
+        #expect(lines.contains("| Element | Zone | Threats answered, with the risk left |"))
+        #expect(
+            lines.contains(
+                "| Credential Store | Corporate Cloud"
+                    + " | Credential Theft (medium 5), Unauthorized Access (low 3) |"
+            )
+        )
+        #expect(lines.contains { $0.hasPrefix("- Answers:") } == false)
+    }
+
+    @Test func theDependencySectionFallsBackToTheRawLinesWithNoNames() {
+        let lines = MarkdownProtectionDependencies.lines([
+            ReportProtectionDependency(
+                protectorName: "Okta",
+                protects: ["credential-theft on store"]
+            )
+        ])
+
+        #expect(lines.contains("- Answers: credential-theft on store"))
+    }
+
+    @Test func theDependencyStatesTheSameTotalAsThePictureDraws() {
+        let built = ProtectionDependenciesReport.build(
+            [
+                ProtectionDependency(
+                    protectorId: "okta",
+                    protectorName: "Okta",
+                    protects: [
+                        "credential-theft on store",
+                        "unauthorized-access on store",
+                        // Never raised on the target, so neither the table nor
+                        // the picture counts it.
+                        "tampering on store"
+                    ],
+                    unanswered: []
+                )
+            ],
+            threats: [
+                threat(id: "credential-theft", sourceId: "component:store"),
+                threat(id: "unauthorized-access", sourceId: "component:store")
+            ],
+            zones: [],
+            nameOfComponent: { $0 }
+        )
+
+        #expect(built.first?.answeredByElementId == ["store": 2])
+        #expect(built.first?.protectsElements.first?.threats.count == 2)
+    }
+
+    private func threat(id: String, sourceId: String) -> ReportThreat {
+        ReportThreat(
+            threatId: id,
+            name: id,
+            description: "",
+            severityLabel: "medium",
+            riskScore: 5,
+            riskLevel: "medium",
+            strideLabels: [],
+            mitreTechniqueIds: [],
+            sourceName: "store",
+            sourceKind: "Component",
+            sourceId: sourceId,
+            controls: [],
+            pathwayMitigationLabels: []
+        )
+    }
 }

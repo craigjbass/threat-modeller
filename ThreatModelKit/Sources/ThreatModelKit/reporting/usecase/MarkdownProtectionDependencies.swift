@@ -18,9 +18,8 @@ public enum MarkdownProtectionDependencies {
                 lines.append("![What \(dependency.protectorName) protects](\(fileName))")
                 lines.append("")
             }
-            for answered in dependency.protects {
-                lines.append("- Answers: \(answered)")
-            }
+            lines += protects(dependency)
+            lines.append("")
             if dependency.unanswered.isEmpty {
                 lines.append("- Nothing on this component is unanswered.")
             } else {
@@ -34,5 +33,48 @@ public enum MarkdownProtectionDependencies {
             lines.append("")
         }
         return lines
+    }
+
+    /// What the control answers, named for a reader.
+    ///
+    /// The table states the element, the zone that holds it and every threat
+    /// the control answers there, with the risk that is left after it. A
+    /// caller that built no names gets the `protects` lines instead, which
+    /// name a threat and a component by id.
+    static func protects(_ dependency: ReportProtectionDependency) -> [String] {
+        guard dependency.protectsElements.isEmpty == false else {
+            return dependency.protects.map { "- Answers: \($0)" }
+        }
+
+        let threats = dependency.protectsElements.reduce(0) { $0 + $1.threats.count }
+        let elements = dependency.protectsElements.count
+        var lines = [
+            "Answers \(threats) \(threats == 1 ? "threat" : "threats")"
+                + " on \(elements) \(elements == 1 ? "element" : "elements")."
+                + " Every risk below is what is left after this control.",
+            "",
+            "| Element | Zone | Threats answered, with the risk left |",
+            "| --- | --- | --- |"
+        ]
+
+        for element in dependency.protectsElements {
+            lines.append(
+                "| \(Markdown.cell(element.elementName))"
+                    + " | \(Markdown.cell(element.zoneName ?? "\u{2014}"))"
+                    + " | \(Markdown.cell(risks(element.threats)))"
+                    + " |"
+            )
+        }
+
+        return lines
+    }
+
+    /// Each answered threat with the risk left on it. The risk sits beside
+    /// the name it belongs to, because a second column of levels leaves the
+    /// reader pairing two lists by position.
+    static func risks(_ threats: [ReportAnsweredThreat]) -> String {
+        threats
+            .map { "\($0.name) (\($0.riskLevel) \($0.riskScore))" }
+            .joined(separator: ", ")
     }
 }

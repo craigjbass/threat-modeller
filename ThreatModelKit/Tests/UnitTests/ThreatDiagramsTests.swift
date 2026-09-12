@@ -179,7 +179,7 @@ struct ThreatDiagramsTests {
         }
 
         #expect(dashed.count == 1)
-        #expect(counts == ["3"])
+        #expect(counts == ["3 answered"])
     }
 
     @Test func drawsNoPictureForAControlTheModelDoesNotHold() {

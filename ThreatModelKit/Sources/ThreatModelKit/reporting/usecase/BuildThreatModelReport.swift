@@ -160,7 +160,10 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     recommendations: model.recommendations
                 ),
                 protectionDependencies: ProtectionDependenciesReport.build(
-                    assessment.protectionDependencies
+                    assessment.protectionDependencies,
+                    threats: threats,
+                    zones: zones,
+                    nameOfComponent: { nameOf(ComponentId($0)) }
                 ),
                 attackPaths: attack.paths,
                 attackPathsNotListed: attack.notListed,

@@ -24,6 +24,8 @@ public enum DiagramBuilder {
         public let focus: String?
         /// What the picture says it is about, written across the top.
         public let title: String?
+        /// The line under the title that says how to read the picture.
+        public let subtitle: String?
         /// What the focus protects, by source id, with the count of threats it
         /// answers there. A picture of a control draws a dashed line to each
         /// one, because a control often guards a component no flow reaches it
@@ -38,6 +40,7 @@ public enum DiagramBuilder {
             guards: [String: [EdgeGuard]] = [:],
             focus: String? = nil,
             title: String? = nil,
+            subtitle: String? = nil,
             covers: [String: Int] = [:]
         ) {
             self.components = components
@@ -47,6 +50,7 @@ public enum DiagramBuilder {
             self.guards = guards
             self.focus = focus
             self.title = title
+            self.subtitle = subtitle
             self.covers = covers
         }
 
@@ -63,7 +67,13 @@ public enum DiagramBuilder {
 
     /// How much heavier the one element a picture is about draws.
     public static let focusWidth = 3.5
+
+    /// How wide a badge of this text draws.
+    public static func badgeWidth(of text: String) -> Double {
+        max(18, Double(text.count) * chipSize * 0.62 + 12)
+    }
     public static let titleSize = 15.0
+    public static let subtitleSize = 10.5
 
     public static func drawing(of model: Model) -> DiagramDrawing {
         let boxes = Dictionary(
@@ -105,22 +115,40 @@ public enum DiagramBuilder {
         var bounds = covered(by: shapes)
 
         if let title = model.title {
-            shapes.insert(
+            var heading: [DrawnShape] = []
+            var above = titleSize + 14
+            var widest = Double(title.count) * titleSize * 0.55
+
+            if let subtitle = model.subtitle {
+                above += subtitleSize + 6
+                widest = max(widest, Double(subtitle.count) * subtitleSize * 0.55)
+                heading.append(
+                    .text(
+                        subtitle,
+                        at: Point(x: bounds.minX, y: bounds.minY - 12),
+                        anchor: .leading,
+                        size: subtitleSize,
+                        bold: false,
+                        .quiet
+                    )
+                )
+            }
+            heading.append(
                 .text(
                     title,
-                    at: Point(x: bounds.minX, y: bounds.minY - 12),
+                    at: Point(x: bounds.minX, y: bounds.minY - above + titleSize),
                     anchor: .leading,
                     size: titleSize,
                     bold: true,
                     .ink
-                ),
-                at: 0
+                )
             )
+            shapes.insert(contentsOf: heading, at: 0)
             bounds = Rect(
                 x: bounds.minX,
-                y: bounds.minY - titleSize - 14,
-                width: max(bounds.size.width, Double(title.count) * titleSize * 0.55),
-                height: bounds.size.height + titleSize + 14
+                y: bounds.minY - above,
+                width: max(bounds.size.width, widest),
+                height: bounds.size.height + above
             )
         }
 
