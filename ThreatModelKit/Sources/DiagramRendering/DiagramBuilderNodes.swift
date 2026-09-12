@@ -8,14 +8,17 @@ extension DiagramBuilder {
         model.components.flatMap { component -> [DrawnShape] in
             guard let rect = boxes[component.id] else { return [] }
 
-            let risk = model.risks["component:\(component.id)"]
+            let source = "component:\(component.id)"
+            let risk = model.risks[source]
             let outOfScope = component.threatsDisabled
-            let colour = outOfScope
+            let strength = model.strength(of: source)
+            let focused = model.isFocused(source)
+            let colour = (outOfScope
                 ? DiagramColour.quiet
-                : DiagramColour.forLevel(risk?.highestLevelId)
+                : DiagramColour.forLevel(risk?.highestLevelId)).faded(to: strength)
             let style = DiagramStyle(
                 stroke: colour,
-                width: 1.5,
+                width: focused ? DiagramBuilder.focusWidth : 1.5,
                 dash: outOfScope ? [6, 4] : []
             )
             var built: [DrawnShape] = []
@@ -49,7 +52,7 @@ extension DiagramBuilder {
                     anchor: .centre,
                     size: nodeLabelSize,
                     bold: true,
-                    outOfScope ? .quiet : .ink
+                    (outOfScope ? DiagramColour.quiet : .ink).faded(to: strength)
                 )
             )
 
@@ -68,7 +71,7 @@ extension DiagramBuilder {
                     anchor: .centre,
                     size: chipSize,
                     bold: false,
-                    .quiet
+                    DiagramColour.quiet.faded(to: strength)
                 )
             )
 
@@ -123,9 +126,10 @@ extension DiagramBuilder {
         var built: [DrawnShape] = []
 
         for callout in placed {
-            let colour = DiagramColour.forLevel(
-                model.risks["connection:\(callout.connectionId)"]?.highestLevelId
-            )
+            let source = "connection:\(callout.connectionId)"
+            let colour = DiagramColour
+                .forLevel(model.risks[source]?.highestLevelId)
+                .faded(to: model.strength(of: source))
             let middle = Point(
                 x: callout.rect.minX + callout.rect.size.width / 2,
                 y: callout.rect.minY + callout.rect.size.height / 2
@@ -151,7 +155,7 @@ extension DiagramBuilder {
                 )
             )
 
-            let lines = wrapped(callout.text, perLine: CalloutPlacement.charactersPerLine)
+            let lines = CalloutPlacement.lines(of: callout.text)
             for (index, line) in lines.enumerated() {
                 built.append(
                     .text(
@@ -173,24 +177,9 @@ extension DiagramBuilder {
         return built
     }
 
-    /// The text broken into lines of about `perLine` characters, on word
-    /// boundaries. A word longer than a line keeps its own line.
+    /// The text broken into lines, which is `CalloutPlacement.lines(of:)`. The
+    /// core owns the rule, because the box is measured from it.
     public static func wrapped(_ text: String, perLine: Int) -> [String] {
-        var lines: [String] = []
-        var line = ""
-
-        for word in text.split(separator: " ") {
-            if line.isEmpty {
-                line = String(word)
-            } else if line.count + 1 + word.count <= perLine {
-                line += " " + word
-            } else {
-                lines.append(line)
-                line = String(word)
-            }
-        }
-        if line.isEmpty == false { lines.append(line) }
-
-        return lines
+        CalloutPlacement.lines(of: text, perLine: perLine)
     }
 }

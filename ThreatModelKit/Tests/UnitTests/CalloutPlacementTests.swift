@@ -141,4 +141,32 @@ struct CalloutZoneHeaderTests {
                 == CalloutPlacement.place(labels, nodes: [], flows: [])
         )
     }
+
+    // MARK: the box holds every line
+
+    @Test func theBoxIsAsTallAsTheWrappedText() {
+        let text = "EDR scanning via FDA and ClearanceKit global allowlist; "
+            + "reads everything, gated by nothing"
+        let lines = CalloutPlacement.lines(of: text)
+        let box = CalloutPlacement.size(of: text)
+
+        #expect(
+            box.height
+                >= Double(lines.count) * CalloutPlacement.lineHeight + CalloutPlacement.padding
+        )
+    }
+
+    @Test func aWordThatMovesToTheNextLineMakesTheBoxTaller() {
+        // 30 characters exactly, but the last word cannot share the line.
+        let text = "aaaaaaaaaaaaaaaaaaaaaaaaaaa bbb"
+
+        #expect(CalloutPlacement.lines(of: text).count == 2)
+        #expect(CalloutPlacement.size(of: text).height == 2 * CalloutPlacement.lineHeight + CalloutPlacement.padding)
+    }
+
+    @Test func aWordLongerThanALineKeepsItsOwnLine() {
+        let text = String(repeating: "x", count: 50) + " tail"
+
+        #expect(CalloutPlacement.lines(of: text) == [String(repeating: "x", count: 50), "tail"])
+    }
 }

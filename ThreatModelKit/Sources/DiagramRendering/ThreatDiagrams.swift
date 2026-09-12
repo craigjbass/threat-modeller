@@ -32,7 +32,11 @@ public enum ThreatDiagrams {
         stem: String
     ) -> [Picture] {
         threats.enumerated().compactMap { index, threat in
-            guard let focused = focus(model, on: threat.sourceId) else { return nil }
+            guard let focused = focus(
+                model,
+                on: threat.sourceId,
+                titled: "\(threat.sourceName) — \(threat.name)"
+            ) else { return nil }
 
             return Picture(
                 threatId: threat.threatId,
@@ -50,7 +54,11 @@ public enum ThreatDiagrams {
     /// and its two ends. A threat on a zone draws the zone, what it holds, and
     /// every flow crossing its edge. Every zone holding a drawn component is
     /// drawn too, so a reader sees which side of a boundary each one is on.
-    public static func focus(_ model: DiagramBuilder.Model, on sourceId: String) -> DiagramBuilder.Model? {
+    public static func focus(
+        _ model: DiagramBuilder.Model,
+        on sourceId: String,
+        titled title: String? = nil
+    ) -> DiagramBuilder.Model? {
         let parts = sourceId.split(separator: ":", maxSplits: 1).map(String.init)
         guard parts.count == 2 else { return nil }
         let kind = parts[0]
@@ -103,7 +111,9 @@ public enum ThreatDiagrams {
                 connections: model.connections.filter { connectionIds.contains($0.id) },
                 zones: model.zones.filter { zoneIds.contains($0.id) },
                 risks: model.risks,
-                guards: model.guards
+                guards: model.guards,
+                focus: sourceId,
+                title: title
             )
         )
     }
@@ -141,7 +151,9 @@ public enum ThreatDiagrams {
                 return sized(zone, to: rect)
             },
             risks: model.risks,
-            guards: model.guards
+            guards: model.guards,
+            focus: model.focus,
+            title: model.title
         )
     }
 

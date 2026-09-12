@@ -128,6 +128,73 @@ struct ThreatDiagramsTests {
             pathwayMitigationLabels: []
         )
     }
+
+    // MARK: which element the picture calls out
+
+    @Test func marksTheOneElementTheThreatIsOn() throws {
+        let focused = try #require(ThreatDiagrams.focus(model, on: "component:b"))
+
+        #expect(focused.focus == "component:b")
+        #expect(focused.isFocused("component:b"))
+        #expect(focused.strength(of: "component:b") == 1)
+        #expect(focused.strength(of: "component:a") < 1)
+    }
+
+    @Test func everythingDrawsAtFullStrengthWithNoFocus() {
+        #expect(model.focus == nil)
+        #expect(model.strength(of: "component:a") == 1)
+        #expect(model.isFocused("component:a") == false)
+    }
+
+    @Test func theCalledOutNodeDrawsHeavierThanTheRest() throws {
+        let focused = try #require(ThreatDiagrams.focus(model, on: "component:b"))
+        let widths = DiagramBuilder.drawing(of: focused).shapes.compactMap { shape -> Double? in
+            if case .ellipse(_, let style) = shape { return style.width }
+            if case .rectangle(_, _, let style) = shape { return style.width }
+            return nil
+        }
+
+        #expect(widths.contains(DiagramBuilder.focusWidth))
+    }
+
+    @Test func theCalledOutFlowDrawsHeavierThanTheRest() throws {
+        let focused = try #require(ThreatDiagrams.focus(model, on: "connection:a-b"))
+        let widths = DiagramBuilder.drawing(of: focused).shapes.compactMap { shape -> Double? in
+            guard case .path(_, let style) = shape else { return nil }
+            return style.width
+        }
+
+        #expect(widths.contains(DiagramBuilder.focusWidth))
+    }
+
+    @Test func thePictureNamesWhatItCallsOut() throws {
+        let focused = try #require(
+            ThreatDiagrams.focus(model, on: "component:b", titled: "b — Spoofing")
+        )
+        let texts = DiagramBuilder.drawing(of: focused).shapes.compactMap { shape -> String? in
+            guard case .text(let text, _, _, _, _, _) = shape else { return nil }
+            return text
+        }
+
+        #expect(texts.contains("b — Spoofing"))
+    }
+
+    @Test func theTitleSitsInsideThePicture() throws {
+        let focused = try #require(
+            ThreatDiagrams.focus(model, on: "component:b", titled: "b — Spoofing")
+        )
+        let drawing = DiagramBuilder.drawing(of: focused)
+        let title = try #require(
+            drawing.shapes.first { shape in
+                if case .text(let text, _, _, _, _, _) = shape { return text == "b — Spoofing" }
+                return false
+            }
+        )
+        guard case .text(_, let at, _, _, _, _) = title else { return }
+
+        #expect(at.y >= drawing.origin.y)
+        #expect(at.x >= drawing.origin.x)
+    }
 }
 
 @Suite("A fragment placed on its own")

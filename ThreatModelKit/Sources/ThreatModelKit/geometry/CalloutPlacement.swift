@@ -51,9 +51,37 @@ public enum CalloutPlacement {
     public static let breathingRoom = 30.0
 
     /// What a box of this text measures.
+    ///
+    /// The count comes from the same word wrap the drawing uses. Dividing the
+    /// character count by the line length instead gave a box one line short of
+    /// the text whenever a word moved to the next line, and the last line drew
+    /// below the border.
     public static func size(of text: String) -> Size {
-        let lines = max(1, Int((Double(text.count) / Double(charactersPerLine)).rounded(.up)))
-        return Size(width: width, height: Double(lines) * lineHeight + padding)
+        Size(
+            width: width,
+            height: Double(lines(of: text).count) * lineHeight + padding
+        )
+    }
+
+    /// The text broken into lines of about `charactersPerLine` characters, on
+    /// word boundaries. A word longer than a line keeps its own line.
+    public static func lines(of text: String, perLine: Int = charactersPerLine) -> [String] {
+        var built: [String] = []
+        var line = ""
+
+        for word in text.split(separator: " ") {
+            if line.isEmpty {
+                line = String(word)
+            } else if line.count + 1 + word.count <= perLine {
+                line += " " + word
+            } else {
+                built.append(line)
+                line = String(word)
+            }
+        }
+        if line.isEmpty == false { built.append(line) }
+
+        return built.isEmpty ? [""] : built
     }
 
     /// A place for every flow that has something to say.

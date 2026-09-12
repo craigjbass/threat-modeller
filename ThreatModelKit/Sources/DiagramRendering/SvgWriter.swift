@@ -74,7 +74,9 @@ public enum SvgWriter {
         parts.append("font-family=\"\(font)\"")
         parts.append("font-size=\"\(number(size))\"")
         parts.append("font-weight=\"\(bold ? "600" : "400")\"")
-        parts.append("fill=\"\(colour(ink))\">")
+        parts.append("fill=\"\(colour(ink))\"")
+        if ink.alpha < 1 { parts.append("fill-opacity=\"\(number(ink.alpha))\"") }
+        parts[parts.count - 1] += ">"
 
         return parts.joined(separator: " ") + escaped(text) + "</text>"
     }

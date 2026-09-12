@@ -19,21 +19,43 @@ public enum DiagramBuilder {
         public let zones: [ViewedZone]
         public let risks: [String: ElementRisk]
         public let guards: [String: [EdgeGuard]]
+        /// The one element this picture is about, as a source id, or nil when
+        /// the picture is about all of it. What is not the focus draws quietly.
+        public let focus: String?
+        /// What the picture says it is about, written across the top.
+        public let title: String?
 
         public init(
             components: [ViewedComponent],
             connections: [ViewedConnection],
             zones: [ViewedZone],
             risks: [String: ElementRisk] = [:],
-            guards: [String: [EdgeGuard]] = [:]
+            guards: [String: [EdgeGuard]] = [:],
+            focus: String? = nil,
+            title: String? = nil
         ) {
             self.components = components
             self.connections = connections
             self.zones = zones
             self.risks = risks
             self.guards = guards
+            self.focus = focus
+            self.title = title
         }
+
+        /// How strongly one element draws. What the picture is not about draws
+        /// at two fifths, so the eye finds what it is about.
+        public func strength(of sourceId: String) -> Double {
+            guard let focus else { return 1 }
+            return sourceId == focus ? 1 : 0.4
+        }
+
+        public func isFocused(_ sourceId: String) -> Bool { focus == sourceId }
     }
+
+    /// How much heavier the one element a picture is about draws.
+    public static let focusWidth = 3.5
+    public static let titleSize = 15.0
 
     public static func drawing(of model: Model) -> DiagramDrawing {
         let boxes = Dictionary(
@@ -58,7 +80,7 @@ public enum DiagramBuilder {
 
         let runs = boundaryRuns(model, curves: curves)
         let chips = chipRects(runs, bands: bands)
-        shapes += boundaryShapes(runs, curves: curves, bands: bands)
+        shapes += boundaryShapes(runs, curves: curves, bands: bands, model: model)
 
         shapes += nodeShapes(model, boxes: boxes)
         shapes += calloutShapes(
@@ -71,7 +93,27 @@ public enum DiagramBuilder {
 
         // The picture is cut to what it drew, not to a guess: a label sits
         // where the placement put it, and only the shapes know where that is.
-        let bounds = covered(by: shapes)
+        var bounds = covered(by: shapes)
+
+        if let title = model.title {
+            shapes.insert(
+                .text(
+                    title,
+                    at: Point(x: bounds.minX, y: bounds.minY - 12),
+                    anchor: .leading,
+                    size: titleSize,
+                    bold: true,
+                    .ink
+                ),
+                at: 0
+            )
+            bounds = Rect(
+                x: bounds.minX,
+                y: bounds.minY - titleSize - 14,
+                width: max(bounds.size.width, Double(title.count) * titleSize * 0.55),
+                height: bounds.size.height + titleSize + 14
+            )
+        }
 
         return DiagramDrawing(
             origin: Point(x: bounds.minX - padding, y: bounds.minY - padding),

@@ -6,16 +6,19 @@ extension DiagramBuilder {
 
     static func zoneShapes(_ model: Model) -> [DrawnShape] {
         model.zones.flatMap { zone -> [DrawnShape] in
-            let tint: DiagramColour = zone.networkZoneId == "private" ? .green : .orange
+            let strength = model.strength(of: "zone:\(zone.id)")
+            let focused = model.isFocused("zone:\(zone.id)")
+            let tint = (zone.networkZoneId == "private" ? DiagramColour.green : .orange)
+                .faded(to: strength)
             let rect = Rect(x: zone.x, y: zone.y, width: zone.width, height: zone.height)
             var built: [DrawnShape] = [
                 .rectangle(
                     rect,
                     cornerRadius: 12,
                     DiagramStyle(
-                        stroke: tint.faded(to: 0.35),
-                        fill: tint.faded(to: 0.04),
-                        width: 1,
+                        stroke: tint.faded(to: focused ? 0.9 : 0.35 * strength),
+                        fill: tint.faded(to: 0.04 * strength),
+                        width: focused ? 2.5 : 1,
                         dash: [2, 4]
                     )
                 ),
@@ -25,7 +28,7 @@ extension DiagramBuilder {
                     anchor: .leading,
                     size: zoneNameSize,
                     bold: true,
-                    .ink
+                    DiagramColour.ink.faded(to: strength)
                 )
             ]
 
@@ -97,9 +100,12 @@ extension DiagramBuilder {
     static func flowShapes(_ model: Model, curves: [String: FlowCurve]) -> [DrawnShape] {
         model.connections.flatMap { connection -> [DrawnShape] in
             guard let curve = curves[connection.id] else { return [] }
-            let colour = DiagramColour.forLevel(
-                model.risks["connection:\(connection.id)"]?.highestLevelId
-            )
+            let source = "connection:\(connection.id)"
+            let strength = model.strength(of: source)
+            let colour = DiagramColour
+                .forLevel(model.risks[source]?.highestLevelId)
+                .faded(to: strength)
+            let width = model.isFocused(source) ? DiagramBuilder.focusWidth : 1.5
 
             var steps: [PathStep] = [.move(curve.start)]
             for segment in curve.segments {
@@ -109,7 +115,7 @@ extension DiagramBuilder {
             }
 
             return [
-                .path(steps, DiagramStyle(stroke: colour, width: 1.5)),
+                .path(steps, DiagramStyle(stroke: colour, width: width)),
                 .path(arrowhead(of: curve), DiagramStyle(fill: colour))
             ]
         }
@@ -209,13 +215,20 @@ extension DiagramBuilder {
     static func boundaryShapes(
         _ runs: [BoundaryCrossings.BoundaryRun],
         curves: [String: FlowCurve],
-        bands: [Rect]
+        bands: [Rect],
+        model: Model
     ) -> [DrawnShape] {
         let sampled = curves.mapValues { CurveCrossing.samples(of: $0) }
         var built: [DrawnShape] = []
 
         for run in runs {
-            let tint: DiagramColour = run.networkZoneId == "private" ? .green : .orange
+            // A boundary is as strong as the strongest flow through it, so the
+            // boundary a called-out flow crosses stays as loud as the flow.
+            let strength = run.connectionIds
+                .map { model.strength(of: "connection:\($0)") }
+                .max() ?? 1
+            let tint = (run.networkZoneId == "private" ? DiagramColour.green : .orange)
+                .faded(to: strength)
             let unrelated = sampled
                 .filter { run.connectionIds.contains($0.key) == false }
                 .map(\.value)
