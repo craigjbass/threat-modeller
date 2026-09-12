@@ -23,12 +23,9 @@ nonisolated extension BoundaryCrossings.BoundaryRun {
 struct ConnectionsLayer: View {
     /// How many guards a crossing names before it counts the rest.
     static let guardsShown = 2
-    /// How long a flow's label may be. A description is prose, and a whole
-    /// sentence on the line covers the diagram.
-    static let labelLimit = 28
     /// How long a guard's name may be on a chip. A component's name carries
     /// its product and its kind, and the whole of it covers the diagram.
-    static let guardLimit = 18
+    static let guardLimit = 30
 
     let connections: [ViewedConnection]
     let boxes: [String: ComponentBox]
@@ -52,6 +49,7 @@ struct ConnectionsLayer: View {
         Canvas { context, _ in
             var marked: [BoundaryCrossings.MarkedCrossing] = []
             var sampled: [String: [Point]] = [:]
+            var toLabel: [(connectionId: String, text: String, curve: FlowCurve)] = []
 
             for connection in connections {
                 guard let source = boxes[connection.sourceComponentId],
@@ -73,6 +71,7 @@ struct ConnectionsLayer: View {
                     avoiding: avoid
                 )
                 draw(connection, along: path, in: &context)
+                toLabel.append((connection.id, label(of: connection), path.curve))
 
                 guard isOutOfScope(connection) == false else { continue }
                 sampled[connection.id] = CurveCrossing.samples(of: path.curve)
@@ -111,6 +110,10 @@ struct ConnectionsLayer: View {
             for run in runs {
                 writeGuards(of: run, in: &context)
             }
+
+            // The labels go last, over everything, because a label a link
+            // crosses is unreadable.
+            drawCallouts(toLabel, over: Array(sampled.values), in: &context)
 
             if let preview {
                 stroke(
@@ -178,7 +181,23 @@ struct ConnectionsLayer: View {
         guard described.isEmpty == false else {
             return FlowKind(rawValue: connection.kindId)?.label ?? connection.kindId
         }
-        return Self.cut(described, to: Self.labelLimit)
+        // Whole: the callout is sized to the text rather than the text cut to
+        // fit a line.
+        return described
+    }
+
+    /// A component's name, without what follows it in brackets or after a
+    /// comma. `opfilter System Extension (Endpoint Security)` reads
+    /// `opfilter System Extension`, which is the name; cutting it to a
+    /// character count read `opfilter System E…`, which is nothing.
+    static func name(of label: String) -> String {
+        var ends = label.endIndex
+        for mark in [" (", ", ", " \u{2014} ", " - "] {
+            if let found = label.range(of: mark), found.lowerBound < ends {
+                ends = found.lowerBound
+            }
+        }
+        return cut(String(label[label.startIndex ..< ends]), to: guardLimit)
     }
 
     /// The text, or as much of it as fits, with an ellipsis for the rest.
@@ -210,8 +229,99 @@ struct ConnectionsLayer: View {
         arrow.addLine(to: head[2])
         arrow.closeSubpath()
         context.fill(arrow, with: .color(colour))
+    }
 
-        write(connection, at: path.point(at: 0.5), colour: colour, in: &context)
+    /// Every flow's label, in a box where the diagram is empty, joined to its
+    /// flow by a leader.
+    ///
+    /// A description is prose. On the line it is cut or it covers the diagram;
+    /// in a box it is whole.
+    private func drawCallouts(
+        _ labels: [(connectionId: String, text: String, curve: FlowCurve)],
+        over flows: [[Point]],
+        in context: inout GraphicsContext
+    ) {
+        let placed = CalloutPlacement.place(
+            labels,
+            nodes: boxes.values.map(\.rect.modelRect),
+            flows: flows
+        )
+
+        for callout in placed {
+            guard let connection = connections.first(where: { $0.id == callout.connectionId })
+            else { continue }
+            draw(callout, colour: colour(of: connection), in: &context)
+        }
+    }
+
+    private func draw(
+        _ callout: Callout,
+        colour: Color,
+        in context: inout GraphicsContext
+    ) {
+        let box = CGRect(callout.rect)
+        let anchor = CGPoint(callout.anchor)
+
+        // The leader leaves the edge of the box nearest the flow.
+        var leader = Path()
+        leader.move(to: CGPoint(x: box.midX, y: box.midY))
+        leader.addLine(to: anchor)
+        context.stroke(
+            leader,
+            with: .color(colour.opacity(0.5)),
+            style: StrokeStyle(lineWidth: 1, dash: [3, 3])
+        )
+
+        context.fill(
+            Path(roundedRect: box, cornerRadius: 5),
+            with: .color(Color(nsColor: .textBackgroundColor))
+        )
+        context.stroke(
+            Path(roundedRect: box, cornerRadius: 5),
+            with: .color(colour.opacity(0.6)),
+            style: StrokeStyle(lineWidth: 1)
+        )
+        context.fill(
+            Path(ellipseIn: CGRect(x: anchor.x - 2.5, y: anchor.y - 2.5, width: 5, height: 5)),
+            with: .color(colour)
+        )
+
+        // The lines are broken here rather than by the drawing, which clips a
+        // resolved text to one line. The break is the one the core sized the
+        // box with, so the text and the box always agree.
+        let lines = Self.wrapped(callout.text, perLine: CalloutPlacement.charactersPerLine)
+        for (index, line) in lines.enumerated() {
+            context.draw(
+                context.resolve(Text(line).font(.caption2).foregroundStyle(colour)),
+                at: CGPoint(
+                    x: box.minX + 6,
+                    y: box.minY + CalloutPlacement.padding / 2
+                        + (Double(index) + 0.5) * CalloutPlacement.lineHeight
+                ),
+                anchor: .leading
+            )
+        }
+    }
+
+    /// The text broken into lines of about `perLine` characters, on word
+    /// boundaries. A word longer than a line keeps its own line.
+    static func wrapped(_ text: String, perLine: Int) -> [String] {
+        var lines: [String] = []
+        var line = ""
+
+        for word in text.split(separator: " ") {
+            if line.isEmpty {
+                line = String(word)
+            } else if line.count + 1 + word.count <= perLine {
+                line += " " + word
+            } else {
+                lines.append(line)
+                line = String(word)
+            }
+        }
+        if line.isEmpty == false { lines.append(line) }
+
+        return lines
     }
 
     /// The components that guard this boundary, or the words that say none
@@ -226,7 +336,7 @@ struct ConnectionsLayer: View {
         let hidden = run.guards.count - shown.count
 
         var chips: [(text: String, colour: Color, isAssumed: Bool)] = shown.map {
-            (Self.cut($0.label, to: Self.guardLimit), tint, $0.isAssumed)
+            (Self.name(of: $0.label), tint, $0.isAssumed)
         }
         if hidden > 0 { chips.append(("+\(hidden)", tint, false)) }
         // Nothing guards it. That is worth saying only while a threat through
@@ -283,34 +393,5 @@ struct ConnectionsLayer: View {
             with: .color(colour),
             style: StrokeStyle(lineWidth: width, dash: dashed ? [6, 4] : [])
         )
-    }
-
-    /// The label sits on a pill in the canvas colour, so the curve does not run
-    /// through the text.
-    private func write(
-        _ connection: ViewedConnection,
-        at point: CGPoint,
-        colour: Color,
-        in context: inout GraphicsContext
-    ) {
-        let open = isOutOfScope(connection) ? 0 : (risk(of: connection)?.openCount ?? 0)
-        let written = open > 0 ? "\(label(of: connection))  ·  \(open)" : label(of: connection)
-
-        let resolved = context.resolve(
-            Text(written).font(.caption2).foregroundStyle(colour)
-        )
-        let size = resolved.measure(in: CGSize(width: 220, height: 40))
-        let pill = CGRect(
-            x: point.x - size.width / 2 - 5,
-            y: point.y - size.height / 2 - 2,
-            width: size.width + 10,
-            height: size.height + 4
-        )
-
-        context.fill(
-            Path(roundedRect: pill, cornerRadius: 4),
-            with: .color(Color(nsColor: .textBackgroundColor))
-        )
-        context.draw(resolved, at: point, anchor: .center)
     }
 }

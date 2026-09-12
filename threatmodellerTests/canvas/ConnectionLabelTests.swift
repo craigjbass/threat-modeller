@@ -36,14 +36,11 @@ struct ConnectionLabelTests {
         #expect(label(description: "HTTPS") == "HTTPS")
     }
 
-    @Test func cutsALongDescriptionToWhatFitsOnTheLine() {
-        let written = label(
-            description: "MCP over unix domain socket, newline-delimited JSON, signature-validated"
-        )
+    @Test func keepsALongDescriptionWhole() {
+        let described = "MCP over unix domain socket, newline-delimited JSON, signature-validated"
 
-        #expect(written.count <= ConnectionsLayer.labelLimit)
-        #expect(written.hasSuffix("\u{2026}"))
-        #expect(written.hasPrefix("MCP over unix"))
+        // The callout is sized to the text, so nothing is cut.
+        #expect(label(description: described) == described)
     }
 
     @Test func cutsAGuardsNameToWhatFitsOnAChip() {
