@@ -71,6 +71,7 @@ struct ReportExporter {
                 try CanvasImageRenderer().png(
                     of: session.canvas,
                     risks: session.elementRisks,
+                    guards: session.elementGuards,
                     area: area
                 ),
                 area.fileName

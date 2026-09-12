@@ -132,7 +132,7 @@ struct CanvasImageRendererTests {
             app.assessThreatModel().execute(AssessThreatModelRequest()).threats,
             levelOrder: []
         )
-        let data = try CanvasImageRenderer().png(of: canvas, risks: risks, area: area)
+        let data = try CanvasImageRenderer().png(of: canvas, risks: risks, guards: [:], area: area)
 
         let image = try #require(NSBitmapImageRep(data: data))
         #expect(image.pixelsWide == Int(area.width * CanvasImageRenderer.scale))
@@ -144,7 +144,7 @@ struct CanvasImageRendererTests {
         let canvas = app.viewThreatModel().execute(ViewThreatModelRequest())
         let area = app.exportModelAsImage().execute(ExportModelAsImageRequest())
 
-        let data = try CanvasImageRenderer().png(of: canvas, risks: [:], area: area)
+        let data = try CanvasImageRenderer().png(of: canvas, risks: [:], guards: [:], area: area)
 
         #expect(NSBitmapImageRep(data: data) != nil)
     }

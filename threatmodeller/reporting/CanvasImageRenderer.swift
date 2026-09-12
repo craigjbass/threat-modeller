@@ -20,6 +20,7 @@ struct CanvasImageRenderer {
     func png(
         of canvas: ViewThreatModelResponse,
         risks: [String: ElementRisk],
+        guards: [String: [EdgeGuard]],
         area: ExportModelAsImageResponse
     ) throws -> Data {
         let renderer = ImageRenderer(
@@ -28,6 +29,7 @@ struct CanvasImageRenderer {
                 connections: canvas.connections,
                 zones: canvas.zones,
                 risks: risks,
+                guards: guards,
                 origin: CGPoint(x: area.x, y: area.y),
                 size: CGSize(width: area.width, height: area.height)
             )

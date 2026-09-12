@@ -137,6 +137,7 @@ struct CanvasView: View {
                 componentsById: componentsById,
                 zones: session.canvas.zones,
                 risks: session.elementRisks,
+                guards: session.elementGuards,
                 outOfScopeComponentIds: outOfScopeComponentIds,
                 selectedConnectionIds: canvas.selectedConnectionIds,
                 preview: previewLine

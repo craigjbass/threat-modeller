@@ -26,6 +26,9 @@ final class ThreatModelSession {
     /// The risk of every element on the diagram, by source id. The canvas
     /// paints from this, so the picture and the threat list never disagree.
     private(set) var elementRisks: [String: ElementRisk] = [:]
+    /// What guards every element on the diagram, by source id. The canvas
+    /// names these beside the boundary a flow crosses.
+    private(set) var elementGuards: [String: [EdgeGuard]] = [:]
     private(set) var summary = SummariseRiskResponse(
         totalThreats: 0,
         byLevel: [],
@@ -679,6 +682,7 @@ final class ThreatModelSession {
             assessment.threats,
             levelOrder: assessment.severities.map(\.id)
         )
+        elementGuards = EdgeGuards.byElement(assessment.threats)
         summary = useCases.summariseRisk().execute(SummariseRiskRequest())
         pathwayMitigations = useCases.listPathwayMitigations()
             .execute(ListPathwayMitigationsRequest())

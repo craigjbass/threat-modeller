@@ -11,6 +11,9 @@ import ThreatModelKit
 /// Where a link crosses a zone edge the layer draws the dotted bow OWASP
 /// Threat Dragon uses for a trust boundary, across the link at a right angle.
 struct ConnectionsLayer: View {
+    /// How many guards a crossing names before it counts the rest.
+    static let guardsShown = 2
+
     let connections: [ViewedConnection]
     let boxes: [String: ComponentBox]
     /// Every component by id, so the layer can tell which zone each end of a
@@ -21,6 +24,9 @@ struct ConnectionsLayer: View {
     /// The risk of every element, by source id. A link reads
     /// "connection:<id>".
     let risks: [String: ElementRisk]
+    /// What guards every element, by source id. A crossing states these, so a
+    /// reader sees what stands in the way of a flow across a boundary.
+    let guards: [String: [EdgeGuard]]
     /// The components the user turned threats off for.
     let outOfScopeComponentIds: Set<String>
     let selectedConnectionIds: Set<String>
@@ -115,17 +121,77 @@ struct ConnectionsLayer: View {
     ) {
         guard isOutOfScope(connection) == false else { return }
 
-        for crossing in BoundaryCrossings.of(
+        let crossings = BoundaryCrossings.of(
             connection,
             path: path,
             components: componentsById,
             zones: zones
-        ) {
+        )
+
+        for (index, crossing) in crossings.enumerated() {
+            let tint: Color = crossing.networkZoneId == "private" ? .green : .orange
             context.stroke(
                 BoundaryCrossings.mark(for: crossing),
-                with: .color(crossing.networkZoneId == "private" ? .green : .orange),
+                with: .color(tint),
                 style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [2, 5])
             )
+            // A guard answers the flow, not one edge of it, so a flow that
+            // crosses two boundaries names its guards once.
+            if index == 0 {
+                writeGuards(of: connection, at: crossing, tint: tint, in: &context)
+            }
+        }
+    }
+
+    /// The components that guard this crossing, or the words that say none
+    /// does. An unguarded crossing is what a reviewer looks for, so it is
+    /// stated rather than left blank.
+    private func writeGuards(
+        of connection: ViewedConnection,
+        at crossing: BoundaryCrossing,
+        tint: Color,
+        in context: inout GraphicsContext
+    ) {
+        let held = guards["connection:\(connection.id)"] ?? []
+        let shown = Array(held.prefix(Self.guardsShown))
+        let hidden = held.count - shown.count
+
+        var chips: [(text: String, colour: Color, isAssumed: Bool)] = shown.map {
+            ($0.label, tint, $0.isAssumed)
+        }
+        if hidden > 0 { chips.append(("+\(hidden)", tint, false)) }
+        if held.isEmpty { chips = [("no guard", .secondary, false)] }
+
+        // The chips stack beyond the mark's far end, so they never sit on the
+        // flow's own label.
+        let across = crossing.angle + .pi / 2
+        var y = crossing.point.y + (BoundaryCrossings.length / 2 + 12) * sin(across)
+        let x = crossing.point.x + (BoundaryCrossings.length / 2 + 12) * cos(across)
+
+        for chip in chips {
+            let resolved = context.resolve(
+                Text(chip.text).font(.caption2).foregroundStyle(chip.colour)
+            )
+            let size = resolved.measure(in: CGSize(width: 160, height: 30))
+            let box = CGRect(
+                x: x - size.width / 2 - 5,
+                y: y - size.height / 2 - 2,
+                width: size.width + 10,
+                height: size.height + 4
+            )
+
+            context.fill(
+                Path(roundedRect: box, cornerRadius: 4),
+                with: .color(Color(nsColor: .textBackgroundColor))
+            )
+            context.stroke(
+                Path(roundedRect: box, cornerRadius: 4),
+                with: .color(chip.colour),
+                style: StrokeStyle(lineWidth: 1, dash: chip.isAssumed ? [3, 3] : [])
+            )
+            context.draw(resolved, at: CGPoint(x: x, y: y), anchor: .center)
+
+            y += box.height + 3
         }
     }
 

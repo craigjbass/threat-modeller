@@ -546,6 +546,7 @@ struct ViewRenderTests {
                         highestLevelId: "critical"
                     )
                 ],
+                guards: ["connection:f1": [EdgeGuard(label: "WAF", isAssumed: false)]],
                 outOfScopeComponentIds: [],
                 selectedConnectionIds: [],
                 preview: nil
@@ -600,6 +601,7 @@ struct ViewRenderTests {
                 connections: session.canvas.connections,
                 zones: session.canvas.zones,
                 risks: session.elementRisks,
+                guards: session.elementGuards,
                 origin: .zero,
                 size: CGSize(width: 900, height: 700)
             ),
@@ -632,12 +634,58 @@ struct ViewRenderTests {
                 connections: session.canvas.connections,
                 zones: session.canvas.zones,
                 risks: session.elementRisks,
+                guards: session.elementGuards,
                 origin: .zero,
                 size: CGSize(width: 900, height: 520)
             ),
             width: 900,
             height: 520,
             "a diagram with a crossed trust boundary"
+        )
+    }
+
+    @Test func namesWhatGuardsACrossedTrustBoundary() {
+        let session = aCrossedModel()
+        let flowId = session.canvas.connections.first?.id ?? ""
+
+        expectDrawn(
+            CanvasPicture(
+                components: session.canvas.components,
+                connections: session.canvas.connections,
+                zones: session.canvas.zones,
+                risks: session.elementRisks,
+                guards: [
+                    "connection:\(flowId)": [
+                        EdgeGuard(label: "WAF", isAssumed: false),
+                        EdgeGuard(label: "API Gateway", isAssumed: true),
+                        EdgeGuard(label: "Bastion", isAssumed: false)
+                    ]
+                ],
+                origin: .zero,
+                size: CGSize(width: 900, height: 520)
+            ),
+            width: 900,
+            height: 520,
+            "a guarded crossing"
+        )
+    }
+
+    @Test func saysSoWhereNothingGuardsACrossedTrustBoundary() {
+        let session = aCrossedModel()
+
+        expectDrawn(
+            CanvasPicture(
+                components: session.canvas.components,
+                connections: session.canvas.connections,
+                zones: session.canvas.zones,
+                risks: session.elementRisks,
+                guards: [:],
+                origin: .zero,
+                size: CGSize(width: 900, height: 520)
+            ),
+            width: 900,
+            height: 520,
+            "an unguarded crossing"
         )
     }
 }

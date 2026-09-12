@@ -14,6 +14,9 @@ nonisolated struct CanvasPicture: View {
     /// The risk of every element, by source id. Empty draws the diagram with
     /// no risk colour, which is what a model with no threats shows.
     let risks: [String: ElementRisk]
+    /// What guards every element, by source id. Empty names no guard at any
+    /// crossing.
+    let guards: [String: [EdgeGuard]]
     /// Where the picture starts in model coordinates, so a node at x = 900
     /// draws inside the image rather than off its edge.
     let origin: CGPoint
@@ -81,6 +84,7 @@ nonisolated struct CanvasPicture: View {
                 componentsById: Dictionary(uniqueKeysWithValues: components.map { ($0.id, $0) }),
                 zones: zones,
                 risks: risks,
+                guards: guards,
                 outOfScopeComponentIds: Set(components.filter(\.threatsDisabled).map(\.id)),
                 selectedConnectionIds: [],
                 preview: nil
