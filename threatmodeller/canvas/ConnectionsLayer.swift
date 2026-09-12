@@ -13,6 +13,9 @@ import ThreatModelKit
 struct ConnectionsLayer: View {
     /// How many guards a crossing names before it counts the rest.
     static let guardsShown = 2
+    /// How long a flow's label may be. A description is prose, and a whole
+    /// sentence on the line covers the diagram.
+    static let labelLimit = 28
 
     let connections: [ViewedConnection]
     let boxes: [String: ComponentBox]
@@ -78,11 +81,17 @@ struct ConnectionsLayer: View {
         return RiskPalette.colour(forLevelId: levelId)
     }
 
-    /// The description when the user wrote one, else the flow kind.
+    /// The description when the user wrote one, else the flow kind, cut to
+    /// what fits on the line. The panel shows the whole of it.
+    func labelForTesting(_ connection: ViewedConnection) -> String { label(of: connection) }
+
     private func label(of connection: ViewedConnection) -> String {
         let described = connection.description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if described.isEmpty == false { return described }
-        return FlowKind(rawValue: connection.kindId)?.label ?? connection.kindId
+        guard described.isEmpty == false else {
+            return FlowKind(rawValue: connection.kindId)?.label ?? connection.kindId
+        }
+        guard described.count > Self.labelLimit else { return described }
+        return described.prefix(Self.labelLimit - 1).trimmingCharacters(in: .whitespaces) + "\u{2026}"
     }
 
     private func draw(
