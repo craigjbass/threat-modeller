@@ -25,6 +25,18 @@ public enum FlowRouting {
     /// zone it was going round.
     public static let shortestLeg = 70.0
 
+    /// Everything one flow has to go round: the zones it has nothing to do
+    /// with, and every node that is not one of its own two ends.
+    ///
+    /// A flow under a node reads as though it ends there. The detour clears
+    /// the node by `clearance`, the same as it clears a zone.
+    public static func obstacles(
+        zones: [Rect],
+        nodes: [Rect]
+    ) -> [Rect] {
+        zones + nodes
+    }
+
     /// The waypoints that take the flow round every zone it should avoid, in
     /// the order the flow meets them. Empty when the straight flow is already
     /// clear.
@@ -142,5 +154,90 @@ public enum FlowRouting {
         let left = Point(x: zone.minX - clearance, y: alongY)
         let right = Point(x: zone.maxX + clearance, y: alongY)
         return entry.x - zone.minX <= zone.maxX - entry.x ? [left, right] : [right, left]
+    }
+
+    // MARK: two flows that would trace each other
+
+    /// How far sideways a flow moves to stop tracing another.
+    public static let sidewaysOffset = 26.0
+    /// How many times one flow will step aside.
+    public static let mostSteps = 2
+
+    /// One flow, and what it has to go round.
+    public struct Routed: Equatable, Sendable {
+        public let id: String
+        public let start: Point
+        public let end: Point
+        public let avoiding: [Rect]
+
+        public init(id: String, start: Point, end: Point, avoiding: [Rect]) {
+            self.id = id
+            self.start = start
+            self.end = end
+            self.avoiding = avoiding
+        }
+    }
+
+    /// Every flow's curve, with any that would trace an earlier one moved
+    /// sideways.
+    ///
+    /// Two lines that run together are read as one. Going round an obstacle
+    /// does not help here: the other flow is not an obstacle, it is a line in
+    /// the same place. The answer is to step aside, across the flow, far
+    /// enough that a reader sees two lines.
+    ///
+    /// Flows are taken in the order given, so the same diagram separates the
+    /// same way every time.
+    public static func curves(of flows: [Routed]) -> [String: FlowCurve] {
+        var built: [String: FlowCurve] = [:]
+        var placed: [FlowCurve] = []
+
+        for flow in flows {
+            var waypoints = self.waypoints(
+                from: flow.start,
+                to: flow.end,
+                avoiding: flow.avoiding
+            )
+            var curve = FlowCurve(from: flow.start, through: waypoints, to: flow.end)
+
+            for step in 1 ... mostSteps {
+                guard let traced = placed.first(where: { FlowShape.shareAPath(curve, $0) })
+                else { break }
+
+                waypoints = self.waypoints(
+                    from: flow.start,
+                    to: flow.end,
+                    avoiding: flow.avoiding
+                        + [aside(from: curve, and: traced, by: Double(step) * sidewaysOffset)]
+                )
+                curve = FlowCurve(from: flow.start, through: waypoints, to: flow.end)
+            }
+
+            built[flow.id] = curve
+            placed.append(curve)
+        }
+
+        return built
+    }
+
+    /// A rectangle over the stretch the two flows share, so the routing takes
+    /// this flow round it and out of the other's line.
+    ///
+    /// The obstacle is thin across the flow and short along it: a wide one
+    /// would send the flow the long way round something that is not there.
+    static func aside(from curve: FlowCurve, and traced: FlowCurve, by reach: Double) -> Rect {
+        let points = (0...FlowShape.steps).map { curve.point(at: Double($0) / Double(FlowShape.steps)) }
+        let together = points.filter {
+            CurveCrossing.touches($0, CurveCrossing.samples(of: traced, steps: FlowShape.steps),
+                                  within: FlowShape.sameLine)
+        }
+        let middle = together.isEmpty ? curve.point(at: 0.5) : together[together.count / 2]
+
+        return Rect(
+            x: middle.x - reach,
+            y: middle.y - reach,
+            width: reach * 2,
+            height: reach * 2
+        )
     }
 }

@@ -569,27 +569,33 @@ public struct LayOutModel: LayOutModelUseCase {
     ) -> [String: FlowCurve] {
         let footprints = footprints(of: placed, in: request)
         let zoneOf = zoneOfEachComponent(in: request)
-        var built: [String: FlowCurve] = [:]
+        var routed: [FlowRouting.Routed] = []
 
         for flow in request.source.flows {
             guard let source = footprints[flow.sourceId],
                   let target = footprints[flow.targetId] else { continue }
 
-            let avoid = placed.zones
-                .filter { $0.id != zoneOf[flow.sourceId] && $0.id != zoneOf[flow.targetId] }
-                .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
+            let avoid = FlowRouting.obstacles(
+                zones: placed.zones
+                    .filter { $0.id != zoneOf[flow.sourceId] && $0.id != zoneOf[flow.targetId] }
+                    .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) },
+                nodes: footprints
+                    .filter { $0.key != flow.sourceId && $0.key != flow.targetId }
+                    .map(\.value)
+            )
             let anchors = AnchorGeometry.nearestPair(from: source, to: target, avoiding: avoid)
-            let start = AnchorGeometry.point(anchors.source, of: source)
-            let end = AnchorGeometry.point(anchors.target, of: target)
 
-            built["\(flow.sourceId)->\(flow.targetId)"] = FlowCurve(
-                from: start,
-                through: FlowRouting.waypoints(from: start, to: end, avoiding: avoid),
-                to: end
+            routed.append(
+                FlowRouting.Routed(
+                    id: "\(flow.sourceId)->\(flow.targetId)",
+                    start: AnchorGeometry.point(anchors.source, of: source),
+                    end: AnchorGeometry.point(anchors.target, of: target),
+                    avoiding: avoid
+                )
             )
         }
 
-        return built
+        return FlowRouting.curves(of: routed)
     }
 
     /// How many flows cross a trust boundary they do not pass through.

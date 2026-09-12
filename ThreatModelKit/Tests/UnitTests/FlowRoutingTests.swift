@@ -155,3 +155,82 @@ struct DetourShapeTests {
         #expect(FlowShape.turning(of: curve) < 2 * Double.pi)
     }
 }
+
+@Suite("Two flows that would trace each other")
+struct SidewaysOffsetTests {
+    private func flow(_ id: String, fromY: Double, toY: Double) -> FlowRouting.Routed {
+        FlowRouting.Routed(
+            id: id,
+            start: Point(x: 0, y: fromY),
+            end: Point(x: 600, y: toY),
+            avoiding: []
+        )
+    }
+
+    /// How many samples of the second flow run within a line's width of the
+    /// first.
+    private func together(_ curves: [String: FlowCurve]) -> Int {
+        guard let one = curves["one"], let two = curves["two"] else { return 0 }
+        let line = CurveCrossing.samples(of: one, steps: FlowShape.steps)
+        return CurveCrossing.samples(of: two, steps: FlowShape.steps)
+            .count { CurveCrossing.touches($0, line, within: FlowShape.sameLine) }
+    }
+
+    @Test func stepsTheSecondFlowAsideFromTheFirst() {
+        let flows = [flow("one", fromY: 0, toY: 0), flow("two", fromY: 3, toY: 3)]
+
+        let apart = together(FlowRouting.curves(of: flows))
+        let straight = together([
+            "one": FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 600, y: 0)),
+            "two": FlowCurve(from: Point(x: 0, y: 3), to: Point(x: 600, y: 3))
+        ])
+
+        // Two flows three points apart at both ends cannot be separated at
+        // their ends by any curve; what the step buys is the middle.
+        #expect(apart < straight)
+    }
+
+    @Test func givesTheSecondFlowAWayRound() throws {
+        let curves = FlowRouting.curves(of: [
+            flow("one", fromY: 0, toY: 0),
+            flow("two", fromY: 3, toY: 3)
+        ])
+
+        #expect(try #require(curves["two"]).waypointCount > 0)
+    }
+
+    @Test func leavesTwoFlowsThatAlreadyRunApartAlone() throws {
+        let curves = FlowRouting.curves(of: [
+            flow("one", fromY: 0, toY: 0),
+            flow("two", fromY: 400, toY: 400)
+        ])
+
+        #expect(try #require(curves["two"]).waypointCount == 0)
+    }
+
+    @Test func keepsTheFirstFlowWhereItWas() throws {
+        let alone = FlowRouting.curves(of: [flow("one", fromY: 0, toY: 0)])
+        let crowded = FlowRouting.curves(of: [
+            flow("one", fromY: 0, toY: 0),
+            flow("two", fromY: 3, toY: 3)
+        ])
+
+        #expect(alone["one"] == crowded["one"])
+    }
+
+    @Test func drawsEveryFlowItWasGiven() {
+        let curves = FlowRouting.curves(of: [
+            flow("one", fromY: 0, toY: 0),
+            flow("two", fromY: 3, toY: 3),
+            flow("three", fromY: 6, toY: 6)
+        ])
+
+        #expect(Set(curves.keys) == ["one", "two", "three"])
+    }
+
+    @Test func separatesTheSameFlowsTheSameWayTwice() {
+        let flows = [flow("one", fromY: 0, toY: 0), flow("two", fromY: 3, toY: 3)]
+
+        #expect(FlowRouting.curves(of: flows) == FlowRouting.curves(of: flows))
+    }
+}

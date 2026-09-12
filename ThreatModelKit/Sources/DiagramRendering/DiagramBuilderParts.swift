@@ -54,31 +54,44 @@ extension DiagramBuilder {
                 component.zoneId.map { (component.id, $0) }
             }
         )
-        var built: [String: FlowCurve] = [:]
+        var routed: [FlowRouting.Routed] = []
 
         for connection in model.connections {
             guard let source = boxes[connection.sourceComponentId],
                   let target = boxes[connection.targetComponentId] else { continue }
 
-            let avoid = model.zones
-                .filter {
-                    $0.id != zoneOf[connection.sourceComponentId]
-                        && $0.id != zoneOf[connection.targetComponentId]
-                }
-                .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
-
+            let avoid = FlowRouting.obstacles(
+                zones: model.zones
+                    .filter {
+                        $0.id != zoneOf[connection.sourceComponentId]
+                            && $0.id != zoneOf[connection.targetComponentId]
+                    }
+                    .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) },
+                nodes: model.components
+                    .filter {
+                        $0.id != connection.sourceComponentId
+                            && $0.id != connection.targetComponentId
+                    }
+                    .map {
+                        Component.drawnRect(
+                            at: Point(x: $0.x, y: $0.y),
+                            shape: DiagramBuilder.shape(of: $0)
+                        )
+                    }
+            )
             let anchors = AnchorGeometry.nearestPair(from: source, to: target, avoiding: avoid)
-            let start = AnchorGeometry.point(anchors.source, of: source)
-            let end = AnchorGeometry.point(anchors.target, of: target)
 
-            built[connection.id] = FlowCurve(
-                from: start,
-                through: FlowRouting.waypoints(from: start, to: end, avoiding: avoid),
-                to: end
+            routed.append(
+                FlowRouting.Routed(
+                    id: connection.id,
+                    start: AnchorGeometry.point(anchors.source, of: source),
+                    end: AnchorGeometry.point(anchors.target, of: target),
+                    avoiding: avoid
+                )
             )
         }
 
-        return built
+        return FlowRouting.curves(of: routed)
     }
 
     static func flowShapes(_ model: Model, curves: [String: FlowCurve]) -> [DrawnShape] {

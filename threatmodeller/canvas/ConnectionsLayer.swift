@@ -52,6 +52,10 @@ struct ConnectionsLayer: View {
             var toLabel: [(connectionId: String, text: String, curve: FlowCurve)] = []
             var chipRects: [Rect] = []
 
+            // Every curve is built before any is drawn: a flow that would
+            // trace another steps aside, and it cannot know to until the
+            // others are placed.
+            var routed: [FlowRouting.Routed] = []
             for connection in connections {
                 guard let source = boxes[connection.sourceComponentId],
                       let target = boxes[connection.targetComponentId] else { continue }
@@ -59,28 +63,39 @@ struct ConnectionsLayer: View {
                 let avoid = CanvasHitTest.zonesToAvoid(
                     connection,
                     components: componentsById,
-                    zones: zones
+                    zones: zones,
+                    boxes: boxes
                 )
                 let anchors = AnchorGeometry.nearestPair(
                     from: source.rect.modelRect,
                     to: target.rect.modelRect,
                     avoiding: avoid
                 )
-                let path = ConnectionPath(
-                    from: CGPoint(AnchorGeometry.point(anchors.source, of: source.rect.modelRect)),
-                    to: CGPoint(AnchorGeometry.point(anchors.target, of: target.rect.modelRect)),
-                    avoiding: avoid
+                routed.append(
+                    FlowRouting.Routed(
+                        id: connection.id,
+                        start: AnchorGeometry.point(anchors.source, of: source.rect.modelRect),
+                        end: AnchorGeometry.point(anchors.target, of: target.rect.modelRect),
+                        avoiding: avoid
+                    )
                 )
+            }
+            let curves = FlowRouting.curves(of: routed)
+
+            for connection in connections {
+                guard let curve = curves[connection.id] else { continue }
+                let path = ConnectionPath(curve)
+
                 draw(connection, along: path, in: &context)
-                toLabel.append((connection.id, label(of: connection), path.curve))
+                toLabel.append((connection.id, label(of: connection), curve))
 
                 guard isOutOfScope(connection) == false else { continue }
-                sampled[connection.id] = CurveCrossing.samples(of: path.curve)
+                sampled[connection.id] = CurveCrossing.samples(of: curve)
                 marked += BoundaryCrossings.of(
                     connectionId: connection.id,
                     sourceZoneId: componentsById[connection.sourceComponentId]?.zoneId,
                     targetZoneId: componentsById[connection.targetComponentId]?.zoneId,
-                    curve: path.curve,
+                    curve: curve,
                     zones: boundaryZones
                 ).map {
                     BoundaryCrossings.MarkedCrossing(

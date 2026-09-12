@@ -18,6 +18,13 @@ nonisolated struct ConnectionPath: Equatable {
 
     let curve: FlowCurve
 
+    /// A path over a curve someone else built, which is how the canvas draws
+    /// one: every curve is built together so a flow can step aside from
+    /// another.
+    init(_ curve: FlowCurve) {
+        self.curve = curve
+    }
+
     init(from start: CGPoint, to end: CGPoint, avoiding zones: [Rect] = []) {
         let from = Point(x: start.x, y: start.y)
         let to = Point(x: end.x, y: end.y)

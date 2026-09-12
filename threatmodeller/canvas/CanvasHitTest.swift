@@ -61,19 +61,29 @@ nonisolated enum CanvasHitTest {
         }?.id
     }
 
-    /// The zones a flow has nothing to do with, so it goes round them. A flow
-    /// whose ends this build cannot place avoids nothing, and draws straight.
+    /// What a flow has to go round: the zones it has nothing to do with, and
+    /// every node that is not one of its own ends. A flow whose ends this
+    /// build cannot place avoids nothing, and draws straight.
     static func zonesToAvoid(
         _ connection: ViewedConnection,
         components: [String: ViewedComponent],
-        zones: [ViewedZone]
+        zones: [ViewedZone],
+        boxes: [String: ComponentBox] = [:]
     ) -> [Rect] {
         let source = components[connection.sourceComponentId]?.zoneId
         let target = components[connection.targetComponentId]?.zoneId
 
-        return zones
-            .filter { $0.id != source && $0.id != target }
-            .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
+        return FlowRouting.obstacles(
+            zones: zones
+                .filter { $0.id != source && $0.id != target }
+                .map { Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) },
+            nodes: boxes
+                .filter {
+                    $0.key != connection.sourceComponentId
+                        && $0.key != connection.targetComponentId
+                }
+                .map(\.value.drawnRect)
+        )
     }
 
     /// The component under the point, or nil. A later component wins.
