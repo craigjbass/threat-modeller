@@ -47,8 +47,8 @@ struct LayOutModelTests {
         // The first cell sits inside the padding and below the header band.
         #expect(response.components[0] == LaidOutComponent(id: "a", x: 80, y: 120))
         #expect(response.components[1] == LaidOutComponent(id: "b", x: 80 + 220, y: 120))
-        #expect(response.components[2] == LaidOutComponent(id: "c", x: 80, y: 120 + 120))
-        #expect(response.components[3] == LaidOutComponent(id: "d", x: 80 + 220, y: 120 + 120))
+        #expect(response.components[2] == LaidOutComponent(id: "c", x: 80, y: 120 + 144))
+        #expect(response.components[3] == LaidOutComponent(id: "d", x: 80 + 220, y: 120 + 144))
     }
 
     @Test func sizesAZoneToWhatItsGridNeeds() throws {
@@ -112,7 +112,7 @@ struct LayOutModelTests {
             )
         )
 
-        #expect(response.zones[0].y == 40 + 72 + 96)
+        #expect(response.zones[0].y == 40 + 72 + 144)
     }
 
     @Test func drawsTheSamePictureEveryTime() {
@@ -123,5 +123,12 @@ struct LayOutModelTests {
         )
 
         #expect(layOut(source) == layOut(source))
+    }
+
+    @Test func leavesRoomBetweenRowsForAProcessCircle() {
+        let tallest = Component.footprint(for: .process).height
+        let overflow = (tallest - Component.size.height) / 2
+
+        #expect(LayOutModel.rowGap > overflow * 2)
     }
 }

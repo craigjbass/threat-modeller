@@ -57,7 +57,10 @@ public struct LayOutModel: LayOutModelUseCase {
     static let nodeWidth = 160.0
     static let nodeHeight = 72.0
     static let columnGap = 60.0
-    static let rowGap = 48.0
+    /// A row leaves room for the tallest footprint, which is the process
+    /// circle. That circle passes the 160 by 72 slot by 16 points above and 16
+    /// below, so a gap of 48 would leave two circles 16 points apart.
+    public static let rowGap = 72.0
     /// A zone pads its contents, and reserves a header band the containment
     /// rule already needs: a component's centre must sit below it.
     static let zonePadding = 40.0

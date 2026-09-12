@@ -467,10 +467,13 @@ struct ImageExportTests {
 
         #expect(area.isEmpty == false)
         #expect(area.x == 60)
-        #expect(area.y == 160)
-        // A node is 160 by 72, plus a 40 point margin on each side.
+        // The area reserves the tallest footprint, 104, around the centre of
+        // the node's slot, because a process draws as a circle that passes the
+        // slot above and below.
+        #expect(area.y == 144)
+        // 160 wide and 104 tall, plus a 40 point margin on each side.
         #expect(area.width == 240)
-        #expect(area.height == 152)
+        #expect(area.height == 184)
     }
 
     @Test func holdsEveryComponentAndEveryZone() {
@@ -489,7 +492,9 @@ struct ImageExportTests {
         // From the zone's left edge to the far node's right edge, plus a
         // 40 point margin on each side.
         #expect(area.width == 960 + 80)
-        #expect(area.height == 622 + 80)
+        // The far node's slot ends at 472, and its tallest footprint reaches
+        // 16 points past that.
+        #expect(area.height == 638 + 80)
     }
 
     @Test func namesTheFileAfterTheModel() {

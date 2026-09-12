@@ -65,12 +65,18 @@ public struct ExportModelAsImage: ExportModelAsImageUseCase {
             highestY = max(highestY, y + height)
         }
 
+        // The widest and the tallest footprint, around the centre of the slot.
+        // A component's shape is not known here, and a process draws as a
+        // circle that passes the slot above and below.
+        let widest = DiagramShape.allCases.map { Component.footprint(for: $0).width }.max() ?? 0
+        let tallest = DiagramShape.allCases.map { Component.footprint(for: $0).height }.max() ?? 0
+
         for component in model.components {
             hold(
-                x: component.position.x,
-                y: component.position.y,
-                width: Component.size.width,
-                height: Component.size.height
+                x: component.centre.x - widest / 2,
+                y: component.centre.y - tallest / 2,
+                width: widest,
+                height: tallest
             )
         }
         for zone in model.zones {
