@@ -588,4 +588,20 @@ struct ViewRenderTests {
             "a privilege zone"
         )
     }
+
+    @Test func drawsAWholeDiagramWithTheRiskItCarries() {
+        let session = aModel()
+
+        expectDrawn(
+            CanvasPicture(
+                components: session.canvas.components,
+                connections: session.canvas.connections,
+                zones: session.canvas.zones,
+                risks: session.elementRisks,
+                origin: .zero,
+                size: CGSize(width: 900, height: 700)
+            ),
+            "the whole diagram"
+        )
+    }
 }
