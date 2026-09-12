@@ -113,3 +113,45 @@ struct UprightFlowRoutingTests {
         #expect(found[0].x == across.maxX + FlowRouting.clearance)
     }
 }
+
+@Suite("A detour that reads as a line, not a set of corners")
+struct DetourShapeTests {
+    @Test func neverTakesMoreDetoursThanTheCap() {
+        let around = Rect(x: 0, y: 0, width: 400, height: 400)
+        let found = FlowRouting.waypoints(
+            from: Point(x: 100, y: 100),
+            to: Point(x: 300, y: 300),
+            avoiding: [around]
+        )
+
+        #expect(found.count <= FlowRouting.mostWaypoints)
+    }
+
+    @Test func picksTheWayRoundThatLeavesTheFlowInFewerZones() {
+        // The near side is the top, and going over the top runs straight into
+        // the second zone. Under the bottom is clear, so that is the way.
+        let first = Rect(x: 150, y: 0, width: 100, height: 100)
+        let second = Rect(x: 150, y: -200, width: 400, height: 180)
+        let start = Point(x: 0, y: 20)
+        let end = Point(x: 500, y: 20)
+
+        let found = FlowRouting.waypoints(from: start, to: end, avoiding: [first, second])
+
+        #expect(found.isEmpty == false)
+        #expect(found[0].y > first.minY)
+    }
+
+    @Test func keepsAFlowRoundTwoZonesReadableAsOneLine() {
+        let first = Rect(x: 150, y: 0, width: 80, height: 200)
+        let second = Rect(x: 300, y: 0, width: 80, height: 200)
+        let start = Point(x: 0, y: 100)
+        let end = Point(x: 500, y: 100)
+
+        let found = FlowRouting.waypoints(from: start, to: end, avoiding: [first, second])
+        let curve = FlowCurve(from: start, through: found, to: end)
+
+        // Well under a full turn: a flow that went back and forth to the cap
+        // turned more than seven radians.
+        #expect(FlowShape.turning(of: curve) < 2 * Double.pi)
+    }
+}
