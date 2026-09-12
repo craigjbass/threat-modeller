@@ -112,6 +112,8 @@ public struct SourceComponent: Equatable, Sendable {
     public let raisesThreats: Bool
     public let runsAs: String
     public let assets: [SourceAsset]
+    /// The diagram shape the file forces, or nil to let the derivation decide.
+    public let shape: String?
 
     public init(
         id: String,
@@ -120,7 +122,8 @@ public struct SourceComponent: Equatable, Sendable {
         data: String = "internal",
         raisesThreats: Bool = true,
         runsAs: String = "user",
-        assets: [SourceAsset] = []
+        assets: [SourceAsset] = [],
+        shape: String? = nil
     ) {
         self.id = id
         self.technologyId = technologyId
@@ -129,6 +132,7 @@ public struct SourceComponent: Equatable, Sendable {
         self.raisesThreats = raisesThreats
         self.runsAs = runsAs
         self.assets = assets
+        self.shape = shape
     }
 }
 

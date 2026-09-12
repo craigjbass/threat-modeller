@@ -25,6 +25,7 @@ struct ArchitectureParser {
     private static let flowKinds: Set<String> = ["network", "ipc", "file", "syscall", "human"]
     private static let boundaries: Set<String> = ["network", "privilege"]
     private static let privilegeLevels: Set<String> = ["user", "admin", "root", "system", "kernel"]
+    private static let diagramShapes: Set<String> = ["actor", "process", "store"]
 
     mutating func parse() -> ArchitectureRead {
         guard let system = parseSystem() else {
@@ -242,6 +243,7 @@ struct ArchitectureParser {
         var data = "internal"
         var raisesThreats = true
         var runsAs = "user"
+        var shape: String?
         var assets: [SourceAsset] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -257,10 +259,14 @@ struct ArchitectureParser {
                 let token = current
                 runsAs = parseTextAttribute() ?? runsAs
                 expectVocabulary(runsAs, Self.privilegeLevels, field: "runs_as", at: token)
+            case "shape":
+                let token = current
+                shape = parseTextAttribute()
+                expectVocabulary(shape ?? "", Self.diagramShapes, field: "shape", at: token)
             case "asset":
                 if let asset = parseAsset() { assets.append(asset) }
             default:
-                record("a component holds technology, name, data, threats, runs_as and asset, not \"\(current.text)\"")
+                record("a component holds technology, name, data, threats, runs_as, shape and asset, not \"\(current.text)\"")
                 skipAttribute()
             }
         }
@@ -277,7 +283,8 @@ struct ArchitectureParser {
             data: data,
             raisesThreats: raisesThreats,
             runsAs: runsAs,
-            assets: assets
+            assets: assets,
+            shape: shape
         )
     }
 

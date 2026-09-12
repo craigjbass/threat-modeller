@@ -127,6 +127,7 @@ struct ArchitectureWriter {
         attributes.append(("data", quoted(component.data)))
         if component.runsAs != "user" { attributes.append(("runs_as", quoted(component.runsAs))) }
         if component.raisesThreats == false { attributes.append(("threats", "false")) }
+        if let shape = component.shape { attributes.append(("shape", quoted(shape))) }
         lines += indent(aligned(attributes))
         for asset in component.assets {
             lines.append("")

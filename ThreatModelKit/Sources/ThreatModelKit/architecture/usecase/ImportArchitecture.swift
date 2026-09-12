@@ -78,7 +78,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     runsAs: PrivilegeLevel(rawValue: component.runsAs) ?? .default,
                     assets: component.assets.map {
                         Asset(name: $0.name, sensitivity: DataSensitivity(rawValue: $0.data) ?? .internalData)
-                    }
+                    },
+                    shape: component.shape.flatMap(DiagramShape.init(rawValue:))
                 )
             )
         }

@@ -110,7 +110,7 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `risk_tolerance`, `assumption`, `text`, `owner`, `technology`, `name`,
 `category`, `description`, `threats`, `encrypts`, `zone`, `kind`, `network`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
-`asset`, `flow`, `mitigates`, `status`.
+`shape`, `asset`, `flow`, `mitigates`, `status`.
 
 The controls language reads these keywords: `controls`, `for`, `catalogue`,
 `tolerance`, `stale`, `threat`, `on`, `severity`, `score`, `likelihood`,
@@ -252,6 +252,7 @@ ComponentEntry = "technology" "=" String
                | "name"       "=" String
                | "data"       "=" String
                | "runs_as"    "=" String
+               | "shape"      "=" String
                | "threats"    "=" Boolean
                | AssetBlock ;
 
@@ -404,6 +405,7 @@ component "api" {
   name       = "Application Server"
   data       = "confidential"
   runs_as    = "root"
+  shape      = "process"
   threats    = true
 }
 ```
@@ -416,9 +418,16 @@ The label is the component's identifier.
 | `name` | string | any | the technology's name |
 | `data` | string | `public`, `internal`, `confidential`, `restricted` | `internal` |
 | `runs_as` | string | `user`, `admin`, `root`, `system`, `kernel` | `user` |
+| `shape` | string | `actor`, `process`, `store` | the derived shape |
 | `threats` | boolean | `true`, `false` | `true` |
 
 `threats = false` stops the component raising threats at all.
+
+`shape` states the data flow diagram shape the canvas draws. An actor is a
+rectangle, a process is a circle, and a store is two horizontal lines. A block
+that states no `shape` takes the derived shape: the `actor` provider gives an
+actor, the `database`, `storage` and `secrets` categories give a store, and
+every other technology gives a process.
 
 A block with no `technology` is the error
 `the component "<id>" names no technology`, and the block is dropped.
@@ -1232,7 +1241,7 @@ entry" or "an unknown attribute".
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
-| architecture | `component` | `a component holds technology, name, data, threats, runs_as and asset, not "<word>"` |
+| architecture | `component` | `a component holds technology, name, data, threats, runs_as, shape and asset, not "<word>"` |
 | architecture | `asset` | `an asset holds data, not "<word>"` |
 | architecture | `flow` | `a flow holds kind and description, not "<word>"` |
 | architecture | `mitigates` | `a mitigates edge holds threats, reduces_risk_by and status, not "<word>"` |
@@ -1412,6 +1421,7 @@ ComponentEntry = "technology" "=" String
                | "name"       "=" String
                | "data"       "=" String
                | "runs_as"    "=" String
+               | "shape"      "=" String
                | "threats"    "=" Boolean
                | AssetBlock ;
 
