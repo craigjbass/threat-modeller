@@ -304,7 +304,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             runsAs: component.runsAs.rawValue,
             assets: component.assets.map {
                 AssetJSON(name: $0.name, sensitivity: $0.sensitivity.rawValue)
-            }
+            },
+            shape: component.shape?.rawValue
         )
     }
 
@@ -375,7 +376,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     name: $0.name,
                     sensitivity: DataSensitivity(rawValue: $0.sensitivity) ?? .internalData
                 )
-            }
+            },
+            shape: try optionalShape(from: json.shape)
         )
     }
 
@@ -431,6 +433,17 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// way every field this format has ever added does. A present value this
     /// application does not hold is refused by name, the same as `value`
     /// refuses one of its older, required neighbours.
+    /// The shape the file states, or nil when it states none. A word this
+    /// application does not hold is refused by name, the way `optionalValue`
+    /// refuses one.
+    private static func optionalShape(from raw: String?) throws -> DiagramShape? {
+        guard let raw else { return nil }
+        guard let shape = DiagramShape(rawValue: raw) else {
+            throw ThreatModelFileError.unknownValue(field: "shape", value: raw)
+        }
+        return shape
+    }
+
     private static func optionalValue<T: RawRepresentable>(
         _ type: T.Type,
         field: String,

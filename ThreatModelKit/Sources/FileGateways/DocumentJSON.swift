@@ -96,6 +96,8 @@ struct ComponentJSON: Codable {
     let threatsDisabled: Bool
     let runsAs: String?
     let assets: [AssetJSON]?
+    /// The shape the user forced. Absent means the derivation decides.
+    let shape: String?
 }
 
 struct ConnectionJSON: Codable {
