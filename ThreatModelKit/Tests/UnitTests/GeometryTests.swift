@@ -101,3 +101,55 @@ struct FootprintRectTests {
         )
     }
 }
+
+@Suite("A flow that goes through waypoints")
+struct RoutedFlowCurveTests {
+    @Test func drawsOnePieceWhenItGoesStraight() {
+        let curve = FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0))
+
+        #expect(curve.segments.count == 1)
+        #expect(curve.waypointCount == 0)
+    }
+
+    @Test func drawsOnePieceForEachLegOfTheDetour() {
+        let curve = FlowCurve(
+            from: Point(x: 0, y: 0),
+            through: [Point(x: 200, y: -120)],
+            to: Point(x: 400, y: 0)
+        )
+
+        #expect(curve.segments.count == 2)
+        #expect(curve.waypointCount == 1)
+    }
+
+    @Test func startsAndEndsWhereItWasAskedHoweverManyWaypoints() {
+        let curve = FlowCurve(
+            from: Point(x: 0, y: 0),
+            through: [Point(x: 100, y: -100), Point(x: 300, y: 100)],
+            to: Point(x: 400, y: 0)
+        )
+
+        #expect(curve.point(at: 0) == Point(x: 0, y: 0))
+        #expect(curve.point(at: 1) == Point(x: 400, y: 0))
+    }
+
+    @Test func passesThroughEveryWaypoint() {
+        let waypoint = Point(x: 200, y: -120)
+        let curve = FlowCurve(from: Point(x: 0, y: 0), through: [waypoint], to: Point(x: 400, y: 0))
+
+        #expect(curve.point(at: 0.5) == waypoint)
+    }
+
+    @Test func runsWithoutAJumpAcrossAJoin() {
+        let curve = FlowCurve(
+            from: Point(x: 0, y: 0),
+            through: [Point(x: 200, y: -120)],
+            to: Point(x: 400, y: 0)
+        )
+
+        let before = curve.point(at: 0.49)
+        let after = curve.point(at: 0.51)
+
+        #expect(hypot(after.x - before.x, after.y - before.y) < 20)
+    }
+}
