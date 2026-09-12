@@ -335,12 +335,18 @@ printed empty.
 ```
 threatmodeller compile [<root>]              # writes or merges every .controls file
 threatmodeller check   [<root>]              # says what has no answer
-threatmodeller report  [<root>] [-o <dir>]   # writes every .md report
+threatmodeller report  [<root>] [-o <dir>]   # writes every .md report and its diagrams
 threatmodeller draw    [<root>] [-o <dir>]   # writes every diagram as SVG or PNG
 threatmodeller format  [<root>]              # rewrites every .arch file canonically
 threatmodeller library <operation> …         # manages the shared element libraries
 threatmodeller help                          # shows the usage text
 ```
+
+`report` also writes one SVG for each threat in **Top residual risk**, beside
+the report, and a *Top residual risk in detail* section that shows each one
+with what has not answered it. A picture holds the element the threat is
+raised on, everything one hop from it, and the zones those sit in, each zone
+cut to what the picture still shows.
 
 `draw` writes SVG by default. `--svg` and `--png` say which to write, and both
 may be given. SVG is written by the package itself, so every build writes it,

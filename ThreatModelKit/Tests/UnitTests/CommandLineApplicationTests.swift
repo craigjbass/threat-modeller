@@ -41,6 +41,31 @@ struct CommandLineApplicationTests {
 
     """
 
+    // MARK: a picture of each threat that matters
+
+    @Test func writesAPictureOfEachTopResidualThreat() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run("report", "/work")
+
+        #expect(result.code == 0)
+        let markdown = try #require(try project.read(path: "/work/threatmodel/payments.md"))
+        #expect(markdown.contains("## Top residual risk in detail"))
+        #expect(markdown.contains("![") && markdown.contains("payments-threat-1.svg)"))
+
+        let picture = try #require(try project.read(path: "/work/threatmodel/payments-threat-1.svg"))
+        #expect(picture.hasPrefix("<svg"))
+        #expect(picture.contains("EC2"))
+    }
+
+    @Test func writesThePicturesWhereTheReportGoes() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        _ = run("report", "/work", "-o", "/out")
+
+        #expect(project.exists(path: "/out/payments-threat-1.svg"))
+    }
+
     // MARK: drawing a picture
 
     @Test func writesTheDiagramAsSvg() throws {
@@ -256,7 +281,12 @@ struct CommandLineApplicationTests {
         let result = run("report", "/work")
 
         #expect(result.code == 0)
-        #expect(result.lines == ["wrote /work/threatmodel/payments.md"])
+        #expect(
+            result.lines == [
+                "wrote /work/threatmodel/payments.md",
+                "wrote 3 threat diagrams beside it"
+            ]
+        )
         let written = try #require(project.text(at: "/work/threatmodel/payments.md"))
         #expect(written.hasPrefix("# Payments\n"))
         #expect(written.contains("## Threats"))

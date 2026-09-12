@@ -296,17 +296,59 @@ public struct CommandLineApplication {
                 }
             }
 
+            // A picture of each of the top residual threats, beside the
+            // report. The core cannot draw one: drawing depends on the core.
+            let report = useCases.buildThreatModelReport()
+                .execute(BuildThreatModelReportRequest()).report
+            let canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
+            let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+            let pictures = ThreatDiagrams.pictures(
+                of: DiagramBuilder.Model(
+                    components: canvas.components,
+                    connections: canvas.connections,
+                    zones: canvas.zones,
+                    risks: ElementRiskRollup.byElement(
+                        assessment.threats,
+                        levelOrder: assessment.severities.map(\.id)
+                    ),
+                    guards: EdgeGuards.byElement(assessment.threats)
+                ),
+                for: report.rollups.topResidual,
+                stem: system.name
+            )
+
             let markdown = useCases.exportModelAsMarkdown()
-                .execute(ExportModelAsMarkdownRequest())
+                .execute(
+                    ExportModelAsMarkdownRequest(
+                        threatPictures: Dictionary(
+                            uniqueKeysWithValues: pictures.map { ($0.key, $0.fileName) }
+                        )
+                    )
+                )
             let path = into.map { ProjectConvention.path($0, "\(system.name).md") }
                 ?? system.reportPath
+            let beside = String(path.dropLast("\(system.name).md".count))
+
+            for picture in pictures {
+                do {
+                    try projects.write(picture.svg, to: beside + picture.fileName)
+                } catch {
+                    output("threatmodeller: \(Self.described(error))")
+                    return .fileFault
+                }
+            }
             do {
                 try projects.write(markdown.markdown, to: path)
             } catch {
                 output("threatmodeller: \(Self.described(error))")
                 return .fileFault
             }
-            if isQuiet == false { output("wrote \(path)") }
+            if isQuiet == false {
+                output("wrote \(path)")
+                if pictures.isEmpty == false {
+                    output("wrote \(pictures.count) threat diagrams beside it")
+                }
+            }
             return .success
         }
     }

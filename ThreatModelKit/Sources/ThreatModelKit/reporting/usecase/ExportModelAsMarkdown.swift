@@ -3,7 +3,17 @@ public protocol ExportModelAsMarkdownUseCase {
 }
 
 public struct ExportModelAsMarkdownRequest: Equatable, Sendable {
-    public init() {}
+    /// The picture drawn for each of the top residual threats, by file name,
+    /// keyed "<threat id>@<source id>".
+    ///
+    /// A caller that draws none passes none, and the report writes no picture
+    /// section. The core cannot draw one itself: drawing depends on the core,
+    /// so the core cannot depend on drawing.
+    public let threatPictures: [String: String]
+
+    public init(threatPictures: [String: String] = [:]) {
+        self.threatPictures = threatPictures
+    }
 }
 
 public struct ExportModelAsMarkdownResponse: Equatable, Sendable {
@@ -43,6 +53,10 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         lines += MarkdownRollups.lines(
             report.rollups,
             showsAssumed: report.assumedMitigations.isEmpty == false
+        )
+        lines += MarkdownThreatPictures.lines(
+            report.rollups.topResidual,
+            pictures: request.threatPictures
         )
         lines += components(report.components)
         lines += connections(report.connections)
