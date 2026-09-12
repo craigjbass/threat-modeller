@@ -253,7 +253,7 @@ struct ConnectionsLayer: View {
     ) {
         let placed = CalloutPlacement.place(
             labels,
-            nodes: boxes.values.map(\.rect.modelRect),
+            nodes: boxes.values.map(\.drawnRect),
             zoneHeaders: bandRects,
             boundaryChips: chips,
             flows: flows

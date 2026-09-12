@@ -42,6 +42,12 @@ nonisolated struct ComponentBox: Equatable {
         )
     }
 
+    /// Everything the node draws: the shape and the chips beneath it. A
+    /// boundary or a label over the chips reads as one over the node.
+    var drawnRect: Rect {
+        Component.drawnRect(at: Point(x: origin.x, y: origin.y), shape: shape)
+    }
+
     /// A process is a circle, so the corners of its bounding square belong to
     /// whatever is behind it, not to the node.
     func contains(_ modelPoint: CGPoint) -> Bool {

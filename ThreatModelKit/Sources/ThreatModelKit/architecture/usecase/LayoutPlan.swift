@@ -108,6 +108,10 @@ public struct LayoutFitness: Equatable, Sendable {
     /// this costs, but far less than a fault: the drawing holds the rule
     /// whatever the layout achieves.
     public let brokenBoundaries: Int
+    /// Boundaries drawn over a node. A boundary across a node reads as though
+    /// the node is cut in two, and a boundary belongs between things rather
+    /// than through one.
+    public let boundariesOverNodes: Int
     /// Flows that run over a zone rectangle they have nothing to do with, after
     /// routing has done what it can.
     public let flowsOverUnrelatedZones: Int
@@ -131,6 +135,7 @@ public struct LayoutFitness: Equatable, Sendable {
 
     public init(
         brokenBoundaries: Int,
+        boundariesOverNodes: Int = 0,
         flowsOverUnrelatedZones: Int,
         waypoints: Int,
         tightness: Double = 0,
@@ -142,6 +147,7 @@ public struct LayoutFitness: Equatable, Sendable {
         height: Double
     ) {
         self.brokenBoundaries = brokenBoundaries
+        self.boundariesOverNodes = boundariesOverNodes
         self.flowsOverUnrelatedZones = flowsOverUnrelatedZones
         self.waypoints = waypoints
         self.tightness = tightness
@@ -156,6 +162,7 @@ public struct LayoutFitness: Equatable, Sendable {
     public var score: Double {
         100 * Double(flowsOverUnrelatedZones)
             + 25 * Double(brokenBoundaries)
+            + 15 * Double(boundariesOverNodes)
             + 5 * Double(waypoints)
             + 4 * tightness
             + 1 * Double(flowCrossings)

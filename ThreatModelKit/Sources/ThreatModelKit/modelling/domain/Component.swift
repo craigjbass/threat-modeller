@@ -68,6 +68,27 @@ public struct Component: Equatable, Sendable {
         )
     }
 
+    /// How far below its shape a component writes its provider, its
+    /// sensitivity and its zone.
+    public static let chipsHeight = 22.0
+
+    /// Everything a component draws: its shape and the chips beneath it,
+    /// across the full width of its slot.
+    ///
+    /// This is what must stay clear, not the shape alone. A boundary drawn
+    /// across the chips reads as a boundary drawn across the node.
+    public static func drawnRect(at position: Point, shape: DiagramShape) -> Rect {
+        let footprint = footprintRect(at: position, shape: shape)
+        let centre = Point(x: position.x + size.width / 2, y: position.y + size.height / 2)
+
+        return Rect(
+            x: centre.x - size.width / 2,
+            y: footprint.minY,
+            width: size.width,
+            height: footprint.size.height + chipsHeight
+        )
+    }
+
     /// The shape to draw: the user's own choice, else the map's answer.
     public func resolvedShape(providerId: String, categoryId: String) -> DiagramShape {
         shape ?? DiagramShapeMap.derived(providerId: providerId, categoryId: categoryId)

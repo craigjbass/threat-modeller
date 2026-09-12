@@ -44,6 +44,10 @@ public struct ExportModelAsImage: ExportModelAsImageUseCase {
     /// `FlowRouting.clearance` outside a zone, and the curve's controls pull
     /// up to 150 further, so a picture cut to the zones alone clips the flow.
     public static let routingAllowance = 150.0
+    /// The extra blank a model that writes a label needs. A callout sits up to
+    /// `CalloutPlacement.reaches.max()` from its flow and is half its own
+    /// width wider again, so a picture cut to the nodes clips it.
+    public static let labelAllowance = 420.0
     /// What an empty model draws, so the file is a picture rather than nothing.
     public static let emptySize = 400.0
 
@@ -92,12 +96,19 @@ public struct ExportModelAsImage: ExportModelAsImageUseCase {
             )
         }
 
-        // Only a model with more than one zone can route a flow round one.
-        if model.zones.count > 1 {
-            lowestX -= Self.routingAllowance
-            lowestY -= Self.routingAllowance
-            highestX += Self.routingAllowance
-            highestY += Self.routingAllowance
+        // Only a model with more than one zone can route a flow round one, and
+        // only a flow that says something draws a label.
+        let writesALabel = model.connections.contains { $0.description?.isEmpty == false }
+        let allowance = max(
+            model.zones.count > 1 ? Self.routingAllowance : 0,
+            writesALabel ? Self.labelAllowance : 0
+        )
+
+        if allowance > 0 {
+            lowestX -= allowance
+            lowestY -= allowance
+            highestX += allowance
+            highestY += allowance
         }
 
         guard model.components.isEmpty == false || model.zones.isEmpty == false else {

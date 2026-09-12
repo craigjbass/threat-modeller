@@ -144,3 +144,45 @@ struct LayoutCalloutFitnessTests {
         #expect(fitness(crowded: 1).score > fitness(reach: 3900).score)
     }
 }
+
+@Suite("Scoring a boundary drawn over a node")
+struct LayoutBoundaryOverNodeFitnessTests {
+    private func fitness(
+        overZones: Int = 0,
+        broken: Int = 0,
+        overNodes: Int = 0,
+        crowded: Int = 0,
+        width: Double = 1000,
+        height: Double = 1000
+    ) -> LayoutFitness {
+        LayoutFitness(
+            brokenBoundaries: broken,
+            boundariesOverNodes: overNodes,
+            flowsOverUnrelatedZones: overZones,
+            waypoints: 0,
+            tightness: 0,
+            flowCrossings: 0,
+            flowsBehindNodes: 0,
+            crowdedCallouts: crowded,
+            calloutReach: 0,
+            width: width,
+            height: height
+        )
+    }
+
+    @Test func weighsABoundaryOverANodeAboveACrowdedLabel() {
+        #expect(fitness(overNodes: 1).score > fitness(crowded: 1).score)
+    }
+
+    @Test func weighsABrokenBoundaryAboveABoundaryOverANode() {
+        #expect(fitness(broken: 1).score > fitness(overNodes: 1).score)
+    }
+
+    @Test func weighsAFlowOverAZoneAboveSixBoundariesOverNodes() {
+        #expect(fitness(overZones: 1).score > fitness(overNodes: 6).score)
+    }
+
+    @Test func chargesNothingWhenNoBoundaryTouchesANode() {
+        #expect(fitness(overNodes: 0).score == fitness().score)
+    }
+}

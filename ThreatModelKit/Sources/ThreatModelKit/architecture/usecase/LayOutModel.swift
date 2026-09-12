@@ -378,6 +378,7 @@ public struct LayOutModel: LayOutModelUseCase {
 
         return LayoutFitness(
             brokenBoundaries: brokenBoundaries(of: placed, in: request, curves: routed),
+            boundariesOverNodes: boundariesOverNodes(of: placed, in: request, curves: routed),
             flowsOverUnrelatedZones: flowsOverUnrelatedZones(of: placed, in: request, curves: routed),
             waypoints: routed.values.map(\.waypointCount).reduce(0, +),
             tightness: shape.tightness,
@@ -576,12 +577,12 @@ public struct LayOutModel: LayOutModelUseCase {
     }
 
     /// How many flows cross a trust boundary they do not pass through.
-    /// How badly the gaps break the boundaries this picture draws.
-    static func brokenBoundaries(
+    /// Every boundary this picture draws.
+    static func boundaries(
         of placed: LayOutModelResponse,
         in request: LayOutModelRequest,
         curves: [String: FlowCurve]
-    ) -> Int {
+    ) -> [BoundaryCrossings.BoundaryRun] {
         let zones = placed.zones.map {
             BoundaryZone(
                 id: $0.id,
@@ -615,9 +616,18 @@ public struct LayOutModel: LayOutModelUseCase {
             }
         }
 
+        return BoundaryCrossings.runs(marked)
+    }
+
+    /// How badly the gaps break the boundaries this picture draws.
+    static func brokenBoundaries(
+        of placed: LayOutModelResponse,
+        in request: LayOutModelRequest,
+        curves: [String: FlowCurve]
+    ) -> Int {
         let sampled = curves.mapValues { CurveCrossing.samples(of: $0) }
 
-        return BoundaryCrossings.runs(marked).reduce(0) { total, run in
+        return boundaries(of: placed, in: request, curves: curves).reduce(0) { total, run in
             total + BoundaryCrossings.breaks(
                 of: run,
                 avoiding: sampled
@@ -627,7 +637,26 @@ public struct LayOutModel: LayOutModelUseCase {
         }
     }
 
-    /// Where every component draws, at the shape the caller resolved.
+    /// How many boundaries are drawn over a node.
+    ///
+    /// A boundary across a node reads as though the node is cut in two, and
+    /// the boundary belongs between things rather than through one.
+    static func boundariesOverNodes(
+        of placed: LayOutModelResponse,
+        in request: LayOutModelRequest,
+        curves: [String: FlowCurve]
+    ) -> Int {
+        let nodes = Array(footprints(of: placed, in: request).values)
+        guard nodes.isEmpty == false else { return 0 }
+
+        return boundaries(of: placed, in: request, curves: curves).reduce(0) { total, run in
+            let points = CurveCrossing.samples(of: run)
+            return total + nodes.count { node in points.contains { node.contains($0) } }
+        }
+    }
+
+    /// Everything every component draws, at the shape the caller resolved:
+    /// the shape and the chips beneath it. This is what must stay clear.
     private static func footprints(
         of placed: LayOutModelResponse,
         in request: LayOutModelRequest
@@ -636,7 +665,7 @@ public struct LayOutModel: LayOutModelUseCase {
 
         for component in placed.components {
             let shape = request.shapes[component.id].flatMap(DiagramShape.init(rawValue:)) ?? .process
-            built[component.id] = Component.footprintRect(
+            built[component.id] = Component.drawnRect(
                 at: Point(x: component.x, y: component.y),
                 shape: shape
             )
