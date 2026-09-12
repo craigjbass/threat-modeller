@@ -21,7 +21,8 @@ struct SetComponentPropertiesTests {
         name: String? = nil,
         sensitivity: String = "internal",
         threatsDisabled: Bool = false,
-        runsAs: String = "user"
+        runsAs: String = "user",
+        shape: String? = nil
     ) -> SetComponentPropertiesResponse {
         app.setComponentProperties().execute(
             SetComponentPropertiesRequest(
@@ -29,7 +30,8 @@ struct SetComponentPropertiesTests {
                 name: name,
                 sensitivity: sensitivity,
                 threatsDisabled: threatsDisabled,
-                runsAs: runsAs
+                runsAs: runsAs,
+                shape: shape
             )
         )
     }
@@ -110,5 +112,32 @@ struct SetComponentPropertiesTests {
         let component = try #require(view().components.first)
         #expect(component.name == "EC2")
         #expect(component.sensitivityId == "internal")
+    }
+
+    @Test func forcesTheShapeTheUserPicks() throws {
+        let componentId = aComponent()
+
+        #expect(set(componentId, shape: "store") == .updated)
+
+        let component = try #require(view().components.first)
+        #expect(component.shapeId == "store")
+        #expect(component.shapeOverrideId == "store")
+    }
+
+    @Test func goesBackToTheDerivedShapeWhenTheUserPicksAuto() throws {
+        let componentId = aComponent()
+        _ = set(componentId, shape: "store")
+
+        #expect(set(componentId, shape: nil) == .updated)
+
+        let component = try #require(view().components.first)
+        #expect(component.shapeId == "process")
+        #expect(component.shapeOverrideId == nil)
+    }
+
+    @Test func refusesAShapeThisApplicationDoesNotHold() {
+        let componentId = aComponent()
+
+        #expect(set(componentId, shape: "cylinder") == .unknownShape)
     }
 }

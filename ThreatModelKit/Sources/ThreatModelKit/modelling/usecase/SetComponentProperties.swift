@@ -13,19 +13,23 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
     /// The privilege the component runs at: user, admin, root, system or
     /// kernel.
     public let runsAs: String
+    /// The shape the user forced, or nil to let the derivation decide.
+    public let shape: String?
 
     public init(
         componentId: String,
         name: String?,
         sensitivity: String,
         threatsDisabled: Bool,
-        runsAs: String
+        runsAs: String,
+        shape: String? = nil
     ) {
         self.componentId = componentId
         self.name = name
         self.sensitivity = sensitivity
         self.threatsDisabled = threatsDisabled
         self.runsAs = runsAs
+        self.shape = shape
     }
 }
 
@@ -34,10 +38,11 @@ public enum SetComponentPropertiesResponse: Equatable, Sendable {
     case unknownComponent
     case unknownSensitivity
     case unknownPrivilegeLevel
+    case unknownShape
 }
 
-/// Changes what a node is called, how sensitive its data is, and whether it
-/// raises threats at all.
+/// Changes what a node is called, how sensitive its data is, what shape it
+/// draws as, and whether it raises threats at all.
 ///
 /// One use case for all three, the way `SetZoneProperties` does it: the panel
 /// writes what the user sees, and the model takes it or refuses it whole.
@@ -56,6 +61,11 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
         guard let runsAs = PrivilegeLevel(rawValue: request.runsAs) else {
             return .unknownPrivilegeLevel
         }
+        var shape: DiagramShape?
+        if let word = request.shape {
+            guard let picked = DiagramShape(rawValue: word) else { return .unknownShape }
+            shape = picked
+        }
         let name = request.name?.trimmingWhitespace() ?? ""
 
         return models.mutate { model in
@@ -67,6 +77,7 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
             model.components[index].sensitivity = sensitivity
             model.components[index].threatsDisabled = request.threatsDisabled
             model.components[index].runsAs = runsAs
+            model.components[index].shape = shape
             return .updated
         }
     }

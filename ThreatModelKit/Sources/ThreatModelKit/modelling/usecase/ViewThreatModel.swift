@@ -32,6 +32,11 @@ public struct ViewedComponent: Equatable, Sendable {
     /// The privilege the component runs at: user, admin, root, system or
     /// kernel.
     public let runsAsId: String
+    /// The shape to draw: actor, process or store. Already resolved.
+    public let shapeId: String
+    /// Only the shape the user forced, or nil. The panel needs to tell Auto
+    /// from a forced value the derivation would have given anyway.
+    public let shapeOverrideId: String?
 
     public init(
         id: String,
@@ -46,7 +51,9 @@ public struct ViewedComponent: Equatable, Sendable {
         threatsDisabled: Bool,
         isUnknownTechnology: Bool,
         zoneId: String?,
-        runsAsId: String = PrivilegeLevel.default.rawValue
+        runsAsId: String = PrivilegeLevel.default.rawValue,
+        shapeId: String = DiagramShape.process.rawValue,
+        shapeOverrideId: String? = nil
     ) {
         self.id = id
         self.technologyId = technologyId
@@ -61,6 +68,8 @@ public struct ViewedComponent: Equatable, Sendable {
         self.isUnknownTechnology = isUnknownTechnology
         self.zoneId = zoneId
         self.runsAsId = runsAsId
+        self.shapeId = shapeId
+        self.shapeOverrideId = shapeOverrideId
     }
 }
 
@@ -183,20 +192,27 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
             name: model.name,
             components: model.components.map { component in
                 let technology = lookup.findById(component.technologyId)
+                let providerId = technology?.provider.value ?? ""
+                let categoryId = technology?.category.value ?? ""
                 return ViewedComponent(
                     id: component.id.value,
                     technologyId: component.technologyId.value,
                     name: component.customName ?? technology?.name ?? component.technologyId.value,
                     customName: component.customName,
-                    providerId: technology?.provider.value ?? "",
-                    categoryId: technology?.category.value ?? "",
+                    providerId: providerId,
+                    categoryId: categoryId,
                     x: component.position.x,
                     y: component.position.y,
                     sensitivityId: component.sensitivity.rawValue,
                     threatsDisabled: component.threatsDisabled,
                     isUnknownTechnology: technology == nil,
                     zoneId: ZoneContainment.zone(holding: component.centre, in: model.zones)?.id.value,
-                    runsAsId: component.runsAs.rawValue
+                    runsAsId: component.runsAs.rawValue,
+                    shapeId: component.resolvedShape(
+                        providerId: providerId,
+                        categoryId: categoryId
+                    ).rawValue,
+                    shapeOverrideId: component.shape?.rawValue
                 )
             },
             connections: model.connections.map {
