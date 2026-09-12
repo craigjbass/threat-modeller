@@ -142,6 +142,7 @@ struct CanvasView: View {
                 let componentBox = boxes[component.id] ?? ComponentBox(x: component.x, y: component.y)
                 ComponentNodeView(
                     component: component,
+                    risk: nil,
                     isSelected: canvas.isSelected(componentId: component.id),
                     onSelect: { gestures.selectComponent(component.id, addingToSelection: $0) },
                     onDragChanged: { gestures.nodeDragChanged(component.id, $0) },

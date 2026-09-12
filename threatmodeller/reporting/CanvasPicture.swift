@@ -28,6 +28,7 @@ nonisolated struct CanvasPicture: View {
     private func node(_ component: ViewedComponent) -> some View {
         ComponentNodeView(
             component: component,
+            risk: nil,
             isSelected: false,
             onSelect: { _ in },
             onDragChanged: { _ in },

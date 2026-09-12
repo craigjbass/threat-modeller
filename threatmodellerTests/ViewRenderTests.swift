@@ -67,6 +67,44 @@ struct ViewRenderTests {
 
     // MARK: the models the views draw
 
+    private func aViewedComponent(shapeId: String) -> ViewedComponent {
+        ViewedComponent(
+            id: "c1",
+            technologyId: "aws-ec2",
+            name: "Web Server",
+            customName: nil,
+            providerId: "aws",
+            categoryId: "compute",
+            x: 0,
+            y: 0,
+            sensitivityId: "confidential",
+            threatsDisabled: false,
+            isUnknownTechnology: false,
+            zoneId: nil,
+            runsAsId: "user",
+            shapeId: shapeId,
+            shapeOverrideId: nil
+        )
+    }
+
+    private func aNode(
+        shapeId: String,
+        risk: ElementRisk?,
+        zoneName: String? = nil
+    ) -> ComponentNodeView {
+        ComponentNodeView(
+            component: aViewedComponent(shapeId: shapeId),
+            risk: risk,
+            isSelected: false,
+            onSelect: { _ in },
+            onDragChanged: { _ in },
+            onDragEnded: { _ in },
+            onAnchorDragChanged: { _ in },
+            onAnchorDragEnded: { _ in },
+            zoneName: zoneName
+        )
+    }
+
     private func aModel() -> ThreatModelSession {
         let session = ThreatModelSession(useCases: TestDependencies())
         session.add(technologyId: "aws-ec2", x: 100, y: 100)
@@ -446,6 +484,37 @@ struct ViewRenderTests {
             width: 460,
             height: 400,
             "the About window"
+        )
+    }
+
+    // MARK: the data flow diagram shapes
+
+    @Test func drawsEachDiagramShape() {
+        for shapeId in ["actor", "process", "store"] {
+            expectDrawn(
+                aNode(
+                    shapeId: shapeId,
+                    risk: ElementRisk(
+                        sourceId: "component:c1",
+                        openCount: 3,
+                        totalCount: 4,
+                        highestLevelId: "high"
+                    ),
+                    zoneName: "Private Zone"
+                ),
+                width: 200,
+                height: 180,
+                "the \(shapeId) node"
+            )
+        }
+    }
+
+    @Test func drawsANodeThatRaisesNoThreat() {
+        expectDrawn(
+            aNode(shapeId: "process", risk: nil),
+            width: 200,
+            height: 180,
+            "a node with no threats"
         )
     }
 }
