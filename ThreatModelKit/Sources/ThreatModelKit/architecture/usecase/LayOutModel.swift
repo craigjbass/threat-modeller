@@ -379,7 +379,7 @@ public struct LayOutModel: LayOutModelUseCase {
             brokenBoundaries: brokenBoundaries(of: placed, in: request, curves: routed),
             flowsOverUnrelatedZones: flowsOverUnrelatedZones(of: placed, in: request, curves: routed),
             waypoints: routed.values.map(\.waypointCount).reduce(0, +),
-            sharpness: shape.sharpness,
+            tightness: shape.tightness,
             flowCrossings: shape.crossings,
             flowsBehindNodes: shape.behindNodes,
             width: width,
@@ -396,14 +396,14 @@ public struct LayOutModel: LayOutModelUseCase {
         of placed: LayOutModelResponse,
         in request: LayOutModelRequest,
         curves: [String: FlowCurve]
-    ) -> (sharpness: Double, crossings: Int, behindNodes: Int) {
+    ) -> (tightness: Double, crossings: Int, behindNodes: Int) {
         let footprints = footprints(of: placed, in: request)
-        var sharpness = 0.0
+        var tightness = 0.0
         var behindNodes = 0
 
         for flow in request.source.flows {
             guard let curve = curves["\(flow.sourceId)->\(flow.targetId)"] else { continue }
-            sharpness += FlowShape.sharpness(of: curve)
+            tightness += FlowShape.tightness(of: curve)
             behindNodes += FlowShape.timesBehind(
                 curve,
                 footprints
@@ -431,7 +431,7 @@ public struct LayOutModel: LayOutModelUseCase {
             }
         }
 
-        return (sharpness, crossings, behindNodes)
+        return (tightness, crossings, behindNodes)
     }
 
     /// Every flow's curve, routed round the zones it has nothing to do with,

@@ -17,6 +17,13 @@ public enum FlowRouting {
     public static let mostWaypoints = 4
     /// How many points along the flow are tested for entering a zone.
     public static let steps = 96
+    /// The shortest leg a detour may leave.
+    ///
+    /// Two detours closer together than this leave a leg too short to turn
+    /// on, and the flow kinks between them. Longer than this and a needed
+    /// detour gets thinned away, which is worse: the flow then runs over the
+    /// zone it was going round.
+    public static let shortestLeg = 70.0
 
     /// The waypoints that take the flow round every zone it should avoid, in
     /// the order the flow meets them. Empty when the straight flow is already
@@ -48,7 +55,30 @@ public enum FlowRouting {
             found.append(best.way)
         }
 
-        return found
+        return thinned(found, from: start, to: end)
+    }
+
+    /// The waypoints with the crowded ones dropped.
+    ///
+    /// Two detours close together leave a leg too short to turn on, and the
+    /// flow kinks between them however wide the controls reach.
+    private static func thinned(_ waypoints: [Point], from start: Point, to end: Point) -> [Point] {
+        var kept: [Point] = []
+        var last = start
+
+        for waypoint in waypoints {
+            guard hypot(waypoint.x - last.x, waypoint.y - last.y) >= shortestLeg else { continue }
+            kept.append(waypoint)
+            last = waypoint
+        }
+
+        // The last leg is as much a leg as any other.
+        while let final = kept.last,
+              hypot(end.x - final.x, end.y - final.y) < shortestLeg {
+            kept.removeLast()
+        }
+
+        return kept
     }
 
     /// How bad a routed flow is: how many zones it still enters, and how far

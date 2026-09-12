@@ -7,10 +7,10 @@ import Foundation
 /// node looks as though it ends there. None of these is wrong, so none is a
 /// fault, but a picture with fewer of them is read faster.
 public enum FlowShape {
-    /// How far a flow may turn, in radians, before it stops flowing. A gentle
-    /// S bends about half a radian; a quarter turn is the point past which a
-    /// reader follows a corner rather than a line.
-    public static let turnsFreely = Double.pi / 2
+    /// The tightest a turn may be, in points of radius, and still read as part
+    /// of a circle. A quarter turn is fine; a quarter turn on a 10 point
+    /// radius is a corner.
+    public static let easyRadius = 70.0
     /// How many points along a flow are looked at.
     public static let steps = 32
 
@@ -34,10 +34,38 @@ public enum FlowShape {
         return total
     }
 
-    /// How far past a comfortable turn the flow goes. Zero for anything a
-    /// reader follows without stopping.
-    public static func sharpness(of curve: FlowCurve) -> Double {
-        max(0, turning(of: curve) - turnsFreely)
+    /// How tightly the flow turns, added up along it.
+    ///
+    /// Zero where it runs straight or sweeps round a wide radius, and rising
+    /// as the radius closes. What a reader minds is the radius, not the angle:
+    /// a quarter turn on a wide arc is followed without stopping, and the same
+    /// quarter turn on a tight one is a corner.
+    public static func tightness(of curve: FlowCurve) -> Double {
+        let points = (0...steps).map { curve.point(at: Double($0) / Double(steps)) }
+        var total = 0.0
+
+        for index in 1 ..< points.count - 1 {
+            let radius = turnRadius(points[index - 1], points[index], points[index + 1])
+            total += max(0, 1 - radius / easyRadius)
+        }
+
+        return total
+    }
+
+    /// The radius of the circle through three points. A straight run has no
+    /// circle, and reads as an unbounded radius.
+    public static func turnRadius(_ first: Point, _ second: Point, _ third: Point) -> Double {
+        let a = hypot(second.x - first.x, second.y - first.y)
+        let b = hypot(third.x - second.x, third.y - second.y)
+        let c = hypot(third.x - first.x, third.y - first.y)
+
+        let twiceArea = abs(
+            (second.x - first.x) * (third.y - first.y)
+                - (second.y - first.y) * (third.x - first.x)
+        )
+        guard twiceArea > 0.000_001 else { return .greatestFiniteMagnitude }
+
+        return a * b * c / (2 * twiceArea)
     }
 
     /// True when the two flows cross. Sampled coarsely: a pair of flows is

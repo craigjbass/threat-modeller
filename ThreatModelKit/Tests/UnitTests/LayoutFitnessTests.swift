@@ -61,7 +61,7 @@ struct LayoutReadabilityFitnessTests {
         overZones: Int = 0,
         broken: Int = 0,
         waypoints: Int = 0,
-        sharpness: Double = 0,
+        tightness: Double = 0,
         crossings: Int = 0,
         behind: Int = 0,
         width: Double = 1000,
@@ -71,7 +71,7 @@ struct LayoutReadabilityFitnessTests {
             brokenBoundaries: broken,
             flowsOverUnrelatedZones: overZones,
             waypoints: waypoints,
-            sharpness: sharpness,
+            tightness: tightness,
             flowCrossings: crossings,
             flowsBehindNodes: behind,
             width: width,
@@ -79,18 +79,18 @@ struct LayoutReadabilityFitnessTests {
         )
     }
 
-    @Test func weighsASharpTurnAboveALineCrossing() {
-        #expect(fitness(sharpness: 1).score > fitness(crossings: 3).score)
+    @Test func weighsATightTurnAboveALineCrossing() {
+        #expect(fitness(tightness: 1).score > fitness(crossings: 3).score)
     }
 
-    @Test func weighsASharpTurnAboveAFlowBehindANode() {
-        #expect(fitness(sharpness: 1).score > fitness(behind: 3).score)
+    @Test func weighsATightTurnAboveAFlowBehindANode() {
+        #expect(fitness(tightness: 1).score > fitness(behind: 3).score)
     }
 
     @Test func weighsAFaultAboveEveryReadingCostTogether() {
         #expect(
             fitness(overZones: 1).score
-                > fitness(sharpness: 3, crossings: 20, behind: 20).score
+                > fitness(tightness: 3, crossings: 20, behind: 20).score
         )
     }
 
@@ -99,6 +99,6 @@ struct LayoutReadabilityFitnessTests {
     }
 
     @Test func chargesNothingForAPictureThatReadsCleanly() {
-        #expect(fitness().score == fitness(sharpness: 0, crossings: 0, behind: 0).score)
+        #expect(fitness().score == fitness(tightness: 0, crossings: 0, behind: 0).score)
     }
 }

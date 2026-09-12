@@ -54,8 +54,18 @@ public struct FlowCurve: Equatable, Sendable {
             built.append(
                 Segment(
                     start: from,
-                    control1: Self.control(leaving: from, towards: to, from: before),
-                    control2: Self.control(leaving: to, towards: from, from: after),
+                    control1: Self.control(
+                        leaving: from,
+                        towards: to,
+                        from: before,
+                        routed: waypoints.isEmpty == false
+                    ),
+                    control2: Self.control(
+                        leaving: to,
+                        towards: from,
+                        from: after,
+                        routed: waypoints.isEmpty == false
+                    ),
                     end: to
                 )
             )
@@ -64,28 +74,70 @@ public struct FlowCurve: Equatable, Sendable {
         segments = built
     }
 
+    /// The shortest a turn's control reaches at a join. A turn drawn on a
+    /// short control reads as a corner; one drawn on a long control reads as
+    /// part of a circle, which is what a reader follows.
+    static let turnReach = 90.0
+
     /// The control point beside `here`, on the way to `next`.
     ///
-    /// With no neighbour the pull is horizontal, the way a single curve has
-    /// always drawn. With one, the pull follows the line from that neighbour to
-    /// `next`, so the two pieces meeting at `here` leave in the same direction.
+    /// With no neighbour the pull is horizontal and measured across the gap,
+    /// the way a single curve has always drawn. At a join the pull follows the
+    /// line from that neighbour to `next`, so the two pieces leave in the same
+    /// direction, and it is measured along the leg rather than across it: a
+    /// leg straight up the diagram spans no width at all, and a pull taken
+    /// from the width alone turned it on the spot.
     private static func control(
         leaving here: Point,
         towards next: Point,
-        from neighbour: Point?
+        from neighbour: Point?,
+        routed: Bool
     ) -> Point {
-        let pull = max(30, min(abs(next.x - here.x) * 0.5, 150))
+        let leg = hypot(next.x - here.x, next.y - here.y)
+        // Never past a little under half the leg: two controls that reach past
+        // each other curl the piece back inside itself, and the curl has a
+        // tighter radius than any corner.
+        let pull = min(max(turnReach, min(leg * 0.5, 150)), leg * 0.45)
 
+        // The two ends of a routed flow follow their own leg. Pulling them
+        // sideways, the way a straight flow leaves its node, hooked a flow
+        // arriving from above into a corner at the arrowhead.
         guard let neighbour else {
-            return Point(x: here.x + (next.x >= here.x ? pull : -pull), y: here.y)
+            let mostlyLevel = abs(next.x - here.x) >= abs(next.y - here.y)
+
+            // A level flow leaves sideways, the way this canvas has always
+            // drawn one. An upright flow leaves along its own line: pulled
+            // sideways it hooked out and back on a 27 point radius.
+            guard routed || mostlyLevel == false, leg > 0 else {
+                let sideways = max(30, min(abs(next.x - here.x) * 0.5, 150))
+                return Point(x: here.x + (next.x >= here.x ? sideways : -sideways), y: here.y)
+            }
+            return Point(
+                x: here.x + pull * (next.x - here.x) / leg,
+                y: here.y + pull * (next.y - here.y) / leg
+            )
         }
 
         let dx = next.x - neighbour.x
         let dy = next.y - neighbour.y
         let length = hypot(dx, dy)
-        guard length > 0 else { return here }
 
-        return Point(x: here.x + pull * dx / length, y: here.y + pull * dy / length)
+        // At a hairpin the neighbour sits almost on top of `next`, so the line
+        // between them states no direction, or states one pointing back the
+        // way the flow came. Either way the control collapses and the curve
+        // cusps, so the leg itself is the direction.
+        let alongTheLeg = leg > 0
+            ? Point(x: (next.x - here.x) / leg, y: (next.y - here.y) / leg)
+            : Point(x: 0, y: 0)
+        guard length > 0.001 else {
+            return Point(x: here.x + pull * alongTheLeg.x, y: here.y + pull * alongTheLeg.y)
+        }
+
+        let heading = Point(x: dx / length, y: dy / length)
+        let agreement = heading.x * alongTheLeg.x + heading.y * alongTheLeg.y
+        let chosen = agreement > 0.1 ? heading : alongTheLeg
+
+        return Point(x: here.x + pull * chosen.x, y: here.y + pull * chosen.y)
     }
 
     public var start: Point { segments.first?.start ?? Point(x: 0, y: 0) }
