@@ -24,7 +24,13 @@ struct AttackPathTests {
         )
     }
 
-    private func threat(_ name: String, _ source: String, _ score: Int, sourceId: String? = nil) -> ReportThreat {
+    private func threat(
+        _ name: String,
+        _ source: String,
+        _ score: Int,
+        sourceId: String? = nil,
+        likelihoodLabel: String = Likelihood.commodity.label
+    ) -> ReportThreat {
         ReportThreat(
             threatId: name,
             name: name,
@@ -41,7 +47,8 @@ struct AttackPathTests {
             // string there. This test's own `sourceId` overrides it.
             sourceId: sourceId ?? "component:\(source)",
             controls: [],
-            pathwayMitigationLabels: []
+            pathwayMitigationLabels: [],
+            likelihoodLabel: likelihoodLabel
         )
     }
 
@@ -102,6 +109,43 @@ struct AttackPathTests {
         let path = try #require(built.paths.first)
         #expect(path.worstScore == 12)
         #expect(path.hops.last?.worstThreatName == "bad")
+    }
+
+    @Test func aPathCarriesTheLikelihoodOfItsWorstHop() throws {
+        let built = build(
+            components: [component("actor"), component("store", .restricted)],
+            connections: [flow("actor", "store")],
+            threats: [threat("bad", "store", 12, likelihoodLabel: Likelihood.targeted.label)]
+        )
+        let path = try #require(built.paths.first)
+        #expect(path.likelihoodLabel == "Targeted")
+    }
+
+    @Test func aTieOnTheWorstScorePicksTheEarliestHopsLikelihood() throws {
+        let built = build(
+            components: [component("actor"), component("relay"), component("store", .restricted)],
+            connections: [flow("actor", "relay"), flow("relay", "store")],
+            threats: [
+                threat("first-bad", "actor", 12, likelihoodLabel: Likelihood.targeted.label),
+                threat("second-bad", "store", 12, likelihoodLabel: Likelihood.research.label)
+            ]
+        )
+        let path = try #require(built.paths.first)
+        // "actor" and "store" tie on the worst score. The code takes the
+        // earliest hop in the path, so the label is "actor"'s tier, not
+        // "store"'s. That choice is deliberate: change it only if a test
+        // proves the later hop is the right one.
+        #expect(path.worstScore == 12)
+        #expect(path.likelihoodLabel == "Targeted")
+    }
+
+    @Test func aPathWithNoThreatAnywhereHasNoLikelihood() throws {
+        let built = build(
+            components: [component("actor"), component("store", .restricted)],
+            connections: [flow("actor", "store")]
+        )
+        let path = try #require(built.paths.first)
+        #expect(path.likelihoodLabel == "")
     }
 
     @Test func aHopMatchesItsThreatByIdNotByDisplayName() throws {
