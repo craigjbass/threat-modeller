@@ -21,30 +21,44 @@ public enum MarkdownAttackPaths {
                     + "."
             )
             lines.append("")
+            lines += table(of: prefix)
         }
 
         for (index, path) in paths.enumerated() {
-            var heading = "### \(index + 1). \(path.startName) \u{2192} \(path.endName)"
+            var heading = "### \(index + 1). \(route(of: path.hops))"
                 + " \u{2014} worst \(path.worstScore)"
             if path.likelihoodLabel.isEmpty == false {
                 heading += ", \(path.likelihoodLabel)"
             }
             lines.append(heading)
             lines.append("")
-            lines.append("| Hop | Flow | Worst threat | Score | Reduced by |")
-            lines.append("| --- | --- | --- | --- | --- |")
-            for hop in path.hops {
-                lines.append(
-                    "| \(Markdown.cell(hop.componentName))"
-                        + " | \(Markdown.cell(hop.flowKindLabel ?? "\u{2014}"))"
-                        + " | \(Markdown.cell(hop.worstThreatName ?? "none"))"
-                        + " | \(hop.riskScore)"
-                        + " | \(hop.reducedBy.isEmpty ? "nothing reduces this hop" : Markdown.cell(hop.reducedBy.joined(separator: ", ")))"
-                        + " |"
-                )
-            }
-            lines.append("")
+            lines += table(of: path.hops)
         }
+        return lines
+    }
+
+    /// A path's name: every hop it visits after the shared prefix, in order.
+    /// Two paths that share a start, an end and a worst score still read
+    /// apart when their middle hops differ.
+    private static func route(of hops: [ReportAttackPathHop]) -> String {
+        hops.map(\.componentName).joined(separator: " \u{2192} ")
+    }
+
+    /// The five-column table a path and the shared prefix both use, so a
+    /// score a heading names always has a row that shows it.
+    private static func table(of hops: [ReportAttackPathHop]) -> [String] {
+        var lines = ["| Hop | Flow | Worst threat | Score | Reduced by |", "| --- | --- | --- | --- | --- |"]
+        for hop in hops {
+            lines.append(
+                "| \(Markdown.cell(hop.componentName))"
+                    + " | \(Markdown.cell(hop.flowKindLabel ?? "\u{2014}"))"
+                    + " | \(Markdown.cell(hop.worstThreatName ?? "none"))"
+                    + " | \(hop.riskScore)"
+                    + " | \(hop.reducedBy.isEmpty ? "nothing reduces this hop" : Markdown.cell(hop.reducedBy.joined(separator: ", ")))"
+                    + " |"
+            )
+        }
+        lines.append("")
         return lines
     }
 

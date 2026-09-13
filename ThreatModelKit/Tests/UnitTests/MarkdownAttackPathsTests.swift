@@ -37,7 +37,11 @@ struct MarkdownAttackPathsTests {
 
         #expect(text.hasPrefix("## Attack paths"))
         #expect(text.contains("Every path below starts at Internet \u{2192} ClearanceKit GUI."))
-        #expect(text.contains("### 1. Internet \u{2192} Secrets store \u{2014} worst 13, Commodity"))
+        // The prefix's own hops carry their scores in a table, so the number
+        // named nowhere else in the heading is still visible.
+        #expect(text.contains("| Internet | \u{2014} | none | 0 | nothing reduces this hop |"))
+        #expect(text.contains("| ClearanceKit GUI | \u{2014} | none | 0 | nothing reduces this hop |"))
+        #expect(text.contains("### 1. Build pipeline \u{2192} Secrets store \u{2014} worst 13, Commodity"))
         #expect(text.contains("| Hop | Flow | Worst threat | Score | Reduced by |"))
         #expect(text.contains("| Build pipeline | Network | Package substitution | 13 | nothing reduces this hop |"))
         #expect(text.contains("| Secrets store | Local IPC | Credential theft | 9 | Touch ID gate |"))
@@ -69,6 +73,51 @@ struct MarkdownAttackPathsTests {
         ).joined(separator: "\n")
 
         #expect(text.contains("| A\\|B | \u{2014} | none | 2 | nothing reduces this hop |"))
+    }
+
+    /// Finding 3, part 1: when the worst hop sits in the shared prefix, no
+    /// row of the path's own table names its score. The prefix table must
+    /// carry it instead.
+    @Test func theWorstScoreInThePrefixStillAppearsInATable() {
+        let text = MarkdownAttackPaths.lines(
+            [
+                ReportAttackPath(
+                    startName: "Internet",
+                    endName: "Store",
+                    hops: [hop("Store", score: 5)],
+                    worstScore: 13
+                )
+            ],
+            prefix: [hop("Internet", threat: "Package substitution", score: 13)]
+        ).joined(separator: "\n")
+
+        #expect(text.contains("### 1. Store \u{2014} worst 13"))
+        #expect(text.contains("| Internet | \u{2014} | Package substitution | 13 | nothing reduces this hop |"))
+    }
+
+    /// Finding 3, part 2: two paths with the same start, end and worst score
+    /// must read apart when their middle hops differ.
+    @Test func namesTwoPathsSharingAStartAnEndAndAScoreByTheirDifferentMiddles() {
+        let text = MarkdownAttackPaths.lines(
+            [
+                ReportAttackPath(
+                    startName: "Internet",
+                    endName: "Store",
+                    hops: [hop("Gateway A"), hop("Store", score: 9)],
+                    worstScore: 9
+                ),
+                ReportAttackPath(
+                    startName: "Internet",
+                    endName: "Store",
+                    hops: [hop("Gateway B"), hop("Store", score: 9)],
+                    worstScore: 9
+                )
+            ],
+            prefix: []
+        ).joined(separator: "\n")
+
+        #expect(text.contains("### 1. Gateway A \u{2192} Store \u{2014} worst 9"))
+        #expect(text.contains("### 2. Gateway B \u{2192} Store \u{2014} worst 9"))
     }
 
     @Test func writesNoneWhenTheTraceFoundNothing() {
