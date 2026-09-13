@@ -356,6 +356,7 @@ struct ArchitectureParser {
         var threatIds: [String] = []
         var reducesRiskBy: Int?
         var status: String?
+        var action: SourceEdgeAction?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -378,8 +379,10 @@ struct ArchitectureParser {
                 } else {
                     status = raw
                 }
+            case "recommendation":
+                if let read = parseEdgeAction() { action = read }
             default:
-                record("a mitigates edge holds threats, reduces_risk_by and status, not \"\(current.text)\"")
+                record("a mitigates edge holds threats, reduces_risk_by, status and recommendation, not \"\(current.text)\"")
                 skipAttribute()
             }
         }
@@ -398,7 +401,44 @@ struct ArchitectureParser {
             targetId: target.text,
             threatIds: threatIds,
             reducesRiskBy: reducesRiskBy,
-            status: status
+            status: status,
+            action: action
+        )
+    }
+
+    /// A recommendation on an assumed edge: what a team would do to adopt it.
+    ///
+    /// The faults that need every edge and every assumption in scope are
+    /// reported once the whole system is read, not here.
+    private mutating func parseEdgeAction() -> SourceEdgeAction? {
+        advance()
+        guard let label = expect(.string, "what the action is called") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var text: String?
+        var note: String?
+        var blockedBy: String?
+        var sources: [String] = []
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "text": text = parseTextAttribute()
+            case "note": note = parseTextAttribute()
+            case "blocked_by": blockedBy = parseTextAttribute()
+            case "sources": sources = parseListAttribute()
+            default:
+                record("a recommendation holds text, note, blocked_by and sources, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        return SourceEdgeAction(
+            label: label.text,
+            text: text,
+            note: note,
+            blockedBy: blockedBy,
+            sources: sources
         )
     }
 

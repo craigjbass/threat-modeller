@@ -169,6 +169,29 @@ public struct SourceFlow: Equatable, Sendable {
     public var id: String { "\(sourceId)->\(targetId)" }
 }
 
+/// A recommendation written on one assumed `mitigates` edge.
+public struct SourceEdgeAction: Equatable, Sendable {
+    public let label: String
+    public let text: String?
+    public let note: String?
+    public let blockedBy: String?
+    public let sources: [String]
+
+    public init(
+        label: String,
+        text: String? = nil,
+        note: String? = nil,
+        blockedBy: String? = nil,
+        sources: [String] = []
+    ) {
+        self.label = label
+        self.text = text
+        self.note = note
+        self.blockedBy = blockedBy
+        self.sources = sources
+    }
+}
+
 public struct SourceMitigates: Equatable, Sendable {
     public let sourceId: String
     public let targetId: String
@@ -176,19 +199,23 @@ public struct SourceMitigates: Equatable, Sendable {
     public let reducesRiskBy: Int
     /// "adopted" or "assumed". Nil means the file states none.
     public let status: String?
+    /// What a team would do to adopt this edge, or nil when it names none.
+    public let action: SourceEdgeAction?
 
     public init(
         sourceId: String,
         targetId: String,
         threatIds: [String],
         reducesRiskBy: Int,
-        status: String? = nil
+        status: String? = nil,
+        action: SourceEdgeAction? = nil
     ) {
         self.sourceId = sourceId
         self.targetId = targetId
         self.threatIds = threatIds
         self.reducesRiskBy = reducesRiskBy
         self.status = status
+        self.action = action
     }
 
     /// The identifier, minted the way a flow's is.
