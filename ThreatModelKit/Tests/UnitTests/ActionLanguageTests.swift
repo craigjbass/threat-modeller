@@ -273,6 +273,8 @@ struct ActionLanguageTests {
         let edge = try #require(app.modelStore.current().mitigatesEdges.first)
         #expect(edge.action?.label == "adopt-the-guard")
         #expect(edge.action?.text == "Adopt the guard")
+        #expect(edge.action?.note == "It is bought and not deployed.")
         #expect(edge.action?.blockedBy == "guard-not-deployed")
+        #expect(edge.action?.sources == ["https://example.com/ticket/1"])
     }
 }
