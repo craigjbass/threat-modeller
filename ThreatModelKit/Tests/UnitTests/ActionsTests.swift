@@ -68,10 +68,14 @@ struct ActionsTests {
     }
 
     @Test func ordersActionsByWhereTheirTextIsDeclared() {
+        // The edge mentioning "first" comes before the edge stating "second"'s
+        // text, so ordering by first mention and ordering by text declaration
+        // disagree. "second" states its text first, so it comes first.
         let actions = Actions.build(
             from: [
-                edge("b", "one", EdgeAction(label: "second", text: "Second")),
-                edge("a", "two", EdgeAction(label: "first", text: "First"))
+                edge("x", "one", EdgeAction(label: "first")),
+                edge("b", "two", EdgeAction(label: "second", text: "Second")),
+                edge("a", "three", EdgeAction(label: "first", text: "First"))
             ]
         )
 
