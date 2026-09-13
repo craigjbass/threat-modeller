@@ -227,4 +227,33 @@ struct ReportExecutiveSummaryTests {
 
         #expect(summary.topRisksWithNoAction.isEmpty)
     }
+
+    @Test func takesTheThreeActionsThatRemoveTheMost() {
+        let summary = ReportExecutiveSummary.build(
+            threats: [],
+            recommendations: [],
+            tolerance: .low,
+            findings: ReportFindingsCut(),
+            actions: [
+                ReportAction(label: "a", text: "First", removes: 30, totalResidual: 100),
+                ReportAction(label: "b", text: "Second", removes: 20, totalResidual: 100),
+                ReportAction(label: "c", text: "Third", removes: 10, totalResidual: 100),
+                ReportAction(label: "d", text: "Fourth", removes: 5, totalResidual: 100)
+            ]
+        )
+
+        #expect(summary.topLeverageActions.map { $0.text } == ["First", "Second", "Third"])
+    }
+
+    @Test func takesNoActionsWhenTheModelDeclaresNone() {
+        let summary = ReportExecutiveSummary.build(
+            threats: [],
+            recommendations: [recommendation("do the thing", 9)],
+            tolerance: .low,
+            findings: ReportFindingsCut()
+        )
+
+        #expect(summary.topLeverageActions.isEmpty)
+        #expect(summary.topActions.map { $0.text } == ["do the thing"])
+    }
 }

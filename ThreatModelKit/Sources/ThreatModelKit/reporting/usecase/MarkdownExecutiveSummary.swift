@@ -37,7 +37,25 @@ public enum MarkdownExecutiveSummary {
             lines.append("")
         }
 
-        if summary.topActions.isEmpty == false {
+        if summary.topLeverageActions.isEmpty == false {
+            lines.append("**Do first**")
+            lines.append("")
+            for (index, action) in summary.topLeverageActions.enumerated() {
+                lines.append(
+                    "\(index + 1). \(action.text) \u{2014} removes \(action.removes)"
+                        + " of \(action.totalResidual) residual points"
+                )
+                var second = "   across \(action.threatsMoved) threats;"
+                second += action.worstBefore == action.worstAfter
+                    ? " worst stays \(action.worstBefore)."
+                    : " worst falls \(action.worstBefore) \u{2192} \(action.worstAfter)."
+                if let blocker = action.blockedBy {
+                    second += " Blocked by \(blocker)."
+                }
+                lines.append(second)
+            }
+            lines.append("")
+        } else if summary.topActions.isEmpty == false {
             lines.append("**Do first**")
             lines.append("")
             for (index, action) in summary.topActions.enumerated() {

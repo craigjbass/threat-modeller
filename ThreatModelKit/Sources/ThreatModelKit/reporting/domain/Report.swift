@@ -135,6 +135,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     public let topRisks: [ReportThreat]
     /// The three recommendations answering the worst threats.
     public let topActions: [ReportRecommendation]
+    /// The actions that remove the most risk, worst first. Empty when the
+    /// model declares none, and then `topActions` is what the summary writes.
+    public let topLeverageActions: [ReportAction]
     /// How many threats hold no answered control and no compensating control.
     public let unansweredCount: Int
     public let totalThreats: Int
@@ -154,12 +157,14 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         topActions: [ReportRecommendation] = [],
         unansweredCount: Int = 0,
         totalThreats: Int = 0,
+        topLeverageActions: [ReportAction] = [],
         topRisksWithNoAction: Set<String> = []
     ) {
         self.verdict = verdict
         self.toleranceLabel = toleranceLabel
         self.topRisks = topRisks
         self.topActions = topActions
+        self.topLeverageActions = topLeverageActions
         self.unansweredCount = unansweredCount
         self.totalThreats = totalThreats
         self.topRisksWithNoAction = topRisksWithNoAction
@@ -175,7 +180,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         threats: [ReportThreat],
         recommendations: [ReportRecommendation],
         tolerance: RiskLevel,
-        findings: ReportFindingsCut
+        findings: ReportFindingsCut,
+        actions: [ReportAction] = []
     ) -> ReportExecutiveSummary {
         let above = findings.above.count + findings.notShown
         let word = tolerance.label.lowercased()
@@ -214,6 +220,7 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
             ),
             unansweredCount: threats.filter { isUnanswered($0) }.count,
             totalThreats: threats.count,
+            topLeverageActions: Array(actions.prefix(topCount)),
             topRisksWithNoAction: Set(
                 topRisks
                     .map { ReportRecommendation.key(threatId: $0.threatId, sourceId: $0.sourceId) }

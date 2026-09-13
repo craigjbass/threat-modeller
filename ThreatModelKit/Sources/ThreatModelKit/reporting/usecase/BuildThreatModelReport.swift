@@ -134,6 +134,23 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         // can never disagree about which threats sit above tolerance.
         let findingsCut = ReportFindingsCut.build(from: threats, tolerance: tolerance)
 
+        // Built once so the Executive summary and the Actions section can
+        // never name a different list of actions.
+        let actions = leverage.leverage.map {
+            ReportAction(
+                label: $0.action.label,
+                text: $0.action.text,
+                note: $0.action.note,
+                blockedBy: $0.action.blockedBy,
+                sources: $0.action.sources,
+                removes: $0.removes,
+                totalResidual: $0.totalResidual,
+                threatsMoved: $0.threatsMoved,
+                worstBefore: $0.worstBefore,
+                worstAfter: $0.worstAfter
+            )
+        }
+
         return BuildThreatModelReportResponse(
             report: Report(
                 modelName: model.name,
@@ -188,23 +205,11 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     threats: threats,
                     recommendations: recommendations,
                     tolerance: tolerance,
-                    findings: findingsCut
+                    findings: findingsCut,
+                    actions: actions
                 ),
                 methodology: ReportMethodology.build(zones: zones, tolerance: tolerance),
-                actions: leverage.leverage.map {
-                    ReportAction(
-                        label: $0.action.label,
-                        text: $0.action.text,
-                        note: $0.action.note,
-                        blockedBy: $0.action.blockedBy,
-                        sources: $0.action.sources,
-                        removes: $0.removes,
-                        totalResidual: $0.totalResidual,
-                        threatsMoved: $0.threatsMoved,
-                        worstBefore: $0.worstBefore,
-                        worstAfter: $0.worstAfter
-                    )
-                }
+                actions: actions
             )
         )
     }
