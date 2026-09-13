@@ -4,10 +4,14 @@ import ThreatModelKit
 /// One threat: what it is, how bad it is here, and what answers it.
 struct ThreatCard: View {
     let threat: AssessedThreat
+    /// What this card is for. The threats stage asks how often a threat
+    /// happens. The controls stage asks what answers it.
+    var focus: ThreatSidebar.Focus = .controls
     let severityChoices: [AssessedSeverity]
     let onSetControl: (_ key: String, _ implemented: Bool) -> Void
     let onSetControlStatus: (_ key: String, _ statusId: String) -> Void
     let onCompensate: () -> Void
+    var onLikelihood: () -> Void = {}
     let onOverride: (_ severityId: String) -> Void
     let onClearOverride: () -> Void
 
@@ -26,14 +30,18 @@ struct ThreatCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            if threat.controls.isEmpty == false {
-                Divider()
-                ForEach(threat.controls, id: \.key) { control in
-                    controlRow(control)
+            if focus == .controls {
+                if threat.controls.isEmpty == false {
+                    Divider()
+                    ForEach(threat.controls, id: \.key) { control in
+                        controlRow(control)
+                    }
                 }
-            }
 
-            compensation
+                compensation
+            } else {
+                likelihood
+            }
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
@@ -103,6 +111,37 @@ struct ThreatCard: View {
             }
             .font(.caption)
             .accessibilityIdentifier("compensate-\(threat.threatId)#\(threat.source.id)")
+        }
+    }
+
+    /// How often an attack of this kind happens, and what a person learned
+    /// that says so. The stage the threats are read in is where this belongs:
+    /// it is a fact about the world, not about what the team runs.
+    @ViewBuilder
+    private var likelihood: some View {
+        Divider()
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Happens: \(threat.likelihoodLabel)")
+                    .font(.caption)
+                if threat.scoreBeforeLikelihood != threat.riskScore {
+                    Text("\(threat.scoreBeforeLikelihood) \u{2192} \(threat.riskScore)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                if let rationale = threat.likelihoodRationale {
+                    Text(rationale)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 4)
+            Button(threat.likelihoodRationale == nil ? "How often\u{2026}" : "Edit\u{2026}") {
+                onLikelihood()
+            }
+            .font(.caption)
+            .accessibilityIdentifier("likelihood-\(threat.threatKey)")
         }
     }
 

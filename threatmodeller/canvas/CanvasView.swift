@@ -87,7 +87,9 @@ struct CanvasView: View {
         .safeAreaInset(edge: .bottom) {
             // One panel at a time. A node and a zone are never both the one
             // thing selected.
-            if let component = selectedComponent {
+            if let pair = selectedPair {
+                MitigatesPanel(session: session, source: pair.source, target: pair.target)
+            } else if let component = selectedComponent {
                 ComponentPanel(session: session, component: component)
             } else if let zone = selectedZone {
                 ZonePanel(session: session, zone: zone)
@@ -217,6 +219,16 @@ struct CanvasView: View {
         guard canvas.selectedComponentIds.count == 1,
               let componentId = canvas.selectedComponentIds.first else { return nil }
         return session.canvas.components.first { $0.id == componentId }
+    }
+
+    /// The two components a mitigates edge would run between, in the order
+    /// the model holds them. One component lowers a threat on another, so the
+    /// bar needs both ends before it offers anything.
+    private var selectedPair: (source: ViewedComponent, target: ViewedComponent)? {
+        guard canvas.selectedComponentIds.count == 2 else { return nil }
+        let both = session.canvas.components.filter { canvas.selectedComponentIds.contains($0.id) }
+        guard both.count == 2 else { return nil }
+        return (both[0], both[1])
     }
 
     private var selectedZone: ViewedZone? {

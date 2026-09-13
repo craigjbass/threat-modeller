@@ -210,3 +210,47 @@ enum LayoutPreview {
             .navigationSplitViewColumnWidth(min: 300, ideal: 380)
     }
 }
+
+// MARK: the three stages of the work
+
+#Preview("Assumptions panel, 360x700", traits: .fixedLayout(width: 360, height: 700)) {
+    let session = LayoutPreview.session()
+    session.setAssumption(
+        label: "network-segmented",
+        text: "The subnet holding the store takes no traffic from the internet.",
+        owner: "platform"
+    )
+    return AssumptionsPanel(session: session)
+}
+
+#Preview("Threat list, threats stage, 420x700", traits: .fixedLayout(width: 420, height: 700)) {
+    ThreatSidebar(session: LayoutPreview.session(), focus: .likelihood)
+}
+
+#Preview("How often a threat happens, 460x560", traits: .fixedLayout(width: 460, height: 560)) {
+    let session = LayoutPreview.session()
+    return Group {
+        if let threat = session.threats.first {
+            LikelihoodSheet(threat: threat, session: session)
+        }
+    }
+}
+
+#Preview("What one component lowers, 520x560", traits: .fixedLayout(width: 520, height: 560)) {
+    let session = LayoutPreview.session()
+    let components = session.canvas.components
+    return Group {
+        if let protector = components.first, let protected = components.last {
+            MitigatesSheet(
+                session: session,
+                protector: protector,
+                protected: protected,
+                existing: nil
+            )
+        }
+    }
+}
+
+#Preview("The stage control, 900x90", traits: .fixedLayout(width: 900, height: 90)) {
+    WorkflowBar(session: LayoutPreview.emptyProjectSession(), stage: .constant(.threats))
+}

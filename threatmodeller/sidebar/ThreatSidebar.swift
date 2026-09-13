@@ -17,7 +17,24 @@ struct CompensatedThreat: Identifiable {
 }
 
 struct ThreatSidebar: View {
+    /// Which part of a threat a stage is about. The threats stage is for
+    /// reading what the architecture raises and saying how often it happens.
+    /// The controls stage is for answering what a team runs against it.
+    enum Focus {
+        case likelihood
+        case controls
+    }
+
     let session: ThreatModelSession
+
+    /// What the cards show. The default is the controls stage, which is what
+    /// a document window gives a user.
+    var focus: Focus = .controls
+
+    /// The project the model was read from, or nil for a window that has no
+    /// project. The controls stage lists the answers its files still hold for
+    /// threats the architecture no longer raises.
+    var project: ProjectSession?
 
     /// The state the pathway panel starts in. A preview sets it, because a
     /// preview cannot press the panel header.
@@ -25,6 +42,9 @@ struct ThreatSidebar: View {
 
     /// The threat whose compensating control the user is editing.
     @State private var compensating: CompensatedThreat?
+
+    /// The threat whose likelihood finding the user is writing.
+    @State private var likelihooding: CompensatedThreat?
 
     @State private var collapsed: Set<String> = []
 
@@ -54,6 +74,9 @@ struct ThreatSidebar: View {
             .sheet(item: $compensating) { chosen in
                 CompensatingControlSheet(threat: chosen.threat, session: session)
             }
+            .sheet(item: $likelihooding) { chosen in
+                LikelihoodSheet(threat: chosen.threat, session: session)
+            }
     }
 
     private var sidebar: some View {
@@ -80,6 +103,10 @@ struct ThreatSidebar: View {
                 // of the window, where nothing could collapse it again.
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+                        if let project, focus == .controls {
+                            StaleAnswersPanel(project: project)
+                            Divider()
+                        }
                         PathwayMitigationsPanel(session: session, isExpanded: pathwayExpanded)
                         Divider()
                         RiskSummaryView(summary: session.summary)
@@ -92,6 +119,7 @@ struct ThreatSidebar: View {
                                         ForEach(group.threats, id: \.rowIdentity) { threat in
                                             ThreatCard(
                                                 threat: threat,
+                                                focus: focus,
                                                 severityChoices: session.severityChoices,
                                                 onSetControl: { key, implemented in
                                                     session.setControl(key: key, implemented: implemented)
@@ -100,6 +128,7 @@ struct ThreatSidebar: View {
                                                     session.setControlStatus(key: key, statusId: statusId)
                                                 },
                                                 onCompensate: { compensating = CompensatedThreat(threat: threat) },
+                                                onLikelihood: { likelihooding = CompensatedThreat(threat: threat) },
                                                 onOverride: { severityId in
                                                     session.overrideSeverity(
                                                         overrideKey: threat.overrideKey,

@@ -10,9 +10,27 @@ import SwiftUI
 struct WorkflowBar: View {
     let session: ProjectSession
 
+    /// The stage the window draws. Every stage keeps this bar, so the stage
+    /// is a view of the work and never a mode a user has to leave.
+    @Binding var stage: WorkStage
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 12) {
+                Picker("Stage", selection: $stage) {
+                    ForEach(WorkStage.allCases) { stage in
+                        Label(stage.label, systemImage: stage.systemImage).tag(stage)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.large)
+                .fixedSize()
+                .accessibilityIdentifier("stage")
+
+                Divider()
+                    .frame(height: 20)
+
                 Button {
                     session.saveNow()
                 } label: {

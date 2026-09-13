@@ -11,6 +11,8 @@ struct ProjectWindow: View {
     @State private var isShowingDiagnostics = false
     @State private var isShowingLibraries = false
     @State private var canvas = CanvasState()
+    /// The stage of the work the window draws.
+    @State private var stage: WorkStage = .architecture
     /// The name the user gives a system they start with nothing in it.
     @State private var newSystemName = ""
 
@@ -28,7 +30,12 @@ struct ProjectWindow: View {
                 // window has instead of a diagram, never instead of one: a
                 // stage left behind must not be able to hide the diagram.
                 if let model = session.model {
-                    ProjectColumns(session: model, canvas: canvas)
+                    ProjectColumns(
+                        project: session,
+                        session: model,
+                        canvas: canvas,
+                        stage: stage
+                    )
                         .focusedSceneValue(\.threatModelSession, model)
                         .focusedSceneValue(\.threatModelCanvas, canvas)
                 } else if let loading = session.loading {
@@ -219,7 +226,7 @@ struct ProjectWindow: View {
 
     private var chrome: some View {
         VStack(spacing: 0) {
-            WorkflowBar(session: session)
+            WorkflowBar(session: session, stage: $stage)
             filesChangedNotice
             diagnosticsNotice
         }
@@ -294,36 +301,5 @@ struct ProjectWindow: View {
                 canvas.clearSelection()
             }
         )
-    }
-}
-
-private struct ProjectColumns: View {
-    let session: ThreatModelSession
-    let canvas: CanvasState
-
-    @State private var isSampleBrowserOpen = false
-
-    var body: some View {
-        columns
-            .focusedSceneValue(\.threatModelSampleBrowser, ShowSampleBrowser {
-                isSampleBrowserOpen = true
-            })
-            .sheet(isPresented: $isSampleBrowserOpen) {
-                SampleBrowser(session: session, canvas: canvas)
-            }
-    }
-
-    private var columns: some View {
-        NavigationSplitView {
-            PaletteView(session: session, canvas: canvas)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-        } content: {
-            CanvasView(session: session, canvas: canvas)
-                .navigationTitle("Diagram")
-                .navigationSplitViewColumnWidth(min: 400, ideal: 700)
-        } detail: {
-            ThreatSidebar(session: session)
-                .navigationSplitViewColumnWidth(min: 300, ideal: 380)
-        }
     }
 }

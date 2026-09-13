@@ -189,7 +189,7 @@ struct ViewRenderTests {
     @Test func drawsTheWorkflowBar() async throws {
         let session = await aDrawnProject()
 
-        let bar = try #require(draw(WorkflowBar(session: session), width: 900, height: 90))
+        let bar = try #require(draw(WorkflowBar(session: session, stage: .constant(.architecture)), width: 900, height: 90))
 
         #expect(hasContent(bar))
     }
@@ -294,7 +294,7 @@ struct ViewRenderTests {
         session.compileReport()
 
         #expect(session.lastActionMessage?.hasPrefix("Report: ") == true)
-        let bar = try #require(draw(WorkflowBar(session: session), width: 900, height: 90))
+        let bar = try #require(draw(WorkflowBar(session: session, stage: .constant(.architecture)), width: 900, height: 90))
         #expect(hasContent(bar))
     }
 
