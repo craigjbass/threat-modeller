@@ -1515,7 +1515,12 @@ git commit -m "feat: the report defines the words it uses for itself"
 
 **Interfaces:**
 - Consumes: `ReportThreat.likelihoodLabel`.
-- Produces: `ReportAttackPath.likelihoodLabel`, `ReportAttackPathSummary(startName:endName:worstScore:)`, `AttackPaths.build(…) -> (paths: [ReportAttackPath], prefix: [ReportAttackPathHop], notListed: [ReportAttackPathSummary])`, `Report.attackPathPrefix`, `Report.attackPathsNotListed: [ReportAttackPathSummary]`.
+- Produces: `ReportAttackPath.likelihoodLabel`, `ReportAttackPathSummary(startName:endName:worstScore:)`, `AttackPaths.build(…) -> (paths: [ReportAttackPath], prefix: [ReportAttackPathHop], notListed: [ReportAttackPathSummary], beyond: Int)`, `Report.attackPathPrefix`, `Report.attackPathsNotListed: [ReportAttackPathSummary]`, `Report.attackPathsBeyondAppendix: Int`.
+
+WARNING: the trace finds more paths than the report names. The narrative
+carries five, the appendix carries the rest of the first twenty, and `beyond`
+counts everything the trace found after that. Nothing is dropped without a
+number beside it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1551,7 +1556,7 @@ struct AttackPathCurationTests {
         let curated = AttackPaths.curate([
             path(["Internet", "GUI", "Store"], 13),
             path(["Internet", "GUI", "Queue"], 9)
-        ])
+        ], beyond: 0)
 
         #expect(curated.prefix.map(\.componentName) == ["Internet", "GUI"])
         #expect(curated.paths[0].hops.map(\.componentName) == ["Store"])
@@ -1562,7 +1567,7 @@ struct AttackPathCurationTests {
         let curated = AttackPaths.curate([
             path(["Internet", "Store"], 13),
             path(["Laptop", "Store"], 9)
-        ])
+        ], beyond: 0)
 
         #expect(curated.prefix.isEmpty)
         #expect(curated.paths[0].hops.count == 2)
@@ -1572,7 +1577,7 @@ struct AttackPathCurationTests {
         let curated = AttackPaths.curate([
             path(["Internet", "GUI"], 13),
             path(["Internet", "GUI", "Store"], 9)
-        ])
+        ], beyond: 0)
 
         // Trimming the whole of the first path leaves no story, so the
         // prefix stops one hop short of the shortest path.
@@ -1584,16 +1589,23 @@ struct AttackPathCurationTests {
     @Test func listsFiveAndSummarisesTheRest() {
         let many = (1...8).map { path(["Internet", "Target\($0)"], 16 - $0) }
 
-        let curated = AttackPaths.curate(many)
+        let curated = AttackPaths.curate(many, beyond: 0)
 
         #expect(curated.paths.count == 5)
         #expect(curated.notListed.count == 3)
         #expect(curated.notListed.first?.endName == "Target6")
         #expect(curated.notListed.first?.worstScore == 10)
+        #expect(curated.beyond == 0)
+    }
+
+    @Test func carriesTheCountOfWhatTheTraceFoundBeyondTheAppendix() {
+        let curated = AttackPaths.curate([path(["Internet", "Store"], 13)], beyond: 7)
+
+        #expect(curated.beyond == 7)
     }
 
     @Test func writesNoPrefixForASinglePath() {
-        let curated = AttackPaths.curate([path(["Internet", "GUI", "Store"], 13)])
+        let curated = AttackPaths.curate([path(["Internet", "GUI", "Store"], 13)], beyond: 0)
 
         #expect(curated.prefix.isEmpty)
         #expect(curated.paths[0].hops.count == 3)
@@ -1657,10 +1669,17 @@ Add the curation, above `hop(_:arrivedBy:threats:nameOf:)`:
 
 ```swift
     /// Turns a list of traced paths into a story: five paths, the steps they
-    /// all share stated once, and a line for everything left.
+    /// all share stated once, a line for everything left, and the count of
+    /// what the trace found beyond even that.
     public static func curate(
-        _ ordered: [ReportAttackPath]
-    ) -> (paths: [ReportAttackPath], prefix: [ReportAttackPathHop], notListed: [ReportAttackPathSummary]) {
+        _ ordered: [ReportAttackPath],
+        beyond: Int
+    ) -> (
+        paths: [ReportAttackPath],
+        prefix: [ReportAttackPathHop],
+        notListed: [ReportAttackPathSummary],
+        beyond: Int
+    ) {
         let listed = Array(ordered.prefix(narratedPaths))
         let notListed = ordered.dropFirst(narratedPaths).map {
             ReportAttackPathSummary(
@@ -1669,10 +1688,10 @@ Add the curation, above `hop(_:arrivedBy:threats:nameOf:)`:
                 worstScore: $0.worstScore
             )
         }
-        guard listed.count > 1 else { return (listed, [], Array(notListed)) }
+        guard listed.count > 1 else { return (listed, [], Array(notListed), beyond) }
 
         let prefix = sharedPrefix(of: listed)
-        guard prefix.isEmpty == false else { return (listed, [], Array(notListed)) }
+        guard prefix.isEmpty == false else { return (listed, [], Array(notListed), beyond) }
 
         let trimmed = listed.map { path in
             ReportAttackPath(
@@ -1683,7 +1702,7 @@ Add the curation, above `hop(_:arrivedBy:threats:nameOf:)`:
                 likelihoodLabel: path.likelihoodLabel
             )
         }
-        return (trimmed, prefix, Array(notListed))
+        return (trimmed, prefix, Array(notListed), beyond)
     }
 
     /// The hops every path starts with, by component name.
@@ -1736,13 +1755,22 @@ Change the return type of `build` and its last statement:
         zones: [Zone],
         threats: [ReportThreat],
         nameOf: (ComponentId) -> String
-    ) -> (paths: [ReportAttackPath], prefix: [ReportAttackPathHop], notListed: [ReportAttackPathSummary]) {
+    ) -> (
+        paths: [ReportAttackPath],
+        prefix: [ReportAttackPathHop],
+        notListed: [ReportAttackPathSummary],
+        beyond: Int
+    ) {
 ```
 
-Both early returns become `return ([], [], [])`. The final statement becomes:
+Both early returns become `return ([], [], [], 0)`. The final statement
+becomes:
 
 ```swift
-        return curate(Array(ordered.prefix(maximumPaths)))
+        return curate(
+            Array(ordered.prefix(maximumPaths)),
+            beyond: max(0, ordered.count - maximumPaths)
+        )
 ```
 
 - [ ] **Step 6: Carry the new shape on `Report`**
@@ -1755,6 +1783,8 @@ In `Report.swift`, change the type of `attackPathsNotListed` and add the prefix:
     /// The hops every listed path starts with, stated once above them. Empty
     /// when the listed paths share no first hop.
     public let attackPathPrefix: [ReportAttackPathHop]
+    /// How many paths the trace found that not even the appendix names.
+    public let attackPathsBeyondAppendix: Int
 ```
 
 In the initialiser:
@@ -1762,11 +1792,13 @@ In the initialiser:
 ```swift
         attackPathsNotListed: [ReportAttackPathSummary] = [],
         attackPathPrefix: [ReportAttackPathHop] = [],
+        attackPathsBeyondAppendix: Int = 0,
 ```
 
 ```swift
         self.attackPathsNotListed = attackPathsNotListed
         self.attackPathPrefix = attackPathPrefix
+        self.attackPathsBeyondAppendix = attackPathsBeyondAppendix
 ```
 
 In `BuildThreatModelReport.execute`, the `Report(…)` call:
@@ -1775,6 +1807,7 @@ In `BuildThreatModelReport.execute`, the `Report(…)` call:
                 attackPaths: attack.paths,
                 attackPathsNotListed: attack.notListed,
                 attackPathPrefix: attack.prefix,
+                attackPathsBeyondAppendix: attack.beyond,
 ```
 
 - [ ] **Step 7: Update the existing attack path tests**
@@ -1787,7 +1820,12 @@ helper returns a two-element tuple. Change it:
         components: [Component],
         connections: [Connection],
         threats: [ReportThreat] = []
-    ) -> (paths: [ReportAttackPath], prefix: [ReportAttackPathHop], notListed: [ReportAttackPathSummary]) {
+    ) -> (
+        paths: [ReportAttackPath],
+        prefix: [ReportAttackPathHop],
+        notListed: [ReportAttackPathSummary],
+        beyond: Int
+    ) {
         AttackPaths.build(
             components: components,
             connections: connections,
@@ -1831,7 +1869,7 @@ git commit -m "feat: the attack paths carry five stories, not twenty repeats"
 
 **Interfaces:**
 - Consumes: the curation from Task 8.
-- Produces: `MarkdownAttackPaths.lines(_ paths: [ReportAttackPath], prefix: [ReportAttackPathHop]) -> [String]` and `MarkdownAttackPaths.appendixLines(_ notListed: [ReportAttackPathSummary]) -> [String]`.
+- Produces: `MarkdownAttackPaths.lines(_ paths: [ReportAttackPath], prefix: [ReportAttackPathHop]) -> [String]` and `MarkdownAttackPaths.appendixLines(_ notListed: [ReportAttackPathSummary], beyond: Int) -> [String]`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1901,16 +1939,33 @@ struct MarkdownAttackPathsTests {
     }
 
     @Test func writesTheDroppedPathsAsAnAppendix() {
-        let text = MarkdownAttackPaths.appendixLines([
-            ReportAttackPathSummary(startName: "Internet", endName: "Queue", worstScore: 8)
-        ]).joined(separator: "\n")
+        let text = MarkdownAttackPaths.appendixLines(
+            [ReportAttackPathSummary(startName: "Internet", endName: "Queue", worstScore: 8)],
+            beyond: 0
+        ).joined(separator: "\n")
 
         #expect(text.hasPrefix("## Appendix C \u{2014} Attack paths not listed"))
         #expect(text.contains("- Internet \u{2192} Queue, worst 8"))
+        #expect(text.contains("names no further path") == false)
+    }
+
+    @Test func saysHowManyPathsNotEvenTheAppendixNames() {
+        let text = MarkdownAttackPaths.appendixLines(
+            [ReportAttackPathSummary(startName: "Internet", endName: "Queue", worstScore: 8)],
+            beyond: 7
+        ).joined(separator: "\n")
+
+        #expect(text.contains("The trace found 7 further paths this report names nowhere."))
+    }
+
+    @Test func writesTheAppendixForTheOverflowAloneWhenNothingWasListed() {
+        let text = MarkdownAttackPaths.appendixLines([], beyond: 7).joined(separator: "\n")
+
+        #expect(text.contains("The trace found 7 further paths this report names nowhere."))
     }
 
     @Test func writesNoAppendixWhenNothingWasDropped() {
-        #expect(MarkdownAttackPaths.appendixLines([]).isEmpty)
+        #expect(MarkdownAttackPaths.appendixLines([], beyond: 0).isEmpty)
     }
 }
 ```
@@ -1975,20 +2030,30 @@ public enum MarkdownAttackPaths {
         return lines
     }
 
-    /// Appendix C: one line per path the narrative did not carry.
-    public static func appendixLines(_ notListed: [ReportAttackPathSummary]) -> [String] {
-        guard notListed.isEmpty == false else { return [] }
+    /// Appendix C: one line per path the narrative did not carry, and the
+    /// count of what even this appendix does not name.
+    public static func appendixLines(
+        _ notListed: [ReportAttackPathSummary],
+        beyond: Int
+    ) -> [String] {
+        guard notListed.isEmpty == false || beyond > 0 else { return [] }
 
         var lines = ["## Appendix C \u{2014} Attack paths not listed", ""]
-        lines.append(
-            "The trace found \(notListed.count) further paths. Each one scores"
-                + " at or below the paths above."
-        )
-        lines.append("")
-        for path in notListed {
-            lines.append("- \(path.startName) \u{2192} \(path.endName), worst \(path.worstScore)")
+        if notListed.isEmpty == false {
+            lines.append(
+                "The trace found \(notListed.count) further paths. Each one scores"
+                    + " at or below the paths above."
+            )
+            lines.append("")
+            for path in notListed {
+                lines.append("- \(path.startName) \u{2192} \(path.endName), worst \(path.worstScore)")
+            }
+            lines.append("")
         }
-        lines.append("")
+        if beyond > 0 {
+            lines.append("The trace found \(beyond) further paths this report names nowhere.")
+            lines.append("")
+        }
         return lines
     }
 }
@@ -2089,8 +2154,30 @@ reads the list:
         let recommendations = recommendations.sorted { $0.riskScore > $1.riskScore }
 ```
 
-Remove any grouping by `sourceName` that reorders after this, keeping every
-field each entry prints.
+Remove `groupedBySource(_:)` and the `### <source>` subheadings, keeping every
+field each entry prints and naming the element on the risk line:
+
+```swift
+            for recommendation in recommendations {
+                lines.append("- \(recommendation.text)")
+                lines.append(
+                    "  - \(recommendation.threatName) on \(recommendation.sourceName),"
+                        + " risk \(recommendation.riskScore)"
+                )
+                if let note = recommendation.note {
+                    lines.append("  - \(note)")
+                }
+                lines += Markdown.sourceLines(recommendation.sources)
+            }
+```
+
+Change the type's doc comment with it. It says "grouped by the source that
+raised the threat, worst source first" today, and that is no longer what the
+section does. Write: "This is the most actionable page of the report, so it
+sits above the threat register and reads worst risk first, whatever raised
+it."
+
+Fix every test that asserted a `### <source>` subheading in this section.
 
 - [ ] **Step 5: Run the tests and see them pass**
 
@@ -2202,7 +2289,10 @@ Replace the section assembly in `ExportModelAsMarkdown.execute` with:
         lines += MarkdownGlossary.lines()
         lines += threatRegister(report.threats, summary: report.summary)
         lines += modelInventory(report)
-        lines += MarkdownAttackPaths.appendixLines(report.attackPathsNotListed)
+        lines += MarkdownAttackPaths.appendixLines(
+            report.attackPathsNotListed,
+            beyond: report.attackPathsBeyondAppendix
+        )
 ```
 
 Delete the `summary(_:)` method. Rename `threats(_:)` to
@@ -2476,8 +2566,9 @@ implementation in `threatmodeller/Dependencies.swift`, and its implementation
 and the `FakeReportRenderer` in
 `ThreatModelKit/Sources/TestSupport/TestDependencies.swift`.
 
-Remove the `writesTheSameModelAsAPdf` style assertions from
-`ReportingAThreatModelTests` — the PDF is no longer a package concern.
+Remove `asksTheRendererForTheSameModelAsPdf` from
+`ReportingAThreatModelTests`, and correct that suite's doc comment, which
+names "the PDF renderer" — the PDF is no longer a package concern.
 
 - [ ] **Step 7: Run every test**
 
