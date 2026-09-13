@@ -70,6 +70,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         )
         lines += MarkdownMethodology.lines(report.methodology)
         lines += MarkdownFindings.lines(report.findings, toleranceLabel: report.toleranceLabel)
+        lines += MarkdownLeverage.lines(report.actions)
         lines += MarkdownAttackPaths.lines(report.attackPaths, prefix: report.attackPathPrefix)
         lines += MarkdownProtectionDependencies.lines(
             report.protectionDependencies,
