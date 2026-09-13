@@ -84,6 +84,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             assumptions: report.assumptions,
             assumedMitigations: report.assumedMitigations
         )
+        lines += MarkdownGlossary.lines()
         lines += threats(report.threats)
 
         return ExportModelAsMarkdownResponse(
