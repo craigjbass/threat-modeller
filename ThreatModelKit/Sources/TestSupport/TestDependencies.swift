@@ -128,6 +128,14 @@ public final class TestDependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    public func setAssumption() -> SetAssumptionUseCase {
+        SetAssumption(models: models)
+    }
+
+    public func removeAssumption() -> RemoveAssumptionUseCase {
+        RemoveAssumption(models: models)
+    }
+
     public func setCompensatingControl() -> SetCompensatingControlUseCase {
         SetCompensatingControl(models: models)
     }

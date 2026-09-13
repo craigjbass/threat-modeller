@@ -129,6 +129,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    func setAssumption() -> SetAssumptionUseCase {
+        SetAssumption(models: models)
+    }
+
+    func removeAssumption() -> RemoveAssumptionUseCase {
+        RemoveAssumption(models: models)
+    }
+
     func setCompensatingControl() -> SetCompensatingControlUseCase {
         SetCompensatingControl(models: models)
     }
