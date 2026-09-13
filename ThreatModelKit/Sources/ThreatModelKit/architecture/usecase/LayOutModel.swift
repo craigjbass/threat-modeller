@@ -128,7 +128,18 @@ public struct LayOutModel: LayOutModelUseCase {
             ),
             rowWidth: Self.rowWidth
         )
-        var best = placeAndScore(request, plan: plan)
+        // Every plan is scored once. A round that changes nothing offers the
+        // same candidates again, and scoring one is the expensive part of the
+        // whole search, so the answer is kept rather than worked out twice.
+        var scored: [LayoutPlan: LayOutModelResponse] = [:]
+        func score(_ candidate: LayoutPlan) -> LayOutModelResponse {
+            if let already = scored[candidate] { return already }
+            let worked = placeAndScore(request, plan: candidate)
+            scored[candidate] = worked
+            return worked
+        }
+
+        var best = score(plan)
 
         // The list runs more than once, because one technique's gain can let
         // an earlier one improve again. A round that gains nothing ends the
@@ -141,11 +152,11 @@ public struct LayOutModel: LayOutModelUseCase {
                 var chosenScore = best.fitness.score
 
                 for candidate in technique.candidates(plan) {
-                    let scored = placeAndScore(request, plan: candidate)
-                    guard scored.fitness.score < chosenScore else { continue }
+                    let result = score(candidate)
+                    guard result.fitness.score < chosenScore else { continue }
                     chosen = candidate
-                    chosenScore = scored.fitness.score
-                    best = scored
+                    chosenScore = result.fitness.score
+                    best = result
                 }
 
                 plan = chosen

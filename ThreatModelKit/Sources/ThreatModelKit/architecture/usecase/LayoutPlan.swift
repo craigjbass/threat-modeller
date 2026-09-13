@@ -1,7 +1,7 @@
 import Foundation
 
 /// How far apart a pass puts things.
-public struct LayoutSpacing: Equatable, Sendable {
+public struct LayoutSpacing: Hashable, Sendable {
     public let columnGap: Double
     public let rowGap: Double
     public let zoneGap: Double
@@ -77,7 +77,7 @@ public enum ComponentOrder: Equatable, Sendable, CaseIterable {
 
 /// Everything a placement reads. The same plan on the same source always gives
 /// the same layout.
-public struct LayoutPlan: Equatable, Sendable {
+public struct LayoutPlan: Hashable, Sendable {
     public var spacing: LayoutSpacing
     public var rowWidth: Double
     public var loose: LoosePlacement
