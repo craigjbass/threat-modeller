@@ -93,9 +93,13 @@ public struct ReportFindingsCut: Equatable, Sendable {
             guard let level = RiskLevel(rawValue: threat.riskLevel) else { return false }
             return level.rank > tolerance.rank
         }
+        let sorted = qualifying.sorted { left, right in
+            if left.riskScore != right.riskScore { return left.riskScore > right.riskScore }
+            return left.name < right.name
+        }
         return ReportFindingsCut(
-            above: Array(qualifying.prefix(maximum)),
-            notShown: max(0, qualifying.count - maximum)
+            above: Array(sorted.prefix(maximum)),
+            notShown: max(0, sorted.count - maximum)
         )
     }
 }
