@@ -68,7 +68,16 @@ public enum ArchitectureSourceBuilder {
                         reducesRiskBy: edge.reducesRiskBy,
                         // Straight through: an edge with no status writes no
                         // line, and a file that stated one round trips it.
-                        status: edge.status?.rawValue
+                        status: edge.status?.rawValue,
+                        action: edge.action.map { action in
+                            SourceEdgeAction(
+                                label: action.label,
+                                text: action.text,
+                                note: action.note,
+                                blockedBy: action.blockedBy,
+                                sources: action.sources
+                            )
+                        }
                     )
                 },
                 // Straight through: a model with no tolerance writes no

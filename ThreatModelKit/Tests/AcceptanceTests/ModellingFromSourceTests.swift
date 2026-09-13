@@ -165,6 +165,54 @@ struct ModellingFromSourceTests {
         #expect(text.contains("status          = \"adopted\""))
     }
 
+    @Test func exportsAnAssumedEdgesRecommendationAndAnAdoptedEdgeWithNone() {
+        let withARecommendation = """
+        system "S" {
+          assumption "guard-not-deployed" {
+            text = "the guard is bought and not deployed"
+          }
+
+          component "laptop" { technology = "aws-ec2" data = "confidential" }
+          component "baseline" { technology = "actor-user" data = "internal" }
+          component "store" { technology = "aws-ec2" data = "confidential" }
+
+          mitigates baseline -> laptop {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 60
+            status          = "assumed"
+
+            recommendation "adopt-the-guard" {
+              text       = "Adopt the guard"
+              note       = "It is bought and not deployed."
+              blocked_by = "guard-not-deployed"
+              sources    = ["https://example.com/ticket/1"]
+            }
+          }
+
+          mitigates laptop -> store {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 40
+            status          = "adopted"
+          }
+        }
+        """
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: withARecommendation))
+
+        let text = app.exportArchitecture().execute(ExportArchitectureRequest()).text
+
+        #expect(text.contains("recommendation \"adopt-the-guard\" {"))
+        #expect(text.contains("text       = \"Adopt the guard\""))
+        #expect(text.contains("note       = \"It is bought and not deployed.\""))
+        #expect(text.contains("blocked_by = \"guard-not-deployed\""))
+        #expect(text.contains("sources    = [\"https://example.com/ticket/1\"]"))
+        #expect(text.contains("mitigates laptop -> store {"))
+        // The adopted edge carries no recommendation block of its own.
+        let laptopToStore = text.range(of: "mitigates laptop -> store {")!
+        let afterLaptopToStore = text[laptopToStore.upperBound...]
+        let nextBlockClose = afterLaptopToStore.range(of: "}")!
+        #expect(afterLaptopToStore[..<nextBlockClose.lowerBound].contains("recommendation") == false)
+    }
+
     @Test func exportsNoStatusNoAssumptionAndNoToleranceAtTheirDefaults() {
         let withNoAssumption = """
         system "S" {
