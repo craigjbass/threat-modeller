@@ -128,6 +128,14 @@ public final class TestDependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    public func setMitigatesEdge() -> SetMitigatesEdgeUseCase {
+        SetMitigatesEdge(models: models)
+    }
+
+    public func removeMitigatesEdge() -> RemoveMitigatesEdgeUseCase {
+        RemoveMitigatesEdge(models: models)
+    }
+
     public func setAssumption() -> SetAssumptionUseCase {
         SetAssumption(models: models)
     }

@@ -129,6 +129,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    func setMitigatesEdge() -> SetMitigatesEdgeUseCase {
+        SetMitigatesEdge(models: models)
+    }
+
+    func removeMitigatesEdge() -> RemoveMitigatesEdgeUseCase {
+        RemoveMitigatesEdge(models: models)
+    }
+
     func setAssumption() -> SetAssumptionUseCase {
         SetAssumption(models: models)
     }
