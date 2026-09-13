@@ -237,10 +237,6 @@ public final class TestDependencies: UseCaseFactory {
         LoadSampleModel(models: models, samples: samples, files: files)
     }
 
-    public func exportModelAsPdf() -> ExportModelAsPdfUseCase {
-        ExportModelAsPdf(reports: buildThreatModelReport(), renderer: FakeReportRenderer())
-    }
-
     public func exportModelAsImage() -> ExportModelAsImageUseCase {
         ExportModelAsImage(models: models)
     }

@@ -610,15 +610,18 @@ final class ThreatModelSession {
         return (Data(response.hcl.utf8), response.fileName)
     }
 
-    /// Returns nil when the renderer could not draw, and says so in
-    /// `errorMessage`.
-    func pdfExport() -> (data: Data, fileName: String)? {
-        switch useCases.exportModelAsPdf().execute(ExportModelAsPdfRequest()) {
-        case .exported(let bytes, let fileName):
+    /// The report page, printed. Returns nil when the page could not print,
+    /// and says so in `errorMessage`.
+    func pdfExport() async -> (data: Data, fileName: String)? {
+        let page = htmlExport()
+        do {
+            let data = try await HtmlPdfPrinter().pdf(
+                fromHtml: String(decoding: page.data, as: UTF8.self)
+            )
             errorMessage = nil
-            return (Data(bytes), fileName)
-        case .cannotRender(let reason):
-            errorMessage = "The report could not be drawn: \(reason)"
+            return (data, page.fileName.replacingOccurrences(of: ".html", with: ".pdf"))
+        } catch {
+            errorMessage = "The report could not be printed: \(String(describing: error))"
             return nil
         }
     }

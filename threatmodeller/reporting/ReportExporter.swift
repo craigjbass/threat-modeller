@@ -42,8 +42,8 @@ struct ReportExporter {
     var chooseFile: @MainActor (_ suggestedName: String, _ contentType: UTType) -> URL?
         = ReportExporter.savePanel
 
-    func export(_ kind: Kind) {
-        guard let export = data(for: kind) else { return }
+    func export(_ kind: Kind) async {
+        guard let export = await data(for: kind) else { return }
         guard let url = chooseFile(export.fileName, kind.contentType) else { return }
 
         do {
@@ -54,7 +54,7 @@ struct ReportExporter {
     }
 
     /// The bytes and the name, or nil when the report could not be produced.
-    func data(for kind: Kind) -> (data: Data, fileName: String)? {
+    func data(for kind: Kind) async -> (data: Data, fileName: String)? {
         switch kind {
         case .markdown:
             session.markdownExport()
@@ -63,7 +63,7 @@ struct ReportExporter {
         case .threatcl:
             session.threatclExport()
         case .pdf:
-            session.pdfExport()
+            await session.pdfExport()
         case .image:
             image()
         }

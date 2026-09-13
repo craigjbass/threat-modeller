@@ -229,10 +229,6 @@ nonisolated final class Dependencies: UseCaseFactory {
         LoadSampleModel(models: models, samples: samples, files: files)
     }
 
-    func exportModelAsPdf() -> ExportModelAsPdfUseCase {
-        ExportModelAsPdf(reports: buildThreatModelReport(), renderer: PDFReportRenderer())
-    }
-
     func exportModelAsImage() -> ExportModelAsImageUseCase {
         ExportModelAsImage(models: models)
     }

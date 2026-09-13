@@ -4,8 +4,7 @@ import TestSupport
 
 /// Given a threat model with components, a link and a zone
 /// When I export it
-/// Then Markdown, threatcl, the PDF renderer and the picture all say the same
-/// thing about it
+/// Then Markdown, threatcl and the picture all say the same thing about it
 struct ReportingAThreatModelTests {
     private let app = TestDependencies()
 
@@ -68,19 +67,6 @@ struct ReportingAThreatModelTests {
         #expect(threatcl.hcl.contains("  information_asset \"RDS\" {"))
         #expect(threatcl.hcl.contains("EC2 sends data to RDS"))
         #expect(threatcl.hcl.contains("  threat {"))
-    }
-
-    @Test func asksTheRendererForTheSameModelAsPdf() {
-        _ = aModelWorthReporting()
-
-        let response = app.exportModelAsPdf().execute(ExportModelAsPdfRequest())
-
-        guard case .exported(let bytes, let fileName) = response else {
-            Issue.record("expected .exported, got \(response)")
-            return
-        }
-        #expect(fileName == "Payments.pdf")
-        #expect(bytes.isEmpty == false)
     }
 
     @Test func saysWhatThePictureShouldDraw() {

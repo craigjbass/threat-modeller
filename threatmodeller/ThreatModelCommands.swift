@@ -62,7 +62,7 @@ struct ThreatModelCommands: Commands {
             ForEach(ReportExporter.Kind.allCases, id: \.rawValue) { kind in
                 Button(kind.menuTitle) {
                     guard let session else { return }
-                    ReportExporter(session: session).export(kind)
+                    Task { await ReportExporter(session: session).export(kind) }
                 }
                 .disabled(session == nil)
                 .accessibilityIdentifier("export-\(kind.rawValue)")

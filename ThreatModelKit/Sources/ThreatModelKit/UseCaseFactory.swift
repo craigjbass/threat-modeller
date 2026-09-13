@@ -23,7 +23,6 @@ public protocol UseCaseFactory {
     func exportModelAsHtml() -> ExportModelAsHtmlUseCase
     func exportModelAsThreatcl() -> ExportModelAsThreatclUseCase
     func exportModelAsImage() -> ExportModelAsImageUseCase
-    func exportModelAsPdf() -> ExportModelAsPdfUseCase
     func setComponentProperties() -> SetComponentPropertiesUseCase
     func layOutModel() -> LayOutModelUseCase
     func importArchitecture() -> ImportArchitectureUseCase
