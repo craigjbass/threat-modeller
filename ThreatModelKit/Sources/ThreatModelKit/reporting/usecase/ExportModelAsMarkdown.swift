@@ -60,7 +60,6 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             report.executiveSummary,
             components: report.components
         )
-        lines += summary(report.summary)
         lines += MarkdownRollups.lines(
             report.rollups,
             showsAssumed: report.assumedMitigations.isEmpty == false
@@ -71,9 +70,6 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         )
         lines += MarkdownMethodology.lines(report.methodology)
         lines += MarkdownFindings.lines(report.findings, toleranceLabel: report.toleranceLabel)
-        lines += components(report.components)
-        lines += connections(report.connections)
-        lines += zones(report.zones)
         lines += MarkdownAttackPaths.lines(report.attackPaths, prefix: report.attackPathPrefix)
         lines += MarkdownProtectionDependencies.lines(
             report.protectionDependencies,
@@ -85,7 +81,12 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             assumedMitigations: report.assumedMitigations
         )
         lines += MarkdownGlossary.lines()
-        lines += threats(report.threats)
+        lines += threatRegister(report.threats, summary: report.summary)
+        lines += modelInventory(report)
+        lines += MarkdownAttackPaths.appendixLines(
+            report.attackPathsNotListed,
+            beyond: report.attackPathsBeyondAppendix
+        )
 
         return ExportModelAsMarkdownResponse(
             markdown: lines.joined(separator: "\n"),
@@ -93,8 +94,12 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         )
     }
 
-    private func summary(_ summary: ReportSummary) -> [String] {
-        var lines = ["## Summary", ""]
+    /// Appendix A: every threat the model raises, in full.
+    ///
+    /// The control counts the summary bullets used to write open this
+    /// appendix, so no number the report published is lost.
+    private func threatRegister(_ threats: [ReportThreat], summary: ReportSummary) -> [String] {
+        var lines = ["## Appendix A \u{2014} Full threat register", ""]
         lines.append("- Threats: \(summary.totalThreats)")
         lines.append("- Controls recorded: \(summary.controlsRecorded) of \(summary.controlsOffered)")
         for status in summary.byControlStatus {
@@ -104,11 +109,26 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             lines.append("- \(level.label): \(level.count)")
         }
         lines.append("")
+
+        guard threats.isEmpty == false else {
+            return lines + ["None.", ""]
+        }
+        for threat in threats {
+            lines += MarkdownThreatStanza.lines(threat)
+        }
         return lines
     }
 
+    /// Appendix B: what the model holds.
+    private func modelInventory(_ report: Report) -> [String] {
+        ["## Appendix B \u{2014} Model inventory", ""]
+            + components(report.components)
+            + connections(report.connections)
+            + zones(report.zones)
+    }
+
     private func components(_ components: [ReportComponent]) -> [String] {
-        var lines = ["## Components", ""]
+        var lines = ["### Components", ""]
         guard components.isEmpty == false else {
             return lines + ["None.", ""]
         }
@@ -130,7 +150,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
     }
 
     private func connections(_ connections: [ReportConnection]) -> [String] {
-        var lines = ["## Connections", ""]
+        var lines = ["### Connections", ""]
         guard connections.isEmpty == false else {
             return lines + ["None.", ""]
         }
@@ -146,12 +166,12 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
     }
 
     private func zones(_ zones: [ReportZone]) -> [String] {
-        var lines = ["## Zones", ""]
+        var lines = ["### Zones", ""]
         guard zones.isEmpty == false else {
             return lines + ["None.", ""]
         }
         for zone in zones {
-            lines.append("### \(zone.name)")
+            lines.append("#### \(zone.name)")
             lines.append("")
             lines.append("- Network zone: \(zone.networkZoneLabel)")
             lines.append("- Network type: \(zone.networkTypeLabel)")
@@ -164,17 +184,6 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
                     + (zone.componentNames.isEmpty ? "nothing" : zone.componentNames.joined(separator: ", "))
             )
             lines.append("")
-        }
-        return lines
-    }
-
-    private func threats(_ threats: [ReportThreat]) -> [String] {
-        var lines = ["## Threats", ""]
-        guard threats.isEmpty == false else {
-            return lines + ["None.", ""]
-        }
-        for threat in threats {
-            lines += MarkdownThreatStanza.lines(threat)
         }
         return lines
     }

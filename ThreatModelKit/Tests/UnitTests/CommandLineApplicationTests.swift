@@ -322,7 +322,7 @@ struct CommandLineApplicationTests {
         )
         let written = try #require(project.text(at: "/work/threatmodel/payments.md"))
         #expect(written.hasPrefix("# Payments\n"))
-        #expect(written.contains("## Threats"))
+        #expect(written.contains("## Appendix A \u{2014} Full threat register"))
     }
 
     @Test func writesTheReportWhereItWasTold() throws {

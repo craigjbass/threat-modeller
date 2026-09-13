@@ -183,10 +183,22 @@ struct MarkdownExportTests {
     @Test func saysSoWhenThereIsNothingToSay() {
         let markdown = markdown()
 
-        #expect(markdown.contains("## Components\n\nNone."))
-        #expect(markdown.contains("## Connections\n\nNone."))
-        #expect(markdown.contains("## Zones\n\nNone."))
-        #expect(markdown.contains("## Threats\n\nNone."))
+        #expect(markdown.contains("### Components\n\nNone."))
+        #expect(markdown.contains("### Connections\n\nNone."))
+        #expect(markdown.contains("### Zones\n\nNone."))
+        let emptyRegister = [
+            "## Appendix A \u{2014} Full threat register",
+            "",
+            "- Threats: 0",
+            "- Controls recorded: 0 of 0",
+            "- Critical: 0",
+            "- High: 0",
+            "- Medium: 0",
+            "- Low: 0",
+            "",
+            "None."
+        ].joined(separator: "\n")
+        #expect(markdown.contains(emptyRegister))
     }
 
     @Test func writesTheComponentsAsATable() {
@@ -355,14 +367,14 @@ struct MarkdownExportTests {
         #expect(markdown.contains("- Controls not implemented: "))
     }
 
-    @Test func countsTheThreatsInTheSummary() {
+    @Test func countsTheThreatsInTheAppendix() {
         _ = app.addComponent().execute(
             AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "internal")
         )
 
         let markdown = markdown()
 
-        #expect(markdown.contains("## Summary"))
+        #expect(markdown.contains("## Appendix A \u{2014} Full threat register"))
         #expect(markdown.contains("- Threats: "))
         #expect(markdown.contains("- Controls recorded: 0 of "))
     }

@@ -49,12 +49,12 @@ struct ReportingAThreatModelTests {
 
         #expect(markdown.fileName == "Payments.md")
         #expect(markdown.markdown.hasPrefix("# Payments\n"))
-        #expect(markdown.markdown.contains("## Components"))
+        #expect(markdown.markdown.contains("### Components"))
         #expect(markdown.markdown.contains("| EC2 | aws-ec2 | Restricted |"))
         #expect(markdown.markdown.contains("EC2 \u{2192} RDS"))
-        #expect(markdown.markdown.contains("## Zones"))
+        #expect(markdown.markdown.contains("### Zones"))
         #expect(markdown.markdown.contains("- Holds: EC2, RDS"))
-        #expect(markdown.markdown.contains("## Threats"))
+        #expect(markdown.markdown.contains("## Appendix A \u{2014} Full threat register"))
     }
 
     @Test func writesTheSameModelAsThreatcl() {
@@ -94,6 +94,54 @@ struct ReportingAThreatModelTests {
         // with a margin on each side.
         #expect(area.x == -140)
         #expect(area.width == 900 + 80)
+    }
+
+    @Test func writesTheSectionsInTheOrderAReaderNeedsThem() throws {
+        let (source, _) = aModelWorthReporting()
+        // Recommendations write no heading with nothing to recommend, so this
+        // check on the order needs one recommendation on the books.
+        let threat = try #require(
+            app.assessThreatModel().execute(AssessThreatModelRequest()).threats.first
+        )
+        app.modelStore.mutate { model in
+            model.recommendations[
+                ThreatKey(threatId: threat.threatId, sourceId: "component:\(source)")
+            ] = [Recommendation(text: "Rotate the credential on a schedule.")]
+        }
+
+        let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
+
+        let order = [
+            "## Executive summary",
+            "## Methodology",
+            "### Diagram legend",
+            "## Findings",
+            "## Attack paths",
+            "## Recommendations",
+            "## Glossary",
+            "## Appendix A \u{2014} Full threat register",
+            "## Appendix B \u{2014} Model inventory"
+        ]
+        var last = markdown.startIndex
+        for heading in order {
+            let found = try #require(
+                markdown.range(of: heading, range: last..<markdown.endIndex),
+                "the report has no \(heading) after the section before it"
+            )
+            last = found.upperBound
+        }
+    }
+
+    @Test func writesNoSummaryBulletsAndKeepsTheControlCounts() {
+        _ = aModelWorthReporting()
+
+        let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
+
+        #expect(markdown.contains("## Summary") == false)
+        #expect(markdown.contains("- Controls recorded: "))
+        #expect(markdown.contains("### Components"))
+        #expect(markdown.contains("### Connections"))
+        #expect(markdown.contains("### Zones"))
     }
 
     @Test func saysTheSameThingAfterTheFileIsSavedAndOpenedAgain() throws {

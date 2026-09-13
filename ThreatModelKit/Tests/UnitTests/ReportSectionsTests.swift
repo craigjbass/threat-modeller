@@ -17,13 +17,15 @@ struct ReportSectionsTests {
         #expect(report.rollups.topResidual.isEmpty)
     }
 
-    @Test func theMarkdownStillEndsWithTheThreats() {
+    @Test func theMarkdownEndsWithTheAppendices() {
         let markdown = ExportModelAsMarkdown(
             reports: BuildThreatModelReport(
                 models: InMemoryThreatModelGateway(ThreatModel()),
                 catalogue: CatalogueFixture.catalogue()
             )
         ).execute(ExportModelAsMarkdownRequest()).markdown
-        #expect(markdown.contains("## Threats"))
+        #expect(markdown.contains("## Appendix A \u{2014} Full threat register"))
+        #expect(markdown.contains("## Appendix B \u{2014} Model inventory"))
+        #expect(markdown.hasSuffix("### Zones\n\nNone.\n"))
     }
 }
