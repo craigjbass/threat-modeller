@@ -77,6 +77,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             )
         }
 
+        let tolerance = model.effectiveRiskTolerance
+
         let zones = model.zones.map { zone in
             let held = model.components.filter { zoneByComponent[$0.id] ?? nil == zone }
             return ReportZone(
@@ -169,7 +171,9 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 attackPathsNotListed: attack.notListed,
                 rollups: ReportRollups.build(threats: threats, zones: zones),
                 assumptions: assumptions,
-                assumedMitigations: assumedMitigations
+                assumedMitigations: assumedMitigations,
+                findings: ReportFindingsCut.build(from: threats, tolerance: tolerance),
+                toleranceLabel: tolerance.label
             )
         )
     }

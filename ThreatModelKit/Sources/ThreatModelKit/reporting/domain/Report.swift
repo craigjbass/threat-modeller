@@ -26,6 +26,10 @@ public struct Report: Equatable, Sendable {
     /// form. An edge names no assumption, so this travels beside
     /// `assumptions` rather than nested inside one.
     public let assumedMitigations: [ReportAssumedMitigation]
+    /// The threats a reader must act on, and how many more qualified.
+    public let findings: ReportFindingsCut
+    /// The risk level the project accepts, for the reader.
+    public let toleranceLabel: String
 
     public init(
         modelName: String,
@@ -41,7 +45,9 @@ public struct Report: Equatable, Sendable {
         attackPathsNotListed: Int = 0,
         rollups: ReportRollupTables = .empty,
         assumptions: [ReportAssumption] = [],
-        assumedMitigations: [ReportAssumedMitigation] = []
+        assumedMitigations: [ReportAssumedMitigation] = [],
+        findings: ReportFindingsCut = ReportFindingsCut(),
+        toleranceLabel: String = RiskLevel.low.label
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -57,6 +63,40 @@ public struct Report: Equatable, Sendable {
         self.rollups = rollups
         self.assumptions = assumptions
         self.assumedMitigations = assumedMitigations
+        self.findings = findings
+        self.toleranceLabel = toleranceLabel
+    }
+}
+
+/// The threats a findings section shows, and how many more qualified.
+///
+/// A model whose tolerance is `low` raises nearly every threat above it, so
+/// the cut is bounded. The overflow count is stated, because a silent
+/// truncation reads as full coverage.
+public struct ReportFindingsCut: Equatable, Sendable {
+    /// The threats above the project's tolerance, worst first.
+    public let above: [ReportThreat]
+    /// How many more qualified and did not fit.
+    public let notShown: Int
+
+    public init(above: [ReportThreat] = [], notShown: Int = 0) {
+        self.above = above
+        self.notShown = notShown
+    }
+
+    /// The most a findings section shows.
+    public static let maximum = 25
+
+    /// Every threat ranking above the tolerance, worst first, capped.
+    public static func build(from threats: [ReportThreat], tolerance: RiskLevel) -> ReportFindingsCut {
+        let qualifying = threats.filter { threat in
+            guard let level = RiskLevel(rawValue: threat.riskLevel) else { return false }
+            return level.rank > tolerance.rank
+        }
+        return ReportFindingsCut(
+            above: Array(qualifying.prefix(maximum)),
+            notShown: max(0, qualifying.count - maximum)
+        )
     }
 }
 
