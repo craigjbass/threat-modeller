@@ -7,6 +7,10 @@ public struct ReportRecommendation: Equatable, Sendable {
     public let riskScore: Int
     /// Where the recommendation comes from. Empty when a person names none.
     public let sources: [String]
+    /// The threat this answers, and what raised it. A name is not unique, so
+    /// anything matching a recommendation to a threat matches on these.
+    public let threatId: String
+    public let sourceId: String
 
     public init(
         text: String,
@@ -14,7 +18,9 @@ public struct ReportRecommendation: Equatable, Sendable {
         threatName: String,
         sourceName: String,
         riskScore: Int,
-        sources: [String] = []
+        sources: [String] = [],
+        threatId: String = "",
+        sourceId: String = ""
     ) {
         self.text = text
         self.note = note
@@ -22,6 +28,18 @@ public struct ReportRecommendation: Equatable, Sendable {
         self.sourceName = sourceName
         self.riskScore = riskScore
         self.sources = sources
+        self.threatId = threatId
+        self.sourceId = sourceId
+    }
+
+    /// Identifies the threat a recommendation answers, the way a report keys
+    /// a threat to its source.
+    public static func key(threatId: String, sourceId: String) -> String {
+        "\(threatId)@\(sourceId)"
+    }
+
+    public var threatKey: String {
+        Self.key(threatId: threatId, sourceId: sourceId)
     }
 }
 

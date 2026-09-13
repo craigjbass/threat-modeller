@@ -133,6 +133,14 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     /// How many threats hold no answered control and no compensating control.
     public let unansweredCount: Int
     public let totalThreats: Int
+    /// The threats in `topRisks` that no recommendation names, keyed the way
+    /// `ReportRecommendation.key` keys them.
+    ///
+    /// A recommendation is ranked by the score of the threat it is written
+    /// against, so the worst risk in a model can carry none and never be
+    /// named among the actions. The summary states that rather than leaving
+    /// the reader to notice it.
+    public let topRisksWithNoAction: Set<String>
 
     public init(
         verdict: String = "",
@@ -140,7 +148,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         topRisks: [ReportThreat] = [],
         topActions: [ReportRecommendation] = [],
         unansweredCount: Int = 0,
-        totalThreats: Int = 0
+        totalThreats: Int = 0,
+        topRisksWithNoAction: Set<String> = []
     ) {
         self.verdict = verdict
         self.toleranceLabel = toleranceLabel
@@ -148,6 +157,7 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         self.topActions = topActions
         self.unansweredCount = unansweredCount
         self.totalThreats = totalThreats
+        self.topRisksWithNoAction = topRisksWithNoAction
     }
 
     /// How many of each the summary names.
@@ -178,11 +188,13 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         }
 
         let sorted = threats.sorted(by: ReportThreat.worstFirst)
+        let topRisks = Array(sorted.prefix(topCount))
+        let answered = Set(recommendations.map(\.threatKey))
 
         return ReportExecutiveSummary(
             verdict: verdict,
             toleranceLabel: tolerance.label,
-            topRisks: Array(sorted.prefix(topCount)),
+            topRisks: topRisks,
             // Worst first, and ties broken by text, the way
             // `RecommendationsReport.build` breaks them. Sorting by score
             // alone reorders two recommendations that answer threats of one
@@ -196,7 +208,12 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
                     .prefix(topCount)
             ),
             unansweredCount: threats.filter { isUnanswered($0) }.count,
-            totalThreats: threats.count
+            totalThreats: threats.count,
+            topRisksWithNoAction: Set(
+                topRisks
+                    .map { ReportRecommendation.key(threatId: $0.threatId, sourceId: $0.sourceId) }
+                    .filter { answered.contains($0) == false }
+            )
         )
     }
 

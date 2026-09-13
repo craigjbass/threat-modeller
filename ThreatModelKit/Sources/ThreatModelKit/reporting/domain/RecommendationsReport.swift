@@ -20,7 +20,9 @@ public enum RecommendationsReport {
                         threatName: threat.name,
                         sourceName: threat.sourceName,
                         riskScore: threat.riskScore,
-                        sources: recommendation.sources
+                        sources: recommendation.sources,
+                        threatId: threat.threatId,
+                        sourceId: threat.sourceId
                     )
                 )
             }

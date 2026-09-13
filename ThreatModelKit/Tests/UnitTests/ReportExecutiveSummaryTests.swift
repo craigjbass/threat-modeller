@@ -175,4 +175,56 @@ struct ReportExecutiveSummaryTests {
 
         #expect(summary.topActions.map { $0.text } == ["alpha", "middle", "omitted"])
     }
+
+    @Test func namesATopRiskThatNoRecommendationAnswers() {
+        let worst = threat("unanswered", 13, "critical")
+        let lesser = threat("answered", 9, "high")
+
+        let summary = ReportExecutiveSummary.build(
+            threats: [worst, lesser],
+            recommendations: [
+                ReportRecommendation(
+                    text: "do the lesser thing",
+                    note: nil,
+                    threatName: lesser.name,
+                    sourceName: lesser.sourceName,
+                    riskScore: 9,
+                    threatId: lesser.threatId,
+                    sourceId: lesser.sourceId
+                )
+            ],
+            tolerance: .low,
+            findings: ReportFindingsCut()
+        )
+
+        // The worst risk carries no recommendation, so no action names it and
+        // the reader is told rather than left to notice.
+        #expect(
+            summary.topRisksWithNoAction
+                == [ReportRecommendation.key(threatId: worst.threatId, sourceId: worst.sourceId)]
+        )
+    }
+
+    @Test func namesNoGapWhenEveryTopRiskHasARecommendation() {
+        let only = threat("answered", 13, "critical")
+
+        let summary = ReportExecutiveSummary.build(
+            threats: [only],
+            recommendations: [
+                ReportRecommendation(
+                    text: "do it",
+                    note: nil,
+                    threatName: only.name,
+                    sourceName: only.sourceName,
+                    riskScore: 13,
+                    threatId: only.threatId,
+                    sourceId: only.sourceId
+                )
+            ],
+            tolerance: .low,
+            findings: ReportFindingsCut()
+        )
+
+        #expect(summary.topRisksWithNoAction.isEmpty)
+    }
 }

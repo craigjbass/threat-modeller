@@ -88,4 +88,29 @@ struct MarkdownExecutiveSummaryTests {
         #expect(text.contains("1. t \u{2014} Nowhere \u{2014} High (9 of 16)."))
         #expect(text.contains("The element holds") == false)
     }
+
+    @Test func saysWhenATopRiskHasNoRecommendation() {
+        let worst = threat("Credential theft", 13, "critical", on: "Build pipeline")
+        let summary = ReportExecutiveSummary(
+            verdict: "v",
+            topRisks: [worst],
+            totalThreats: 1,
+            topRisksWithNoAction: [
+                ReportRecommendation.key(threatId: worst.threatId, sourceId: worst.sourceId)
+            ]
+        )
+
+        let text = MarkdownExecutiveSummary.lines(summary, components: []).joined(separator: "\n")
+
+        #expect(text.contains("No recommendation names this threat, so none is listed below."))
+    }
+
+    @Test func staysQuietWhenATopRiskHasOne() {
+        let worst = threat("Credential theft", 13, "critical", on: "Build pipeline")
+        let summary = ReportExecutiveSummary(verdict: "v", topRisks: [worst], totalThreats: 1)
+
+        let text = MarkdownExecutiveSummary.lines(summary, components: []).joined(separator: "\n")
+
+        #expect(text.contains("No recommendation names this threat") == false)
+    }
 }

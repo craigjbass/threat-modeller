@@ -26,6 +26,13 @@ public enum MarkdownExecutiveSummary {
                             + " and runs as \(element.privilegeLabel)."
                     )
                 }
+                let key = ReportRecommendation.key(
+                    threatId: threat.threatId,
+                    sourceId: threat.sourceId
+                )
+                if summary.topRisksWithNoAction.contains(key) {
+                    lines.append("   No recommendation names this threat, so none is listed below.")
+                }
             }
             lines.append("")
         }
