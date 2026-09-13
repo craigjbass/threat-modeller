@@ -170,3 +170,25 @@ Wait three seconds, then render.
 
 **Prevention.** Run `pkill -x threatmodeller` after every `RunAllTests` or
 `RunSomeTests`, before the next preview or snippet.
+
+## Measuring what a layout costs
+
+`LayOutModel` is the slow part of opening a model. Measure it in the package,
+in a release build, because a debug build is about seventeen times slower and
+weights the parts differently: the change that took a release layout from
+0.069 s to 0.051 s moved a debug one only from 0.861 s to 0.824 s.
+
+Write a probe under `ThreatModelKit/Tests/UnitTests/`, build a `.arch` source
+in it, read it with `HclArchitectureSource`, and time
+`LayOutModel().execute(LayOutModelRequest(source:))`. Twelve components and
+eleven flows is enough to compare one build against another and runs in
+seconds. Remove the probe afterwards; a printed timing on every test run is
+noise.
+
+```
+cd ThreatModelKit && swift test -c release --filter <the probe>
+```
+
+The first release build takes about three minutes. Do not measure this through
+Xcode's `RunCodeSnippet`: it launches the whole application, and one attempt
+ran seven minutes and printed nothing.
