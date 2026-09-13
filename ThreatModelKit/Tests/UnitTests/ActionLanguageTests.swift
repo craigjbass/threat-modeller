@@ -1,6 +1,7 @@
 import Testing
 @testable import ArchitectureDSL
 import ThreatModelKit
+import TestSupport
 
 struct ActionLanguageTests {
     private func read(_ text: String) -> ArchitectureRead {
@@ -262,5 +263,16 @@ struct ActionLanguageTests {
         """).source)
 
         #expect(ArchitectureWriter.text(of: source).contains("recommendation") == false)
+    }
+
+    @Test func theImportedModelCarriesTheAction() throws {
+        let app = TestDependencies()
+
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: system))
+
+        let edge = try #require(app.modelStore.current().mitigatesEdges.first)
+        #expect(edge.action?.label == "adopt-the-guard")
+        #expect(edge.action?.text == "Adopt the guard")
+        #expect(edge.action?.blockedBy == "guard-not-deployed")
     }
 }

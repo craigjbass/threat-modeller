@@ -150,7 +150,16 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 target: ComponentId(edge.targetId),
                 threatIds: edge.threatIds.map(ThreatId.init),
                 reducesRiskBy: edge.reducesRiskBy,
-                status: status
+                status: status,
+                action: edge.action.map {
+                    EdgeAction(
+                        label: $0.label,
+                        text: $0.text,
+                        note: $0.note,
+                        blockedBy: $0.blockedBy,
+                        sources: $0.sources
+                    )
+                }
             )
         }
         model.assumptions = source.assumptions.map {
