@@ -123,6 +123,11 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             )
         }
 
+        let recommendations = RecommendationsReport.build(
+            threats: threats,
+            recommendations: model.recommendations
+        )
+
         return BuildThreatModelReportResponse(
             report: Report(
                 modelName: model.name,
@@ -157,10 +162,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 },
                 zones: zones,
                 threats: threats,
-                recommendations: RecommendationsReport.build(
-                    threats: threats,
-                    recommendations: model.recommendations
-                ),
+                recommendations: recommendations,
                 protectionDependencies: ProtectionDependenciesReport.build(
                     assessment.protectionDependencies,
                     threats: threats,
@@ -173,7 +175,12 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 assumptions: assumptions,
                 assumedMitigations: assumedMitigations,
                 findings: ReportFindingsCut.build(from: threats, tolerance: tolerance),
-                toleranceLabel: tolerance.label
+                toleranceLabel: tolerance.label,
+                executiveSummary: ReportExecutiveSummary.build(
+                    threats: threats,
+                    recommendations: recommendations,
+                    tolerance: tolerance
+                )
             )
         )
     }

@@ -30,6 +30,8 @@ public struct Report: Equatable, Sendable {
     public let findings: ReportFindingsCut
     /// The risk level the project accepts, for the reader.
     public let toleranceLabel: String
+    /// The one page a reader reads first.
+    public let executiveSummary: ReportExecutiveSummary
 
     public init(
         modelName: String,
@@ -47,7 +49,8 @@ public struct Report: Equatable, Sendable {
         assumptions: [ReportAssumption] = [],
         assumedMitigations: [ReportAssumedMitigation] = [],
         findings: ReportFindingsCut = ReportFindingsCut(),
-        toleranceLabel: String = RiskLevel.low.label
+        toleranceLabel: String = RiskLevel.low.label,
+        executiveSummary: ReportExecutiveSummary = ReportExecutiveSummary()
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -65,6 +68,7 @@ public struct Report: Equatable, Sendable {
         self.assumedMitigations = assumedMitigations
         self.findings = findings
         self.toleranceLabel = toleranceLabel
+        self.executiveSummary = executiveSummary
     }
 }
 
@@ -101,6 +105,87 @@ public struct ReportFindingsCut: Equatable, Sendable {
             above: Array(sorted.prefix(maximum)),
             notShown: max(0, sorted.count - maximum)
         )
+    }
+}
+
+/// What a reader who reads one page reads.
+///
+/// The sentences here are the one place the report writes as a consultancy
+/// deliverable rather than in the tool's plain register.
+public struct ReportExecutiveSummary: Equatable, Sendable {
+    /// One sentence on the posture, against the project's own tolerance.
+    public let verdict: String
+    public let toleranceLabel: String
+    /// The three worst threats by residual score.
+    public let topRisks: [ReportThreat]
+    /// The three recommendations answering the worst threats.
+    public let topActions: [ReportRecommendation]
+    /// How many threats hold no answered control and no compensating control.
+    public let unansweredCount: Int
+    public let totalThreats: Int
+
+    public init(
+        verdict: String = "",
+        toleranceLabel: String = RiskLevel.low.label,
+        topRisks: [ReportThreat] = [],
+        topActions: [ReportRecommendation] = [],
+        unansweredCount: Int = 0,
+        totalThreats: Int = 0
+    ) {
+        self.verdict = verdict
+        self.toleranceLabel = toleranceLabel
+        self.topRisks = topRisks
+        self.topActions = topActions
+        self.unansweredCount = unansweredCount
+        self.totalThreats = totalThreats
+    }
+
+    /// How many of each the summary names.
+    public static let topCount = 3
+
+    public static func build(
+        threats: [ReportThreat],
+        recommendations: [ReportRecommendation],
+        tolerance: RiskLevel
+    ) -> ReportExecutiveSummary {
+        let cut = ReportFindingsCut.build(from: threats, tolerance: tolerance)
+        let above = cut.above.count + cut.notShown
+        let word = tolerance.label.lowercased()
+
+        let verdict: String
+        switch above {
+        case 0:
+            verdict = "No residual exposure exceeds the project's \(word) risk tolerance."
+        case 1:
+            verdict = "The assessment identifies a single residual exposure above"
+                + " the project's \(word) risk tolerance."
+        default:
+            verdict = "The assessment identifies \(above) residual exposures above"
+                + " the project's \(word) risk tolerance."
+        }
+
+        let sorted = threats.sorted { left, right in
+            if left.riskScore != right.riskScore { return left.riskScore > right.riskScore }
+            return left.name < right.name
+        }
+
+        return ReportExecutiveSummary(
+            verdict: verdict,
+            toleranceLabel: tolerance.label,
+            topRisks: Array(sorted.prefix(topCount)),
+            topActions: Array(
+                recommendations.sorted { $0.riskScore > $1.riskScore }.prefix(topCount)
+            ),
+            unansweredCount: threats.filter { isUnanswered($0) }.count,
+            totalThreats: threats.count
+        )
+    }
+
+    /// A threat nobody has answered: no control carries an answer, and no
+    /// compensating control stands.
+    private static func isUnanswered(_ threat: ReportThreat) -> Bool {
+        guard threat.compensating.isEmpty else { return false }
+        return threat.controls.contains { $0.statusLabel != "Not implemented" } == false
     }
 }
 
