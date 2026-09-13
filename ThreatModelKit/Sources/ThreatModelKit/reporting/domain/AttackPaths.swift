@@ -7,7 +7,9 @@
 public enum AttackPaths {
     /// A path longer than this is a story nobody reads.
     public static let maximumHops = 6
-    /// The report lists this many, worst first, and states what it dropped.
+    /// The narrative carries this many, worst first, and states what it left.
+    public static let narratedPaths = 5
+    /// The trace keeps this many before it curates them.
     public static let maximumPaths = 20
 
     public static func build(
@@ -16,8 +18,13 @@ public enum AttackPaths {
         zones: [Zone],
         threats: [ReportThreat],
         nameOf: (ComponentId) -> String
-    ) -> (paths: [ReportAttackPath], notListed: Int) {
-        guard components.isEmpty == false else { return ([], 0) }
+    ) -> (
+        paths: [ReportAttackPath],
+        prefix: [ReportAttackPathHop],
+        notListed: [ReportAttackPathSummary],
+        beyond: Int
+    ) {
+        guard components.isEmpty == false else { return ([], [], [], 0) }
 
         var forward: [ComponentId: [Connection]] = [:]
         var hasInbound: Set<ComponentId> = []
@@ -36,7 +43,7 @@ public enum AttackPaths {
                 .filter { $0.effectiveSensitivity == .confidential || $0.effectiveSensitivity == .restricted }
                 .map(\.id)
         )
-        guard ends.isEmpty == false else { return ([], 0) }
+        guard ends.isEmpty == false else { return ([], [], [], 0) }
 
         var found: [ReportAttackPath] = []
 
@@ -55,12 +62,18 @@ public enum AttackPaths {
             let path = hops + [hop]
 
             if ends.contains(component) && path.count > 1 {
+                let worstScore = path.map(\.riskScore).max() ?? 0
+                let worstHop = path.first { $0.riskScore == worstScore }
+                let likelihood = threats
+                    .first { $0.name == worstHop?.worstThreatName }?
+                    .likelihoodLabel ?? ""
                 found.append(
                     ReportAttackPath(
                         startName: path[0].componentName,
                         endName: hop.componentName,
                         hops: path,
-                        worstScore: path.map(\.riskScore).max() ?? 0
+                        worstScore: worstScore,
+                        likelihoodLabel: likelihood
                     )
                 )
             }
@@ -81,10 +94,63 @@ public enum AttackPaths {
             return left.endName < right.endName
         }
 
-        return (
+        return curate(
             Array(ordered.prefix(maximumPaths)),
-            max(0, ordered.count - maximumPaths)
+            beyond: max(0, ordered.count - maximumPaths)
         )
+    }
+
+    /// Turns a list of traced paths into a story: five paths, the steps they
+    /// all share stated once, a line for everything left, and the count of
+    /// what the trace found beyond even that.
+    public static func curate(
+        _ ordered: [ReportAttackPath],
+        beyond: Int
+    ) -> (
+        paths: [ReportAttackPath],
+        prefix: [ReportAttackPathHop],
+        notListed: [ReportAttackPathSummary],
+        beyond: Int
+    ) {
+        let listed = Array(ordered.prefix(narratedPaths))
+        let notListed = ordered.dropFirst(narratedPaths).map {
+            ReportAttackPathSummary(
+                startName: $0.startName,
+                endName: $0.endName,
+                worstScore: $0.worstScore
+            )
+        }
+        guard listed.count > 1 else { return (listed, [], Array(notListed), beyond) }
+
+        let prefix = sharedPrefix(of: listed)
+        guard prefix.isEmpty == false else { return (listed, [], Array(notListed), beyond) }
+
+        let trimmed = listed.map { path in
+            ReportAttackPath(
+                startName: path.startName,
+                endName: path.endName,
+                hops: Array(path.hops.dropFirst(prefix.count)),
+                worstScore: path.worstScore,
+                likelihoodLabel: path.likelihoodLabel
+            )
+        }
+        return (trimmed, prefix, Array(notListed), beyond)
+    }
+
+    /// The hops every path starts with, by component name.
+    ///
+    /// It stops one hop short of the shortest path: a path trimmed to nothing
+    /// is no longer a story.
+    private static func sharedPrefix(of paths: [ReportAttackPath]) -> [ReportAttackPathHop] {
+        guard let shortest = paths.map(\.hops.count).min(), shortest > 1 else { return [] }
+
+        var length = 0
+        while length < shortest - 1 {
+            let name = paths[0].hops[length].componentName
+            guard paths.allSatisfy({ $0.hops[length].componentName == name }) else { break }
+            length += 1
+        }
+        return Array(paths[0].hops.prefix(length))
     }
 
     /// One step of the story: what the attacker reached, how they got there,

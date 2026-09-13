@@ -171,6 +171,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 ),
                 attackPaths: attack.paths,
                 attackPathsNotListed: attack.notListed,
+                attackPathPrefix: attack.prefix,
+                attackPathsBeyondAppendix: attack.beyond,
                 rollups: ReportRollups.build(threats: threats, zones: zones),
                 assumptions: assumptions,
                 assumedMitigations: assumedMitigations,

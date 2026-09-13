@@ -74,7 +74,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         lines += components(report.components)
         lines += connections(report.connections)
         lines += zones(report.zones)
-        lines += MarkdownAttackPaths.lines(report.attackPaths, notListed: report.attackPathsNotListed)
+        lines += MarkdownAttackPaths.lines(report.attackPaths, notListed: report.attackPathsNotListed.count)
         lines += MarkdownProtectionDependencies.lines(
             report.protectionDependencies,
             pictures: request.controlPictures

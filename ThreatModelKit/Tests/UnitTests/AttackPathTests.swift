@@ -49,7 +49,12 @@ struct AttackPathTests {
         components: [Component],
         connections: [Connection],
         threats: [ReportThreat] = []
-    ) -> (paths: [ReportAttackPath], notListed: Int) {
+    ) -> (
+        paths: [ReportAttackPath],
+        prefix: [ReportAttackPathHop],
+        notListed: [ReportAttackPathSummary],
+        beyond: Int
+    ) {
         AttackPaths.build(
             components: components,
             connections: connections,
@@ -213,7 +218,8 @@ struct AttackPathTests {
                 flow("right", "store")
             ]
         )
-        let endings = built.paths.map { $0.hops.map(\.componentName) }
+        let prefixNames = built.prefix.map(\.componentName)
+        let endings = built.paths.map { prefixNames + $0.hops.map(\.componentName) }
         #expect(endings.contains(["actor", "left", "store"]))
         #expect(endings.contains(["actor", "right", "store"]))
     }
@@ -235,10 +241,11 @@ struct AttackPathTests {
                 flow("right", "left")
             ]
         )
-        let endings = built.paths.map { $0.hops.map(\.componentName) }
+        let prefixNames = built.prefix.map(\.componentName)
+        let endings = built.paths.map { prefixNames + $0.hops.map(\.componentName) }
         #expect(endings.contains(["actor", "left", "store"]))
         #expect(endings.contains(["actor", "right", "store"]))
-        #expect(built.paths.allSatisfy { $0.hops.count <= AttackPaths.maximumHops })
+        #expect(built.paths.allSatisfy { prefixNames.count + $0.hops.count <= AttackPaths.maximumHops })
     }
 
     @Test func aChainLongerThanSixHopsStopsAtTheBound() {

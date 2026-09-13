@@ -17,8 +17,13 @@ public struct Report: Equatable, Sendable {
     public let recommendations: [ReportRecommendation]
     public let protectionDependencies: [ReportProtectionDependency]
     public let attackPaths: [ReportAttackPath]
-    /// How many attack paths the trace found but did not list.
-    public let attackPathsNotListed: Int
+    /// The attack paths the trace found and the narrative did not carry.
+    public let attackPathsNotListed: [ReportAttackPathSummary]
+    /// The hops every listed path starts with, stated once above them. Empty
+    /// when the listed paths share no first hop.
+    public let attackPathPrefix: [ReportAttackPathHop]
+    /// How many paths the trace found that not even the appendix names.
+    public let attackPathsBeyondAppendix: Int
     public let rollups: ReportRollupTables
     /// What the model takes on trust. Empty for a model that assumes nothing.
     public let assumptions: [ReportAssumption]
@@ -46,7 +51,9 @@ public struct Report: Equatable, Sendable {
         recommendations: [ReportRecommendation] = [],
         protectionDependencies: [ReportProtectionDependency] = [],
         attackPaths: [ReportAttackPath] = [],
-        attackPathsNotListed: Int = 0,
+        attackPathsNotListed: [ReportAttackPathSummary] = [],
+        attackPathPrefix: [ReportAttackPathHop] = [],
+        attackPathsBeyondAppendix: Int = 0,
         rollups: ReportRollupTables = .empty,
         assumptions: [ReportAssumption] = [],
         assumedMitigations: [ReportAssumedMitigation] = [],
@@ -66,6 +73,8 @@ public struct Report: Equatable, Sendable {
         self.protectionDependencies = protectionDependencies
         self.attackPaths = attackPaths
         self.attackPathsNotListed = attackPathsNotListed
+        self.attackPathPrefix = attackPathPrefix
+        self.attackPathsBeyondAppendix = attackPathsBeyondAppendix
         self.rollups = rollups
         self.assumptions = assumptions
         self.assumedMitigations = assumedMitigations

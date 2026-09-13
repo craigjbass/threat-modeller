@@ -139,16 +139,34 @@ public struct ReportAttackPath: Equatable, Sendable {
     public let endName: String
     public let hops: [ReportAttackPathHop]
     public let worstScore: Int
+    /// The likelihood tier of the hop that set `worstScore`. Empty when no
+    /// threat set it.
+    public let likelihoodLabel: String
 
     public init(
         startName: String,
         endName: String,
         hops: [ReportAttackPathHop] = [],
-        worstScore: Int
+        worstScore: Int,
+        likelihoodLabel: String = ""
     ) {
         self.startName = startName
         self.endName = endName
         self.hops = hops
+        self.worstScore = worstScore
+        self.likelihoodLabel = likelihoodLabel
+    }
+}
+
+/// A path the narrative did not carry, in one line.
+public struct ReportAttackPathSummary: Equatable, Sendable {
+    public let startName: String
+    public let endName: String
+    public let worstScore: Int
+
+    public init(startName: String, endName: String, worstScore: Int) {
+        self.startName = startName
+        self.endName = endName
         self.worstScore = worstScore
     }
 }

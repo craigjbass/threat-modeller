@@ -12,7 +12,7 @@ struct ReportSectionsTests {
         #expect(report.recommendations.isEmpty)
         #expect(report.protectionDependencies.isEmpty)
         #expect(report.attackPaths.isEmpty)
-        #expect(report.attackPathsNotListed == 0)
+        #expect(report.attackPathsNotListed.isEmpty)
         #expect(report.rollups.byZone.isEmpty)
         #expect(report.rollups.topResidual.isEmpty)
     }
