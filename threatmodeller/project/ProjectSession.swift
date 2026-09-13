@@ -39,6 +39,10 @@ final class ProjectSession {
     /// window reads as a broken one.
     private(set) var loading: LoadingStage?
 
+    /// The diagram as the layout search last had it, while a load runs. It
+    /// holds geometry and nothing else, because that is all the search knows.
+    private(set) var formingDiagram: LayOutModelResponse?
+
     /// The stages of opening a project, in the order they run.
     enum LoadingStage: String, CaseIterable {
         case readingTheProject
@@ -333,11 +337,19 @@ final class ProjectSession {
         // actor so the window keeps answering while it does. The store guards
         // itself with a lock, which is what lets this leave.
         loading = .drawingTheSystem
+        formingDiagram = nil
+        // The search reports every plan that beats the best so far, from
+        // whatever thread it runs on, so each report hops back here.
+        useCases.layoutProgress?.listen { [weak self] forming in
+            Task { @MainActor in self?.formingDiagram = forming }
+        }
         let outcome = await Task.detached { [useCases] in
             useCases.openSystem().execute(
                 OpenSystemRequest(root: root, systemName: systemName)
             )
         }.value
+        useCases.layoutProgress?.listen(nil)
+        formingDiagram = nil
 
         switch outcome {
         case .opened(_, let warnings):

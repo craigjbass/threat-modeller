@@ -109,7 +109,12 @@ public struct LayOutModel: LayOutModelUseCase {
     /// cannot be separated still returns, and says what survives.
     static let passes = 6
 
-    public init() {}
+    /// Where this search says how it is going, or nil when nobody asked.
+    private let progress: LayoutProgress?
+
+    public init(progress: LayoutProgress? = nil) {
+        self.progress = progress
+    }
 
     /// Places, measures its own picture, and tries one technique after
     /// another until each is exhausted.
@@ -140,6 +145,7 @@ public struct LayOutModel: LayOutModelUseCase {
         }
 
         var best = score(plan)
+        progress?.report(best)
 
         // The list runs more than once, because one technique's gain can let
         // an earlier one improve again. A round that gains nothing ends the
@@ -157,6 +163,9 @@ public struct LayOutModel: LayOutModelUseCase {
                     chosen = candidate
                     chosenScore = result.fitness.score
                     best = result
+                    // Only a plan that beats the best so far, so what a
+                    // listener sees improves and never goes backwards.
+                    progress?.report(result)
                 }
 
                 plan = chosen

@@ -99,8 +99,13 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetComponentProperties(models: models)
     }
 
+    /// Where the layout search says how it is going. The project session
+    /// listens while it opens a system, so the window can draw the diagram
+    /// forming rather than nothing.
+    let layoutProgress = LayoutProgress()
+
     func layOutModel() -> LayOutModelUseCase {
-        LayOutModel()
+        LayOutModel(progress: layoutProgress)
     }
 
     func importArchitecture() -> ImportArchitectureUseCase {

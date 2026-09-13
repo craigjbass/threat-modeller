@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import ThreatModelKit
 
@@ -402,5 +403,78 @@ struct ZoneOrderTests {
             LayOutModel.ordered(source.zones, by: .byConnection, in: request).map(\.id)
                 == LayOutModel.ordered(source.zones, by: .byConnection, in: request).map(\.id)
         )
+    }
+
+    // MARK: saying how the search is going
+
+    /// A large model takes long enough that a person wants to see it working.
+    /// The search reports every plan that beats the best so far, so what it
+    /// reports is a picture that visibly improves and never goes backwards.
+    @Test func reportsEveryLayoutThatBeatsTheBestSoFar() {
+        let progress = LayoutProgress()
+        let heard = HeardLayouts()
+        progress.listen { heard.add($0) }
+
+        let response = LayOutModel(progress: progress).execute(
+            LayOutModelRequest(source: aSourceWorthOptimising())
+        )
+
+        let seen = heard.all()
+        #expect(seen.isEmpty == false)
+        #expect(seen.last?.fitness.score == response.fitness.score)
+        // Each report is better than the one before it.
+        for (earlier, later) in zip(seen, seen.dropFirst()) {
+            #expect(later.fitness.score < earlier.fitness.score)
+        }
+    }
+
+    @Test func reportsNothingWhenNobodyIsListening() {
+        let progress = LayoutProgress()
+
+        // Nothing is listening, so this states only that the search still runs.
+        let response = LayOutModel(progress: progress).execute(
+            LayOutModelRequest(source: aSourceWorthOptimising())
+        )
+
+        #expect(response.components.isEmpty == false)
+    }
+
+    /// Two zones and flows across them, so the search has something to improve.
+    private func aSourceWorthOptimising() -> ArchitectureSource {
+        ArchitectureSource(
+            systemName: "P",
+            zones: [
+                SourceZone(id: "a", kind: "private", network: "vpc", components: [
+                    component("a1"), component("a2"), component("a3")
+                ]),
+                SourceZone(id: "b", kind: "private", network: "vpc", components: [
+                    component("b1"), component("b2"), component("b3")
+                ])
+            ],
+            flows: [
+                SourceFlow(sourceId: "a1", targetId: "b3", kind: "network"),
+                SourceFlow(sourceId: "a3", targetId: "b1", kind: "network"),
+                SourceFlow(sourceId: "a2", targetId: "b2", kind: "network")
+            ]
+        )
+    }
+}
+
+/// Collects what the search reported. The search may report from another
+/// thread, so the list takes a lock.
+private final class HeardLayouts: @unchecked Sendable {
+    private let lock = NSLock()
+    private var layouts: [LayOutModelResponse] = []
+
+    func add(_ layout: LayOutModelResponse) {
+        lock.lock()
+        defer { lock.unlock() }
+        layouts.append(layout)
+    }
+
+    func all() -> [LayOutModelResponse] {
+        lock.lock()
+        defer { lock.unlock() }
+        return layouts
     }
 }

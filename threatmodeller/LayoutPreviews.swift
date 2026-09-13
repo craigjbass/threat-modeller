@@ -164,6 +164,28 @@ enum LayoutPreview {
     ProjectWindow(session: LayoutPreview.emptyProjectSession())
 }
 
+// MARK: the diagram forming while a large model opens
+
+#Preview("A diagram forming, 520x320", traits: .fixedLayout(width: 560, height: 360)) {
+    FormingDiagram(
+        layout: LayOutModelResponse(
+            components: (0..<9).map { index in
+                LaidOutComponent(
+                    id: "c\(index)",
+                    x: 60 + Double(index % 3) * 260,
+                    y: 60 + Double(index / 3) * 160
+                )
+            },
+            zones: [
+                LaidOutZone(id: "app", x: 20, y: 20, width: 700, height: 300),
+                LaidOutZone(id: "data", x: 20, y: 340, width: 700, height: 140)
+            ]
+        )
+    )
+    .frame(width: 520, height: 320)
+    .padding(20)
+}
+
 // MARK: the viewport, panned back past the origin
 
 #Preview("Canvas at a negative coordinate, 1000x600", traits: .fixedLayout(width: 1000, height: 600)) {

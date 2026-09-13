@@ -24,6 +24,10 @@ public protocol UseCaseFactory: Sendable {
     func exportModelAsThreatcl() -> ExportModelAsThreatclUseCase
     func exportModelAsImage() -> ExportModelAsImageUseCase
     func setComponentProperties() -> SetComponentPropertiesUseCase
+    /// Where the layout search says how it is going, or nil when this root
+    /// does not report.
+    var layoutProgress: LayoutProgress? { get }
+
     func layOutModel() -> LayOutModelUseCase
     func importArchitecture() -> ImportArchitectureUseCase
     func exportArchitecture() -> ExportArchitectureUseCase
@@ -73,4 +77,8 @@ public protocol UseCaseFactory: Sendable {
     func removeLibrary() -> RemoveLibraryUseCase
     func listLibraries() -> ListLibrariesUseCase
     func listOutdatedLibraries() -> ListOutdatedLibrariesUseCase
+}
+
+public extension UseCaseFactory {
+    var layoutProgress: LayoutProgress? { nil }
 }

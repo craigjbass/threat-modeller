@@ -100,8 +100,15 @@ struct ProjectWindow: View {
         let reached = (stages.firstIndex(of: stage) ?? 0) + 1
 
         return VStack(spacing: 14) {
-            ProgressView()
-                .controlSize(.large)
+            // The shape of the diagram as the layout search last had it, so a
+            // person watches it settle rather than watching nothing.
+            if let forming = session.formingDiagram {
+                FormingDiagram(layout: forming)
+                    .frame(maxWidth: 520, maxHeight: 320)
+            } else {
+                ProgressView()
+                    .controlSize(.large)
+            }
 
             Text(stage.says)
                 .font(.title3)
