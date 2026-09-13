@@ -296,36 +296,48 @@ Read [the language guide](docs/LANGUAGE.md) for the full grammar of
 `threatmodeller report` and *Generate Report* write the same `.md` file, in
 this order:
 
-1. **Summary** — the threat count, the controls recorded, one line per control
-   status, and a count by risk level.
-2. **Where the risk sits** — a count by source kind: component, connection
-   or zone.
-3. **By zone** — one row per zone: its components, its worst residual score,
-   its worst target score (only when a model carries an assumed
-   `mitigates` edge), and a count by risk level.
-4. **Top residual risk** — the worst-scoring threats, residual score first,
-   with the score before controls and, when a model carries an assumed
-   edge, the target score.
-5. **Components**, **Connections**, **Zones** — what the architecture holds.
-6. **Attack paths** — a walk from components without inbound flow or in public
+1. **Executive summary** — the worst-scoring residual exposures above the
+   project's risk tolerance, grouped by severity level. The report shows
+   what the architecture holds, by source kind: component, connection or zone.
+   One row lists each zone: its components, its worst residual score, its worst
+   target score (only when a model carries an assumed `mitigates` edge), and a
+   count by risk level. The report shows the worst-scoring threats, residual
+   score first, with the score before controls and, when a model carries an
+   assumed edge, the target score. Threat pictures show the element the threat
+   is raised on, everything one hop from it, and the zones those sit in.
+2. **Methodology** — how the scoring stages run, and what risk tolerance means.
+   A diagram legend shows what each mark in the pictures means.
+3. **Findings** — every threat above the project's risk tolerance.
+4. **Attack paths** — a walk from components without inbound flow or in public
    zones to restricted components they can reach, worst score first, with each
    hop's threat and score and what reduced it. The walk is bounded, and the
    section says how many further paths it left out.
-7. **Protection dependencies** — for a component other components rely on:
+5. **Protection dependencies** — for a component other components rely on:
    what it protects, and, when a threat on the protector itself has no
    answer, that the reduction it grants rests on an unanswered threat.
-8. **Recommendations** — every `recommendation` block from the `.controls`
-   file, grouped by the source that raised the threat, worst source first.
-   A recommendation records what to do; it never answers a threat, so
-   `check` still fails while one stands with no other answer.
-9. **Assumptions** — every `assumption` block from the `.arch` file, then,
+6. **Recommendations** — every `recommendation` block from the `.controls`
+   file, worst risk first, with the element the threat was raised on named on
+   each entry's risk line. A recommendation records what to do; it never
+   answers a threat, so `check` still fails while one stands with no other
+   answer.
+7. **Assumptions** — every `assumption` block from the `.arch` file, then,
    under "Assumed mitigations", every `mitigates` edge whose `status` is
    `assumed`.
-10. **Threats** — one entry per threat: its severity, its residual score, the
-    likelihood block or tier applied, a severity decision, the target score
-    when it differs from the residual, STRIDE and MITRE ATT&CK labels, what
-    compensated it, what mitigated it upstream or through a `mitigates`
-    edge, and its controls.
+8. **Glossary** — a table of terms the report uses and what they mean.
+9. **Appendix A — Full threat register** — one entry per threat: its severity,
+   its residual score, the likelihood block or tier applied, a severity
+   decision, the target score when it differs from the residual, STRIDE and
+   MITRE ATT&CK labels, what compensated it, what mitigated it upstream or
+   through a `mitigates` edge, and its controls.
+10. **Appendix B — Model inventory** — what the architecture holds, in tables:
+    components, connections and zones.
+11. **Appendix C — Attack paths not listed** — the count of attack paths the
+    walk did not print because the walk is bounded.
+
+The report opens with an executive summary, states the scale it scored
+against, and lists every threat above the project's risk tolerance before it
+lists anything else. The full threat register and the model inventory are
+appendices.
 
 A section a model gives nothing to write about is left out, rather than
 printed empty.
