@@ -18,7 +18,7 @@ where each place is wrong.
 One request arrived after the split and is done: a `.arch` or a `.controls`
 file opens the project that holds it, commit `5579fb3`.
 
-Nothing is pushed. Twenty-seven commits sit on local `main`.
+Local `main` is 8 commits ahead of `origin/main`, which is at `931d31c`.
 
 ## What the old hand-over got wrong
 
@@ -226,8 +226,9 @@ nothing. Time `LayOutModel` in the package instead, where it lives.
 
 ## What is left
 
-1. **Nothing is pushed.** Twenty-seven commits sit on local `main`, and the
-   hand-over on `origin/gui-overhaul-handover` is still the stale one.
+1. **Eight commits are not pushed.** Local `main` is 8 ahead of
+   `origin/main`, and the hand-over on `origin/gui-overhaul-handover` is
+   still the stale one.
 2. **The layout on the save path is still waste.** See above. Removing it
    needs zone membership from the source nesting.
 3. **`brokenBoundaries` has not been measured again** since `hypot` went.
