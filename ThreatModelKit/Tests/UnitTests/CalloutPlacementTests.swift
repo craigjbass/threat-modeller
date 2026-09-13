@@ -83,6 +83,45 @@ struct CalloutPlacementTests {
                 == CalloutPlacement.place(labels, nodes: nodes, flows: [])
         )
     }
+    // MARK: where a diagram with flows puts its labels
+
+    /// A dense polyline, the way a sampled flow arrives.
+    private func polyline(from: Point, to: Point, steps: Int = 60) -> [Point] {
+        (0...steps).map { step in
+            let along = Double(step) / Double(steps)
+            return Point(x: from.x + (to.x - from.x) * along, y: from.y + (to.y - from.y) * along)
+        }
+    }
+
+    private var aDiagramWithFlows: (labels: [(connectionId: String, text: String, curve: FlowCurve)], nodes: [Rect], flows: [[Point]]) {
+        (
+            labels: [
+                label("f1", "HTTPS", from: Point(x: 0, y: 0), to: Point(x: 400, y: 0)),
+                label("f2", "gRPC over mTLS", from: Point(x: 0, y: 300), to: Point(x: 400, y: 300))
+            ],
+            nodes: [
+                Rect(x: -80, y: -40, width: 160, height: 72),
+                Rect(x: 400, y: -40, width: 160, height: 72),
+                Rect(x: -80, y: 260, width: 160, height: 72)
+            ],
+            flows: [
+                polyline(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0)),
+                polyline(from: Point(x: 0, y: 300), to: Point(x: 400, y: 300)),
+                polyline(from: Point(x: 200, y: -200), to: Point(x: 200, y: 500))
+            ]
+        )
+    }
+
+    /// The placement this diagram gets. Written down so a change made for
+    /// speed has to leave every label exactly where it was.
+    @Test func putsEveryLabelWhereItPutThemBefore() {
+        let diagram = aDiagramWithFlows
+
+        let placed = CalloutPlacement.place(diagram.labels, nodes: diagram.nodes, flows: diagram.flows)
+
+        let where_ = placed.map { "\($0.connectionId) \(Int($0.rect.minX)),\(Int($0.rect.minY)) \(Int($0.rect.size.width))x\(Int($0.rect.size.height))" }
+        #expect(where_ == ["f1 -15,51 190x24", "f2 213,345 190x24"])
+    }
 }
 
 @Suite("Labels keeping their distance")
@@ -169,4 +208,5 @@ struct CalloutZoneHeaderTests {
 
         #expect(CalloutPlacement.lines(of: text) == [String(repeating: "x", count: 50), "tail"])
     }
+
 }

@@ -98,6 +98,7 @@ public enum CalloutPlacement {
         flowsById: [String: [Point]] = [:]
     ) -> [Callout] {
         var placed: [Callout] = []
+        let bounded = flows.map(BoundedFlow.init)
 
         for label in labels where label.text.isEmpty == false {
             let others = flowsById.isEmpty
@@ -110,7 +111,7 @@ public enum CalloutPlacement {
                 from: anchor,
                 nodes: nodes + zoneHeaders,
                 chips: boundaryChips,
-                flows: flows,
+                flows: bounded,
                 taken: placed
             )
             placed.append(
@@ -186,12 +187,46 @@ public enum CalloutPlacement {
     static let costOfCrowding = 220.0
     static let costOfAFlow = 40.0
 
+    /// A flow and the box around it.
+    ///
+    /// Every candidate rectangle asks whether it covers a flow, and a flow is
+    /// a sampled polyline of many points. The box is worked out once per
+    /// placement, and a candidate that misses the box cannot cover a point, so
+    /// the point scan never starts.
+    private struct BoundedFlow {
+        let bounds: Rect
+        let points: [Point]
+
+        init(_ points: [Point]) {
+            self.points = points
+            guard let first = points.first else {
+                bounds = Rect(x: 0, y: 0, width: 0, height: 0)
+                return
+            }
+            var minX = first.x, maxX = first.x, minY = first.y, maxY = first.y
+            for point in points.dropFirst() {
+                minX = min(minX, point.x)
+                maxX = max(maxX, point.x)
+                minY = min(minY, point.y)
+                maxY = max(maxY, point.y)
+            }
+            bounds = Rect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        }
+
+        /// True when the rectangle covers any point of the flow.
+        func isCovered(by rect: Rect) -> Bool {
+            guard rect.minX <= bounds.maxX, bounds.minX <= rect.maxX,
+                  rect.minY <= bounds.maxY, bounds.minY <= rect.maxY else { return false }
+            return points.contains { rect.contains($0) }
+        }
+    }
+
     private static func bestRect(
         for box: Size,
         from anchor: Point,
         nodes: [Rect],
         chips: [Rect],
-        flows: [[Point]],
+        flows: [BoundedFlow],
         taken: [Callout]
     ) -> Rect {
         var best = Rect(origin: anchor, size: box)
@@ -234,7 +269,7 @@ public enum CalloutPlacement {
         from anchor: Point,
         nodes: [Rect],
         chips: [Rect],
-        flows: [[Point]],
+        flows: [BoundedFlow],
         taken: [Callout]
     ) -> Double {
         var total = 0.0
@@ -248,7 +283,7 @@ public enum CalloutPlacement {
         total += costOfABox * Double(taken.count { overlap(rect, $0.rect) })
         total += costOfCrowding
             * Double(taken.count { overlap(rect, $0.rect) == false && crowds(rect, $0.rect) })
-        total += costOfAFlow * Double(flows.count { flow in flow.contains { rect.contains($0) } })
+        total += costOfAFlow * Double(flows.count { $0.isCovered(by: rect) })
         // The nearer the flow, the easier the leader is to follow.
         total += hypot(rect.minX + rect.size.width / 2 - anchor.x,
                        rect.minY + rect.size.height / 2 - anchor.y) / 10
