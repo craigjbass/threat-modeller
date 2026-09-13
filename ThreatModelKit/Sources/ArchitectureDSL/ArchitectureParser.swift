@@ -89,6 +89,8 @@ struct ArchitectureParser {
         }
         _ = expect(.rightBrace, "}")
 
+        let checked = checkedActions(on: mitigates, assumptions: assumptions)
+
         return ArchitectureSource(
             systemName: name.text,
             catalogueTag: catalogueTag,
@@ -96,10 +98,72 @@ struct ArchitectureParser {
             zones: zones,
             components: components,
             flows: flows,
-            mitigates: mitigates,
+            mitigates: checked,
             riskTolerance: riskTolerance,
             assumptions: assumptions
         )
+    }
+
+    /// Drops every action a file cannot mean, and keeps the edge that held it.
+    ///
+    /// These faults need the whole system: a label spans edges, and a blocker
+    /// names an assumption declared elsewhere in the block.
+    private mutating func checkedActions(
+        on edges: [SourceMitigates],
+        assumptions: [SourceAssumption]
+    ) -> [SourceMitigates] {
+        let declared = Set(assumptions.map(\.label))
+
+        // Pass one: the faults an edge carries on its own.
+        var kept: [SourceMitigates] = []
+        for edge in edges {
+            guard let action = edge.action else {
+                kept.append(edge)
+                continue
+            }
+
+            var fault: String?
+            if (edge.status ?? "adopted") != "assumed" {
+                fault = "the mitigates edge \"\(edge.id)\" is adopted, so it carries no recommendation"
+            } else if let text = action.text, text.allSatisfy(\.isWhitespace) {
+                fault = "the action \"\(action.label)\" has no text"
+            } else if let blocker = action.blockedBy, declared.contains(blocker) == false {
+                fault = "the action \"\(action.label)\" is blocked by \"\(blocker)\", which no assumption declares"
+            }
+
+            if let fault {
+                record(fault, severity: .warning)
+                kept.append(edge.withoutAction())
+            } else {
+                kept.append(edge)
+            }
+        }
+
+        // Pass two: one label states its text once, and states it at all.
+        var stated: Set<String> = []
+        var second: [String] = []
+        for edge in kept {
+            guard let action = edge.action, action.text != nil else { continue }
+            if stated.insert(action.label).inserted == false { second.append(action.label) }
+        }
+        for label in Set(second) {
+            record("the action \"\(label)\" states its text twice", severity: .warning)
+        }
+
+        let named = Set(kept.compactMap { $0.action.flatMap { $0.text == nil ? nil : $0.label } })
+        let nameless = Set(kept.compactMap(\.action?.label)).subtracting(named)
+        for label in nameless.sorted() {
+            record("the action \"\(label)\" states no text", severity: .warning)
+        }
+
+        var seenText: Set<String> = []
+        return kept.map { edge in
+            guard let action = edge.action else { return edge }
+            if nameless.contains(action.label) { return edge.withoutAction() }
+            guard action.text != nil else { return edge }
+            if seenText.insert(action.label).inserted { return edge }
+            return edge.withoutAction()
+        }
     }
 
     private mutating func parseAssumption() -> SourceAssumption? {

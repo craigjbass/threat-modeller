@@ -45,7 +45,10 @@ struct ActionLanguageTests {
         #expect(edge.action?.sources == ["https://example.com/ticket/1"])
     }
 
-    @Test func readsAnEdgeThatOnlyJoinsAnAction() throws {
+    @Test func refusesAnActionThatJoinsWithNoText() throws {
+        // A recommendation with an empty body names a label but states no
+        // text for it. No other edge states text for this label either, so
+        // the action drops under the same rule as refusesALabelNoEdgeStatesTextFor.
         let read = read(system.replacingOccurrences(
             of: """
                 recommendation "adopt-the-guard" {
@@ -60,9 +63,9 @@ struct ActionLanguageTests {
             """
         ))
 
+        #expect(read.diagnostics.contains { $0.message == "the action \"adopt-the-guard\" states no text" })
         let edge = try #require(read.source?.mitigates.first)
-        #expect(edge.action?.label == "adopt-the-guard")
-        #expect(edge.action?.text == nil)
+        #expect(edge.action == nil)
     }
 
     @Test func refusesAnAttributeAnActionDoesNotHold() {
@@ -90,6 +93,90 @@ struct ActionLanguageTests {
         }
         """)
 
+        let edge = try #require(read.source?.mitigates.first)
+        #expect(edge.action == nil)
+    }
+
+    @Test func refusesAnActionOnAnAdoptedEdge() throws {
+        let read = read(system.replacingOccurrences(
+            of: "status          = \"assumed\"",
+            with: "status          = \"adopted\""
+        ))
+
+        #expect(
+            read.diagnostics.contains {
+                $0.message == "the mitigates edge \"guard->store\" is adopted, so it carries no recommendation"
+            }
+        )
+        // The edge stands; only its action drops.
+        let edge = try #require(read.source?.mitigates.first)
+        #expect(edge.action == nil)
+        #expect(edge.reducesRiskBy == 60)
+    }
+
+    @Test func refusesTwoEdgesStatingOneActionsTextAndKeepsTheFirst() throws {
+        let read = read("""
+        system "Payments" {
+          component "store" { technology = "aws-rds" }
+          component "queue" { technology = "aws-rds" }
+          component "guard" { technology = "aws-ec2" }
+          mitigates guard -> store {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 60
+            status          = "assumed"
+            recommendation "adopt" { text = "Adopt the guard" }
+          }
+          mitigates guard -> queue {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 40
+            status          = "assumed"
+            recommendation "adopt" { text = "Adopt it again" }
+          }
+        }
+        """)
+
+        #expect(read.diagnostics.contains { $0.message == "the action \"adopt\" states its text twice" })
+        let edges = try #require(read.source?.mitigates)
+        #expect(edges[0].action?.text == "Adopt the guard")
+        #expect(edges[1].action == nil)
+    }
+
+    @Test func refusesALabelNoEdgeStatesTextFor() throws {
+        // One line, not a multi-line literal: a multi-line literal's own
+        // indentation stripping makes the match depend on how this file is
+        // laid out rather than on what the fixture says.
+        let read = read(system.replacingOccurrences(
+            of: "      text       = \"Adopt the guard\"\n",
+            with: ""
+        ))
+
+        #expect(read.diagnostics.contains { $0.message == "the action \"adopt-the-guard\" states no text" })
+        let edge = try #require(read.source?.mitigates.first)
+        #expect(edge.action == nil)
+    }
+
+    @Test func refusesAnEmptyText() throws {
+        let read = read(system.replacingOccurrences(
+            of: "text       = \"Adopt the guard\"",
+            with: "text       = \"\""
+        ))
+
+        #expect(read.diagnostics.contains { $0.message == "the action \"adopt-the-guard\" has no text" })
+        let edge = try #require(read.source?.mitigates.first)
+        #expect(edge.action == nil)
+    }
+
+    @Test func refusesABlockerNoAssumptionDeclares() throws {
+        let read = read(system.replacingOccurrences(
+            of: "blocked_by = \"guard-not-deployed\"",
+            with: "blocked_by = \"nobody-declares-this\""
+        ))
+
+        #expect(
+            read.diagnostics.contains {
+                $0.message == "the action \"adopt-the-guard\" is blocked by \"nobody-declares-this\", which no assumption declares"
+            }
+        )
         let edge = try #require(read.source?.mitigates.first)
         #expect(edge.action == nil)
     }

@@ -220,6 +220,19 @@ public struct SourceMitigates: Equatable, Sendable {
 
     /// The identifier, minted the way a flow's is.
     public var id: String { "\(sourceId)->\(targetId)" }
+
+    /// The same edge with its action dropped, for a file that states one this
+    /// language cannot mean.
+    public func withoutAction() -> SourceMitigates {
+        SourceMitigates(
+            sourceId: sourceId,
+            targetId: targetId,
+            threatIds: threatIds,
+            reducesRiskBy: reducesRiskBy,
+            status: status,
+            action: nil
+        )
+    }
 }
 
 /// Something the file takes on trust, and who owns it.
