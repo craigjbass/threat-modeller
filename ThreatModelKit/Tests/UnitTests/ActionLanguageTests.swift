@@ -1,5 +1,5 @@
 import Testing
-import ArchitectureDSL
+@testable import ArchitectureDSL
 import ThreatModelKit
 
 struct ActionLanguageTests {
@@ -227,5 +227,40 @@ struct ActionLanguageTests {
         #expect(read.diagnostics.contains { $0.message == "the action \"adopt-the-guard\" states no text" } == false)
         let edge = try #require(read.source?.mitigates.first)
         #expect(edge.action == nil)
+    }
+
+    @Test func writesAnActionBackInCanonicalForm() throws {
+        let source = try #require(read(system).source)
+
+        let written = ArchitectureWriter.text(of: source)
+
+        #expect(written.contains("  recommendation \"adopt-the-guard\" {"))
+        #expect(written.contains("text       = \"Adopt the guard\""))
+        #expect(written.contains("blocked_by = \"guard-not-deployed\""))
+        #expect(written.contains("sources    = [\"https://example.com/ticket/1\"]"))
+    }
+
+    @Test func aFormattedFileReadsBackTheSame() throws {
+        let source = try #require(read(system).source)
+
+        let again = read(ArchitectureWriter.text(of: source))
+
+        #expect(again.hasErrors == false)
+        #expect(again.source?.mitigates == source.mitigates)
+    }
+
+    @Test func writesNoBlockForAnEdgeWithNoAction() throws {
+        let source = try #require(read("""
+        system "Payments" {
+          component "store" { technology = "aws-rds" }
+          component "guard" { technology = "aws-ec2" }
+          mitigates guard -> store {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 60
+          }
+        }
+        """).source)
+
+        #expect(ArchitectureWriter.text(of: source).contains("recommendation") == false)
     }
 }

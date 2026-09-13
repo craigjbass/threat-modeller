@@ -6,6 +6,12 @@ import ThreatModelKit
 /// block, a blank line between blocks, and the block order technologies, zones,
 /// components, flows. A rewrite of an unchanged source produces no diff.
 struct ArchitectureWriter {
+    /// Writes a source with a fresh writer. A convenience for call sites
+    /// that hold no writer instance of their own.
+    static func text(of source: ArchitectureSource) -> String {
+        ArchitectureWriter().write(source)
+    }
+
     func write(_ source: ArchitectureSource) -> String {
         var lines: [String] = []
         lines.append("system \(quoted(source.systemName)) {")
@@ -110,6 +116,23 @@ struct ArchitectureWriter {
                 attributes.append(("status", quoted(status)))
             }
             body += indent(aligned(attributes))
+            if let action = edge.action {
+                body.append("")
+                body.append("  recommendation \(quoted(action.label)) {")
+                var actionAttributes: [(String, String)] = []
+                if let text = action.text { actionAttributes.append(("text", quoted(text))) }
+                if let note = action.note { actionAttributes.append(("note", quoted(note))) }
+                if let blockedBy = action.blockedBy {
+                    actionAttributes.append(("blocked_by", quoted(blockedBy)))
+                }
+                if action.sources.isEmpty == false {
+                    actionAttributes.append(
+                        ("sources", "[" + action.sources.map(quoted).joined(separator: ", ") + "]")
+                    )
+                }
+                body += indent(indent(aligned(actionAttributes)))
+                body.append("  }")
+            }
             body.append("}")
             body.append("")
         }
