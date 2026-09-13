@@ -35,6 +35,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             .execute(AssessThreatModelRequest())
         let summary = SummariseRisk(models: models, catalogue: catalogue)
             .execute(SummariseRiskRequest())
+        let leverage = AssessLeverage(models: models, catalogue: catalogue)
+            .execute(AssessLeverageRequest())
 
         var nameById: [ComponentId: String] = [:]
         for component in model.components {
@@ -188,7 +190,21 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     tolerance: tolerance,
                     findings: findingsCut
                 ),
-                methodology: ReportMethodology.build(zones: zones, tolerance: tolerance)
+                methodology: ReportMethodology.build(zones: zones, tolerance: tolerance),
+                actions: leverage.leverage.map {
+                    ReportAction(
+                        label: $0.action.label,
+                        text: $0.action.text,
+                        note: $0.action.note,
+                        blockedBy: $0.action.blockedBy,
+                        sources: $0.action.sources,
+                        removes: $0.removes,
+                        totalResidual: $0.totalResidual,
+                        threatsMoved: $0.threatsMoved,
+                        worstBefore: $0.worstBefore,
+                        worstAfter: $0.worstAfter
+                    )
+                }
             )
         )
     }

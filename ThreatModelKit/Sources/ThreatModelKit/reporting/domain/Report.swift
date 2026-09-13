@@ -39,6 +39,9 @@ public struct Report: Equatable, Sendable {
     public let executiveSummary: ReportExecutiveSummary
     /// What the scores mean, and how they were reached.
     public let methodology: ReportMethodology
+    /// What a team could do, worst first by what it removes. Empty when the
+    /// model declares no action.
+    public let actions: [ReportAction]
 
     public init(
         modelName: String,
@@ -60,7 +63,8 @@ public struct Report: Equatable, Sendable {
         findings: ReportFindingsCut = ReportFindingsCut(),
         toleranceLabel: String = RiskLevel.low.label,
         executiveSummary: ReportExecutiveSummary = ReportExecutiveSummary(),
-        methodology: ReportMethodology = ReportMethodology()
+        methodology: ReportMethodology = ReportMethodology(),
+        actions: [ReportAction] = []
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -82,6 +86,7 @@ public struct Report: Equatable, Sendable {
         self.toleranceLabel = toleranceLabel
         self.executiveSummary = executiveSummary
         self.methodology = methodology
+        self.actions = actions
     }
 }
 
@@ -602,5 +607,43 @@ public struct ReportCompensatingControl: Equatable, Sendable {
         self.reducesRiskBy = reducesRiskBy
         self.rationale = rationale
         self.sources = sources
+    }
+}
+
+/// One action a team could take, and what it would remove.
+public struct ReportAction: Equatable, Sendable {
+    public let label: String
+    public let text: String
+    public let note: String?
+    public let blockedBy: String?
+    public let sources: [String]
+    public let removes: Int
+    public let totalResidual: Int
+    public let threatsMoved: Int
+    public let worstBefore: Int
+    public let worstAfter: Int
+
+    public init(
+        label: String,
+        text: String,
+        note: String? = nil,
+        blockedBy: String? = nil,
+        sources: [String] = [],
+        removes: Int = 0,
+        totalResidual: Int = 0,
+        threatsMoved: Int = 0,
+        worstBefore: Int = 0,
+        worstAfter: Int = 0
+    ) {
+        self.label = label
+        self.text = text
+        self.note = note
+        self.blockedBy = blockedBy
+        self.sources = sources
+        self.removes = removes
+        self.totalResidual = totalResidual
+        self.threatsMoved = threatsMoved
+        self.worstBefore = worstBefore
+        self.worstAfter = worstAfter
     }
 }
