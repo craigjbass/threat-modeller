@@ -50,6 +50,14 @@ struct ZoneView: View {
                             )
                         )
                 )
+                // The body is paint, not a control. A filled shape takes the
+                // click from everything drawn behind it, and the canvas puts
+                // its own gesture behind: the one that selects a flow, its
+                // callout, or the zone itself. A zone that took the click
+                // answered none of them, so a callout over a zone could not
+                // be reached at all. The header and the grips are controls
+                // and keep their gestures.
+                .allowsHitTesting(false)
 
             header
         }

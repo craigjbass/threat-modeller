@@ -10,7 +10,12 @@ import ThreatModelKit
 /// already drawn. The picture and the click then disagreed, and a flow that
 /// bowed round anything could not be selected at all.
 struct FlowClickTests {
-    private func component(_ id: String, x: Double, y: Double) -> ViewedComponent {
+    private func component(
+        _ id: String,
+        x: Double,
+        y: Double,
+        zoneId: String? = nil
+    ) -> ViewedComponent {
         ViewedComponent(
             id: id,
             technologyId: "aws-ec2",
@@ -23,7 +28,7 @@ struct FlowClickTests {
             sensitivityId: "internal",
             threatsDisabled: false,
             isUnknownTechnology: false,
-            zoneId: nil
+            zoneId: zoneId
         )
     }
 
@@ -170,5 +175,50 @@ struct FlowClickTests {
 
         #expect(world.geometry.connection(under: beside) == nil)
         #expect(world.geometry.connection(under: beside, within: ConnectionPath.hitTolerance * 2) == "k1")
+    }
+
+    /// A callout drawn over a zone belongs to its flow, not to the zone.
+    ///
+    /// The zone is the larger thing and it is drawn underneath. A click that
+    /// answers the zone takes away the only way to reach a flow whose label
+    /// landed inside one, and most labels on a real diagram do.
+    @Test func givesTheFlowTheClickWhenItsCalloutSitsOverAZone() throws {
+        let zone = ViewedZone(
+            id: "z1",
+            name: "Corporate",
+            customName: nil,
+            networkZoneId: "private",
+            networkTypeId: "generic",
+            riskReductionEnabled: true,
+            riskReductionPercent: 20,
+            x: -200,
+            y: -200,
+            width: 1400,
+            height: 900
+        )
+        let components = [
+            component("c1", x: 0, y: 0, zoneId: "z1"),
+            component("c2", x: 700, y: 0, zoneId: "z1")
+        ]
+        let connections = [link("k1", "c1", "c2", described: "Payment instructions, signed")]
+        let geometry = FlowGeometry.of(
+            connections: connections,
+            boxes: CanvasHitTest.boxes(for: components, selected: [], dragTranslation: .zero),
+            componentsById: Dictionary(uniqueKeysWithValues: components.map { ($0.id, $0) }),
+            zones: [zone],
+            guards: [:],
+            risks: [:],
+            outOfScopeComponentIds: []
+        )
+        let callout = try #require(geometry.callouts.first)
+        let middle = CGPoint(
+            x: (callout.rect.minX + callout.rect.maxX) / 2,
+            y: (callout.rect.minY + callout.rect.maxY) / 2
+        )
+
+        // The callout really is over the zone, so the order of the two
+        // answers is what this test measures.
+        #expect(CanvasHitTest.zone(under: middle, zones: [zone]) == "z1")
+        #expect(geometry.connection(under: middle) == "k1")
     }
 }
