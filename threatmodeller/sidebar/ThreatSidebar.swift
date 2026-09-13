@@ -149,6 +149,12 @@ struct ThreatSidebar: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
                     }
+                    // The controls stage gives this list the whole window. A
+                    // card the width of a 1400 point window puts its status
+                    // picker a screen away from the control it states, so the
+                    // list keeps a column a person reads across.
+                    .frame(maxWidth: 1000)
+                    .frame(maxWidth: .infinity)
                 }
             }
         }

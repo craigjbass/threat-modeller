@@ -46,12 +46,14 @@ struct MitigatesSheet: View {
             threatList
 
             Form {
-                HStack {
-                    Slider(value: $percent, in: 0 ... 100, step: 5)
-                        .accessibilityIdentifier("mitigates-percent")
-                    Text("\(Int(percent))%")
-                        .monospacedDigit()
-                        .frame(width: 50, alignment: .trailing)
+                LabeledContent("Lowers each by") {
+                    HStack {
+                        Slider(value: $percent, in: 0 ... 100, step: 5)
+                            .accessibilityIdentifier("mitigates-percent")
+                        Text("\(Int(percent))%")
+                            .monospacedDigit()
+                            .frame(width: 50, alignment: .trailing)
+                    }
                 }
 
                 Picker("The team", selection: $status) {

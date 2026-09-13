@@ -254,3 +254,7 @@ enum LayoutPreview {
 #Preview("The stage control, 900x90", traits: .fixedLayout(width: 900, height: 90)) {
     WorkflowBar(session: LayoutPreview.emptyProjectSession(), stage: .constant(.threats))
 }
+
+#Preview("Threat list, controls stage, 1200x800", traits: .fixedLayout(width: 1200, height: 800)) {
+    ThreatSidebar(session: LayoutPreview.session())
+}
