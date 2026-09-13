@@ -12,6 +12,7 @@
 		A0000000000000000000006 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000007 /* TestSupport */; };
 		A0000000000000000000008 /* FileGateways in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000009 /* FileGateways */; };
 		A0000000000000000000010 /* ArchitectureDSL in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000011 /* ArchitectureDSL */; };
+		A0000000000000000000012 /* DiagramRendering in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000013 /* DiagramRendering */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,6 +64,7 @@
 				A0000000000000000000001 /* ThreatModelKit in Frameworks */,
 				A0000000000000000000008 /* FileGateways in Frameworks */,
 				A0000000000000000000010 /* ArchitectureDSL in Frameworks */,
+				A0000000000000000000012 /* DiagramRendering in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -128,6 +130,7 @@
 				A0000000000000000000002 /* ThreatModelKit */,
 				A0000000000000000000009 /* FileGateways */,
 				A0000000000000000000011 /* ArchitectureDSL */,
+				A0000000000000000000013 /* DiagramRendering */,
 			);
 			productName = threatmodeller;
 			productReference = 46EEEDC6304F3231000F014D /* threatmodeller.app */;
@@ -646,6 +649,10 @@
 		A0000000000000000000011 /* ArchitectureDSL */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ArchitectureDSL;
+		};
+		A0000000000000000000013 /* DiagramRendering */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DiagramRendering;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

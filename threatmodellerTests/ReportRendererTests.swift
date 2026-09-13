@@ -183,8 +183,30 @@ struct ReportExporterTests {
         }
 
         let written = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
-        #expect(written == ["Untitled.hcl", "Untitled.md", "Untitled.pdf", "Untitled.png"])
+        #expect(
+            written == [
+                "Untitled.hcl", "Untitled.html", "Untitled.md", "Untitled.pdf", "Untitled.png"
+            ]
+        )
         #expect(session.errorMessage == nil)
+    }
+
+    @Test func writesThePageWithItsPicturesInside() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threat-modeller-export-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        exporter(session(), writing: directory).export(.html)
+
+        let page = try String(
+            contentsOf: directory.appendingPathComponent("Untitled.html"),
+            encoding: .utf8
+        )
+        #expect(page.hasPrefix("<!doctype html>"))
+        // The whole diagram, drawn by the same code the command line tool uses.
+        #expect(page.contains("<figure class=\"whole\"><svg"))
+        #expect(page.contains("src=") == false)
     }
 
     @Test func writesNothingWhenTheUserCancels() throws {

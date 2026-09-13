@@ -53,6 +53,7 @@ public struct CommandLineApplication {
         var catalogueDirectory: String?
         var tolerance: String?
         var pictures: Set<DiagramFormat> = []
+        var wantsHtml = false
 
         var flagless: [String] = []
         var index = 0
@@ -72,6 +73,8 @@ public struct CommandLineApplication {
                 pictures.insert(.svg)
             case "--png":
                 pictures.insert(.png)
+            case "--html":
+                wantsHtml = true
             case "-o":
                 index += 1
                 if index < words.count { flagless.append("-o:" + words[index]) }
@@ -106,7 +109,13 @@ public struct CommandLineApplication {
             return library(words: Array(words.dropFirst()), isForced: isForced, output: output)
         case "report":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
-            return report(root: root, into: into, isQuiet: isQuiet, output: output)
+            return report(
+                root: root,
+                into: into,
+                wantsHtml: wantsHtml,
+                isQuiet: isQuiet,
+                output: output
+            )
         case "draw":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return draw(root: root, into: into, wants: pictures, isQuiet: isQuiet, output: output)
@@ -261,6 +270,7 @@ public struct CommandLineApplication {
     private func report(
         root: String,
         into: String?,
+        wantsHtml: Bool,
         isQuiet: Bool,
         output: (String) -> Void
     ) -> Int32 {
@@ -325,15 +335,17 @@ public struct CommandLineApplication {
                 stem: system.name
             )
 
+            let threatPictures = Dictionary(
+                uniqueKeysWithValues: pictures.map { ($0.key, $0.fileName) }
+            )
+            let controlPictures = Dictionary(
+                uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) }
+            )
             let markdown = useCases.exportModelAsMarkdown()
                 .execute(
                     ExportModelAsMarkdownRequest(
-                        threatPictures: Dictionary(
-                            uniqueKeysWithValues: pictures.map { ($0.key, $0.fileName) }
-                        ),
-                        controlPictures: Dictionary(
-                            uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) }
-                        )
+                        threatPictures: threatPictures,
+                        controlPictures: controlPictures
                     )
                 )
             let path = into.map { ProjectConvention.path($0, "\(system.name).md") }
@@ -362,8 +374,42 @@ public struct CommandLineApplication {
                 output("threatmodeller: \(Self.described(error))")
                 return .fileFault
             }
+
+            var htmlPath: String?
+            if wantsHtml {
+                // The page carries every picture inside it, so a reader opens
+                // one file and needs nothing beside it.
+                var sources = Dictionary(
+                    uniqueKeysWithValues: (pictures.map { ($0.fileName, $0.svg) })
+                )
+                for picture in controls { sources[picture.fileName] = picture.svg }
+
+                let page = useCases.exportModelAsHtml().execute(
+                    ExportModelAsHtmlRequest(
+                        threatPictures: threatPictures,
+                        controlPictures: controlPictures,
+                        pictureSources: sources,
+                        wholePicture: SvgWriter.svg(of: DiagramBuilder.drawing(of: drawn))
+                    )
+                )
+                // Beside the report, named after the system the way every
+                // other file this verb writes is. `page.fileName` names what a
+                // save panel offers, which is the model's own name.
+                let written = beside + "\(system.name).html"
+                do {
+                    try projects.write(page.html, to: written)
+                } catch {
+                    output("threatmodeller: \(Self.described(error))")
+                    return .fileFault
+                }
+                htmlPath = written
+            }
+
             if isQuiet == false {
                 output("wrote \(path)")
+                if let htmlPath {
+                    output("wrote \(htmlPath)")
+                }
                 if pictures.isEmpty == false {
                     output("wrote \(pictures.count) threat diagrams beside it")
                 }
@@ -769,6 +815,7 @@ public struct CommandLineApplication {
 
     Options:
       -o <dir>              write the reports into this directory
+      --html                write the report as one page as well, pictures and all
       --svg                 draw as SVG, which every build writes
       --png                 draw as PNG, which only a macOS build writes
       --catalogue <dir>     read the threat catalogue from this directory

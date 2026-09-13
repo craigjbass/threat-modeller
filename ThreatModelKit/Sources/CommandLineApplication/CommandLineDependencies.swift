@@ -55,4 +55,8 @@ struct CommandLineDependencies {
     func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
         ExportModelAsMarkdown(reports: buildThreatModelReport())
     }
+
+    func exportModelAsHtml() -> ExportModelAsHtmlUseCase {
+        ExportModelAsHtml(markdown: exportModelAsMarkdown())
+    }
 }

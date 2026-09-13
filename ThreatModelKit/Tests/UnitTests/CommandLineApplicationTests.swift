@@ -66,6 +66,39 @@ struct CommandLineApplicationTests {
         #expect(project.exists(path: "/out/payments-threat-1.svg"))
     }
 
+    // MARK: the report as one page
+
+    @Test func writesNoPageUnlessItIsAsked() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        _ = run("report", "/work")
+
+        #expect(project.exists(path: "/work/threatmodel/payments.html") == false)
+    }
+
+    @Test func writesThePageBesideTheReport() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run("report", "/work", "--html")
+
+        #expect(result.code == 0)
+        #expect(result.lines.contains("wrote /work/threatmodel/payments.html"))
+        let page = try #require(try project.read(path: "/work/threatmodel/payments.html"))
+        #expect(page.hasPrefix("<!doctype html>"))
+        #expect(page.contains("<h1>"))
+    }
+
+    @Test func thePageHoldsEveryPictureItself() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        _ = run("report", "/work", "--html")
+
+        let page = try #require(try project.read(path: "/work/threatmodel/payments.html"))
+        // A page that reads its pictures from files beside it is not one file.
+        #expect(page.contains("<figure><svg"))
+        #expect(page.contains("src=\"payments-threat-1.svg\"") == false)
+    }
+
     // MARK: drawing a picture
 
     @Test func writesTheDiagramAsSvg() throws {

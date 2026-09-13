@@ -1,4 +1,5 @@
 import AppKit
+import DiagramRendering
 import Observation
 import ThreatModelKit
 
@@ -553,6 +554,55 @@ final class ThreatModelSession {
     func markdownExport() -> (data: Data, fileName: String) {
         let response = useCases.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest())
         return (Data(response.markdown.utf8), response.fileName)
+    }
+
+    /// The report as one page, with every picture inside it.
+    ///
+    /// The pictures are the ones the command line tool draws, from the same
+    /// code, so the page a person exports and the page a build writes are the
+    /// same page.
+    func htmlExport() -> (data: Data, fileName: String) {
+        let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+        let report = useCases.buildThreatModelReport()
+            .execute(BuildThreatModelReportRequest()).report
+        let drawn = DiagramBuilder.Model(
+            components: canvas.components,
+            connections: canvas.connections,
+            zones: canvas.zones,
+            risks: ElementRiskRollup.byElement(
+                assessment.threats,
+                levelOrder: assessment.severities.map(\.id)
+            ),
+            guards: EdgeGuards.byElement(assessment.threats)
+        )
+        let stem = FileNaming.stem(from: report.modelName)
+        let threats = ThreatDiagrams.pictures(
+            of: drawn,
+            for: report.rollups.topResidual,
+            stem: stem
+        )
+        let controls = ThreatDiagrams.controlPictures(
+            of: drawn,
+            for: report.protectionDependencies,
+            stem: stem
+        )
+
+        var sources = Dictionary(uniqueKeysWithValues: threats.map { ($0.fileName, $0.svg) })
+        for picture in controls { sources[picture.fileName] = picture.svg }
+
+        let page = useCases.exportModelAsHtml().execute(
+            ExportModelAsHtmlRequest(
+                threatPictures: Dictionary(
+                    uniqueKeysWithValues: threats.map { ($0.key, $0.fileName) }
+                ),
+                controlPictures: Dictionary(
+                    uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) }
+                ),
+                pictureSources: sources,
+                wholePicture: SvgWriter.svg(of: DiagramBuilder.drawing(of: drawn))
+            )
+        )
+        return (Data(page.html.utf8), page.fileName)
     }
 
     func threatclExport() -> (data: Data, fileName: String) {

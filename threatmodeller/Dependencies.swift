@@ -91,6 +91,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         ExportModelAsMarkdown(reports: buildThreatModelReport())
     }
 
+    func exportModelAsHtml() -> ExportModelAsHtmlUseCase {
+        ExportModelAsHtml(markdown: exportModelAsMarkdown())
+    }
+
     func setComponentProperties() -> SetComponentPropertiesUseCase {
         SetComponentProperties(models: models)
     }
