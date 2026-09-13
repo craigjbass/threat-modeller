@@ -85,6 +85,20 @@ struct ProjectWindow: View {
                 .accessibilityIdentifier("system-picker")
             }
 
+            // Declared before Libraries, so it sits to the left of it.
+            ToolbarItem {
+                if let stage = session.loading {
+                    HStack(spacing: 8) {
+                        Text(stage.says)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    .accessibilityIdentifier("loading-bar")
+                }
+            }
+
             ToolbarItem {
                 Button("Libraries", systemImage: "books.vertical") {
                     isShowingLibraries = true
@@ -204,34 +218,8 @@ struct ProjectWindow: View {
     private var chrome: some View {
         VStack(spacing: 0) {
             WorkflowBar(session: session)
-            loadingBar
             filesChangedNotice
             diagnosticsNotice
-        }
-    }
-
-    /// What a load is doing, as a strip above the diagram.
-    ///
-    /// The window draws this whenever a load runs. When a diagram is already
-    /// on screen the strip is the only thing that says so, because the
-    /// diagram stays: replacing it would throw away what the user was looking
-    /// at every time they picked another system.
-    @ViewBuilder
-    private var loadingBar: some View {
-        if let stage = session.loading {
-            HStack(spacing: 8) {
-                ProgressView()
-                    .controlSize(.small)
-                Text(stage.says)
-                    .font(.callout)
-                Spacer(minLength: 8)
-                Text(stepOf(stage))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(8)
-            .background(.bar)
-            .accessibilityIdentifier("loading-bar")
         }
     }
 
