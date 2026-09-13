@@ -328,4 +328,8 @@ public final class TestDependencies: UseCaseFactory {
     public func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }
+
+    public func assessLeverage() -> AssessLeverageUseCase {
+        AssessLeverage(models: models, catalogue: catalogue)
+    }
 }

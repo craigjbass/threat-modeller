@@ -320,4 +320,8 @@ nonisolated final class Dependencies: UseCaseFactory {
     func assessThreatModel() -> AssessThreatModelUseCase {
         AssessThreatModel(models: models, catalogue: catalogue)
     }
+
+    func assessLeverage() -> AssessLeverageUseCase {
+        AssessLeverage(models: models, catalogue: catalogue)
+    }
 }

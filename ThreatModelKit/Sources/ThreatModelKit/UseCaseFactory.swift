@@ -63,6 +63,7 @@ public protocol UseCaseFactory {
     func listPathwayMitigations() -> ListPathwayMitigationsUseCase
     func configurePathwayMitigations() -> ConfigurePathwayMitigationsUseCase
     func assessThreatModel() -> AssessThreatModelUseCase
+    func assessLeverage() -> AssessLeverageUseCase
     func loadLibraries() -> LoadLibrariesUseCase
     /// What the open project's libraries are, for every use case this root
     /// builds after the call.
