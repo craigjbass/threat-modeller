@@ -7,7 +7,7 @@ struct ReportActionsTests {
 
     @Test func theReportCarriesWhatEachActionRemoves() {
         guard case .added(let guardId) = app.addComponent().execute(
-            AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "restricted")
+            AddComponentRequest(technologyId: "aws-waf", x: 0, y: 0, sensitivity: "restricted")
         ), case .added(let storeId) = app.addComponent().execute(
             AddComponentRequest(technologyId: "aws-rds", x: 400, y: 0, sensitivity: "restricted")
         ) else {
@@ -38,17 +38,17 @@ struct ReportActionsTests {
         #expect(report.actions[0].text == "Adopt the guard")
 
         let action = report.actions[0]
-        // Baseline: threats score [16, 8, 8, 4], total 36, worst 16
-        // Store threat baseline score: 8
+        // Guard aws-waf raises no threats. Only store (aws-rds) threats remain.
+        // Baseline: store threat score 8, total 8, worst 8
         // After 50% mitigation: max(1, round(8 × 0.5)) = 4
         // Removes: 8 - 4 = 4 (one threat moves from 8 to 4)
-        // Total after mitigation: 36 - 4 = 32
-        // Worst after: still 16 (the worst threat is not mitigated)
+        // Total after: 4
+        // Worst after: 4 (the mitigated threat becomes the worst)
         #expect(action.removes == 4)
-        #expect(action.totalResidual == 36)
+        #expect(action.totalResidual == 8)
         #expect(action.threatsMoved == 1)
-        #expect(action.worstBefore == 16)
-        #expect(action.worstAfter == 16)
+        #expect(action.worstBefore == 8)
+        #expect(action.worstAfter == 4)
     }
 
     @Test func theReportCarriesNoActionForAModelDeclaringNone() {
