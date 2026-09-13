@@ -110,7 +110,8 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `risk_tolerance`, `assumption`, `text`, `owner`, `technology`, `name`,
 `category`, `description`, `threats`, `encrypts`, `zone`, `kind`, `network`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
-`shape`, `asset`, `flow`, `mitigates`, `status`.
+`shape`, `asset`, `flow`, `mitigates`, `status`, `recommendation`, `note`,
+`blocked_by`, `sources`.
 
 The controls language reads these keywords: `controls`, `for`, `catalogue`,
 `tolerance`, `stale`, `threat`, `on`, `severity`, `score`, `likelihood`,
@@ -265,7 +266,14 @@ FlowEntry     = "kind"        "=" String
 MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
 MitigatesEntry = "threats"         "=" StringList
                | "reduces_risk_by" "=" Number
-               | "status"          "=" String ;
+               | "status"          "=" String
+               | ActionBlock ;
+
+ActionBlock = "recommendation" String "{" { ActionAttr } "}" ;
+ActionAttr  = "text"       "=" String
+            | "note"       "=" String
+            | "blocked_by" "=" String
+            | "sources"    "=" StringList ;
 ```
 
 A file holds exactly one `system` block. A file that starts with any other word
@@ -1299,7 +1307,8 @@ entry" or "an unknown attribute".
 | architecture | `component` | `a component holds technology, name, data, threats, runs_as, shape and asset, not "<word>"` |
 | architecture | `asset` | `an asset holds data, not "<word>"` |
 | architecture | `flow` | `a flow holds kind and description, not "<word>"` |
-| architecture | `mitigates` | `a mitigates edge holds threats, reduces_risk_by and status, not "<word>"` |
+| architecture | `mitigates` | `a mitigates edge holds threats, reduces_risk_by, status and recommendation, not "<word>"` |
+| architecture | `recommendation` (on a `mitigates` edge) | `a recommendation holds text, note, blocked_by and sources, not "<word>"` |
 | controls | `controls for` | `a controls file holds catalogue, tolerance, threat and stale threat, not "<word>"` |
 | controls | `threat` | `a threat holds severity, score, likelihood, severity_override, control, compensating and recommendation, not "<word>"` |
 | controls | `likelihood` | `a likelihood holds tier, prior, rationale and sources, not "<word>"` |
@@ -1489,7 +1498,14 @@ FlowEntry     = "kind"        "=" String
 MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
 MitigatesEntry = "threats"         "=" StringList
                | "reduces_risk_by" "=" Number
-               | "status"          "=" String ;
+               | "status"          "=" String
+               | ActionBlock ;
+
+ActionBlock = "recommendation" String "{" { ActionAttr } "}" ;
+ActionAttr  = "text"       "=" String
+            | "note"       "=" String
+            | "blocked_by" "=" String
+            | "sources"    "=" StringList ;
 
 (* the controls language *)
 
