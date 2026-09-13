@@ -7,6 +7,10 @@ import ThreatModelKit
 /// This view holds layout. Gestures live in `CanvasGestures` and hit testing
 /// in `CanvasHitTest`.
 struct CanvasView: View {
+    /// The margin the canvas keeps from the window's edge. The palette column
+    /// collapses, and the canvas then starts at that edge itself.
+    static let windowEdgeMargin: CGFloat = 16
+
     let session: ThreatModelSession
     let canvas: CanvasState
 
@@ -197,7 +201,10 @@ struct CanvasView: View {
             .accessibilityIdentifier("zoom-in")
         }
         .buttonStyle(.bordered)
-        .padding(8)
+        // Collapsing the palette column puts the canvas at the window's own
+        // leading edge, so this margin is all that stands between the Draw
+        // zone control and that edge.
+        .padding(CanvasView.windowEdgeMargin)
     }
 
     /// The panel edits one zone at a time, so it appears only when exactly one

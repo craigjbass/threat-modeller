@@ -22,6 +22,17 @@ struct ZonePanel: View {
     ]
 
     var body: some View {
+        // The controls scroll sideways, as the component bar's do. Their
+        // widths are fixed and the canvas column can be 400 points, at which
+        // the row reflowed and the bar grew to 176 points.
+        ScrollView(.horizontal) {
+            controls
+        }
+        .scrollIndicators(.never)
+        .background(.bar)
+    }
+
+    private var controls: some View {
         HStack(alignment: .center, spacing: 16) {
             TextField("Name", text: name)
                 .textFieldStyle(.roundedBorder)
@@ -77,9 +88,8 @@ struct ZonePanel: View {
             }
             .accessibilityIdentifier("zone-remove")
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, CanvasView.windowEdgeMargin)
         .padding(.vertical, 8)
-        .background(.bar)
     }
 
     // MARK: writing through

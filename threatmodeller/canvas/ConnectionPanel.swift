@@ -33,7 +33,7 @@ struct ConnectionPanel: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, CanvasView.windowEdgeMargin)
         .padding(.vertical, 8)
         .background(.bar)
     }

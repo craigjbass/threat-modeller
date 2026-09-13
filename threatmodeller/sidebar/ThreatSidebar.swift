@@ -19,6 +19,10 @@ struct CompensatedThreat: Identifiable {
 struct ThreatSidebar: View {
     let session: ThreatModelSession
 
+    /// The state the pathway panel starts in. A preview sets it, because a
+    /// preview cannot press the panel header.
+    var pathwayExpanded = false
+
     /// The threat whose compensating control the user is editing.
     @State private var compensating: CompensatedThreat?
 
@@ -68,45 +72,54 @@ struct ThreatSidebar: View {
                     description: Text("Add a technology from the palette to see the threats it carries.")
                 )
             } else {
-                PathwayMitigationsPanel(session: session)
-                Divider()
-                RiskSummaryView(summary: session.summary)
-                Divider()
+                // The panel and the summary scroll with the threat cards. A
+                // view outside the scroll area keeps its whole height, and an
+                // expanded pathway panel is 497 points tall in a 300 point
+                // column: it took the threat list's height, and then the
+                // column overflowed and carried its own header above the top
+                // of the window, where nothing could collapse it again.
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
-                        ForEach(groups, id: \.id) { group in
-                            Section {
-                                if collapsed.contains(group.id) == false {
-                                    ForEach(group.threats, id: \.rowIdentity) { threat in
-                                        ThreatCard(
-                                            threat: threat,
-                                            severityChoices: session.severityChoices,
-                                            onSetControl: { key, implemented in
-                                                session.setControl(key: key, implemented: implemented)
-                                            },
-                                            onSetControlStatus: { key, statusId in
-                                                session.setControlStatus(key: key, statusId: statusId)
-                                            },
-                                            onCompensate: { compensating = CompensatedThreat(threat: threat) },
-                                            onOverride: { severityId in
-                                                session.overrideSeverity(
-                                                    overrideKey: threat.overrideKey,
-                                                    severityId: severityId
-                                                )
-                                            },
-                                            onClearOverride: {
-                                                session.clearOverride(overrideKey: threat.overrideKey)
-                                            }
-                                        )
+                    VStack(alignment: .leading, spacing: 0) {
+                        PathwayMitigationsPanel(session: session, isExpanded: pathwayExpanded)
+                        Divider()
+                        RiskSummaryView(summary: session.summary)
+                        Divider()
+
+                        LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
+                            ForEach(groups, id: \.id) { group in
+                                Section {
+                                    if collapsed.contains(group.id) == false {
+                                        ForEach(group.threats, id: \.rowIdentity) { threat in
+                                            ThreatCard(
+                                                threat: threat,
+                                                severityChoices: session.severityChoices,
+                                                onSetControl: { key, implemented in
+                                                    session.setControl(key: key, implemented: implemented)
+                                                },
+                                                onSetControlStatus: { key, statusId in
+                                                    session.setControlStatus(key: key, statusId: statusId)
+                                                },
+                                                onCompensate: { compensating = CompensatedThreat(threat: threat) },
+                                                onOverride: { severityId in
+                                                    session.overrideSeverity(
+                                                        overrideKey: threat.overrideKey,
+                                                        severityId: severityId
+                                                    )
+                                                },
+                                                onClearOverride: {
+                                                    session.clearOverride(overrideKey: threat.overrideKey)
+                                                }
+                                            )
+                                        }
                                     }
+                                } header: {
+                                    groupHeader(group)
                                 }
-                            } header: {
-                                groupHeader(group)
                             }
                         }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
                 }
             }
         }

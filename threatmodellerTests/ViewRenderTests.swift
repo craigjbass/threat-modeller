@@ -380,8 +380,14 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsTheThreatSidebar() {
-        expectDrawn(ThreatSidebar(session: aModel()), width: 400, height: 700, "the threat sidebar")
+    /// The sidebar draws its whole content inside a `ScrollView`, which
+    /// `ImageRenderer` cannot see into, so this one is drawn by AppKit.
+    @Test func drawsTheThreatSidebar() throws {
+        let drawn = try #require(
+            hostedDrawing(of: ThreatSidebar(session: aModel()), width: 400, height: 700)
+        )
+
+        #expect(hasContent(drawn.image), "the threat sidebar drew a blank rectangle")
     }
 
     @Test func drawsTheNodePanel() throws {

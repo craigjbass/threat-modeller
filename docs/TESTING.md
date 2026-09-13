@@ -99,3 +99,63 @@ The evidence, in order, in case it is ever needed again:
 5. The interface journeys still failed after that, which is a second and
    separate fault: `automationmodetool` reported Automation Mode disabled and
    authentication required.
+
+## Seeing a view when the screen cannot be captured
+
+This machine refuses both permissions a screen capture needs:
+
+```
+$ swift -e 'import CoreGraphics; import ApplicationServices; print(CGPreflightScreenCaptureAccess(), AXIsProcessTrusted())'
+false false
+```
+
+So `screencapture` and `System Events` are both dead ends. Two routes need
+neither permission.
+
+**A preview snapshot.** Xcode runs an MCP server. Add a `#Preview` to the view,
+then ask Xcode to render it:
+
+```
+xcrun mcpbridge          # the stdio bridge; Xcode must be running
+```
+
+`XcodeListWindows` gives the `tabIdentifier`, and `RenderPreview` takes that and
+a source file path and writes a PNG.
+`threatmodeller/LayoutPreviews.swift` holds the previews that show each layout
+fault at the column size it appears in.
+
+**A hosting view, for a test.** `hostedDrawing(of:width:height:)` in
+`threatmodellerTests/HostedDrawing.swift` puts the view in an offscreen window
+and reads the pixels back.
+
+Use it rather than `ImageRenderer` for any view whose content scrolls.
+`ImageRenderer` lays a view out with no scroll geometry, so a `LazyVStack`
+inside a `ScrollView` never fills in and the picture comes back blank.
+`LayoutFitTests` reads margins and content from these pictures.
+
+## When RenderPreview reports the app did not launch
+
+**Symptom.**
+
+```
+Failed to launch app ”threatmodeller.app” in reasonable time
+The app ”threatmodeller.app” did not launch on ”My Mac” in 30 seconds.
+```
+
+`RunCodeSnippet` reports the same.
+
+**Cause.** A test run leaves its host copy of the application running. The
+preview agent then cannot start its own.
+
+**Recovery.** Stop the host copy, then build once before rendering again:
+
+```
+pkill -x threatmodeller
+```
+
+Then `BuildProject`, then `RenderPreview`. The build alone clears a second
+fault with the same symptom, in which the preview pipeline reports
+`FailedToAddDependency` after a source file changes under it.
+
+**Prevention.** Run `pkill -x threatmodeller` after every `RunAllTests` or
+`RunSomeTests`, before the next preview or snippet.

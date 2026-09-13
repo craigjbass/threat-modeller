@@ -11,7 +11,15 @@ import ThreatModelKit
 struct PathwayMitigationsPanel: View {
     let session: ThreatModelSession
 
-    @State private var isExpanded = false
+    @State private var isExpanded: Bool
+
+    /// `isExpanded` is a parameter so a preview can draw the expanded panel.
+    /// A preview cannot press the header, and the expanded panel is the state
+    /// the layout fault appears in.
+    init(session: ThreatModelSession, isExpanded: Bool = false) {
+        self.session = session
+        _isExpanded = State(initialValue: isExpanded)
+    }
 
     private var usable: Int {
         session.pathwayMitigations.mitigations.filter(\.isProvidedOnThisModel).count
@@ -85,7 +93,11 @@ struct PathwayMitigationsPanel: View {
             }
 
             if mitigation.isEnabled {
-                HStack(spacing: 8) {
+                // The picker takes a line of its own and the slider takes the
+                // next. Side by side their fixed widths came to 356 points
+                // against a column that can be 300, so the row drew under
+                // both edges of the column.
+                VStack(alignment: .leading, spacing: 6) {
                     Picker("Mode", selection: Binding(
                         get: { mitigation.mode },
                         set: {
@@ -101,29 +113,31 @@ struct PathwayMitigationsPanel: View {
                         Text("Remove the threat").tag("remove")
                     }
                     .labelsHidden()
-                    .frame(width: 170)
+                    .frame(maxWidth: 220)
                     .accessibilityIdentifier("pathway-\(mitigation.id)-mode")
 
                     if mitigation.mode == "reduce" {
-                        Slider(
-                            value: Binding(
-                                get: { Double(mitigation.reductionPercent) },
-                                set: {
-                                    session.setPathwayMitigation(
-                                        id: mitigation.id,
-                                        isEnabled: mitigation.isEnabled,
-                                        mode: mitigation.mode,
-                                        reductionPercent: Int($0.rounded())
-                                    )
-                                }
-                            ),
-                            in: 0...100,
-                            step: 5
-                        )
-                        .frame(width: 100)
-                        .accessibilityIdentifier("pathway-\(mitigation.id)-percent")
-                        Text("\(mitigation.reductionPercent)%")
-                            .font(.caption2.monospacedDigit())
+                        HStack(spacing: 8) {
+                            Slider(
+                                value: Binding(
+                                    get: { Double(mitigation.reductionPercent) },
+                                    set: {
+                                        session.setPathwayMitigation(
+                                            id: mitigation.id,
+                                            isEnabled: mitigation.isEnabled,
+                                            mode: mitigation.mode,
+                                            reductionPercent: Int($0.rounded())
+                                        )
+                                    }
+                                ),
+                                in: 0...100,
+                                step: 5
+                            )
+                            .frame(maxWidth: 180)
+                            .accessibilityIdentifier("pathway-\(mitigation.id)-percent")
+                            Text("\(mitigation.reductionPercent)%")
+                                .font(.caption2.monospacedDigit())
+                        }
                     }
                 }
             }

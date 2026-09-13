@@ -33,6 +33,18 @@ struct ComponentPanel: View {
     ]
 
     var body: some View {
+        // The controls scroll sideways. Their widths are fixed and they need
+        // 982 points; the canvas column can be 400. Without the scroll the
+        // row reflowed and the bar grew to 208 points, taking that height
+        // from the diagram above it.
+        ScrollView(.horizontal) {
+            controls
+        }
+        .scrollIndicators(.never)
+        .background(.bar)
+    }
+
+    private var controls: some View {
         HStack(alignment: .center, spacing: 16) {
             TextField("Name", text: name)
                 .textFieldStyle(.roundedBorder)
@@ -70,9 +82,8 @@ struct ComponentPanel: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, CanvasView.windowEdgeMargin)
         .padding(.vertical, 8)
-        .background(.bar)
     }
 
     // MARK: writing through
