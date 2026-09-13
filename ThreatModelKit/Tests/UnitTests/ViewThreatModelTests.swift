@@ -161,4 +161,54 @@ struct ViewThreatModelTests {
 
         #expect(try #require(response.components.first).zoneId == "z2")
     }
+
+    // MARK: what the interface needs and could not see
+
+    /// The assumptions and the mitigates edges are model state a person
+    /// writes, so the read that draws the model shows them.
+    @Test func showsWhatTheSystemTakesOnTrust() {
+        let response = view(
+            ThreatModel(
+                assumptions: [
+                    SystemAssumption(label: "network-segmented", text: "It is.", owner: "platform")
+                ]
+            )
+        )
+
+        #expect(response.assumptions.count == 1)
+        #expect(response.assumptions.first?.label == "network-segmented")
+        #expect(response.assumptions.first?.text == "It is.")
+        #expect(response.assumptions.first?.owner == "platform")
+    }
+
+    @Test func showsWhatOneComponentLowersOnAnother() {
+        let response = view(
+            ThreatModel(
+                components: [component("guard"), component("store")],
+                mitigatesEdges: [
+                    MitigatesEdge(
+                        source: ComponentId("guard"),
+                        target: ComponentId("store"),
+                        threatIds: [ThreatId("credential-theft")],
+                        reducesRiskBy: 80,
+                        status: .assumed
+                    )
+                ]
+            )
+        )
+
+        #expect(response.mitigations.count == 1)
+        #expect(response.mitigations.first?.sourceComponentId == "guard")
+        #expect(response.mitigations.first?.targetComponentId == "store")
+        #expect(response.mitigations.first?.threatIds == ["credential-theft"])
+        #expect(response.mitigations.first?.reducesRiskBy == 80)
+        #expect(response.mitigations.first?.status == "assumed")
+    }
+
+    @Test func showsNeitherForAModelThatHoldsNone() {
+        let response = view(ThreatModel())
+
+        #expect(response.assumptions.isEmpty)
+        #expect(response.mitigations.isEmpty)
+    }
 }

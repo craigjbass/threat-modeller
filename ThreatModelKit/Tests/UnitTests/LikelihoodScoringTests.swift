@@ -84,4 +84,32 @@ struct LikelihoodScoringTests {
         #expect(after.scoreBeforeLikelihood == 16)
         #expect(after.compensatingLabels == ["Watched by the SIEM"])
     }
+
+    /// A caller that wants to write a finding needs the key the assessment
+    /// looks findings up by. Without it every caller builds the string itself
+    /// and one of them gets the form wrong.
+    @Test func carriesTheKeyAFindingIsStoredUnder() throws {
+        app.useLibraries([endpointLibrary(threatId: "sip-bypass", likelihood: "commodity")])
+        _ = app.addComponent().execute(
+            AddComponentRequest(technologyId: "endpoint-laptop", x: 0, y: 0, sensitivity: "restricted")
+        )
+        let before = try #require(threats().first)
+
+        #expect(
+            app.setLikelihoodFinding().execute(
+                SetLikelihoodFindingRequest(
+                    threatKey: before.threatKey,
+                    label: "no campaign has used this",
+                    tier: "research",
+                    prior: nil,
+                    rationale: "No public reporting names it.",
+                    sources: []
+                )
+            ) == .recorded
+        )
+
+        let after = try #require(threats().first)
+        #expect(after.likelihoodId == "research")
+        #expect(after.riskScore < before.riskScore)
+    }
 }

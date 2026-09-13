@@ -15,7 +15,7 @@ struct CompensatingControlSheet: View {
     @State private var percent = 40.0
     @State private var rationale = ""
 
-    private var threatKey: String { "\(threat.threatId)@\(threat.source.id)" }
+    private var threatKey: String { threat.threatKey }
 
     private var wouldScore: Int {
         max(1, Int((Double(threat.scoreBeforeCompensation) * (1 - percent / 100)).rounded()))

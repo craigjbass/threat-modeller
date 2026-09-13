@@ -698,6 +698,110 @@ final class ThreatModelSession {
         refresh()
     }
 
+    // MARK: what the system takes on trust
+
+    /// Writes down a fact the team accepts without proof, or changes the one
+    /// this label already names.
+    func setAssumption(label: String, text: String, owner: String?) {
+        useCases.setAssumption()
+            .execute(SetAssumptionRequest(label: label, text: text, owner: owner))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func removeAssumption(label: String) {
+        useCases.removeAssumption()
+            .execute(RemoveAssumptionRequest(label: label))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    // MARK: what one component lowers on another
+
+    /// States that one component lowers a named threat set on another. The two
+    /// ends name the edge, so writing between the same two changes it.
+    func setMitigatesEdge(
+        from sourceComponentId: String,
+        to targetComponentId: String,
+        threatIds: [String],
+        reducesRiskBy: Int,
+        status: String,
+        actionLabel: String? = nil,
+        actionText: String? = nil,
+        actionNote: String? = nil,
+        blockedBy: String? = nil,
+        sources: [String] = []
+    ) {
+        let action = actionLabel.map {
+            SetMitigatesEdgeRequest.Action(
+                label: $0,
+                text: actionText,
+                note: actionNote,
+                blockedBy: blockedBy,
+                sources: sources
+            )
+        }
+        useCases.setMitigatesEdge()
+            .execute(
+                SetMitigatesEdgeRequest(
+                    sourceComponentId: sourceComponentId,
+                    targetComponentId: targetComponentId,
+                    threatIds: threatIds,
+                    reducesRiskBy: reducesRiskBy,
+                    status: status,
+                    action: action
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func removeMitigatesEdge(from sourceComponentId: String, to targetComponentId: String) {
+        useCases.removeMitigatesEdge()
+            .execute(
+                RemoveMitigatesEdgeRequest(
+                    sourceComponentId: sourceComponentId,
+                    targetComponentId: targetComponentId
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    // MARK: how often a threat happens
+
+    /// Records what a person learned about how often an attack of this kind
+    /// happens. A threat holds one finding, so this changes the one it has.
+    func setLikelihoodFinding(
+        threatKey: String,
+        label: String,
+        tier: String?,
+        prior: Int?,
+        rationale: String,
+        sources: [String]
+    ) {
+        useCases.setLikelihoodFinding()
+            .execute(
+                SetLikelihoodFindingRequest(
+                    threatKey: threatKey,
+                    label: label,
+                    tier: tier,
+                    prior: prior,
+                    rationale: rationale,
+                    sources: sources
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func removeLikelihoodFinding(threatKey: String) {
+        useCases.removeLikelihoodFinding()
+            .execute(RemoveLikelihoodFindingRequest(threatKey: threatKey))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
     /// The examples the File menu offers.
     var samples: [ListedSample] {
         useCases.listSampleModels().execute(ListSampleModelsRequest()).samples

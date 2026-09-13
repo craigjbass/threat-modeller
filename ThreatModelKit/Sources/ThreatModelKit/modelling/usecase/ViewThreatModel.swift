@@ -145,12 +145,61 @@ public struct ViewedZone: Equatable, Sendable {
     }
 }
 
+/// What a system takes on trust, as the interface reads it.
+public struct ViewedAssumption: Equatable, Sendable {
+    public let label: String
+    public let text: String
+    public let owner: String?
+
+    public init(label: String, text: String, owner: String?) {
+        self.label = label
+        self.text = text
+        self.owner = owner
+    }
+}
+
+/// One component lowering a named threat set on another, as the interface
+/// reads it.
+public struct ViewedMitigation: Equatable, Sendable {
+    public let sourceComponentId: String
+    public let targetComponentId: String
+    public let threatIds: [String]
+    public let reducesRiskBy: Int
+    /// `adopted` or `assumed`.
+    public let status: String
+    /// What a team would do to adopt an assumed edge, or nil.
+    public let actionLabel: String?
+    public let actionText: String?
+
+    public init(
+        sourceComponentId: String,
+        targetComponentId: String,
+        threatIds: [String],
+        reducesRiskBy: Int,
+        status: String,
+        actionLabel: String? = nil,
+        actionText: String? = nil
+    ) {
+        self.sourceComponentId = sourceComponentId
+        self.targetComponentId = targetComponentId
+        self.threatIds = threatIds
+        self.reducesRiskBy = reducesRiskBy
+        self.status = status
+        self.actionLabel = actionLabel
+        self.actionText = actionText
+    }
+}
+
 public struct ViewThreatModelResponse: Equatable, Sendable {
     public let name: String
     public let components: [ViewedComponent]
     public let connections: [ViewedConnection]
     /// In drawing order. A later zone wins where two overlap.
     public let zones: [ViewedZone]
+    /// What the system takes on trust.
+    public let assumptions: [ViewedAssumption]
+    /// What one component lowers on another.
+    public let mitigations: [ViewedMitigation]
     /// Whether there is anything to take back or put in again, so a menu item
     /// can dim itself from the same read that draws the canvas.
     public let canUndo: Bool
@@ -161,10 +210,14 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         components: [ViewedComponent],
         connections: [ViewedConnection],
         zones: [ViewedZone],
+        assumptions: [ViewedAssumption] = [],
+        mitigations: [ViewedMitigation] = [],
         canUndo: Bool = false,
         canRedo: Bool = false
     ) {
         self.name = name
+        self.assumptions = assumptions
+        self.mitigations = mitigations
         self.components = components
         self.connections = connections
         self.zones = zones
@@ -238,6 +291,20 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     width: $0.rect.size.width,
                     height: $0.rect.size.height,
                     boundaryId: $0.boundary.rawValue
+                )
+            },
+            assumptions: model.assumptions.map {
+                ViewedAssumption(label: $0.label, text: $0.text, owner: $0.owner)
+            },
+            mitigations: model.mitigatesEdges.map { edge in
+                ViewedMitigation(
+                    sourceComponentId: edge.source.value,
+                    targetComponentId: edge.target.value,
+                    threatIds: edge.threatIds.map(\.value),
+                    reducesRiskBy: edge.reducesRiskBy,
+                    status: edge.effectiveStatus.rawValue,
+                    actionLabel: edge.action?.label,
+                    actionText: edge.action?.text
                 )
             },
             canUndo: models.canUndo,

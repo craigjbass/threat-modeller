@@ -13,7 +13,7 @@ private extension AssessedThreat {
 /// raised it.
 struct CompensatedThreat: Identifiable {
     let threat: AssessedThreat
-    var id: String { "\(threat.threatId)@\(threat.source.id)" }
+    var id: String { threat.threatKey }
 }
 
 struct ThreatSidebar: View {

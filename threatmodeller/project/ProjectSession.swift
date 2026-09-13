@@ -256,6 +256,47 @@ final class ProjectSession {
         }
     }
 
+    // MARK: answers the architecture no longer raises
+
+    /// The answers in the controls file for threats the architecture stopped
+    /// raising. Language guide 5.4: nothing deletes one, a person does, and
+    /// `threatmodeller check` exits 1 while one remains.
+    ///
+    /// It reads the file rather than the model, because a stale answer never
+    /// reaches the model.
+    var staleAnswers: [StaleAnswer] {
+        guard let root, let chosenSystem else { return [] }
+        guard case .listed(let answers) = useCases.listStaleAnswers().execute(
+            ListStaleAnswersRequest(root: root, systemName: chosenSystem)
+        ) else { return [] }
+        return answers
+    }
+
+    /// Deletes one, because a person decided to, and reads the project again
+    /// so the list on screen matches the file.
+    func removeStaleAnswer(_ answer: StaleAnswer) async {
+        guard let root, let chosenSystem else { return }
+
+        useCases.removeStaleAnswer()
+            .execute(
+                RemoveStaleAnswerRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    threatId: answer.threatId,
+                    sourceKind: answer.sourceKind,
+                    sourceId: answer.sourceId
+                )
+            )
+            .describe(into: &errorMessage)
+
+        fingerprint = currentFingerprint()
+    }
+
+    /// Deletes one from somewhere that cannot wait for it.
+    func deleteStaleAnswer(_ answer: StaleAnswer) {
+        inFlight = Task { await removeStaleAnswer(answer) }
+    }
+
     /// Reads the files again and draws them. It keeps the chosen system when
     /// the project still holds it.
     func reloadFromDisk() async {

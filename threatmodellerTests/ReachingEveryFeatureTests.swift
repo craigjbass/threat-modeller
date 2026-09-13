@@ -1,0 +1,136 @@
+import Foundation
+import Testing
+import ThreatModelKit
+import TestSupport
+@testable import threatmodeller
+
+/// The four things `docs/LANGUAGE.md` states that the interface could not
+/// reach. Each of these goes through the session, the way a control does.
+@MainActor
+struct ReachingEveryFeatureTests {
+    private func aModel() -> ThreatModelSession {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 400, y: 0)
+        return session
+    }
+
+    // MARK: assumptions
+
+    @Test func writesAnAssumptionAndShowsIt() {
+        let session = aModel()
+
+        session.setAssumption(label: "network-segmented", text: "It is.", owner: "platform")
+
+        #expect(session.canvas.assumptions.count == 1)
+        #expect(session.canvas.assumptions.first?.label == "network-segmented")
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func saysSoWhenAnAssumptionSaysNothing() {
+        let session = aModel()
+
+        session.setAssumption(label: "network-segmented", text: "   ", owner: nil)
+
+        #expect(session.canvas.assumptions.isEmpty)
+        #expect(session.errorMessage == "An assumption needs to say something.")
+    }
+
+    @Test func takesAnAssumptionBackOff() {
+        let session = aModel()
+        session.setAssumption(label: "network-segmented", text: "It is.", owner: nil)
+
+        session.removeAssumption(label: "network-segmented")
+
+        #expect(session.canvas.assumptions.isEmpty)
+    }
+
+    // MARK: mitigates
+
+    @Test func writesAMitigatesEdgeAndShowsIt() throws {
+        let session = aModel()
+        let ids = session.canvas.components.map(\.id)
+        let (guardId, storeId) = (try #require(ids.first), try #require(ids.last))
+
+        session.setMitigatesEdge(
+            from: guardId,
+            to: storeId,
+            threatIds: ["credential-theft"],
+            reducesRiskBy: 80,
+            status: "assumed"
+        )
+
+        #expect(session.canvas.mitigations.count == 1)
+        #expect(session.canvas.mitigations.first?.reducesRiskBy == 80)
+        #expect(session.canvas.mitigations.first?.status == "assumed")
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func saysSoWhenAMitigatesEdgeNamesNoThreats() throws {
+        let session = aModel()
+        let ids = session.canvas.components.map(\.id)
+
+        session.setMitigatesEdge(
+            from: try #require(ids.first),
+            to: try #require(ids.last),
+            threatIds: [],
+            reducesRiskBy: 80,
+            status: "assumed"
+        )
+
+        #expect(session.canvas.mitigations.isEmpty)
+        #expect(session.errorMessage == "A mitigates edge names the threats it lowers.")
+    }
+
+    @Test func takesAMitigatesEdgeBackOff() throws {
+        let session = aModel()
+        let ids = session.canvas.components.map(\.id)
+        let (guardId, storeId) = (try #require(ids.first), try #require(ids.last))
+        session.setMitigatesEdge(
+            from: guardId, to: storeId, threatIds: ["t"], reducesRiskBy: 10, status: "adopted"
+        )
+
+        session.removeMitigatesEdge(from: guardId, to: storeId)
+
+        #expect(session.canvas.mitigations.isEmpty)
+    }
+
+    // MARK: likelihood
+
+    @Test func writesALikelihoodFindingOnAThreat() throws {
+        let session = aModel()
+        let threat = try #require(session.threats.first)
+        let before = threat.riskScore
+
+        session.setLikelihoodFinding(
+            threatKey: threat.threatKey,
+            label: "no campaign has used this",
+            tier: "research",
+            prior: nil,
+            rationale: "No public reporting names it.",
+            sources: []
+        )
+
+        #expect(session.errorMessage == nil)
+        // A finding multiplies the score rather than answering the threat, so
+        // the threat is still there and scores lower.
+        let after = try #require(session.threats.first { $0.threatKey == threat.threatKey })
+        #expect(after.riskScore < before)
+    }
+
+    @Test func saysSoWhenAFindingStatesATierAndAPrior() throws {
+        let session = aModel()
+        let threat = try #require(session.threats.first)
+
+        session.setLikelihoodFinding(
+            threatKey: threat.threatKey,
+            label: "both",
+            tier: "research",
+            prior: 20,
+            rationale: "Why.",
+            sources: []
+        )
+
+        #expect(session.errorMessage == "A finding states a tier or a prior; it states one.")
+    }
+}

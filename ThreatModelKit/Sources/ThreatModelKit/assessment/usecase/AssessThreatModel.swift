@@ -156,6 +156,10 @@ public struct AssessedThreat: Hashable, Sendable {
     public let isTlsMitigated: Bool
     /// The key `OverrideThreatSeverity` takes. Minted by the core.
     public let overrideKey: String
+    /// The key that names this threat on this source. `SetLikelihoodFinding`
+    /// and `SetCompensatingControl` both take it. Minted by the core, so no
+    /// caller builds the string itself.
+    public let threatKey: String
     /// The severity id the user overrode this threat to, or nil.
     public let overriddenSeverityId: String?
     /// The pathway mitigations that answered this threat, by label. Empty when
@@ -213,6 +217,7 @@ public struct AssessedThreat: Hashable, Sendable {
         context: String?,
         isTlsMitigated: Bool,
         overrideKey: String,
+        threatKey: String = "",
         overriddenSeverityId: String?,
         pathwayMitigationLabels: [String] = [],
         scoreBeforePathwayMitigation: Int = 0,
@@ -244,6 +249,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.context = context
         self.isTlsMitigated = isTlsMitigated
         self.overrideKey = overrideKey
+        self.threatKey = threatKey
         self.overriddenSeverityId = overriddenSeverityId
         self.pathwayMitigationLabels = pathwayMitigationLabels
         self.scoreBeforePathwayMitigation = scoreBeforePathwayMitigation
@@ -325,6 +331,10 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     context: threat.context,
                     isTlsMitigated: threat.isTlsMitigated,
                     overrideKey: threat.overrideKey.value,
+                    threatKey: ThreatKey(
+                        threatId: threat.threat.id.value,
+                        sourceId: threat.source.id
+                    ).value,
                     overriddenSeverityId: threat.overriddenSeverityId,
                     pathwayMitigationLabels: threat.mitigatedBy.map(\.label),
                     scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
