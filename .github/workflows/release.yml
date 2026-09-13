@@ -84,11 +84,20 @@ jobs:
           # runner keychain holds the Developer ID Application certificate
           # only. The archive names that certificate. A Developer ID build
           # needs no provisioning profile, so the specifier stays empty.
+          # The About window states what shipped, so the version reaches
+          # the bundle from the release name rather than from the number the
+          # project file carries between releases. A version string holds
+          # digits and dots only, so the whole name travels beside it.
+          RELEASE_NAME="${{ github.ref_name }}"
+          VERSION=$(printf '%s' "$RELEASE_NAME" | sed -E 's/^v//; s/-.*$//')
           xcodebuild archive \
             -project threatmodeller.xcodeproj \
             -scheme threatmodeller \
             -configuration Release \
             -archivePath build/threatmodeller.xcarchive \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            TM_RELEASE_NAME="$RELEASE_NAME" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             PROVISIONING_PROFILE_SPECIFIER="" \

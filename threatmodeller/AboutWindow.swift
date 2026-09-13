@@ -8,12 +8,9 @@ import ThreatModelKit
 /// release tag recorded in this window.
 struct AboutWindow: View {
     let catalogue: ViewCatalogueVersionResponse?
-
-    private var version: String {
-        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "Version \(short) (\(build))"
-    }
+    /// What build this is. A test states what the window shows by passing one
+    /// rather than by building a bundle.
+    var version: AboutVersion = .ofThisBundle
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -24,9 +21,18 @@ struct AboutWindow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Craig's Threat Modeller")
                         .font(.title2.bold())
-                    Text(version)
+                    Text(version.described)
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("about-version")
+                    if let releaseName = version.releaseName {
+                        Text(releaseName)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .accessibilityIdentifier("about-release-name")
+                    }
                     Text("Copyright © 2026 Craig J. Bass. MIT licence.")
                         .font(.caption)
                         .foregroundStyle(.secondary)

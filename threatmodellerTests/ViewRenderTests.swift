@@ -479,11 +479,32 @@ struct ViewRenderTests {
                     repository: "jib1337/threat-model-library",
                     tag: "v1.0.1",
                     technologyCount: 286
-                )
+                ),
+                version: AboutVersion(version: "1.0", build: "1")
             ),
             width: 460,
             height: 400,
             "the About window"
+        )
+    }
+
+    @Test func drawsTheAboutWindowOfAReleasedBuild() {
+        expectDrawn(
+            AboutWindow(
+                catalogue: ViewCatalogueVersionResponse(
+                    repository: "jib1337/threat-model-library",
+                    tag: "v1.0.1",
+                    technologyCount: 286
+                ),
+                version: AboutVersion(
+                    version: "1.0.2",
+                    build: "412",
+                    releaseName: "v1.0.2-beta-dd164bf"
+                )
+            ),
+            width: 460,
+            height: 420,
+            "the About window of a released build"
         )
     }
 
