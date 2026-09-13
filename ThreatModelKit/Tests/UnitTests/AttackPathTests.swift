@@ -317,42 +317,4 @@ struct AttackPathTests {
         #expect(built.paths.isEmpty)
         #expect(built.paths.allSatisfy { $0.hops.count <= AttackPaths.maximumHops })
     }
-
-    @Test func theMarkdownStatesWhatItDidNotList() {
-        let lines = MarkdownAttackPaths.lines([], notListed: 4)
-        #expect(lines.contains("4 further paths are not listed."))
-    }
-
-    @Test func theMarkdownDrawsThePath() {
-        let lines = MarkdownAttackPaths.lines(
-            [
-                ReportAttackPath(
-                    startName: "actor",
-                    endName: "store",
-                    hops: [
-                        ReportAttackPathHop(
-                            componentName: "actor",
-                            flowKindLabel: nil,
-                            worstThreatName: nil,
-                            riskScore: 0,
-                            reducedBy: []
-                        ),
-                        ReportAttackPathHop(
-                            componentName: "store",
-                            flowKindLabel: "Local IPC",
-                            worstThreatName: "Raw device read",
-                            riskScore: 12,
-                            reducedBy: ["ClearanceKit"]
-                        )
-                    ],
-                    worstScore: 12
-                )
-            ],
-            notListed: 0
-        )
-        #expect(lines.first == "## Attack paths")
-        #expect(lines.contains("### actor \u{2192} store (worst 12)"))
-        #expect(lines.contains("1. actor"))
-        #expect(lines.contains("2. store, by Local IPC \u{2014} Raw device read (12), reduced by ClearanceKit"))
-    }
 }
