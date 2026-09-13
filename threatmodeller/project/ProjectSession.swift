@@ -33,6 +33,29 @@ final class ProjectSession {
 
     /// The session drawing the chosen system, or nil while nothing is drawn.
     private(set) var model: ThreatModelSession?
+
+    /// What a load is doing, or nil when nothing is loading. The window says
+    /// this, because opening a large model takes long enough that a still
+    /// window reads as a broken one.
+    private(set) var loading: LoadingStage?
+
+    /// The stages of opening a project, in the order they run.
+    enum LoadingStage: String, CaseIterable {
+        case readingTheProject
+        case loadingLibraries
+        case drawingTheSystem
+        case scoringTheThreats
+
+        /// What to say about this stage, to a person.
+        var says: String {
+            switch self {
+            case .readingTheProject: "Reading the project\u{2026}"
+            case .loadingLibraries: "Loading the libraries\u{2026}"
+            case .drawingTheSystem: "Laying the diagram out\u{2026}"
+            case .scoringTheThreats: "Scoring the threats\u{2026}"
+            }
+        }
+    }
     /// What the last save or compile did, for the bar above the diagram.
     private(set) var lastActionMessage: String?
     /// True when a file changed on disk and this session did not reload,
@@ -74,7 +97,7 @@ final class ProjectSession {
             if isAutoSyncOn == false { coalescer.cancel() }
             // Turning it on answers the change the user has been looking at.
             if isAutoSyncOn, hasFilesChangedOnDisk, hasUnsavedChanges == false {
-                reloadFromDisk()
+                reload()
             }
         }
     }
@@ -112,19 +135,19 @@ final class ProjectSession {
     ///
     /// It never writes over a system, so a root that already holds one says so
     /// and changes nothing.
-    func initialise(sampleId: String? = nil) {
-        start(.example(id: sampleId))
+    func initialise(sampleId: String? = nil) async {
+        await start(.example(id: sampleId))
     }
 
     /// Writes a system with this name and nothing else, and draws it.
     ///
     /// A user who already knows the system they are about to draw does not
     /// want an example to delete first.
-    func initialiseEmpty(systemName: String) {
-        start(.empty(systemName: systemName))
+    func initialiseEmpty(systemName: String) async {
+        await start(.empty(systemName: systemName))
     }
 
-    private func start(_ from: ProjectStart) {
+    private func start(_ from: ProjectStart) async {
         guard let root else { return }
 
         switch useCases.initialiseProject().execute(
@@ -132,11 +155,11 @@ final class ProjectSession {
         ) {
         case .created:
             errorMessage = nil
-            open(root: root)
+            await open(root: root)
         case .alreadyHasSystems(let names):
             // Reading the project again is what puts those systems on screen,
             // and it clears the message, so the message comes after it.
-            open(root: root)
+            await open(root: root)
             errorMessage = "This project already holds \(names.joined(separator: ", "))." 
         case .noSuchSample:
             errorMessage = "This application no longer holds that example."
@@ -156,10 +179,10 @@ final class ProjectSession {
     /// that holds it. Returns false for a file this application does not read,
     /// and changes nothing.
     @discardableResult
-    func openSystemFile(at path: String) -> Bool {
+    func openSystemFile(at path: String) async -> Bool {
         guard let found = ProjectConvention.system(atPath: path) else { return false }
 
-        open(root: found.root, preferring: found.systemName)
+        await open(root: found.root, preferring: found.systemName)
         return true
     }
 
@@ -167,9 +190,11 @@ final class ProjectSession {
     ///
     /// It draws the system named in `preferring` when the project still holds
     /// it, and the first system when it does not.
-    func open(root: String, preferring wanted: String? = nil) {
+    func open(root: String, preferring wanted: String? = nil) async {
         // A write waiting for the project being left must not land in it.
         coalescer.cancel()
+        loading = .readingTheProject
+        defer { loading = nil }
 
         switch useCases.openProject().execute(OpenProjectRequest(root: root)) {
         case .opened(let systems, let directory):
@@ -182,12 +207,13 @@ final class ProjectSession {
 
             // Every system reads every library, so they load before one is
             // drawn. A library that does not load stops the project.
+            loading = .loadingLibraries
             guard loadLibraries(root: root) else { return }
             fingerprint = currentFingerprint()
             watcher.stop()
             watcher.watch(directory: directory) { [weak self] in self?.filesChanged() }
             let chosen = systems.contains(wanted ?? "") ? wanted : systems.first
-            if let chosen { choose(chosen) }
+            if let chosen { await choose(chosen) }
         case .notAProject(let reason):
             self.root = nil
             systems = []
@@ -224,10 +250,42 @@ final class ProjectSession {
 
     /// Reads the files again and draws them. It keeps the chosen system when
     /// the project still holds it.
-    func reloadFromDisk() {
+    func reloadFromDisk() async {
         guard let root else { return }
         hasFilesChangedOnDisk = false
-        open(root: root, preferring: chosenSystem)
+        await open(root: root, preferring: chosenSystem)
+    }
+
+    /// Reads the files again from somewhere that cannot wait for it.
+    func reload() {
+        inFlight = Task { await reloadFromDisk() }
+    }
+
+    /// Writes an example, or a system with a name and nothing else, from
+    /// somewhere that cannot wait for it.
+    func startWriting(_ from: ProjectStart) {
+        inFlight = Task { await start(from) }
+    }
+
+    /// The load in flight, so a caller that has to know when it finished can
+    /// wait for it. A test is the only caller that does.
+    private var inFlight: Task<Void, Never>?
+
+    /// Waits for the load in flight, if there is one.
+    func settle() async {
+        await inFlight?.value
+    }
+
+    /// Opens a project from somewhere that cannot wait for it: a menu item, a
+    /// file the user double-clicked, a watcher saying a file changed. The
+    /// window draws the stage this reaches while it runs.
+    func reopen(root: String, preferring wanted: String? = nil) {
+        inFlight = Task { await open(root: root, preferring: wanted) }
+    }
+
+    /// Draws a system from somewhere that cannot wait for it.
+    func pick(_ systemName: String) {
+        inFlight = Task { await choose(systemName) }
     }
 
     /// Leaves what is on screen alone. The notice returns when a file changes
@@ -247,7 +305,7 @@ final class ProjectSession {
         guard current != fingerprint else { return }
 
         if isAutoSyncOn && hasUnsavedChanges == false {
-            reloadFromDisk()
+            reload()
         } else {
             hasFilesChangedOnDisk = true
         }
@@ -265,20 +323,30 @@ final class ProjectSession {
 
     /// Draws one system. A file with a fault draws nothing and fills the
     /// diagnostics, because half a diagram is worse than none.
-    func choose(_ systemName: String) {
+    func choose(_ systemName: String) async {
         guard let root else { return }
         // The same rule as `open`: the write belongs to the system being left.
         coalescer.cancel()
 
-        switch useCases.openSystem().execute(
-            OpenSystemRequest(root: root, systemName: systemName)
-        ) {
+        // Reading a system parses its file and lays the diagram out, and the
+        // layout is most of what opening a model costs. It runs off the main
+        // actor so the window keeps answering while it does. The store guards
+        // itself with a lock, which is what lets this leave.
+        loading = .drawingTheSystem
+        let outcome = await Task.detached { [useCases] in
+            useCases.openSystem().execute(
+                OpenSystemRequest(root: root, systemName: systemName)
+            )
+        }.value
+
+        switch outcome {
         case .opened(_, let warnings):
             chosenSystem = systemName
             diagnostics = warnings
             diagnosticsFileName = "\(systemName).arch"
             errorMessage = nil
             lastActionMessage = nil
+            loading = .scoringTheThreats
             let drawn = ThreatModelSession(useCases: useCases)
             model = drawn
             savedRevision = drawn.revision

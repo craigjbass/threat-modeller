@@ -1,7 +1,7 @@
 /// Reads the technology and threat catalogue.
 ///
 /// This is every method the spec's section 6 lists.
-public protocol TechnologyCatalogue {
+public protocol TechnologyCatalogue: Sendable {
     func all() -> [Technology]
     func findById(_ id: TechnologyId) -> Technology?
     /// The technology's threats, in the order the technology declares them.

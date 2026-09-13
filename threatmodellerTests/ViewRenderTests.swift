@@ -112,16 +112,16 @@ struct ViewRenderTests {
         return session
     }
 
-    private func anEmptyProject() -> ProjectSession {
+    private func anEmptyProject() async -> ProjectSession {
         let useCases = TestDependencies()
         useCases.project.put("a readme", at: "/work/README.md")
         // A fake watcher, so a render test never reaches the file system.
         let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
-        session.open(root: "/work")
+        await session.open(root: "/work")
         return session
     }
 
-    private func aDrawnProject() -> ProjectSession {
+    private func aDrawnProject() async -> ProjectSession {
         let useCases = TestDependencies()
         useCases.project.put(
             """
@@ -136,15 +136,15 @@ struct ViewRenderTests {
             at: "/work/threatmodel/payments.arch"
         )
         let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
-        session.open(root: "/work")
+        await session.open(root: "/work")
         return session
     }
 
     /// The assertion has teeth: a view that draws one flat colour fails it.
     /// Without this, every test in this file could pass on a blank window.
-    @Test func knowsABlankRectangleFromADrawnView() throws {
+    @Test func knowsABlankRectangleFromADrawnView() async throws {
         let blank = try #require(draw(Color.white, width: 200, height: 200))
-        let drawn = try #require(draw(ProjectWindow(session: aDrawnProject())))
+        let drawn = try #require(draw(ProjectWindow(session: await aDrawnProject())))
 
         #expect(hasContent(blank) == false)
         #expect(hasContent(drawn))
@@ -152,33 +152,33 @@ struct ViewRenderTests {
 
     // MARK: the project window, which is what this change touched
 
-    @Test func drawsTheOfferWhenAProjectHoldsNothing() throws {
-        let session = anEmptyProject()
+    @Test func drawsTheOfferWhenAProjectHoldsNothing() async throws {
+        let session = await anEmptyProject()
 
         #expect(session.canInitialise)
         expectDrawn(ProjectWindow(session: session), "the empty project window")
     }
 
-    @Test func namesEveryExampleItOffers() {
-        let session = anEmptyProject()
+    @Test func namesEveryExampleItOffers() async {
+        let session = await anEmptyProject()
 
         // The window draws one button per example, so the names it offers are
         // the names the examples carry.
         #expect(session.examples.map(\.name) == ["One Component"])
     }
 
-    @Test func drawsTheSystemAProjectHolds() {
-        let session = aDrawnProject()
+    @Test func drawsTheSystemAProjectHolds() async {
+        let session = await aDrawnProject()
 
         #expect(session.canInitialise == false)
         expectDrawn(ProjectWindow(session: session), "the project window")
     }
 
-    @Test func drawsTheOfferAndThenTheSystemItWrote() {
-        let session = anEmptyProject()
+    @Test func drawsTheOfferAndThenTheSystemItWrote() async {
+        let session = await anEmptyProject()
         expectDrawn(ProjectWindow(session: session), "the empty project window")
 
-        session.initialise()
+        await session.initialise()
 
         #expect(session.model != nil)
         expectDrawn(ProjectWindow(session: session), "the project window after the example")
@@ -186,8 +186,8 @@ struct ViewRenderTests {
 
     // MARK: the workflow bar
 
-    @Test func drawsTheWorkflowBar() throws {
-        let session = aDrawnProject()
+    @Test func drawsTheWorkflowBar() async throws {
+        let session = await aDrawnProject()
 
         let bar = try #require(draw(WorkflowBar(session: session), width: 900, height: 90))
 
@@ -223,7 +223,7 @@ struct ViewRenderTests {
         #expect(hasContent(sheet))
     }
 
-    @Test func drawsTheLibrariesSheetForAProjectWithNoLibrary() throws {
+    @Test func drawsTheLibrariesSheetForAProjectWithNoLibrary() async throws {
         let useCases = TestDependencies()
         useCases.project.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
         let session = LibrarySession(useCases: useCases, root: "/work", onChange: {})
@@ -265,7 +265,7 @@ struct ViewRenderTests {
         return CommandLineTool(bundle: app, home: home, path: "/usr/bin")
     }
 
-    @Test func drawsTheCommandLineToolSheet() throws {
+    @Test func drawsTheCommandLineToolSheet() async throws {
         let tool = try aCommandLineTool(carryingTheHelper: true)
 
         let sheet = try #require(draw(
@@ -277,7 +277,7 @@ struct ViewRenderTests {
         #expect(hasContent(sheet))
     }
 
-    @Test func drawsTheSheetForABuildThatCarriesNoCommand() throws {
+    @Test func drawsTheSheetForABuildThatCarriesNoCommand() async throws {
         let tool = try aCommandLineTool(carryingTheHelper: false)
 
         let sheet = try #require(draw(
@@ -289,8 +289,8 @@ struct ViewRenderTests {
         #expect(hasContent(sheet))
     }
 
-    @Test func drawsWhatTheLastActionDid() throws {
-        let session = aDrawnProject()
+    @Test func drawsWhatTheLastActionDid() async throws {
+        let session = await aDrawnProject()
         session.compileReport()
 
         #expect(session.lastActionMessage?.hasPrefix("Report: ") == true)
@@ -298,7 +298,7 @@ struct ViewRenderTests {
         #expect(hasContent(bar))
     }
 
-    @Test func drawsTheNoticeWhenTheFilesChangedUnderAnUnsavedModel() throws {
+    @Test func drawsTheNoticeWhenTheFilesChangedUnderAnUnsavedModel() async throws {
         let useCases = TestDependencies()
         useCases.project.put(
             """
@@ -314,7 +314,7 @@ struct ViewRenderTests {
         )
         let watcher = FakeProjectWatcher()
         let session = ProjectSession(useCases: useCases, watcher: watcher, defaults: aTestDefaults())
-        session.open(root: "/work")
+        await session.open(root: "/work")
         session.model?.addAtDefaultPoint(technologyId: "aws-rds")
         useCases.project.put(
             "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
@@ -335,7 +335,7 @@ struct ViewRenderTests {
         return RecentProjects(defaults: defaults)
     }
 
-    @Test func drawsTheWelcomeWindow() throws {
+    @Test func drawsTheWelcomeWindow() async throws {
         let view = WelcomeWindow(
             catalogue: ViewCatalogueVersionResponse(
                 repository: "threat-catalogue",
@@ -352,7 +352,7 @@ struct ViewRenderTests {
         #expect(hasContent(image))
     }
 
-    @Test func drawsTheWelcomeWindowWithNoCatalogue() throws {
+    @Test func drawsTheWelcomeWindowWithNoCatalogue() async throws {
         let view = WelcomeWindow(
             catalogue: nil,
             recents: aRecentStore(named: "empty"),
@@ -367,11 +367,11 @@ struct ViewRenderTests {
 
     // MARK: the rest of the chrome
 
-    @Test func drawsTheCanvas() {
+    @Test func drawsTheCanvas() async {
         expectDrawn(CanvasView(session: aModel(), canvas: CanvasState()), "the canvas")
     }
 
-    @Test func drawsThePalette() {
+    @Test func drawsThePalette() async {
         expectDrawn(
             PaletteView(session: aModel(), canvas: CanvasState()),
             width: 300,
@@ -382,7 +382,7 @@ struct ViewRenderTests {
 
     /// The sidebar draws its whole content inside a `ScrollView`, which
     /// `ImageRenderer` cannot see into, so this one is drawn by AppKit.
-    @Test func drawsTheThreatSidebar() throws {
+    @Test func drawsTheThreatSidebar() async throws {
         let drawn = try #require(
             hostedDrawing(of: ThreatSidebar(session: aModel()), width: 400, height: 700)
         )
@@ -390,7 +390,7 @@ struct ViewRenderTests {
         #expect(hasContent(drawn.image), "the threat sidebar drew a blank rectangle")
     }
 
-    @Test func drawsTheNodePanel() throws {
+    @Test func drawsTheNodePanel() async throws {
         let session = aModel()
         let component = try #require(session.canvas.components.first)
 
@@ -402,7 +402,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsTheZonePanel() throws {
+    @Test func drawsTheZonePanel() async throws {
         let session = aModel()
         let zone = try #require(session.canvas.zones.first)
 
@@ -414,7 +414,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsTheConnectionPanel() throws {
+    @Test func drawsTheConnectionPanel() async throws {
         let session = aModel()
         session.addAtDefaultPoint(technologyId: "aws-ec2")
         let components = session.canvas.components
@@ -432,7 +432,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsTheCompensatingControlSheet() throws {
+    @Test func drawsTheCompensatingControlSheet() async throws {
         let session = aModel()
         let threat = try #require(session.threats.first)
 
@@ -444,7 +444,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsTheDiagnosticsSheet() {
+    @Test func drawsTheDiagnosticsSheet() async {
         expectDrawn(
             DiagnosticsSheet(
                 fileName: "payments.arch",
@@ -460,7 +460,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsTheSamplesBrowser() {
+    @Test func drawsTheSamplesBrowser() async {
         expectDrawn(
             SampleBrowser(session: aModel(), canvas: CanvasState()),
             width: 480,
@@ -469,7 +469,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsTheTechnologyEditor() {
+    @Test func drawsTheTechnologyEditor() async {
         expectDrawn(
             CustomTechnologyEditor(session: aModel(), technologyId: nil),
             width: 520,
@@ -478,7 +478,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsTheAboutWindow() {
+    @Test func drawsTheAboutWindow() async {
         expectDrawn(
             AboutWindow(
                 catalogue: ViewCatalogueVersionResponse(
@@ -494,7 +494,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsTheAboutWindowOfAReleasedBuild() {
+    @Test func drawsTheAboutWindowOfAReleasedBuild() async {
         expectDrawn(
             AboutWindow(
                 catalogue: ViewCatalogueVersionResponse(
@@ -516,7 +516,7 @@ struct ViewRenderTests {
 
     // MARK: the data flow diagram shapes
 
-    @Test func drawsEachDiagramShape() {
+    @Test func drawsEachDiagramShape() async {
         for shapeId in ["actor", "process", "store"] {
             expectDrawn(
                 aNode(
@@ -536,7 +536,7 @@ struct ViewRenderTests {
         }
     }
 
-    @Test func drawsANodeThatRaisesNoThreat() {
+    @Test func drawsANodeThatRaisesNoThreat() async {
         expectDrawn(
             aNode(shapeId: "process", risk: nil),
             width: 200,
@@ -545,7 +545,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsAFlowWithItsLabelAndItsOpenThreatCount() {
+    @Test func drawsAFlowWithItsLabelAndItsOpenThreatCount() async {
         let boxes = [
             "a": ComponentBox(x: 0, y: 0, shape: .process),
             "b": ComponentBox(x: 400, y: 200, shape: .store)
@@ -585,7 +585,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsAPrivilegeZoneWithItsChipAndItsCount() {
+    @Test func drawsAPrivilegeZoneWithItsChipAndItsCount() async {
         expectDrawn(
             ZoneView(
                 zone: ViewedZone(
@@ -620,7 +620,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func drawsAWholeDiagramWithTheRiskItCarries() {
+    @Test func drawsAWholeDiagramWithTheRiskItCarries() async {
         let session = aModel()
 
         expectDrawn(
@@ -652,7 +652,7 @@ struct ViewRenderTests {
         return session
     }
 
-    @Test func drawsTheTrustBoundaryMarkWhereAFlowCrossesAZoneEdge() {
+    @Test func drawsTheTrustBoundaryMarkWhereAFlowCrossesAZoneEdge() async {
         let session = aCrossedModel()
 
         #expect(session.canvas.components.compactMap(\.zoneId).count == 2)
@@ -672,7 +672,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func namesWhatGuardsACrossedTrustBoundary() {
+    @Test func namesWhatGuardsACrossedTrustBoundary() async {
         let session = aCrossedModel()
         let flowId = session.canvas.connections.first?.id ?? ""
 
@@ -698,7 +698,7 @@ struct ViewRenderTests {
         )
     }
 
-    @Test func saysSoWhereNothingGuardsACrossedTrustBoundary() {
+    @Test func saysSoWhereNothingGuardsACrossedTrustBoundary() async {
         let session = aCrossedModel()
 
         expectDrawn(

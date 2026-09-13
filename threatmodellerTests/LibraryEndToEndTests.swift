@@ -91,7 +91,7 @@ struct LibraryEndToEndTests {
         let libraries = LibrarySession(
             useCases: useCases,
             root: world.project.path,
-            onChange: { project.reloadFromDisk() }
+            onChange: { project.reload() }
         )
 
         await libraries.add(repository: world.repository.path, tag: "v1.0.0")
@@ -115,7 +115,7 @@ struct LibraryEndToEndTests {
         )
 
         // The project now raises the threat only the library defines.
-        project.open(root: world.project.path)
+        await project.open(root: world.project.path)
         #expect(project.errorMessage == nil)
         let threats = try #require(project.model?.threats)
         #expect(threats.contains { $0.threatId == "acme-pipeline-tamper" })

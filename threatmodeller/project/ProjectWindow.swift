@@ -24,7 +24,9 @@ struct ProjectWindow: View {
             chrome
 
             Group {
-                if let model = session.model {
+                if let loading = session.loading {
+                    loadingNotice(loading)
+                } else if let model = session.model {
                     ProjectColumns(session: model, canvas: canvas)
                         .focusedSceneValue(\.threatModelSession, model)
                         .focusedSceneValue(\.threatModelCanvas, canvas)
@@ -56,7 +58,7 @@ struct ProjectWindow: View {
                     session: LibrarySession(
                         useCases: session.useCases,
                         root: root,
-                        onChange: { session.reloadFromDisk() }
+                        onChange: { session.reload() }
                     ),
                     dismiss: { isShowingLibraries = false }
                 )
@@ -90,6 +92,28 @@ struct ProjectWindow: View {
         }
     }
 
+    /// What a load is doing. Opening a large model takes long enough that a
+    /// still window reads as a broken one, so the window says the stage it is
+    /// in and which stage that is of the four.
+    private func loadingNotice(_ stage: ProjectSession.LoadingStage) -> some View {
+        let stages = ProjectSession.LoadingStage.allCases
+        let reached = (stages.firstIndex(of: stage) ?? 0) + 1
+
+        return VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+
+            Text(stage.says)
+                .font(.title3)
+
+            Text("Step \(reached) of \(stages.count)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("loading")
+    }
+
     /// A directory with nothing in it. Rather than an empty window, this
     /// application offers to write an example the user can read and change.
     private var emptyProject: some View {
@@ -120,7 +144,7 @@ struct ProjectWindow: View {
             VStack(spacing: 8) {
                 ForEach(session.examples, id: \.id) { example in
                     Button {
-                        session.initialise(sampleId: example.id)
+                        session.startWriting(.example(id: example.id))
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(example.name)
@@ -167,7 +191,7 @@ struct ProjectWindow: View {
     }
 
     private func createEmptySystem() {
-        session.initialiseEmpty(systemName: newSystemName)
+        session.startWriting(.empty(systemName: newSystemName))
     }
 
     private var chrome: some View {
@@ -188,7 +212,7 @@ struct ProjectWindow: View {
                 Text(filesChangedText)
                     .font(.callout)
                 Spacer(minLength: 8)
-                Button("Reload") { session.reloadFromDisk() }
+                Button("Reload") { session.reload() }
                     .accessibilityIdentifier("reload-from-disk")
                 Button(session.hasUnsavedChanges ? "Keep Mine" : "Dismiss") { session.keepMine() }
                     .accessibilityIdentifier("keep-mine")
@@ -238,7 +262,7 @@ struct ProjectWindow: View {
             get: { session.chosenSystem },
             set: { name in
                 guard let name else { return }
-                session.choose(name)
+                session.pick(name)
                 canvas.clearSelection()
             }
         )

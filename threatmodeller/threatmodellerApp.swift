@@ -68,7 +68,7 @@ struct ThreatModellerApp: App {
         let session = ProjectSession(useCases: useCases)
         // A path on the command line opens a project at launch. The interface
         // test uses it, because an open panel cannot be driven from one.
-        if let root = ProjectLaunchArgument.path() { session.open(root: root) }
+        if let root = ProjectLaunchArgument.path() { session.reopen(root: root) }
         return session
     }()
 
@@ -171,18 +171,21 @@ struct ThreatModellerApp: App {
 
         recents.record(url: url)
         openWindow(id: Self.projectWindowId)
-        project.open(root: url.path)
+        project.reopen(root: url.path)
         dismissWindow(id: Self.welcomeWindowId)
     }
 
     /// A `.arch` or a `.controls` file was opened from Finder, or dropped on
     /// the Dock icon. It names the project that holds it and the system in it.
     private func openSystemFile(_ url: URL) {
-        guard let project, project.openSystemFile(at: url.path) else { return }
+        guard let project else { return }
 
-        recents.record(url: URL(fileURLWithPath: project.root ?? url.path))
         openWindow(id: Self.projectWindowId)
-        dismissWindow(id: Self.welcomeWindowId)
+        Task {
+            guard await project.openSystemFile(at: url.path) else { return }
+            recents.record(url: URL(fileURLWithPath: project.root ?? url.path))
+            dismissWindow(id: Self.welcomeWindowId)
+        }
     }
 
     /// A recent root was chosen. The application is not sandboxed, so the path
@@ -191,7 +194,7 @@ struct ThreatModellerApp: App {
         guard let project, let url = recents.resolve(entry) else { return }
 
         openWindow(id: Self.projectWindowId)
-        project.open(root: url.path)
+        project.reopen(root: url.path)
         dismissWindow(id: Self.welcomeWindowId)
     }
 

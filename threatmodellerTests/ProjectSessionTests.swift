@@ -57,12 +57,12 @@ struct ProjectSessionTests {
 
     """
 
-    private func aProject() -> (ProjectSession, TestDependencies) {
-        let (session, useCases, _) = aWatchedProject()
+    private func aProject() async -> (ProjectSession, TestDependencies) {
+        let (session, useCases, _) = await aWatchedProject()
         return (session, useCases)
     }
 
-    private func aWatchedProject() -> (ProjectSession, TestDependencies, FakeProjectWatcher) {
+    private func aWatchedProject() async -> (ProjectSession, TestDependencies, FakeProjectWatcher) {
         let useCases = TestDependencies()
         useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
         useCases.project.put("system \"Reporting\" { component \"r\" { technology = \"aws-rds\" } }",
@@ -76,38 +76,38 @@ struct ProjectSessionTests {
     /// A user double-clicks a system's file in Finder. This application opens
     /// projects, so the file has to open the project that holds it, on that
     /// system.
-    @Test func opensTheProjectAroundASystemFileAndDrawsThatSystem() {
-        let (session, _) = aProject()
+    @Test func opensTheProjectAroundASystemFileAndDrawsThatSystem() async {
+        let (session, _) = await aProject()
 
-        let opened = session.openSystemFile(at: "/work/threatmodel/reporting.arch")
+        let opened = await session.openSystemFile(at: "/work/threatmodel/reporting.arch")
 
         #expect(opened)
         #expect(session.root == "/work")
         #expect(session.chosenSystem == "reporting")
     }
 
-    @Test func opensTheSameProjectFromASystemsControlsFile() {
-        let (session, _) = aProject()
+    @Test func opensTheSameProjectFromASystemsControlsFile() async {
+        let (session, _) = await aProject()
 
-        let opened = session.openSystemFile(at: "/work/threatmodel/reporting.controls")
+        let opened = await session.openSystemFile(at: "/work/threatmodel/reporting.controls")
 
         #expect(opened)
         #expect(session.chosenSystem == "reporting")
     }
 
-    @Test func opensNothingForAFileThisApplicationDoesNotRead() {
-        let (session, _) = aProject()
+    @Test func opensNothingForAFileThisApplicationDoesNotRead() async {
+        let (session, _) = await aProject()
 
-        let opened = session.openSystemFile(at: "/work/notes.txt")
+        let opened = await session.openSystemFile(at: "/work/notes.txt")
 
         #expect(opened == false)
         #expect(session.root == nil)
     }
 
-    @Test func listsTheSystemsAndDrawsTheFirst() {
-        let (session, _) = aProject()
+    @Test func listsTheSystemsAndDrawsTheFirst() async {
+        let (session, _) = await aProject()
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(session.systems == ["payments", "reporting"])
         #expect(session.chosenSystem == "payments")
@@ -115,19 +115,19 @@ struct ProjectSessionTests {
         #expect(session.errorMessage == nil)
     }
 
-    @Test func drawsTheSystemTheUserPicked() {
-        let (session, _) = aProject()
-        session.open(root: "/work")
+    @Test func drawsTheSystemTheUserPicked() async {
+        let (session, _) = await aProject()
+        await session.open(root: "/work")
 
-        session.choose("reporting")
+        await session.choose("reporting")
 
         #expect(session.chosenSystem == "reporting")
         #expect(session.model?.canvas.components.map(\.technologyId) == ["aws-rds"])
     }
 
-    @Test func writesTheDrawnSystemBackToItsFile() throws {
-        let (session, useCases) = aProject()
-        session.open(root: "/work")
+    @Test func writesTheDrawnSystemBackToItsFile() async throws {
+        let (session, useCases) = await aProject()
+        await session.open(root: "/work")
         session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
 
         session.save()
@@ -137,7 +137,7 @@ struct ProjectSessionTests {
         #expect(session.errorMessage == nil)
     }
 
-    @Test func drawsNothingWhenAFileDidNotParse() {
+    @Test func drawsNothingWhenAFileDidNotParse() async {
         let useCases = TestDependencies()
         useCases.project.put(
             "system \"Broken\" {\n  zone \"z\" {\n    kind = \"secret\"\n  }\n}",
@@ -145,7 +145,7 @@ struct ProjectSessionTests {
         )
         let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(session.model == nil)
         #expect(session.hasErrors)
@@ -154,7 +154,7 @@ struct ProjectSessionTests {
         #expect(session.errorMessage == "broken.arch did not parse.")
     }
 
-    @Test func drawsAFileThatOnlyWarns() {
+    @Test func drawsAFileThatOnlyWarns() async {
         let useCases = TestDependencies()
         useCases.project.put(
             "system \"P\" {\n  zone \"empty\" { }\n  component \"a\" { technology = \"aws-ec2\" }\n}",
@@ -162,34 +162,34 @@ struct ProjectSessionTests {
         )
         let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(session.hasErrors == false)
         #expect(session.diagnostics.count == 1)
         #expect(session.model?.canvas.components.count == 1)
     }
 
-    @Test func saysSoWhenTheRootIsNotAProject() {
+    @Test func saysSoWhenTheRootIsNotAProject() async {
         let session = ProjectSession(useCases: TestDependencies(), defaults: aTestDefaults())
 
-        session.open(root: "/nowhere")
+        await session.open(root: "/nowhere")
 
         #expect(session.model == nil)
         #expect(session.errorMessage?.hasPrefix("That is not a project:") == true)
     }
 
-    @Test func saysSoWhenAProjectHoldsNoArchitectureFiles() {
+    @Test func saysSoWhenAProjectHoldsNoArchitectureFiles() async {
         let useCases = TestDependencies()
         useCases.project.put("a readme", at: "/work/README.md")
         let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(session.systems.isEmpty)
         #expect(session.errorMessage?.contains("holds no .arch files") == true)
     }
 
-    @Test func readsAProjectPathOffTheCommandLine() {
+    @Test func readsAProjectPathOffTheCommandLine() async {
         #expect(ProjectLaunchArgument.path(in: ["app", "-project", "/work"]) == "/work")
         #expect(ProjectLaunchArgument.path(in: ["app"]) == nil)
         #expect(ProjectLaunchArgument.path(in: ["app", "-project"]) == nil)
@@ -197,28 +197,30 @@ struct ProjectSessionTests {
 
     // MARK: following the files
 
-    @Test func watchesTheProjectDirectory() {
-        let (session, _, watcher) = aWatchedProject()
+    @Test func watchesTheProjectDirectory() async {
+        let (session, _, watcher) = await aWatchedProject()
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(watcher.watchedDirectory == "/work/threatmodel")
     }
 
-    @Test func doesNothingWhenTheFilesDidNotChange() {
-        let (session, _, watcher) = aWatchedProject()
-        session.open(root: "/work")
+    @Test func doesNothingWhenTheFilesDidNotChange() async {
+        let (session, _, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
         let drawn = session.model
 
         watcher.fire()
+
+        await session.settle()
 
         #expect(session.model === drawn)
         #expect(session.hasFilesChangedOnDisk == false)
     }
 
-    @Test func redrawsWhenTheFilesChangedAndNothingIsUnsaved() {
-        let (session, useCases, watcher) = aWatchedProject()
-        session.open(root: "/work")
+    @Test func redrawsWhenTheFilesChangedAndNothingIsUnsaved() async {
+        let (session, useCases, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
         useCases.project.put(
             """
             system "Payments" {
@@ -244,13 +246,15 @@ struct ProjectSessionTests {
 
         watcher.fire()
 
+        await session.settle()
+
         #expect(session.model?.canvas.components.map(\.id) == ["api", "db"])
         #expect(session.hasFilesChangedOnDisk == false)
     }
 
-    @Test func asksWhenTheFilesChangedAndSomethingIsUnsaved() {
-        let (session, useCases, watcher) = aWatchedProject()
-        session.open(root: "/work")
+    @Test func asksWhenTheFilesChangedAndSomethingIsUnsaved() async {
+        let (session, useCases, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
         session.model?.addAtDefaultPoint(technologyId: "aws-rds")
         let drawn = session.model
         useCases.project.put(
@@ -259,31 +263,34 @@ struct ProjectSessionTests {
         )
 
         watcher.fire()
+
+        await session.settle()
 
         #expect(session.hasUnsavedChanges)
         #expect(session.hasFilesChangedOnDisk)
         #expect(session.model === drawn)
     }
 
-    @Test func reloadsWhenTheUserAsksForIt() {
-        let (session, useCases, watcher) = aWatchedProject()
-        session.open(root: "/work")
+    @Test func reloadsWhenTheUserAsksForIt() async {
+        let (session, useCases, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
         session.model?.addAtDefaultPoint(technologyId: "aws-rds")
         useCases.project.put(
             "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
             at: "/work/threatmodel/payments.arch"
         )
         watcher.fire()
+        await session.settle()
 
-        session.reloadFromDisk()
+        await session.reloadFromDisk()
 
         #expect(session.model?.canvas.components.map(\.id) == ["other"])
         #expect(session.hasFilesChangedOnDisk == false)
     }
 
-    @Test func keepsWhatIsOnScreenWhenTheUserAsksForThat() {
-        let (session, useCases, watcher) = aWatchedProject()
-        session.open(root: "/work")
+    @Test func keepsWhatIsOnScreenWhenTheUserAsksForThat() async {
+        let (session, useCases, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
         session.model?.addAtDefaultPoint(technologyId: "aws-rds")
         let drawn = session.model
         useCases.project.put(
@@ -291,6 +298,7 @@ struct ProjectSessionTests {
             at: "/work/threatmodel/payments.arch"
         )
         watcher.fire()
+        await session.settle()
 
         session.keepMine()
 
@@ -298,24 +306,26 @@ struct ProjectSessionTests {
         #expect(session.model === drawn)
     }
 
-    @Test func doesNotRedrawAfterItsOwnSave() {
-        let (session, _, watcher) = aWatchedProject()
-        session.open(root: "/work")
+    @Test func doesNotRedrawAfterItsOwnSave() async {
+        let (session, _, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
         session.model?.addAtDefaultPoint(technologyId: "aws-rds")
         session.save()
         let drawn = session.model
 
         watcher.fire()
 
+        await session.settle()
+
         #expect(session.model === drawn)
         #expect(session.hasFilesChangedOnDisk == false)
         #expect(session.hasUnsavedChanges == false)
     }
 
-    @Test func aReloadKeepsTheChosenSystem() {
-        let (session, useCases, watcher) = aWatchedProject()
-        session.open(root: "/work")
-        session.choose("reporting")
+    @Test func aReloadKeepsTheChosenSystem() async {
+        let (session, useCases, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
+        await session.choose("reporting")
         useCases.project.put(
             "system \"Reporting\" { component \"r2\" { technology = \"aws-rds\" } }",
             at: "/work/threatmodel/reporting.arch"
@@ -323,21 +333,23 @@ struct ProjectSessionTests {
 
         watcher.fire()
 
+        await session.settle()
+
         #expect(session.chosenSystem == "reporting")
         #expect(session.model?.canvas.components.map(\.id) == ["r2"])
     }
 
     // MARK: the auto sync switch
 
-    @Test func startsWithAutoSyncOn() {
-        let (session, _, _) = aWatchedProject()
+    @Test func startsWithAutoSyncOn() async {
+        let (session, _, _) = await aWatchedProject()
 
         #expect(session.isAutoSyncOn)
     }
 
-    @Test func doesNotRedrawWhileAutoSyncIsOff() {
-        let (session, useCases, watcher) = aWatchedProject()
-        session.open(root: "/work")
+    @Test func doesNotRedrawWhileAutoSyncIsOff() async {
+        let (session, useCases, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
         session.isAutoSyncOn = false
         let drawn = session.model
         useCases.project.put(
@@ -347,29 +359,33 @@ struct ProjectSessionTests {
 
         watcher.fire()
 
+        await session.settle()
+
         #expect(session.model === drawn)
         #expect(session.hasFilesChangedOnDisk)
     }
 
-    @Test func redrawsWhenAutoSyncIsTurnedBackOn() {
-        let (session, useCases, watcher) = aWatchedProject()
-        session.open(root: "/work")
+    @Test func redrawsWhenAutoSyncIsTurnedBackOn() async {
+        let (session, useCases, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
         session.isAutoSyncOn = false
         useCases.project.put(
             "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
             at: "/work/threatmodel/payments.arch"
         )
         watcher.fire()
+        await session.settle()
 
         session.isAutoSyncOn = true
+        await session.settle()
 
         #expect(session.model?.canvas.components.map(\.id) == ["other"])
         #expect(session.hasFilesChangedOnDisk == false)
     }
 
-    @Test func leavesAnUnsavedModelAloneWhenAutoSyncIsTurnedBackOn() {
-        let (session, useCases, watcher) = aWatchedProject()
-        session.open(root: "/work")
+    @Test func leavesAnUnsavedModelAloneWhenAutoSyncIsTurnedBackOn() async {
+        let (session, useCases, watcher) = await aWatchedProject()
+        await session.open(root: "/work")
         session.isAutoSyncOn = false
         session.model?.addAtDefaultPoint(technologyId: "aws-rds")
         let drawn = session.model
@@ -378,6 +394,7 @@ struct ProjectSessionTests {
             at: "/work/threatmodel/payments.arch"
         )
         watcher.fire()
+        await session.settle()
 
         session.isAutoSyncOn = true
 
@@ -385,7 +402,7 @@ struct ProjectSessionTests {
         #expect(session.hasFilesChangedOnDisk)
     }
 
-    @Test func remembersTheSwitchForTheNextSession() {
+    @Test func remembersTheSwitchForTheNextSession() async {
         let defaults = aTestDefaults()
         let useCases = TestDependencies()
         useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
@@ -407,30 +424,30 @@ struct ProjectSessionTests {
 
     // MARK: what the last action did
 
-    @Test func saysWhatTheSaveDid() {
-        let (session, _) = aProject()
-        session.open(root: "/work")
+    @Test func saysWhatTheSaveDid() async {
+        let (session, _) = await aProject()
+        await session.open(root: "/work")
 
         session.save()
 
         #expect(session.lastActionMessage?.hasPrefix("Saved") == true)
     }
 
-    @Test func saysWhereTheReportWent() {
-        let (session, _) = aProject()
-        session.open(root: "/work")
+    @Test func saysWhereTheReportWent() async {
+        let (session, _) = await aProject()
+        await session.open(root: "/work")
 
         session.compileReport()
 
         #expect(session.lastActionMessage == "Report: \(session.reportPath ?? "")")
     }
 
-    @Test func clearsTheMessageWhenAnotherSystemIsPicked() {
-        let (session, _) = aProject()
-        session.open(root: "/work")
+    @Test func clearsTheMessageWhenAnotherSystemIsPicked() async {
+        let (session, _) = await aProject()
+        await session.open(root: "/work")
         session.compileReport()
 
-        session.choose("reporting")
+        await session.choose("reporting")
 
         #expect(session.lastActionMessage == nil)
     }
@@ -450,16 +467,16 @@ struct ProjectAnswerTests {
 
     """
 
-    private func aProject() -> (ProjectSession, TestDependencies) {
+    private func aProject() async -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
         useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
         let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
-        session.open(root: "/work")
+        await session.open(root: "/work")
         return (session, useCases)
     }
 
-    @Test func writesTheAnswersBesideTheArchitecture() throws {
-        let (session, useCases) = aProject()
+    @Test func writesTheAnswersBesideTheArchitecture() async throws {
+        let (session, useCases) = await aProject()
 
         session.save()
 
@@ -470,8 +487,8 @@ struct ProjectAnswerTests {
         #expect(session.errorMessage == nil)
     }
 
-    @Test func carriesAnAnswerFromTheSidebarIntoTheFile() throws {
-        let (session, useCases) = aProject()
+    @Test func carriesAnAnswerFromTheSidebarIntoTheFile() async throws {
+        let (session, useCases) = await aProject()
         let control = try #require(session.model?.threats.first?.controls.first)
 
         session.model?.setControlStatus(key: control.key, statusId: "accepted")
@@ -481,8 +498,8 @@ struct ProjectAnswerTests {
         #expect(written.contains("status = \"accepted\""))
     }
 
-    @Test func carriesACompensatingControlIntoTheFile() throws {
-        let (session, useCases) = aProject()
+    @Test func carriesACompensatingControlIntoTheFile() async throws {
+        let (session, useCases) = await aProject()
         let threat = try #require(session.model?.threats.first)
 
         session.model?.setCompensatingControl(
@@ -502,8 +519,8 @@ struct ProjectAnswerTests {
         #expect(after.riskScore < threat.riskScore)
     }
 
-    @Test func writesTheReportOnlyWhenAsked() throws {
-        let (session, useCases) = aProject()
+    @Test func writesTheReportOnlyWhenAsked() async throws {
+        let (session, useCases) = await aProject()
 
         session.save()
         #expect(useCases.project.text(at: "/work/threatmodel/payments.md") == nil)
@@ -515,8 +532,8 @@ struct ProjectAnswerTests {
         #expect(session.reportPath == "/work/threatmodel/payments.md")
     }
 
-    @Test func readsBackTheAnswersItWrote() throws {
-        let (session, useCases) = aProject()
+    @Test func readsBackTheAnswersItWrote() async throws {
+        let (session, useCases) = await aProject()
         let control = try #require(session.model?.threats.first?.controls.first)
         session.model?.setControlStatus(key: control.key, statusId: "implemented")
         session.save()
@@ -529,7 +546,7 @@ struct ProjectAnswerTests {
             at: "/work/threatmodel/payments.controls"
         )
         let second = ProjectSession(useCases: reader, defaults: aTestDefaults())
-        second.open(root: "/work")
+        await second.open(root: "/work")
 
         #expect(second.model?.summary.controlsRecorded == 1)
     }
@@ -539,26 +556,26 @@ struct ProjectAnswerTests {
 /// example rather than showing an empty window.
 @MainActor
 struct EmptyProjectTests {
-    private func anEmptyRoot() -> (ProjectSession, TestDependencies) {
+    private func anEmptyRoot() async -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
         useCases.project.put("a readme", at: "/work/README.md")
         let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
-        session.open(root: "/work")
+        await session.open(root: "/work")
         return (session, useCases)
     }
 
-    @Test func offersToWriteAnExample() {
-        let (session, _) = anEmptyRoot()
+    @Test func offersToWriteAnExample() async {
+        let (session, _) = await anEmptyRoot()
 
         #expect(session.canInitialise)
         #expect(session.examples.isEmpty == false)
         #expect(session.errorMessage?.contains("Name a system") == true)
     }
 
-    @Test func writesTheExampleAndDrawsIt() throws {
-        let (session, useCases) = anEmptyRoot()
+    @Test func writesTheExampleAndDrawsIt() async throws {
+        let (session, useCases) = await anEmptyRoot()
 
-        session.initialise(sampleId: FakeSampleModels.sampleId)
+        await session.initialise(sampleId: FakeSampleModels.sampleId)
 
         #expect(session.canInitialise == false)
         #expect(session.systems == [FakeSampleModels.sampleId])
@@ -572,40 +589,40 @@ struct EmptyProjectTests {
         #expect(written.hasPrefix("system \"One Component\" {"))
     }
 
-    @Test func writesTheFirstExampleWhenTheUserNamesNone() {
-        let (session, _) = anEmptyRoot()
+    @Test func writesTheFirstExampleWhenTheUserNamesNone() async {
+        let (session, _) = await anEmptyRoot()
 
-        session.initialise()
+        await session.initialise()
 
         #expect(session.systems.isEmpty == false)
     }
 
-    @Test func offersNothingWhenTheProjectAlreadyHoldsASystem() {
+    @Test func offersNothingWhenTheProjectAlreadyHoldsASystem() async {
         let useCases = TestDependencies()
         useCases.project.put("system \"Mine\" { }", at: "/work/threatmodel/mine.arch")
         let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(session.canInitialise == false)
     }
 
-    @Test func neverWritesOverASystemThatIsAlreadyThere() throws {
+    @Test func neverWritesOverASystemThatIsAlreadyThere() async throws {
         let useCases = TestDependencies()
         useCases.project.put("system \"Mine\" { }", at: "/work/threatmodel/mine.arch")
         let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
-        session.initialise()
+        await session.initialise()
 
         #expect(session.errorMessage == "This project already holds mine.")
         #expect(useCases.project.text(at: "/work/threatmodel/mine.arch") == "system \"Mine\" { }")
     }
 
-    @Test func saysSoWhenTheExampleIsGone() {
-        let (session, _) = anEmptyRoot()
+    @Test func saysSoWhenTheExampleIsGone() async {
+        let (session, _) = await anEmptyRoot()
 
-        session.initialise(sampleId: "no-such-example")
+        await session.initialise(sampleId: "no-such-example")
 
         #expect(session.errorMessage == "This application no longer holds that example.")
         #expect(session.canInitialise)
@@ -613,10 +630,10 @@ struct EmptyProjectTests {
 
     // MARK: starting with nothing in it
 
-    @Test func writesAnEmptySystemAndDrawsIt() throws {
-        let (session, useCases) = anEmptyRoot()
+    @Test func writesAnEmptySystemAndDrawsIt() async throws {
+        let (session, useCases) = await anEmptyRoot()
 
-        session.initialiseEmpty(systemName: "Payments")
+        await session.initialiseEmpty(systemName: "Payments")
 
         #expect(session.canInitialise == false)
         #expect(session.systems == ["payments"])
@@ -627,10 +644,10 @@ struct EmptyProjectTests {
         #expect(written.hasPrefix("system \"Payments\" {"))
     }
 
-    @Test func saysSoWhenTheSystemNameIsBlank() {
-        let (session, _) = anEmptyRoot()
+    @Test func saysSoWhenTheSystemNameIsBlank() async {
+        let (session, _) = await anEmptyRoot()
 
-        session.initialiseEmpty(systemName: "   ")
+        await session.initialiseEmpty(systemName: "   ")
 
         #expect(session.errorMessage == "Give the system a name.")
         #expect(session.canInitialise)
@@ -638,13 +655,13 @@ struct EmptyProjectTests {
 
     /// The name a user is offered first. Typing the folder name again is work
     /// nobody needs, and the folder is usually what the system is called.
-    @Test func offersTheFolderNameAsTheSystemName() {
-        let (session, _) = anEmptyRoot()
+    @Test func offersTheFolderNameAsTheSystemName() async {
+        let (session, _) = await anEmptyRoot()
 
         #expect(session.suggestedSystemName == "work")
     }
 
-    @Test func offersNothingWhenNoProjectIsOpen() {
+    @Test func offersNothingWhenNoProjectIsOpen() async {
         let session = ProjectSession(useCases: TestDependencies(), defaults: aTestDefaults())
 
         #expect(session.canInitialise == false)
@@ -693,7 +710,7 @@ struct AutomaticSaveTests {
 
     """
 
-    private func aProject() -> (ProjectSession, TestDependencies, FakeCoalescer) {
+    private func aProject() async -> (ProjectSession, TestDependencies, FakeCoalescer) {
         let useCases = TestDependencies()
         useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
         useCases.project.put(
@@ -710,12 +727,12 @@ struct AutomaticSaveTests {
             defaults: aTestDefaults(),
             coalescer: coalescer
         )
-        session.open(root: "/work")
+        await session.open(root: "/work")
         return (session, useCases, coalescer)
     }
 
-    @Test func writesTheAnswersWhenAControlChangesAndAutoSyncIsOn() throws {
-        let (session, useCases, coalescer) = aProject()
+    @Test func writesTheAnswersWhenAControlChangesAndAutoSyncIsOn() async throws {
+        let (session, useCases, coalescer) = await aProject()
         let control = try #require(session.model?.threats.first?.controls.first)
 
         session.model?.setControlStatus(key: control.key, statusId: "accepted")
@@ -726,8 +743,8 @@ struct AutomaticSaveTests {
         #expect(session.hasUnsavedChanges == false)
     }
 
-    @Test func writesNothingWhileAutoSyncIsOff() {
-        let (session, useCases, coalescer) = aProject()
+    @Test func writesNothingWhileAutoSyncIsOff() async {
+        let (session, useCases, coalescer) = await aProject()
         session.isAutoSyncOn = false
 
         session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
@@ -737,18 +754,18 @@ struct AutomaticSaveTests {
         #expect(session.hasUnsavedChanges)
     }
 
-    @Test func dropsAPendingWriteWhenAnotherSystemIsPicked() {
-        let (session, _, coalescer) = aProject()
+    @Test func dropsAPendingWriteWhenAnotherSystemIsPicked() async {
+        let (session, _, coalescer) = await aProject()
         session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
         #expect(coalescer.hasPendingWork)
 
-        session.choose("reporting")
+        await session.choose("reporting")
 
         #expect(coalescer.hasPendingWork == false)
     }
 
-    @Test func dropsAPendingWriteWhenAutoSyncIsTurnedOff() {
-        let (session, _, coalescer) = aProject()
+    @Test func dropsAPendingWriteWhenAutoSyncIsTurnedOff() async {
+        let (session, _, coalescer) = await aProject()
         session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
         #expect(coalescer.hasPendingWork)
 
@@ -757,12 +774,12 @@ struct AutomaticSaveTests {
         #expect(coalescer.hasPendingWork == false)
     }
 
-    @Test func dropsAPendingWriteWhenAnotherProjectIsOpened() {
-        let (session, _, coalescer) = aProject()
+    @Test func dropsAPendingWriteWhenAnotherProjectIsOpened() async {
+        let (session, _, coalescer) = await aProject()
         session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
         #expect(coalescer.hasPendingWork)
 
-        session.open(root: "/other")
+        await session.open(root: "/other")
 
         #expect(coalescer.hasPendingWork == false)
     }
@@ -797,32 +814,32 @@ struct ProjectLibraryTests {
     }
     """
 
-    private func aProject(_ files: [String: String]) -> (ProjectSession, TestDependencies) {
+    private func aProject(_ files: [String: String]) async -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
         for (path, text) in files { useCases.project.put(text, at: path) }
         return (ProjectSession(useCases: useCases, defaults: aTestDefaults()), useCases)
     }
 
-    @Test func raisesAThreatOnlyTheLibraryDefines() throws {
-        let (session, _) = aProject([
+    @Test func raisesAThreatOnlyTheLibraryDefines() async throws {
+        let (session, _) = await aProject([
             "/work/threatmodel/payments.arch": payments,
             "/work/threatmodel/library/acme.lib": acme
         ])
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(session.errorMessage == nil)
         let threats = try #require(session.model?.threats)
         #expect(threats.contains { $0.threatId == "acme-pipeline-tamper" })
     }
 
-    @Test func showsTheLibraryAsItsOwnPaletteGroup() {
-        let (session, _) = aProject([
+    @Test func showsTheLibraryAsItsOwnPaletteGroup() async {
+        let (session, _) = await aProject([
             "/work/threatmodel/payments.arch": payments,
             "/work/threatmodel/library/acme.lib": acme
         ])
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(session.model?.palette.contains { $0.id == "acme" } == true)
         #expect(
@@ -830,25 +847,25 @@ struct ProjectLibraryTests {
         )
     }
 
-    @Test func saysSoWhenALibraryDoesNotParse() {
-        let (session, _) = aProject([
+    @Test func saysSoWhenALibraryDoesNotParse() async {
+        let (session, _) = await aProject([
             "/work/threatmodel/payments.arch": payments,
             "/work/threatmodel/library/acme.lib": "library \"acme\" { nonsense }"
         ])
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(session.model == nil)
         #expect(session.diagnosticsFileName == "acme.lib")
         #expect(session.errorMessage?.contains("acme.lib") == true)
     }
 
-    @Test func drawsAProjectThatHoldsNoLibrary() {
-        let (session, _) = aProject([
+    @Test func drawsAProjectThatHoldsNoLibrary() async {
+        let (session, _) = await aProject([
             "/work/threatmodel/payments.arch": "system \"Payments\" { }"
         ])
 
-        session.open(root: "/work")
+        await session.open(root: "/work")
 
         #expect(session.errorMessage == nil)
         #expect(session.model != nil)

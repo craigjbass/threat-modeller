@@ -16,7 +16,7 @@ struct WindowLayoutTests {
     private static let width = 1200.0
     private static let height = 800.0
 
-    private func aDrawnProject() -> ProjectSession {
+    private func aDrawnProject() async -> ProjectSession {
         let useCases = TestDependencies()
         useCases.project.put(
             """
@@ -31,7 +31,7 @@ struct WindowLayoutTests {
             at: "/work/threatmodel/payments.arch"
         )
         let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
-        session.open(root: "/work")
+        await session.open(root: "/work")
         return session
     }
 
@@ -85,8 +85,8 @@ struct WindowLayoutTests {
     /// columns still take the whole window, so a bar drawn that way covers the
     /// top of the palette and of the threat sidebar, and no scroll brings that
     /// top back into view.
-    @Test func keepsTheWorkflowBarAboveTheColumns() throws {
-        let window = laidOut(ProjectWindow(session: aDrawnProject()))
+    @Test func keepsTheWorkflowBarAboveTheColumns() async throws {
+        let window = laidOut(ProjectWindow(session: await aDrawnProject()))
         let content = try #require(window.contentView)
         let columns = try #require(self.columns(in: content))
         let bar = try #require(chrome(in: content, outside: columns))

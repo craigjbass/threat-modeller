@@ -74,7 +74,7 @@ enum LayoutPreview {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
         let session = ProjectSession(useCases: useCases)
-        session.open(root: root.path)
+        session.reopen(root: root.path)
         return session
     }
 
