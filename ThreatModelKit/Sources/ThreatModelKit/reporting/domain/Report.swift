@@ -195,7 +195,7 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     /// compensating control stands.
     private static func isUnanswered(_ threat: ReportThreat) -> Bool {
         guard threat.compensating.isEmpty else { return false }
-        return threat.controls.contains { $0.statusLabel != "Not implemented" } == false
+        return threat.controls.contains { $0.statusLabel != ControlStatus.notImplemented.label } == false
     }
 }
 
