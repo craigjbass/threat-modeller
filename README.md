@@ -297,10 +297,10 @@ Read [the language guide](docs/LANGUAGE.md) for the full grammar of
 this order:
 
 1. **Executive summary** — a verdict sentence, then a numbered **Highest
-   residual risk** list of the three worst-scoring exposures above the
-   project's risk tolerance, then a numbered **Do first** list of the three
-   recommendations that answer the worst threats (only when the model holds
-   such recommendations), then a count of the threats nobody has answered.
+   residual risk** list of the three worst-scoring threats by residual score,
+   then a numbered **Do first** list of the three recommendations that answer
+   the worst threats (only when the model holds such recommendations), then a
+   count of the threats nobody has answered.
 2. **Where the risk sits** — a bullet list counting threats by source kind:
    component, connection or zone.
 3. **By zone** — a table showing each zone, its components, its worst residual
@@ -329,9 +329,9 @@ this order:
     each entry's risk line. A recommendation records what to do; it never
     answers a threat, so `check` still fails while one stands with no other
     answer.
-11. **Assumptions** — every `assumption` block from the `.arch` file, then,
-    under "Assumed mitigations", every `mitigates` edge whose `status` is
-    `assumed`.
+11. **Assumptions** — every `assumption` block from the `.arch` file, then a
+    `### Assumed mitigations` subsection listing every `mitigates` edge whose
+    `status` is `assumed`.
 12. **Glossary** — a table of terms the report uses and what they mean.
 13. **Appendix A — Full threat register** — bullet counts of the threats, the
     controls recorded of offered, per-control-status counts, and per-risk-level
@@ -344,7 +344,8 @@ this order:
     listing every component, its technology, sensitivity, privilege, zone and
     assets; a bullet list of every connection, showing its source, target,
     kind and description; a `#### <zone name>` subsection for each zone,
-    listing its network and boundary type, risk reduction, and components.
+    listing the network zone, network type, boundary, risk reduction, and
+    components.
 15. **Appendix C — Attack paths not listed** — the count of attack paths the
     walk did not print because the walk is bounded.
 
