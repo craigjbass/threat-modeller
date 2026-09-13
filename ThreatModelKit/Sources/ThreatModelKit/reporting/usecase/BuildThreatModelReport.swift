@@ -180,7 +180,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     threats: threats,
                     recommendations: recommendations,
                     tolerance: tolerance
-                )
+                ),
+                methodology: ReportMethodology.build(zones: zones, tolerance: tolerance)
             )
         )
     }

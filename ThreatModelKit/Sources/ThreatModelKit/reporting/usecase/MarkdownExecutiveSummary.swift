@@ -18,7 +18,7 @@ public enum MarkdownExecutiveSummary {
                 let level = RiskLevel(rawValue: threat.riskLevel)?.label ?? threat.riskLevel
                 lines.append(
                     "\(index + 1). \(threat.name) \u{2014} \(threat.sourceName)"
-                        + " \u{2014} \(level) (\(threat.riskScore) of 16)."
+                        + " \u{2014} \(level) (\(threat.riskScore) of \(ReportMethodology.highestScore))."
                 )
                 if let element = components.first(where: { $0.name == threat.sourceName }) {
                     lines.append(
@@ -36,7 +36,7 @@ public enum MarkdownExecutiveSummary {
             for (index, action) in summary.topActions.enumerated() {
                 lines.append(
                     "\(index + 1). \(action.text) \u{2014} answers \(action.threatName)"
-                        + " on \(action.sourceName) (\(action.riskScore) of 16)."
+                        + " on \(action.sourceName) (\(action.riskScore) of \(ReportMethodology.highestScore))."
                 )
             }
             lines.append("")

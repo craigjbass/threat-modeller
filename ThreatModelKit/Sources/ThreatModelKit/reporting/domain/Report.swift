@@ -32,6 +32,8 @@ public struct Report: Equatable, Sendable {
     public let toleranceLabel: String
     /// The one page a reader reads first.
     public let executiveSummary: ReportExecutiveSummary
+    /// What the scores mean, and how they were reached.
+    public let methodology: ReportMethodology
 
     public init(
         modelName: String,
@@ -50,7 +52,8 @@ public struct Report: Equatable, Sendable {
         assumedMitigations: [ReportAssumedMitigation] = [],
         findings: ReportFindingsCut = ReportFindingsCut(),
         toleranceLabel: String = RiskLevel.low.label,
-        executiveSummary: ReportExecutiveSummary = ReportExecutiveSummary()
+        executiveSummary: ReportExecutiveSummary = ReportExecutiveSummary(),
+        methodology: ReportMethodology = ReportMethodology()
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -69,6 +72,7 @@ public struct Report: Equatable, Sendable {
         self.findings = findings
         self.toleranceLabel = toleranceLabel
         self.executiveSummary = executiveSummary
+        self.methodology = methodology
     }
 }
 
@@ -186,6 +190,82 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     private static func isUnanswered(_ threat: ReportThreat) -> Bool {
         guard threat.compensating.isEmpty else { return false }
         return threat.controls.contains { $0.statusLabel != "Not implemented" } == false
+    }
+}
+
+/// One risk level and the scores that reach it.
+public struct ReportLevelThreshold: Equatable, Sendable {
+    public let label: String
+    public let lowest: Int
+    public let highest: Int
+
+    public init(label: String, lowest: Int, highest: Int) {
+        self.label = label
+        self.lowest = lowest
+        self.highest = highest
+    }
+}
+
+/// What the numbers in this report mean, taken from the code that made them.
+public struct ReportMethodology: Equatable, Sendable {
+    public let levelThresholds: [ReportLevelThreshold]
+    /// The most the implemented controls take off, as a percentage.
+    public let controlCapPercent: Int
+    /// Each likelihood tier and its factor. The `count` is a percentage, not
+    /// a tally.
+    public let likelihoodTiers: [ReportCount]
+    /// Each zone that reduces risk, and by how much. The `count` is a
+    /// percentage, not a tally.
+    public let zoneReductions: [ReportCount]
+    public let toleranceLabel: String
+
+    public init(
+        levelThresholds: [ReportLevelThreshold] = [],
+        controlCapPercent: Int = 0,
+        likelihoodTiers: [ReportCount] = [],
+        zoneReductions: [ReportCount] = [],
+        toleranceLabel: String = RiskLevel.low.label
+    ) {
+        self.levelThresholds = levelThresholds
+        self.controlCapPercent = controlCapPercent
+        self.likelihoodTiers = likelihoodTiers
+        self.zoneReductions = zoneReductions
+        self.toleranceLabel = toleranceLabel
+    }
+
+    /// The highest score the base arithmetic can reach: four severity ranks
+    /// multiplied by four sensitivity ranks.
+    public static let highestScore = 16
+
+    /// Reads the thresholds out of `RiskScore.level` rather than repeating
+    /// them. A second copy would disagree with the scoring the day a
+    /// threshold moves.
+    public static func build(zones: [ReportZone], tolerance: RiskLevel) -> ReportMethodology {
+        var lowestByLevel: [RiskLevel: Int] = [:]
+        var highestByLevel: [RiskLevel: Int] = [:]
+        for score in 1...highestScore {
+            let level = RiskScore(value: score).level
+            if lowestByLevel[level] == nil { lowestByLevel[level] = score }
+            highestByLevel[level] = score
+        }
+
+        return ReportMethodology(
+            levelThresholds: RiskLevel.allCases
+                .sorted { $0.rank < $1.rank }
+                .compactMap { level in
+                    guard let lowest = lowestByLevel[level],
+                          let highest = highestByLevel[level] else { return nil }
+                    return ReportLevelThreshold(label: level.label, lowest: lowest, highest: highest)
+                },
+            controlCapPercent: Int((ControlCoverage.maxReduction * 100).rounded()),
+            likelihoodTiers: Likelihood.allTiers.map {
+                ReportCount(label: $0.label, count: Int(($0.factor * 100).rounded()))
+            },
+            zoneReductions: zones.compactMap { zone in
+                zone.riskReductionPercent.map { ReportCount(label: zone.name, count: $0) }
+            },
+            toleranceLabel: tolerance.label
+        )
     }
 }
 

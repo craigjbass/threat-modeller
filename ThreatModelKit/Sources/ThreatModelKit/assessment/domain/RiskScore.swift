@@ -1,4 +1,4 @@
-public enum RiskLevel: String, CaseIterable, Equatable, Sendable {
+public enum RiskLevel: String, CaseIterable, Equatable, Hashable, Sendable {
     case low
     case medium
     case high
