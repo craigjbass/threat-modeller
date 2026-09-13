@@ -99,7 +99,7 @@ struct ThreatModellerApp: App {
                     .keyboardShortcut("o", modifiers: [.command, .option])
                     .disabled(project == nil)
 
-                Button("Synchronise Project System") { project?.save() }
+                Button("Synchronise Project System") { project?.saveNow() }
                     .keyboardShortcut("s", modifiers: [.command, .option])
                     .disabled(project?.chosenSystem == nil)
 

@@ -39,6 +39,10 @@ final class ProjectSession {
     /// window reads as a broken one.
     private(set) var loading: LoadingStage?
 
+    /// True while a write is in flight. The bar says so, because a write
+    /// re-imports the architecture and that is not instant.
+    private(set) var isSaving = false
+
     /// The diagram as the layout search last had it, while a load runs. It
     /// holds geometry and nothing else, because that is all the search knows.
     private(set) var formingDiagram: LayOutModelResponse?
@@ -388,20 +392,38 @@ final class ProjectSession {
     /// a name typed into a field writes the files once and not once a letter.
     func modelDidChange() {
         guard isAutoSyncOn, hasUnsavedChanges else { return }
-        coalescer.schedule { [weak self] in self?.save() }
+        coalescer.schedule { [weak self] in self?.saveNow() }
     }
 
     /// Writes the drawn system back to the file it came from, and merges the
     /// answers on screen into its controls file.
-    func save() {
+    /// Writes from somewhere that cannot wait for it: the menu, or the timer
+    /// that writes after an edit.
+    func saveNow() {
+        inFlight = Task { await save() }
+    }
+
+    func save() async {
         guard let root, let chosenSystem else { return }
 
-        switch useCases.saveSystem().execute(
-            SaveSystemRequest(root: root, systemName: chosenSystem)
-        ) {
+        // Writing merges the answers on screen into the controls file, and
+        // that merge re-imports the architecture, which lays the diagram out.
+        // It is the most expensive thing an edit sets off, so it runs off the
+        // main actor: dragging a node used to hold the window for as long as a
+        // whole layout search took.
+        isSaving = true
+        defer { isSaving = false }
+
+        let written = await Task.detached { [useCases] in
+            useCases.saveSystem().execute(
+                SaveSystemRequest(root: root, systemName: chosenSystem)
+            )
+        }.value
+
+        switch written {
         case .saved:
             errorMessage = nil
-            saveAnswers(root: root, systemName: chosenSystem)
+            await saveAnswers(root: root, systemName: chosenSystem)
             savedRevision = model?.revision ?? 0
             fingerprint = currentFingerprint()
             hasFilesChangedOnDisk = false
@@ -412,10 +434,14 @@ final class ProjectSession {
         }
     }
 
-    private func saveAnswers(root: String, systemName: String) {
-        switch useCases.saveSystemAnswers().execute(
-            SaveSystemAnswersRequest(root: root, systemName: systemName)
-        ) {
+    private func saveAnswers(root: String, systemName: String) async {
+        let merged = await Task.detached { [useCases] in
+            useCases.saveSystemAnswers().execute(
+                SaveSystemAnswersRequest(root: root, systemName: systemName)
+            )
+        }.value
+
+        switch merged {
         case .saved(_, _, let unanswered, _):
             unansweredThreats = unanswered
             lastActionMessage = unanswered == 0

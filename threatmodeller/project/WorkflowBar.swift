@@ -14,7 +14,7 @@ struct WorkflowBar: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 12) {
                 Button {
-                    session.save()
+                    session.saveNow()
                 } label: {
                     Label("Synchronise", systemImage: "arrow.triangle.2.circlepath")
                         .frame(minWidth: 130)

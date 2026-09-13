@@ -102,7 +102,11 @@ nonisolated final class Dependencies: UseCaseFactory {
     /// Where the layout search says how it is going. The project session
     /// listens while it opens a system, so the window can draw the diagram
     /// forming rather than nothing.
-    let layoutProgress = LayoutProgress()
+    /// Declared optional because the protocol requires an optional. A
+    /// non-optional stored property does not satisfy an optional requirement,
+    /// so this root silently used the default of nil and the window drew
+    /// nothing while a model opened.
+    let layoutProgress: LayoutProgress? = LayoutProgress()
 
     func layOutModel() -> LayOutModelUseCase {
         LayOutModel(progress: layoutProgress)

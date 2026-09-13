@@ -130,7 +130,7 @@ struct ProjectSessionTests {
         await session.open(root: "/work")
         session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
 
-        session.save()
+        await session.save()
 
         let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.arch"))
         #expect(written.contains("technology = \"aws-rds\""))
@@ -310,7 +310,7 @@ struct ProjectSessionTests {
         let (session, _, watcher) = await aWatchedProject()
         await session.open(root: "/work")
         session.model?.addAtDefaultPoint(technologyId: "aws-rds")
-        session.save()
+        await session.save()
         let drawn = session.model
 
         watcher.fire()
@@ -428,7 +428,7 @@ struct ProjectSessionTests {
         let (session, _) = await aProject()
         await session.open(root: "/work")
 
-        session.save()
+        await session.save()
 
         #expect(session.lastActionMessage?.hasPrefix("Saved") == true)
     }
@@ -478,7 +478,7 @@ struct ProjectAnswerTests {
     @Test func writesTheAnswersBesideTheArchitecture() async throws {
         let (session, useCases) = await aProject()
 
-        session.save()
+        await session.save()
 
         let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.controls"))
         #expect(written.hasPrefix("controls for \"Payments\" {"))
@@ -492,7 +492,7 @@ struct ProjectAnswerTests {
         let control = try #require(session.model?.threats.first?.controls.first)
 
         session.model?.setControlStatus(key: control.key, statusId: "accepted")
-        session.save()
+        await session.save()
 
         let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.controls"))
         #expect(written.contains("status = \"accepted\""))
@@ -508,7 +508,7 @@ struct ProjectAnswerTests {
             reducesRiskBy: 50,
             rationale: "It alerts on use."
         )
-        session.save()
+        await session.save()
 
         let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.controls"))
         #expect(written.contains("compensating \"Watched by the SIEM\" {"))
@@ -522,7 +522,7 @@ struct ProjectAnswerTests {
     @Test func writesTheReportOnlyWhenAsked() async throws {
         let (session, useCases) = await aProject()
 
-        session.save()
+        await session.save()
         #expect(useCases.project.text(at: "/work/threatmodel/payments.md") == nil)
 
         session.compileReport()
@@ -536,7 +536,7 @@ struct ProjectAnswerTests {
         let (session, useCases) = await aProject()
         let control = try #require(session.model?.threats.first?.controls.first)
         session.model?.setControlStatus(key: control.key, statusId: "implemented")
-        session.save()
+        await session.save()
 
         // A second application, reading only what is on disk.
         let reader = TestDependencies()
@@ -737,6 +737,7 @@ struct AutomaticSaveTests {
 
         session.model?.setControlStatus(key: control.key, statusId: "accepted")
         coalescer.fire()
+        await session.settle()
 
         let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.controls"))
         #expect(written.contains("status = \"accepted\""))
