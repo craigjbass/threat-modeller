@@ -69,6 +69,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             report.rollups.topResidual,
             pictures: request.threatPictures
         )
+        lines += MarkdownMethodology.lines(report.methodology)
         lines += components(report.components)
         lines += connections(report.connections)
         lines += zones(report.zones)
