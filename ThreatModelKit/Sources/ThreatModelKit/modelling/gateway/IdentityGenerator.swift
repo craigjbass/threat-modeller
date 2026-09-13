@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol IdentityGenerator {
+public protocol IdentityGenerator: Sendable {
     func next() -> String
 }
 

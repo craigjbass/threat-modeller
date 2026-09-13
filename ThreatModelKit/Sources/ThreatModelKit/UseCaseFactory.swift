@@ -4,7 +4,7 @@
 /// real gateways, and `TestDependencies` in `TestSupport`, wired to fakes.
 /// The protocol keeps the two in step. A use case added here does not compile
 /// until both roots vend it.
-public protocol UseCaseFactory {
+public protocol UseCaseFactory: Sendable {
     func createThreatModel() -> CreateThreatModelUseCase
     func openThreatModel() -> OpenThreatModelUseCase
     func saveThreatModel() -> SaveThreatModelUseCase

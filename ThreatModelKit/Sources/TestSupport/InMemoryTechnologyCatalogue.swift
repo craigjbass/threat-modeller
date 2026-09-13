@@ -1,7 +1,7 @@
 import ThreatModelKit
 
 /// A working catalogue backed by arrays. Honours the same contract as the real one.
-public final class InMemoryTechnologyCatalogue: TechnologyCatalogue {
+public final class InMemoryTechnologyCatalogue: TechnologyCatalogue, @unchecked Sendable {
     private let technologies: [Technology]
     /// Kept in the order given, so `connectionThreats()` answers in catalogue
     /// order the way the real gateway does.
