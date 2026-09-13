@@ -416,7 +416,7 @@ struct MarkdownExportTests {
 
         let markdown = markdown()
 
-        #expect(markdown.contains("Datacentre reduces the risk of what it holds by 20%."))
+        #expect(markdown.contains("A private zone lowers the risk of what it holds: Datacentre by 20%."))
         #expect(markdown.contains("#### Datacentre"))
         #expect(markdown.contains("- Risk reduction: 20%"))
     }

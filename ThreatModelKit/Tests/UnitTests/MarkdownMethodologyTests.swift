@@ -20,7 +20,7 @@ struct MarkdownMethodologyTests {
         #expect(text.contains("severity rank multiplied by the data sensitivity rank"))
         #expect(text.contains("| Low | 1 | 3 |"))
         #expect(text.contains("| Critical | 12 | 16 |"))
-        #expect(text.contains("Private reduces the risk of what it holds by 30%."))
+        #expect(text.contains("A private zone lowers the risk of what it holds: Private by 30%."))
         #expect(text.contains("capped at 70%"))
         #expect(text.contains("Targeted 60%"))
         #expect(text.contains("The project's risk tolerance is Medium."))
@@ -38,7 +38,7 @@ struct MarkdownMethodologyTests {
             )
         ).joined(separator: "\n")
 
-        #expect(text.contains("reduces the risk of what it holds") == false)
+        #expect(text.contains("lowers the risk of what it holds") == false)
     }
 
     /// Every row states what the drawing code does (see
@@ -77,5 +77,22 @@ struct MarkdownMethodologyTests {
             text.contains("| Badge on a component | how many threats are still open on that component |")
         )
         #expect(text.contains("| Arrowhead | the direction the data flows |"))
+    }
+
+    @Test func numbersEachStageOnceAndInOrder() {
+        let text = MarkdownMethodology.lines(methodology).joined(separator: "\n")
+
+        // The stages used to write "1." on every line and leave the renumbering
+        // to the reader's Markdown. The report is read as a file and as a page,
+        // and neither renumbered it.
+        for (index, stage) in ["A private zone", "The implemented controls",
+                               "A pathway mitigation", "The likelihood multiplies",
+                               "A compensating control", "A score never falls below 1."].enumerated() {
+            #expect(
+                text.contains("\(index + 1). \(stage)"),
+                "stage \(index + 1) is not numbered \(index + 1)"
+            )
+        }
+        #expect(text.contains("1. The implemented controls") == false)
     }
 }

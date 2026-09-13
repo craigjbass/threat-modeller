@@ -123,4 +123,32 @@ struct MarkdownToHtmlTests {
         #expect(html.contains("@page { size: A4;"))
         #expect(html.contains("<link") == false)
     }
+
+    @Test func writesANumberedListAsOneOrderedList() {
+        let html = body("1. first\n2. second\n3. third\n")
+
+        #expect(html.contains("<ol>"))
+        #expect(html.contains("<li>first</li>"))
+        #expect(html.contains("<li>second</li>"))
+        // The marker belongs to the list, not to the text. A page that keeps
+        // it shows the number twice.
+        #expect(html.contains("1. first") == false)
+        #expect(html.components(separatedBy: "<ol>").count == 2)
+    }
+
+    @Test func keepsAnIndentedLineInsideTheItemAboveIt() {
+        let html = body("1. first\n   more about first\n2. second\n")
+
+        // One list, not two: closing it here would number `second` as one.
+        #expect(html.components(separatedBy: "<ol>").count == 2)
+        #expect(html.contains("more about first"))
+        #expect(html.contains("<p>more about first</p>") == false)
+    }
+
+    @Test func aBulletListAfterANumberedOneStartsItsOwnList() {
+        let html = body("1. first\n- bullet\n")
+
+        #expect(html.contains("<ol>"))
+        #expect(html.contains("<ul>"))
+    }
 }

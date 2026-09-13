@@ -24,6 +24,10 @@ public enum MarkdownToHtml {
         var body: [String] = []
         var table: [String] = []
         var list: [String] = []
+        /// True while the open list is a numbered one. A report numbers the
+        /// scoring stages and the worst risks, and a numbered line written as
+        /// a paragraph shows its own "1." on every line.
+        var listIsNumbered = false
         var wroteWholePicture = false
 
         func closeTable() {
@@ -34,8 +38,23 @@ public enum MarkdownToHtml {
 
         func closeList() {
             guard list.isEmpty == false else { return }
-            body.append("<ul>\n" + list.joined(separator: "\n") + "\n</ul>")
+            let tag = listIsNumbered ? "ol" : "ul"
+            body.append("<\(tag)>\n" + list.joined(separator: "\n") + "\n</\(tag)>")
             list = []
+            listIsNumbered = false
+        }
+
+        /// Adds a line to the item above it rather than opening a list of its
+        /// own, so an item that runs to a second line stays one item.
+        func addUnder(_ text: String) {
+            guard let last = list.last else {
+                list.append("<li>\(text)</li>")
+                return
+            }
+            list[list.count - 1] = last.replacingOccurrences(
+                of: "</li>",
+                with: "<br><span class=\"under\">\(text)</span></li>"
+            )
         }
 
         for line in markdown.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
@@ -55,20 +74,27 @@ public enum MarkdownToHtml {
             if line.hasPrefix("  - ") {
                 // A nested bullet joins the item above it rather than opening
                 // a list of its own: the report nests one level and no more.
-                let inner = inline(String(line.dropFirst(4)))
-                if let last = list.last {
-                    list[list.count - 1] = last.replacingOccurrences(
-                        of: "</li>",
-                        with: "<br><span class=\"under\">\(inner)</span></li>"
-                    )
-                } else {
-                    list.append("<li>\(inner)</li>")
-                }
+                addUnder(inline(String(line.dropFirst(4))))
+                continue
+            }
+
+            if list.isEmpty == false, line.hasPrefix("   "), line.trimmed().isEmpty == false {
+                // An indented line under an item continues that item. Closing
+                // the list here would start the next item's list again at one.
+                addUnder(inline(line.trimmed()))
                 continue
             }
 
             if line.hasPrefix("- ") {
+                if listIsNumbered { closeList() }
                 list.append("<li>\(inline(String(line.dropFirst(2))))</li>")
+                continue
+            }
+
+            if let digits = numberedMarker(of: line) {
+                if list.isEmpty == false, listIsNumbered == false { closeList() }
+                listIsNumbered = true
+                list.append("<li>\(inline(String(line.dropFirst(digits))))</li>")
                 continue
             }
             closeList()
@@ -96,6 +122,14 @@ public enum MarkdownToHtml {
     }
 
     // MARK: one construct
+
+    /// How many characters a numbered item's marker takes, or nil when the
+    /// line starts with something else. `"12. text"` gives 4.
+    static func numberedMarker(of line: String) -> Int? {
+        let digits = line.prefix(while: \.isNumber).count
+        guard digits > 0, line.dropFirst(digits).hasPrefix(". ") else { return nil }
+        return digits + 2
+    }
 
     /// The alt text and the file name of an image line, or nil.
     static func image(in line: String) -> (alt: String, name: String)? {

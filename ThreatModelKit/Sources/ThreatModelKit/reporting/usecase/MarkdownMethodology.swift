@@ -23,24 +23,31 @@ public enum MarkdownMethodology {
         lines.append("The stages run in this order, and each one takes the score the one before it left.")
         lines.append("")
 
-        for zone in methodology.zoneReductions {
-            lines.append("1. \(Markdown.cell(zone.label)) reduces the risk of what it holds by \(zone.count)%.")
-        }
+        // One entry per stage, numbered as it is written. A stage that writes
+        // its own "1." and leans on the reader's Markdown to renumber it comes
+        // out as "1." on every line, in the file and on the page.
+        var stages: [String] = []
+
         if methodology.zoneReductions.isEmpty == false {
-            lines.append(
-                "   A flow between two private zones takes the smaller of the two reductions."
+            let named = methodology.zoneReductions
+                .map { "\(Markdown.cell($0.label)) by \($0.count)%" }
+                .joined(separator: ", ")
+            stages.append(
+                "A private zone lowers the risk of what it holds: \(named)."
+                    + " A flow between two private zones takes the smaller of"
+                    + " the two reductions."
             )
         }
 
-        lines.append(
-            "1. The implemented controls take off their share of the score,"
+        stages.append(
+            "The implemented controls take off their share of the score,"
                 + " capped at \(methodology.controlCapPercent)%. The share is the"
                 + " implemented controls divided by the applicable ones, and a"
                 + " control marked not applicable leaves the divisor. A control"
                 + " marked accepted stays in the divisor and lowers nothing."
         )
-        lines.append(
-            "1. A pathway mitigation and a `mitigates` edge each take off the"
+        stages.append(
+            "A pathway mitigation and a `mitigates` edge each take off the"
                 + " percentage they state. Two that answer one threat give the"
                 + " stronger reduction, never the sum."
         )
@@ -48,16 +55,20 @@ public enum MarkdownMethodology {
             let tiers = methodology.likelihoodTiers
                 .map { "\($0.label) \($0.count)%" }
                 .joined(separator: ", ")
-            lines.append(
-                "1. The likelihood multiplies the score: \(tiers), or the"
+            stages.append(
+                "The likelihood multiplies the score: \(tiers), or the"
                     + " percentage a finding states."
             )
         }
-        lines.append(
-            "1. A compensating control multiplies the score by the reduction it"
+        stages.append(
+            "A compensating control multiplies the score by the reduction it"
                 + " states. Two give the stronger reduction, never the sum."
         )
-        lines.append("1. A score never falls below 1.")
+        stages.append("A score never falls below 1.")
+
+        for (index, stage) in stages.enumerated() {
+            lines.append("\(index + 1). \(stage)")
+        }
         lines.append("")
 
         lines.append(
