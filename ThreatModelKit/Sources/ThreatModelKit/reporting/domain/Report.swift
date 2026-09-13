@@ -183,8 +183,17 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
             verdict: verdict,
             toleranceLabel: tolerance.label,
             topRisks: Array(sorted.prefix(topCount)),
+            // Worst first, and ties broken by text, the way
+            // `RecommendationsReport.build` breaks them. Sorting by score
+            // alone reorders two recommendations that answer threats of one
+            // score, so two runs of one model name a different three.
             topActions: Array(
-                recommendations.sorted { $0.riskScore > $1.riskScore }.prefix(topCount)
+                recommendations
+                    .sorted { left, right in
+                        if left.riskScore != right.riskScore { return left.riskScore > right.riskScore }
+                        return left.text < right.text
+                    }
+                    .prefix(topCount)
             ),
             unansweredCount: threats.filter { isUnanswered($0) }.count,
             totalThreats: threats.count

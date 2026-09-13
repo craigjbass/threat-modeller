@@ -159,4 +159,20 @@ struct ReportExecutiveSummaryTests {
         #expect(report.executiveSummary.totalThreats == report.threats.count)
         #expect(report.executiveSummary.toleranceLabel == "Low")
     }
+
+    @Test func breaksATieBetweenTwoActionsByTextSoTwoRunsAgree() {
+        let summary = ReportExecutiveSummary.build(
+            threats: [],
+            recommendations: [
+                recommendation("zebra", 9),
+                recommendation("alpha", 9),
+                recommendation("middle", 9),
+                recommendation("omitted", 9)
+            ],
+            tolerance: .low,
+            findings: ReportFindingsCut()
+        )
+
+        #expect(summary.topActions.map { $0.text } == ["alpha", "middle", "omitted"])
+    }
 }
