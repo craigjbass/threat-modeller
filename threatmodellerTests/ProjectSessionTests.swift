@@ -115,6 +115,39 @@ struct ProjectSessionTests {
         #expect(session.errorMessage == nil)
     }
 
+    // MARK: what the window is told while a load runs
+
+    @Test func saysNothingIsLoadingOnceAProjectIsOpen() async {
+        let (session, _) = await aProject()
+
+        await session.open(root: "/work")
+
+        #expect(session.loading == nil)
+    }
+
+    /// Picking a system goes straight to choose, which had no way of saying it
+    /// had finished. The window draws the stage instead of the diagram, so a
+    /// stage left behind hides the diagram for good.
+    @Test func saysNothingIsLoadingOnceASystemIsPicked() async {
+        let (session, _) = await aProject()
+        await session.open(root: "/work")
+
+        await session.choose("reporting")
+
+        #expect(session.chosenSystem == "reporting")
+        #expect(session.loading == nil)
+    }
+
+    @Test func saysNothingIsLoadingWhenASystemDidNotParse() async {
+        let useCases = TestDependencies()
+        useCases.project.put("system \"Broken\" {", at: "/work/threatmodel/broken.arch")
+        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
+
+        await session.open(root: "/work")
+
+        #expect(session.loading == nil)
+    }
+
     @Test func drawsTheSystemTheUserPicked() async {
         let (session, _) = await aProject()
         await session.open(root: "/work")

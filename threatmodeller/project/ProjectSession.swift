@@ -335,6 +335,10 @@ final class ProjectSession {
         guard let root else { return }
         // The same rule as `open`: the write belongs to the system being left.
         coalescer.cancel()
+        // Every way out of here says the load has finished. Without this a
+        // system picked from the toolbar left a stage behind, and the window
+        // drew that stage for good.
+        defer { loading = nil }
 
         // Reading a system parses its file and lays the diagram out, and the
         // layout is most of what opening a model costs. It runs off the main

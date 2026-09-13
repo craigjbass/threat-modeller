@@ -24,12 +24,15 @@ struct ProjectWindow: View {
             chrome
 
             Group {
-                if let loading = session.loading {
-                    loadingNotice(loading)
-                } else if let model = session.model {
+                // A drawn model wins over a stage. The stage is what the
+                // window has instead of a diagram, never instead of one: a
+                // stage left behind must not be able to hide the diagram.
+                if let model = session.model {
                     ProjectColumns(session: model, canvas: canvas)
                         .focusedSceneValue(\.threatModelSession, model)
                         .focusedSceneValue(\.threatModelCanvas, canvas)
+                } else if let loading = session.loading {
+                    loadingNotice(loading)
                 } else if session.canInitialise {
                     emptyProject
                 } else {
