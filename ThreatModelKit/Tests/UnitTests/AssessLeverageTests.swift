@@ -97,34 +97,51 @@ struct AssessLeverageTests {
     @Test func measuresEachOfTwoOverlappingActionsAlone() {
         let ids = aModelWorthMeasuring()
         let threats = threatIdsOn(ids.storeId)
-        setEdges([
-            MitigatesEdge(
-                source: ComponentId(ids.guardId),
-                target: ComponentId(ids.storeId),
-                threatIds: threats,
-                reducesRiskBy: 50,
-                status: .assumed,
-                action: EdgeAction(label: "weaker", text: "The weaker guard")
-            ),
-            MitigatesEdge(
-                source: ComponentId(ids.queueId),
-                target: ComponentId(ids.storeId),
-                threatIds: threats,
-                reducesRiskBy: 80,
-                status: .assumed,
-                action: EdgeAction(label: "stronger", text: "The stronger guard")
-            )
-        ])
+        let weaker = MitigatesEdge(
+            source: ComponentId(ids.guardId),
+            target: ComponentId(ids.storeId),
+            threatIds: threats,
+            reducesRiskBy: 50,
+            status: .assumed,
+            action: EdgeAction(label: "weaker", text: "The weaker guard")
+        )
+        let stronger = MitigatesEdge(
+            source: ComponentId(ids.queueId),
+            target: ComponentId(ids.storeId),
+            threatIds: threats,
+            reducesRiskBy: 80,
+            status: .assumed,
+            action: EdgeAction(label: "stronger", text: "The stronger guard")
+        )
+        setEdges([weaker, stronger])
 
         let measured = app.assessLeverage().execute(AssessLeverageRequest()).leverage
 
-        // Each is measured alone against today's posture. The engine takes the
-        // stronger edge and never the sum, so doing both removes what the
-        // stronger one removes, not the total of the two rows.
+        // Each is measured alone against today's posture. Baseline totals 10
+        // (store's one threat scores 8, queue's scores 2). Adopting only the
+        // 80% edge leaves store at 2, for a total of 4: removes = 10 - 4 = 6.
+        // Adopting only the 50% edge leaves store at 4, for a total of 6:
+        // removes = 10 - 6 = 4.
         #expect(measured.count == 2)
         #expect(measured[0].action.label == "stronger")
+        #expect(measured[0].removes == 6)
         #expect(measured[1].action.label == "weaker")
-        #expect(measured[0].removes >= measured[1].removes)
+        #expect(measured[1].removes == 4)
+
+        // Adopting both together still gives store's one threat the stronger
+        // reduction alone, not the sum of the two: ComponentMitigations takes
+        // the strongest answering edge. So the sum of the two rows overstates
+        // what doing both actually removes.
+        var bothWeakerAdopted = weaker
+        bothWeakerAdopted.status = .adopted
+        var bothStrongerAdopted = stronger
+        bothStrongerAdopted.status = .adopted
+        setEdges([bothWeakerAdopted, bothStrongerAdopted])
+        let totalWithBothAdopted = app.assessThreatModel().execute(AssessThreatModelRequest())
+            .threats.map(\.riskScore).reduce(0, +)
+        let removedByBoth = 10 - totalWithBothAdopted
+
+        #expect(measured[0].removes + measured[1].removes > removedByBoth)
     }
 
     @Test func reportsAnActionThatRemovesNothing() {
