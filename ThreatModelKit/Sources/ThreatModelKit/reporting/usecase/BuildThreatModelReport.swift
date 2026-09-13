@@ -87,7 +87,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 networkTypeLabel: zone.networkType.label,
                 componentNames: held.compactMap { nameById[$0.id] },
                 componentIds: held.map(\.id.value),
-                riskReductionPercent: zone.riskReductionEnabled
+                riskReductionPercent: zone.networkZone == .privateZone && zone.riskReductionEnabled
                     ? zone.riskReductionPercent
                     : nil,
                 boundaryLabel: zone.boundary.label

@@ -367,6 +367,60 @@ struct MarkdownExportTests {
         #expect(markdown.contains("- Controls not implemented: "))
     }
 
+    @Test func namesNoRiskReductionForAPublicZoneEvenWithReductionOn() throws {
+        guard case .added(let zoneId) = app.addZone().execute(
+            AddZoneRequest(x: -100, y: -100, width: 800, height: 700)
+        ) else {
+            Issue.record("the zone was not added")
+            return
+        }
+        _ = app.setZoneProperties().execute(
+            SetZonePropertiesRequest(
+                zoneId: zoneId,
+                name: "Internet",
+                networkZone: "public",
+                networkType: "generic",
+                riskReductionEnabled: true,
+                riskReductionPercent: 20,
+                boundary: "network"
+            )
+        )
+
+        let markdown = markdown()
+
+        // The engine never reduces a public zone's risk, so the report names
+        // no zone in the methodology and writes no risk-reduction line.
+        #expect(markdown.contains("reduces the risk of what it holds by") == false)
+        #expect(markdown.contains("#### Internet"))
+        #expect(markdown.contains("- Risk reduction:") == false)
+    }
+
+    @Test func namesTheRiskReductionForAPrivateZoneWithReductionOn() throws {
+        guard case .added(let zoneId) = app.addZone().execute(
+            AddZoneRequest(x: -100, y: -100, width: 800, height: 700)
+        ) else {
+            Issue.record("the zone was not added")
+            return
+        }
+        _ = app.setZoneProperties().execute(
+            SetZonePropertiesRequest(
+                zoneId: zoneId,
+                name: "Datacentre",
+                networkZone: "private",
+                networkType: "generic",
+                riskReductionEnabled: true,
+                riskReductionPercent: 20,
+                boundary: "network"
+            )
+        )
+
+        let markdown = markdown()
+
+        #expect(markdown.contains("Datacentre reduces the risk of what it holds by 20%."))
+        #expect(markdown.contains("#### Datacentre"))
+        #expect(markdown.contains("- Risk reduction: 20%"))
+    }
+
     @Test func countsTheThreatsInTheAppendix() {
         _ = app.addComponent().execute(
             AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "internal")
