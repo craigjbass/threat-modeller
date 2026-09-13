@@ -160,6 +160,32 @@ change. So editing a file re-runs the whole search.
 It still grows faster than the model does. The next thing to measure is why
 `brokenBoundaries` costs what it does now that `hypot` is gone.
 
+**Two faults found after the six items, commit `ceca1ed`.**
+
+The window drew nothing while a model opened, because `Dependencies` declared
+`layoutProgress` as `LayoutProgress` and `UseCaseFactory` requires
+`LayoutProgress?`. A non-optional stored property does not satisfy an optional
+requirement, so the root used the default of nil and no listener attached. The
+compiler said nothing.
+
+Dragging a node beachballed. The chain: the drag ends, `move` writes the
+positions, `refresh` rescores, the model reports a change, the timer writes,
+and the write merges the answers through `CompileControls`, which re-imports
+the architecture, and importing lays the diagram out. Every edit ran a whole
+layout search on the main actor. The assessment is not the cost: 2ms at sixty
+components in release, and summarising another 2ms.
+
+`save` is async now and runs off the main actor.
+
+**The layout on the save path is still waste.** Compiling controls never draws
+a diagram, so the search it runs is thrown away. It cannot simply be skipped:
+`ImportArchitecture` takes every zone's rectangle from the layout, and zone
+membership is derived from geometry, so a compile with no layout would answer
+for the wrong zones. Removing it needs zone membership to come from the source
+nesting, which the `.arch` file already states, rather than from coordinates.
+That is the next change worth making, and it removes the cost rather than
+moving it.
+
 **A measurement note.** Do not measure this through Xcode's `RunCodeSnippet`.
 It launches the whole application; one attempt ran seven minutes and printed
 nothing. Time `LayOutModel` in the package instead, where it lives.
