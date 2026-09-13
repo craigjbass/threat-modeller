@@ -86,10 +86,11 @@ public enum MarkdownMethodology {
             "| Red, orange, yellow, green | Critical, High, Medium, Low |",
             "| Dashed tinted box | a zone, green if private, orange otherwise |",
             "| Purple dashed line | a control protecting an element; it carries no data |",
+            "| Purple badge on that line | how many threats the control answers on the component at the other end |",
             "| Grey chip | a boundary crossing with no guard, and a threat still open there |",
             "| Dashed guard marker | a guard the model assumes rather than adopts |",
             "| Thicker stroke | the element the picture is about |",
-            "| Badge on an element | how many threats are still open on that element |",
+            "| Badge on a component | how many threats are still open on that component |",
             "| Arrowhead | the direction the data flows |",
             ""
         ]

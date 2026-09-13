@@ -41,13 +41,41 @@ struct MarkdownMethodologyTests {
         #expect(text.contains("reduces the risk of what it holds") == false)
     }
 
+    /// Every row states what the drawing code does (see
+    /// `DiagramBuilderNodes.swift` and `DiagramBuilderParts.swift`), so a
+    /// wrong meaning has nowhere to hide.
     @Test func writesTheDiagramLegend() {
         let text = MarkdownMethodology.lines(methodology).joined(separator: "\n")
 
         #expect(text.contains("### Diagram legend"))
-        #expect(text.contains("| Red, orange, yellow, green |"))
-        #expect(text.contains("| Purple dashed line |"))
-        #expect(text.contains("| Dashed guard marker |"))
-        #expect(text.contains("| Badge on an element |"))
+        #expect(text.contains("| Mark | Meaning |"))
+        #expect(text.contains("| Red, orange, yellow, green | Critical, High, Medium, Low |"))
+        #expect(
+            text.contains("| Dashed tinted box | a zone, green if private, orange otherwise |")
+        )
+        #expect(
+            text.contains(
+                "| Purple dashed line | a control protecting an element; it carries no data |"
+            )
+        )
+        #expect(
+            text.contains(
+                "| Purple badge on that line"
+                    + " | how many threats the control answers on the component at the other end |"
+            )
+        )
+        #expect(
+            text.contains(
+                "| Grey chip | a boundary crossing with no guard, and a threat still open there |"
+            )
+        )
+        #expect(
+            text.contains("| Dashed guard marker | a guard the model assumes rather than adopts |")
+        )
+        #expect(text.contains("| Thicker stroke | the element the picture is about |"))
+        #expect(
+            text.contains("| Badge on a component | how many threats are still open on that component |")
+        )
+        #expect(text.contains("| Arrowhead | the direction the data flows |"))
     }
 }
