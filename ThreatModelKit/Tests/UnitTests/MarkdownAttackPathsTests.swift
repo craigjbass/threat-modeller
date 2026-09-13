@@ -53,6 +53,24 @@ struct MarkdownAttackPathsTests {
         #expect(text.contains("### 1. A \u{2192} B \u{2014} worst 3"))
     }
 
+    @Test func writesTheFallbackRowWhenAHopHasNoFlowAndNoThreat() {
+        let text = MarkdownAttackPaths.lines(
+            [ReportAttackPath(startName: "A", endName: "B", hops: [hop("A", score: 5)], worstScore: 5)],
+            prefix: []
+        ).joined(separator: "\n")
+
+        #expect(text.contains("| A | \u{2014} | none | 5 | nothing reduces this hop |"))
+    }
+
+    @Test func escapesAPipeInAHopName() {
+        let text = MarkdownAttackPaths.lines(
+            [ReportAttackPath(startName: "A|B", endName: "C", hops: [hop("A|B", score: 2)], worstScore: 2)],
+            prefix: []
+        ).joined(separator: "\n")
+
+        #expect(text.contains("| A\\|B | \u{2014} | none | 2 | nothing reduces this hop |"))
+    }
+
     @Test func writesNoneWhenTheTraceFoundNothing() {
         let text = MarkdownAttackPaths.lines([], prefix: []).joined(separator: "\n")
 
