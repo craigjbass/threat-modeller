@@ -33,16 +33,16 @@ public struct EdgeAction: Equatable, Sendable {
 /// product is a component like any other, and what it answers is an edge, not
 /// prose repeated in every compensating control.
 public struct MitigatesEdge: Equatable, Sendable {
-    public let source: ComponentId
-    public let target: ComponentId
-    public let threatIds: [ThreatId]
-    public let reducesRiskBy: Int
+    public var source: ComponentId
+    public var target: ComponentId
+    public var threatIds: [ThreatId]
+    public var reducesRiskBy: Int
     /// What the file states, or nil when the file states none.
-    public let status: MitigationStatus?
+    public var status: MitigationStatus?
     /// What a team would do to adopt this edge, or nil when it names none.
     /// Only an assumed edge carries one: an adopted edge has no leverage left
     /// to claim, because its reduction is already in the residual score.
-    public let action: EdgeAction?
+    public var action: EdgeAction?
 
     public init(
         source: ComponentId,

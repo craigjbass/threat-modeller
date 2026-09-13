@@ -193,14 +193,14 @@ public struct SourceEdgeAction: Equatable, Sendable {
 }
 
 public struct SourceMitigates: Equatable, Sendable {
-    public let sourceId: String
-    public let targetId: String
-    public let threatIds: [String]
-    public let reducesRiskBy: Int
+    public var sourceId: String
+    public var targetId: String
+    public var threatIds: [String]
+    public var reducesRiskBy: Int
     /// "adopted" or "assumed". Nil means the file states none.
-    public let status: String?
+    public var status: String?
     /// What a team would do to adopt this edge, or nil when it names none.
-    public let action: SourceEdgeAction?
+    public var action: SourceEdgeAction?
 
     public init(
         sourceId: String,
@@ -224,14 +224,9 @@ public struct SourceMitigates: Equatable, Sendable {
     /// The same edge with its action dropped, for a file that states one this
     /// language cannot mean.
     public func withoutAction() -> SourceMitigates {
-        SourceMitigates(
-            sourceId: sourceId,
-            targetId: targetId,
-            threatIds: threatIds,
-            reducesRiskBy: reducesRiskBy,
-            status: status,
-            action: nil
-        )
+        var edge = self
+        edge.action = nil
+        return edge
     }
 }
 

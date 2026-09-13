@@ -89,14 +89,9 @@ public struct AssessLeverage: AssessLeverageUseCase {
             var adopted = model
             adopted.mitigatesEdges = model.mitigatesEdges.map { edge in
                 guard action.edgeIds.contains(edge.id) else { return edge }
-                return MitigatesEdge(
-                    source: edge.source,
-                    target: edge.target,
-                    threatIds: edge.threatIds,
-                    reducesRiskBy: edge.reducesRiskBy,
-                    status: .adopted,
-                    action: edge.action
-                )
+                var promoted = edge
+                promoted.status = .adopted
+                return promoted
             }
             let after = scores(of: adopted)
 
