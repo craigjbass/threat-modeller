@@ -257,6 +257,9 @@ public struct ReportMethodology: Equatable, Sendable {
 
         return ReportMethodology(
             levelThresholds: RiskLevel.allCases
+                // A no-op today, because the cases already declare in rank
+                // order. Keep it: it is what stops the table reordering the
+                // day a case is declared out of rank order.
                 .sorted { $0.rank < $1.rank }
                 .compactMap { level in
                     guard let lowest = lowestByLevel[level],
