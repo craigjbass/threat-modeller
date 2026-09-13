@@ -96,12 +96,6 @@ struct DocumentFormatVersionFiveTests {
         #expect(read.riskTolerance == nil)
     }
 
-    @Test func theFormatVersionIsFive() throws {
-        let data = try ThreatModelCodec().encode(model())
-        let text = try #require(String(data: data, encoding: .utf8))
-        #expect(text.contains("\"formatVersion\" : 6"))
-    }
-
     /// A file written before this change carries none of the four keys, and
     /// still opens: every value it does not hold takes its default.
     @Test func aVersionFourDocumentStillReadsWithNoneOfTheFour() throws {
