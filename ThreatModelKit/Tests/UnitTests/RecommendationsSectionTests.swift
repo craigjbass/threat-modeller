@@ -61,9 +61,8 @@ struct RecommendationsSectionTests {
             )
         ])
         #expect(lines.first == "## Recommendations")
-        #expect(lines.contains("### store"))
         #expect(lines.contains("- Deny reads of /dev/rdisk**"))
-        #expect(lines.contains("  - Raw device read, risk 12"))
+        #expect(lines.contains("  - Raw device read on store, risk 12"))
         #expect(lines.contains("  - An endpoint rule."))
     }
 
@@ -96,24 +95,19 @@ struct RecommendationsSectionTests {
         #expect(lines.contains { $0.hasPrefix("  - Source:") } == false)
     }
 
-    @Test func recommendationsAreGroupedBySourceOrderedByTheGroupsWorst() throws {
+    @Test func recommendationsAreOrderedByTheWorstRiskFirst() throws {
         let lines = MarkdownRecommendations.lines([
             ReportRecommendation(text: "b", note: nil, threatName: "B", sourceName: "store", riskScore: 8),
             ReportRecommendation(text: "a", note: nil, threatName: "A", sourceName: "guard", riskScore: 20),
             ReportRecommendation(text: "c", note: nil, threatName: "C", sourceName: "store", riskScore: 12)
         ])
 
-        // "guard" carries the worst recommendation (20), so its group comes
-        // first, ahead of "store" (worst 12), even though "store" appears
-        // first in the input.
-        let guardHeading = try #require(lines.firstIndex(of: "### guard"))
-        let storeHeading = try #require(lines.firstIndex(of: "### store"))
-        #expect(guardHeading < storeHeading)
-
-        // Inside "store", the worse recommendation (c, 12) comes before the
-        // lesser one (b, 8).
+        // The worst recommendation (a, 20) comes first, then c (12), then b (8),
+        // regardless of the source.
+        let aIndex = try #require(lines.firstIndex(of: "- a"))
         let cIndex = try #require(lines.firstIndex(of: "- c"))
         let bIndex = try #require(lines.firstIndex(of: "- b"))
+        #expect(aIndex < cIndex)
         #expect(cIndex < bIndex)
     }
 
