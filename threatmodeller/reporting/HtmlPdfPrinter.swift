@@ -13,7 +13,10 @@ struct HtmlPdfPrinter {
     static let pageSize = CGSize(width: 595, height: 842)
 
     enum Fault: Error {
-        case couldNotLoad(String)
+        /// The WebKit content process died mid-load. No navigation callback
+        /// carries an `Error` for this case, so `LoadWatcher` throws this
+        /// one in its place.
+        case webContentProcessTerminated
     }
 
     func pdf(fromHtml html: String) async throws -> Data {
@@ -35,8 +38,16 @@ struct HtmlPdfPrinter {
 
 /// Waits for one page to finish loading. `WKWebView` reports the load through
 /// its delegate, and the print must not start before it.
+///
+/// Four delegate calls end a load: `didFinish` (it worked), `didFail` (a
+/// navigation error after the page commits), `didFailProvisionalNavigation`
+/// (a navigation error before the page commits), and
+/// `webViewWebContentProcessDidTerminate` (the content process died, with no
+/// `Error` of its own). Each records the outcome once and resumes the
+/// waiting continuation once. A continuation resumed twice traps; one never
+/// resumed leaves the caller waiting forever.
 @MainActor
-private final class LoadWatcher: NSObject, WKNavigationDelegate {
+final class LoadWatcher: NSObject, WKNavigationDelegate {
     private var waiting: CheckedContinuation<Void, Error>?
     private var finished = false
     private var fault: Error?
@@ -60,6 +71,23 @@ private final class LoadWatcher: NSObject, WKNavigationDelegate {
         didFail navigation: WKNavigation!,
         withError error: Error
     ) {
+        fault = error
+        waiting?.resume(throwing: error)
+        waiting = nil
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        didFailProvisionalNavigation navigation: WKNavigation!,
+        withError error: Error
+    ) {
+        fault = error
+        waiting?.resume(throwing: error)
+        waiting = nil
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        let error = HtmlPdfPrinter.Fault.webContentProcessTerminated
         fault = error
         waiting?.resume(throwing: error)
         waiting = nil
