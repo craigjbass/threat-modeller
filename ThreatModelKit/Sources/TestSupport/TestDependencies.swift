@@ -128,6 +128,14 @@ public final class TestDependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    public func listStaleAnswers() -> ListStaleAnswersUseCase {
+        ListStaleAnswers(projects: projects, controlsSources: controlsSources)
+    }
+
+    public func removeStaleAnswer() -> RemoveStaleAnswerUseCase {
+        RemoveStaleAnswer(projects: projects, controlsSources: controlsSources)
+    }
+
     public func setLikelihoodFinding() -> SetLikelihoodFindingUseCase {
         SetLikelihoodFinding(models: models)
     }

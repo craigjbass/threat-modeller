@@ -32,6 +32,8 @@ public protocol UseCaseFactory: Sendable {
     func importArchitecture() -> ImportArchitectureUseCase
     func exportArchitecture() -> ExportArchitectureUseCase
     func setControlStatus() -> SetControlStatusUseCase
+    func listStaleAnswers() -> ListStaleAnswersUseCase
+    func removeStaleAnswer() -> RemoveStaleAnswerUseCase
     func setLikelihoodFinding() -> SetLikelihoodFindingUseCase
     func removeLikelihoodFinding() -> RemoveLikelihoodFindingUseCase
     func setMitigatesEdge() -> SetMitigatesEdgeUseCase

@@ -129,6 +129,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    func listStaleAnswers() -> ListStaleAnswersUseCase {
+        ListStaleAnswers(projects: projects, controlsSources: controlsSources)
+    }
+
+    func removeStaleAnswer() -> RemoveStaleAnswerUseCase {
+        RemoveStaleAnswer(projects: projects, controlsSources: controlsSources)
+    }
+
     func setLikelihoodFinding() -> SetLikelihoodFindingUseCase {
         SetLikelihoodFinding(models: models)
     }
