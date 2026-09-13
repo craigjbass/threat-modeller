@@ -53,18 +53,27 @@ public enum FlowRouting {
             let curve = FlowCurve(from: start, through: found, to: end)
             guard let entered = firstZone(curve, enters: zones) else { break }
 
+            // The detour goes where the flow meets the obstacle, not at the
+            // end of the list. A detour taken round one obstacle puts the
+            // flow in front of another that stands earlier in the journey;
+            // appending that one's waypoint sent the flow down the diagram,
+            // back up it, and down again.
+            let at = entered.leg
+
             // Both ways round, and the one that leaves the flow in fewer zones
             // and turning less. Always taking the nearer side sent a flow back
             // and forth to the cap, and a reader follows a corner rather than
             // a line.
             let tried = ways(round: entered.zone, at: entered.point, travellingFrom: start, to: end)
                 .map { way -> (way: Point, cost: Cost) in
-                    (way, cost(of: FlowCurve(from: start, through: found + [way], to: end), zones: zones))
+                    var candidate = found
+                    candidate.insert(way, at: at)
+                    return (way, cost(of: FlowCurve(from: start, through: candidate, to: end), zones: zones))
                 }
                 .sorted { $0.cost < $1.cost }
 
             guard let best = tried.first else { break }
-            found.append(best.way)
+            found.insert(best.way, at: at)
         }
 
         return thinned(found, from: start, to: end)
@@ -114,15 +123,21 @@ public enum FlowRouting {
         )
     }
 
-    /// The first zone the curve enters, and where it entered.
+    /// The first zone the curve enters, where it entered, and which leg of
+    /// the flow that is.
+    ///
+    /// The leg is the index of the piece the entry sits on, which is where a
+    /// waypoint for this obstacle belongs in the list.
     private static func firstZone(
         _ curve: FlowCurve,
         enters zones: [Rect]
-    ) -> (zone: Rect, point: Point)? {
+    ) -> (zone: Rect, point: Point, leg: Int)? {
         for step in 0...steps {
-            let point = curve.point(at: Double(step) / Double(steps))
+            let along = Double(step) / Double(steps)
+            let point = curve.point(at: along)
             if let zone = zones.first(where: { $0.contains(point) }) {
-                return (zone, point)
+                let leg = min(Int(along * Double(curve.segments.count)), curve.segments.count - 1)
+                return (zone, point, max(0, leg))
             }
         }
 

@@ -87,6 +87,48 @@ struct FlowRoutingTests {
 
         #expect(found.count <= FlowRouting.mostWaypoints)
     }
+    // MARK: a flow that goes back the way it came
+
+    /// How far back along its own journey the flow goes, at worst.
+    ///
+    /// Every point is measured along the line from the start to the end. A
+    /// flow that only ever gets nearer the end measures 0. One that turns
+    /// back measures how far it retreated.
+    private func stepsBack(from start: Point, through waypoints: [Point], to end: Point) -> Double {
+        let curve = FlowCurve(from: start, through: waypoints, to: end)
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let length = hypot(dx, dy)
+        var furthest = -Double.infinity
+        var back = 0.0
+
+        for step in 0...96 {
+            let point = curve.point(at: Double(step) / 96)
+            let along = ((point.x - start.x) * dx + (point.y - start.y) * dy) / length
+            furthest = max(furthest, along)
+            back = max(back, furthest - along)
+        }
+
+        return back
+    }
+
+    /// One detour puts the flow in front of a second obstacle that stands
+    /// earlier in the journey. The waypoint for that one belongs before the
+    /// first, and a flow that takes them in the order they were found runs
+    /// down the diagram, back up it, and down again.
+    @Test func keepsTheWaypointsInTheOrderTheFlowMeetsThem() {
+        let start = Point(x: 0, y: 0)
+        let end = Point(x: 100, y: 1000)
+        let tall = Rect(x: 20, y: 100, width: 100, height: 600)
+        let beside = Rect(x: -60, y: 250, width: 70, height: 100)
+
+        let found = FlowRouting.waypoints(from: start, to: end, avoiding: [tall, beside])
+
+        #expect(
+            stepsBack(from: start, through: found, to: end) <= FlowRouting.clearance * 3,
+            "the flow turned back on itself: \(found)"
+        )
+    }
 }
 
 @Suite("Taking an upright flow round a zone")
