@@ -528,6 +528,61 @@ subheading, alongside the `assumption` blocks of section 4.2.
 Two `mitigates` edges that lower the same threat on the same component give
 the stronger reduction, not the sum.
 
+**`recommendation`.** An `assumed` `mitigates` edge may hold a
+`recommendation` block: what a team would do to adopt it.
+
+```hcl
+mitigates guard -> store {
+  threats         = ["credential-theft"]
+  reduces_risk_by = 60
+  status          = "assumed"
+
+  recommendation "adopt-the-guard" {
+    text       = "Adopt the guard"
+    note       = "It is bought and not deployed."
+    blocked_by = "guard-not-deployed"
+    sources    = ["https://example.com/ticket/1"]
+  }
+}
+```
+
+The label names the action.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `text` | string | any, and not empty | none |
+| `note` | string | any | none |
+| `blocked_by` | string | an `assumption` label declared in the same system | none |
+| `sources` | list of strings | any | empty |
+
+Only an `assumed` edge carries a `recommendation`. An `adopted` edge that
+states one is the warning `the mitigates edge "<id>" is adopted, so it
+carries no recommendation`, and the `recommendation` block drops; the edge
+itself, and its `reduces_risk_by`, stand.
+
+Two or more `mitigates` edges may share one label: this is one action, named
+once but reachable through several edges. Exactly one of the edges states the
+action's `text`; the others leave `text` unset. The parser keeps the action
+on every edge in the group, and the report measures the group's leverage by
+adopting every edge in the group at once, not edge by edge.
+
+A label no edge states `text` for is the warning `the action "<label>"
+states no text`, and every edge under that label drops its action. A label
+two edges both state `text` for is the warning `the action "<label>" states
+its text twice`; the parser keeps the first edge's action and drops the
+action from the edge that repeated the text.
+
+The other two faults belong to one edge alone:
+
+| Check | Message |
+| --- | --- |
+| `text` present but empty, or all whitespace | `the action "<label>" has no text` |
+| `blocked_by` names a label no `assumption` in the system declares | `the action "<label>" is blocked by "<blocker>", which no assumption declares` |
+
+Each of these five checks is a warning, not an error: the faulty
+`recommendation` block drops, and the `mitigates` edge that held it survives
+with its own numbers.
+
 ### 4.8 Identity and namespaces
 
 An identifier in quotation marks is identity, not display text. `component "api"`
