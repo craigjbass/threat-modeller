@@ -135,30 +135,30 @@ is about 80 whole scoring passes for one layout.
 run when a project opens, and again every time the watcher reports a file
 change. So editing a file re-runs the whole search.
 
-**What to do, in order.**
+**What was done, in order.**
 
-1. Drop `hypot`. Compare squared distances in `CurveCrossing.distance` and in
-   `CalloutPlacement.distance`. It is local, the geometry is already covered by
-   tests, and the profile says it is about 30% of the load.
-2. Look at `CalloutPlacement.cost` closure #6. It spends 140ms, 4.6%, inside
-   `Array._getElement` reached through `IndexingIterator`, which is array
-   indexing and reference counting rather than work. A `contains(where:)` over
-   a large array, run per candidate rectangle.
-3. Run the search less. 80 scoring passes for a picture nobody asked to be
-   optimal is the shape of the fault. A model above some size could take the
-   first plan, or the rounds could stop on a time budget rather than on
-   `rounds = 4`.
-4. Move it off the main actor. `ProjectSession` is `@MainActor` and every path
-   through it is synchronous, so the interface cannot answer while any of this
-   runs. This alone makes nothing faster; it stops the window freezing.
-5. Say what it is doing. The stages are named already, so a progress line can
-   name the stage and the round it is on.
-6. Draw the diagram as it arrives. The user asked for sampled snapshots of the
-   part-optimised diagram. `placeAndScore` is the point to sample from, because
-   it already holds a placed model each time it scores.
+1. `CurveCrossing` compares squared distances rather than taking a square root.
+   Commit `e4cb6d0`. Release, 12 components and 11 flows: 0.069 s to 0.051 s.
+2. A callout skips a flow it cannot be covering, by the box around that flow.
+   Commit `7f9fae3`. 0.051 s to 0.030 s.
+3. The search scores each plan once. Commit `890d4db`. The picture does not
+   change; 60 components went 1.827 s to 1.255 s.
+4. The layout runs off the main actor, so the window keeps answering.
+   Commit `09c03f9`, on the groundwork in `88669f3`.
+5. The window says which of four stages a load is on. Commit `09c03f9`.
+6. The window draws the diagram forming, from every plan that beats the best
+   so far. Commit `8305def`.
 
-Items 1 to 3 make it stop being slow. Item 4 stops the freeze. Items 5 and 6
-are what the user asked to see, and neither helps while the main actor is held.
+**What the cost curve looks like now**, release build, after items 1 to 3:
+
+    10 components  0.040 s
+    20 components  0.191 s
+    30 components  0.488 s
+    40 components  0.805 s
+    60 components  2.047 s
+
+It still grows faster than the model does. The next thing to measure is why
+`brokenBoundaries` costs what it does now that `hypot` is gone.
 
 **A measurement note.** Do not measure this through Xcode's `RunCodeSnippet`.
 It launches the whole application; one attempt ran seven minutes and printed
