@@ -27,25 +27,25 @@ struct CalloutTextTests {
 
     @Test func readsAGuardsNameWithoutWhatFollowsItInBrackets() {
         #expect(
-            ConnectionsLayer.name(of: "opfilter System Extension (Endpoint Security)")
+            FlowGeometry.name(of: "opfilter System Extension (Endpoint Security)")
                 == "opfilter System Extension"
         )
     }
 
     @Test func readsAGuardsNameWithoutWhatFollowsAComma() {
-        #expect(ConnectionsLayer.name(of: "WAF, managed") == "WAF")
+        #expect(FlowGeometry.name(of: "WAF, managed") == "WAF")
     }
 
     @Test func leavesAShortGuardNameWhole() {
-        #expect(ConnectionsLayer.name(of: "WAF") == "WAF")
+        #expect(FlowGeometry.name(of: "WAF") == "WAF")
     }
 
     @Test func stillCutsANameThatIsAllOneLongPhrase() {
-        let written = ConnectionsLayer.name(
+        let written = FlowGeometry.name(
             of: "An extraordinarily long single phrase with no break at all"
         )
 
-        #expect(written.count <= ConnectionsLayer.guardLimit)
+        #expect(written.count <= FlowGeometry.guardLimit)
         #expect(written.hasSuffix("\u{2026}"))
     }
 }

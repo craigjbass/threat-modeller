@@ -23,44 +23,6 @@ nonisolated enum CanvasHitTest {
         return found
     }
 
-    /// The curve a link draws, or nil when either end is missing.
-    static func path(
-        for connection: ViewedConnection,
-        boxes: [String: ComponentBox],
-        avoiding zones: [Rect] = []
-    ) -> ConnectionPath? {
-        guard let source = boxes[connection.sourceComponentId],
-              let target = boxes[connection.targetComponentId] else { return nil }
-        let anchors = AnchorGeometry.nearestPair(
-            from: source.rect.modelRect,
-            to: target.rect.modelRect,
-            avoiding: zones
-        )
-        return ConnectionPath(
-            from: CGPoint(AnchorGeometry.point(anchors.source, of: source.rect.modelRect)),
-            to: CGPoint(AnchorGeometry.point(anchors.target, of: target.rect.modelRect)),
-            avoiding: zones
-        )
-    }
-
-    /// The link under the point, or nil. A later link wins, so the one drawn
-    /// on top is the one the click selects.
-    static func connection(
-        under modelPoint: CGPoint,
-        connections: [ViewedConnection],
-        boxes: [String: ComponentBox],
-        components: [String: ViewedComponent] = [:],
-        zones: [ViewedZone] = []
-    ) -> String? {
-        connections.last {
-            path(
-                for: $0,
-                boxes: boxes,
-                avoiding: Self.zonesToAvoid($0, components: components, zones: zones)
-            )?.containsClick(at: modelPoint) == true
-        }?.id
-    }
-
     /// What a flow has to go round: the zones it has nothing to do with, and
     /// every node that is not one of its own ends. A flow whose ends this
     /// build cannot place avoids nothing, and draws straight.

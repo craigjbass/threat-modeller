@@ -46,17 +46,17 @@ struct ConnectionLabelTests {
     }
 
     @Test func cutsAGuardsNameToWhatFitsOnAChip() {
-        let written = ConnectionsLayer.cut(
+        let written = FlowGeometry.cut(
             "opfilter System Extension (Endpoint Security)",
-            to: ConnectionsLayer.guardLimit
+            to: FlowGeometry.guardLimit
         )
 
-        #expect(written.count <= ConnectionsLayer.guardLimit)
+        #expect(written.count <= FlowGeometry.guardLimit)
         #expect(written.hasSuffix("\u{2026}"))
         #expect(written.hasPrefix("opfilter System"))
     }
 
     @Test func leavesAShortGuardNameWhole() {
-        #expect(ConnectionsLayer.cut("WAF", to: ConnectionsLayer.guardLimit) == "WAF")
+        #expect(FlowGeometry.cut("WAF", to: FlowGeometry.guardLimit) == "WAF")
     }
 }

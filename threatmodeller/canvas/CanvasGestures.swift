@@ -19,19 +19,34 @@ struct CanvasGestures {
         )
     }
 
+    /// The flows as the canvas draws them, so a click lands where the picture
+    /// says it should.
+    private var flows: FlowGeometry {
+        FlowGeometry.of(
+            connections: session.canvas.connections,
+            boxes: boxes,
+            componentsById: Dictionary(
+                uniqueKeysWithValues: session.canvas.components.map { ($0.id, $0) }
+            ),
+            zones: session.canvas.zones,
+            guards: session.elementGuards,
+            risks: session.elementRisks,
+            outOfScopeComponentIds: Set(
+                session.canvas.components.filter(\.threatsDisabled).map(\.id)
+            )
+        )
+    }
+
     // MARK: background
 
     var backgroundTap: some Gesture {
         SpatialTapGesture(coordinateSpace: .named("canvas")).onEnded { value in
             let point = canvas.transform.modelPoint(value.location)
-            if let connectionId = CanvasHitTest.connection(
+            // The flows are hit tested against the curves the canvas drew,
+            // and a callout counts as part of its own flow.
+            if let connectionId = flows.connection(
                 under: point,
-                connections: session.canvas.connections,
-                boxes: boxes,
-                components: Dictionary(
-                    uniqueKeysWithValues: session.canvas.components.map { ($0.id, $0) }
-                ),
-                zones: session.canvas.zones
+                within: ConnectionPath.hitTolerance / canvas.transform.zoom
             ) {
                 canvas.select(connectionId: connectionId, addingToSelection: false)
             } else if let zoneId = CanvasHitTest.zone(under: point, zones: session.canvas.zones) {

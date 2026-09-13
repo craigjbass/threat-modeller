@@ -21,12 +21,6 @@ nonisolated extension BoundaryCrossings.BoundaryRun {
 }
 
 struct ConnectionsLayer: View {
-    /// How many guards a crossing names before it counts the rest.
-    static let guardsShown = 2
-    /// How long a guard's name may be on a chip. A component's name carries
-    /// its product and its kind, and the whole of it covers the diagram.
-    static let guardLimit = 30
-
     /// The model point this layer's own top-left corner sits at. Everything
     /// below draws in model coordinates, and a `Canvas` paints nothing outside
     /// its own frame, so the layer reaches back past the origin and shifts its
@@ -51,74 +45,26 @@ struct ConnectionsLayer: View {
     let preview: (start: CGPoint, end: CGPoint)?
 
     var body: some View {
-        Canvas { context, _ in
+        let geometry = FlowGeometry.of(
+            connections: connections,
+            boxes: boxes,
+            componentsById: componentsById,
+            zones: zones,
+            guards: guards,
+            risks: risks,
+            outOfScopeComponentIds: outOfScopeComponentIds
+        )
+
+        return Canvas { context, _ in
             context.translateBy(x: -origin.x, y: -origin.y)
 
-            var marked: [BoundaryCrossings.MarkedCrossing] = []
-            var sampled: [String: [Point]] = [:]
-            var toLabel: [(connectionId: String, text: String, curve: FlowCurve)] = []
-            var chipRects: [Rect] = []
-
-            // Every curve is built before any is drawn: a flow that would
-            // trace another steps aside, and it cannot know to until the
-            // others are placed.
-            var routed: [FlowRouting.Routed] = []
             for connection in connections {
-                guard let source = boxes[connection.sourceComponentId],
-                      let target = boxes[connection.targetComponentId] else { continue }
-
-                let avoid = CanvasHitTest.zonesToAvoid(
-                    connection,
-                    components: componentsById,
-                    zones: zones,
-                    boxes: boxes
-                )
-                let anchors = AnchorGeometry.nearestPair(
-                    from: source.rect.modelRect,
-                    to: target.rect.modelRect,
-                    avoiding: avoid
-                )
-                routed.append(
-                    FlowRouting.Routed(
-                        id: connection.id,
-                        start: AnchorGeometry.point(anchors.source, of: source.rect.modelRect),
-                        end: AnchorGeometry.point(anchors.target, of: target.rect.modelRect),
-                        avoiding: avoid
-                    )
-                )
-            }
-            let curves = FlowRouting.curves(of: routed)
-
-            for connection in connections {
-                guard let curve = curves[connection.id] else { continue }
-                let path = ConnectionPath(curve)
-
-                draw(connection, along: path, in: &context)
-                toLabel.append((connection.id, label(of: connection), curve))
-
-                guard isOutOfScope(connection) == false else { continue }
-                sampled[connection.id] = CurveCrossing.samples(of: curve)
-                marked += BoundaryCrossings.of(
-                    connectionId: connection.id,
-                    sourceZoneId: componentsById[connection.sourceComponentId]?.zoneId,
-                    targetZoneId: componentsById[connection.targetComponentId]?.zoneId,
-                    curve: curve,
-                    zones: boundaryZones
-                ).map {
-                    BoundaryCrossings.MarkedCrossing(
-                        connectionId: connection.id,
-                        crossing: $0,
-                        guards: guards(of: connection),
-                        openCount: risk(of: connection)?.openCount ?? 0
-                    )
-                }
+                guard let curve = geometry.curves[connection.id] else { continue }
+                draw(connection, along: ConnectionPath(curve), in: &context)
             }
 
-            // One curve for each boundary, however many arrows pass through it.
-            let runs = BoundaryCrossings.runs(marked)
-
-            for run in runs {
-                let unrelated = sampled
+            for run in geometry.runs {
+                let unrelated = geometry.samples
                     .filter { run.connectionIds.contains($0.key) == false }
                     .map(\.value)
 
@@ -130,21 +76,17 @@ struct ConnectionsLayer: View {
             }
 
             // The chips go on last, so a link drawn later never covers one.
-            for run in runs {
+            for run in geometry.runs {
                 writeGuards(of: run, in: &context)
-            }
-            chipRects = runs.flatMap {
-                BoundaryChips.rects(of: $0, texts: chipTexts(of: $0), zoneHeaders: bandRects)
             }
 
             // The labels go last, over everything, because a label a link
             // crosses is unreadable.
-            drawCallouts(
-                toLabel,
-                over: sampled,
-                clearOf: chipRects,
-                in: &context
-            )
+            for callout in geometry.callouts {
+                guard let connection = connections.first(where: { $0.id == callout.connectionId })
+                else { continue }
+                draw(callout, colour: colour(of: connection), in: &context)
+            }
 
             if let preview {
                 stroke(
@@ -159,37 +101,14 @@ struct ConnectionsLayer: View {
         .allowsHitTesting(false)
     }
 
-    /// The zones as the core geometry reads them.
-    private var boundaryZones: [BoundaryZone] {
-        zones.map {
-            BoundaryZone(
-                id: $0.id,
-                networkZoneId: $0.networkZoneId,
-                rect: Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height)
-            )
-        }
-    }
-
     private func tint(of run: BoundaryCrossings.BoundaryRun) -> Color {
         run.networkZoneId == "private" ? .green : .orange
-    }
-
-    /// What guards a flow at a boundary: the components that guard the far end
-    /// of it, and any that guard the flow itself. A `mitigates` edge names a
-    /// component, so what stands in the way of a crossing is what guards the
-    /// component the crossing reaches.
-    private func guards(of connection: ViewedConnection) -> [EdgeGuard] {
-        EdgeGuards.merge(
-            guards["connection:\(connection.id)"] ?? [],
-            guards["component:\(connection.targetComponentId)"] ?? []
-        )
     }
 
     // MARK: what one link looks like
 
     private func isOutOfScope(_ connection: ViewedConnection) -> Bool {
-        outOfScopeComponentIds.contains(connection.sourceComponentId)
-            || outOfScopeComponentIds.contains(connection.targetComponentId)
+        FlowGeometry.isOutOfScope(connection, outOfScopeComponentIds)
     }
 
     private func risk(of connection: ViewedConnection) -> ElementRisk? {
@@ -205,36 +124,8 @@ struct ConnectionsLayer: View {
 
     /// The description when the user wrote one, else the flow kind, cut to
     /// what fits on the line. The panel shows the whole of it.
-    func labelForTesting(_ connection: ViewedConnection) -> String { label(of: connection) }
-
-    private func label(of connection: ViewedConnection) -> String {
-        let described = connection.description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard described.isEmpty == false else {
-            return FlowKind(rawValue: connection.kindId)?.label ?? connection.kindId
-        }
-        // Whole: the callout is sized to the text rather than the text cut to
-        // fit a line.
-        return described
-    }
-
-    /// A component's name, without what follows it in brackets or after a
-    /// comma. `opfilter System Extension (Endpoint Security)` reads
-    /// `opfilter System Extension`, which is the name; cutting it to a
-    /// character count read `opfilter System E…`, which is nothing.
-    static func name(of label: String) -> String {
-        var ends = label.endIndex
-        for mark in [" (", ", ", " \u{2014} ", " - "] {
-            if let found = label.range(of: mark), found.lowerBound < ends {
-                ends = found.lowerBound
-            }
-        }
-        return cut(String(label[label.startIndex ..< ends]), to: guardLimit)
-    }
-
-    /// The text, or as much of it as fits, with an ellipsis for the rest.
-    static func cut(_ text: String, to limit: Int) -> String {
-        guard text.count > limit else { return text }
-        return text.prefix(limit - 1).trimmingCharacters(in: .whitespaces) + "\u{2026}"
+    func labelForTesting(_ connection: ViewedConnection) -> String {
+        FlowGeometry.label(of: connection)
     }
 
     private func draw(
@@ -260,33 +151,6 @@ struct ConnectionsLayer: View {
         arrow.addLine(to: head[2])
         arrow.closeSubpath()
         context.fill(arrow, with: .color(colour))
-    }
-
-    /// Every flow's label, in a box where the diagram is empty, joined to its
-    /// flow by a leader.
-    ///
-    /// A description is prose. On the line it is cut or it covers the diagram;
-    /// in a box it is whole.
-    private func drawCallouts(
-        _ labels: [(connectionId: String, text: String, curve: FlowCurve)],
-        over flows: [String: [Point]],
-        clearOf chips: [Rect],
-        in context: inout GraphicsContext
-    ) {
-        let placed = CalloutPlacement.place(
-            labels,
-            nodes: boxes.values.map(\.drawnRect),
-            zoneHeaders: bandRects,
-            boundaryChips: chips,
-            flows: Array(flows.values),
-            flowsById: flows
-        )
-
-        for callout in placed {
-            guard let connection = connections.first(where: { $0.id == callout.connectionId })
-            else { continue }
-            draw(callout, colour: colour(of: connection), in: &context)
-        }
     }
 
     private func draw(
@@ -359,30 +223,14 @@ struct ConnectionsLayer: View {
         return lines
     }
 
-    /// What this boundary writes: the components that guard it, or the words
-    /// that say none does. An unguarded crossing carrying an open threat is
-    /// what a reviewer looks for, so it is stated rather than left blank.
-    private func chipTexts(of run: BoundaryCrossings.BoundaryRun) -> [String] {
-        let shown = Array(run.guards.prefix(Self.guardsShown))
-        let hidden = run.guards.count - shown.count
-
-        guard run.guards.isEmpty == false else {
-            return run.openCount > 0 ? ["no guard"] : []
-        }
-
-        var texts = shown.map { Self.name(of: $0.label) }
-        if hidden > 0 { texts.append("+\(hidden)") }
-        return texts
-    }
-
     private func writeGuards(
         of run: BoundaryCrossings.BoundaryRun,
         in context: inout GraphicsContext
     ) {
         let tint = tint(of: run)
-        let texts = chipTexts(of: run)
+        let texts = FlowGeometry.chipTexts(of: run)
         let rects = BoundaryChips.rects(of: run, texts: texts, zoneHeaders: bandRects)
-        let assumed = Array(run.guards.prefix(Self.guardsShown)).map(\.isAssumed)
+        let assumed = Array(run.guards.prefix(FlowGeometry.guardsShown)).map(\.isAssumed)
 
         for (index, text) in texts.enumerated() where index < rects.count {
             let colour: Color = run.guards.isEmpty ? .secondary : tint

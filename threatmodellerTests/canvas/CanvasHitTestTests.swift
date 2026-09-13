@@ -70,51 +70,6 @@ struct CanvasHitTestTests {
         #expect(CanvasHitTest.component(under: CGPoint(x: 40, y: 40), components: components) == "c2")
     }
 
-    @Test func findsTheLinkUnderAPoint() throws {
-        let components = [component("c1", x: 0, y: 0), component("c2", x: 500, y: 0)]
-        let boxes = CanvasHitTest.boxes(for: components, selected: [], dragTranslation: .zero)
-        let connections = [link("k1", "c1", "c2")]
-
-        let path = try #require(CanvasHitTest.path(for: connections[0], boxes: boxes))
-        let onTheCurve = path.point(at: 0.5)
-
-        #expect(CanvasHitTest.connection(under: onTheCurve, connections: connections, boxes: boxes) == "k1")
-        #expect(CanvasHitTest.connection(
-            under: CGPoint(x: onTheCurve.x, y: onTheCurve.y + 200),
-            connections: connections,
-            boxes: boxes
-        ) == nil)
-    }
-
-    @Test func findsNoLinkWhenAnEndIsMissing() {
-        let boxes = CanvasHitTest.boxes(
-            for: [component("c1", x: 0, y: 0)],
-            selected: [],
-            dragTranslation: .zero
-        )
-
-        #expect(CanvasHitTest.path(for: link("k1", "c1", "c9"), boxes: boxes) == nil)
-        #expect(CanvasHitTest.connection(
-            under: CGPoint(x: 100, y: 40),
-            connections: [link("k1", "c1", "c9")],
-            boxes: boxes
-        ) == nil)
-    }
-
-    @Test func givesALaterLinkThePointWhenTwoRunTogether() throws {
-        let components = [component("c1", x: 0, y: 0), component("c2", x: 500, y: 0)]
-        let boxes = CanvasHitTest.boxes(for: components, selected: [], dragTranslation: .zero)
-        let connections = [link("k1", "c1", "c2"), link("k2", "c1", "c2")]
-
-        let path = try #require(CanvasHitTest.path(for: connections[0], boxes: boxes))
-
-        #expect(CanvasHitTest.connection(
-            under: path.point(at: 0.5),
-            connections: connections,
-            boxes: boxes
-        ) == "k2")
-    }
-
     private func viewedZone(_ id: String, x: Double = 0, y: Double = 0) -> ViewedZone {
         ViewedZone(
             id: id,
