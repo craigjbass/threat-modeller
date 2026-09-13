@@ -39,8 +39,21 @@ struct ReportExecutiveSummaryTests {
         )
     }
 
+    private func summary(
+        threats: [ReportThreat],
+        recommendations: [ReportRecommendation] = [],
+        tolerance: RiskLevel
+    ) -> ReportExecutiveSummary {
+        ReportExecutiveSummary.build(
+            threats: threats,
+            recommendations: recommendations,
+            tolerance: tolerance,
+            findings: ReportFindingsCut.build(from: threats, tolerance: tolerance)
+        )
+    }
+
     @Test func statesNoExposureWhenNothingRanksAboveTheTolerance() {
-        let summary = ReportExecutiveSummary.build(
+        let summary = summary(
             threats: [threat("a", 5, "medium")],
             recommendations: [],
             tolerance: .medium
@@ -50,7 +63,7 @@ struct ReportExecutiveSummaryTests {
     }
 
     @Test func namesOneExposureInTheSingular() {
-        let summary = ReportExecutiveSummary.build(
+        let summary = summary(
             threats: [threat("a", 13, "critical"), threat("b", 5, "medium")],
             recommendations: [],
             tolerance: .medium
@@ -63,7 +76,7 @@ struct ReportExecutiveSummaryTests {
     }
 
     @Test func countsManyExposures() {
-        let summary = ReportExecutiveSummary.build(
+        let summary = summary(
             threats: [threat("a", 13, "critical"), threat("b", 9, "high")],
             recommendations: [],
             tolerance: .medium
@@ -76,7 +89,7 @@ struct ReportExecutiveSummaryTests {
     }
 
     @Test func takesTheWorstThreeRisksAndTheWorstThreeActions() {
-        let summary = ReportExecutiveSummary.build(
+        let summary = summary(
             threats: [
                 threat("a", 13, "critical"),
                 threat("b", 9, "high"),
@@ -97,7 +110,7 @@ struct ReportExecutiveSummaryTests {
     }
 
     @Test func sortsThreatsBeforeTakingTheTop() {
-        let summary = ReportExecutiveSummary.build(
+        let summary = summary(
             threats: [
                 threat("c", 8, "high"),
                 threat("a", 13, "critical"),
@@ -125,7 +138,7 @@ struct ReportExecutiveSummaryTests {
             controls: [ReportControl(description: "c", isImplemented: false, statusLabel: "Not implemented")]
         )
 
-        let summary = ReportExecutiveSummary.build(
+        let summary = summary(
             threats: [answered, compensated, open],
             recommendations: [],
             tolerance: .low

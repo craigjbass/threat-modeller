@@ -110,10 +110,7 @@ public struct ReportFindingsCut: Equatable, Sendable {
             guard let level = RiskLevel(rawValue: threat.riskLevel) else { return false }
             return level.rank > tolerance.rank
         }
-        let sorted = qualifying.sorted { left, right in
-            if left.riskScore != right.riskScore { return left.riskScore > right.riskScore }
-            return left.name < right.name
-        }
+        let sorted = qualifying.sorted(by: ReportThreat.worstFirst)
         return ReportFindingsCut(
             above: Array(sorted.prefix(maximum)),
             notShown: max(0, sorted.count - maximum)
@@ -156,13 +153,16 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     /// How many of each the summary names.
     public static let topCount = 3
 
+    /// `findings` is the one cut `BuildThreatModelReport` computed for the
+    /// whole report. Reusing it here, rather than computing a second cut,
+    /// keeps this verdict and the Findings section unable to disagree.
     public static func build(
         threats: [ReportThreat],
         recommendations: [ReportRecommendation],
-        tolerance: RiskLevel
+        tolerance: RiskLevel,
+        findings: ReportFindingsCut
     ) -> ReportExecutiveSummary {
-        let cut = ReportFindingsCut.build(from: threats, tolerance: tolerance)
-        let above = cut.above.count + cut.notShown
+        let above = findings.above.count + findings.notShown
         let word = tolerance.label.lowercased()
 
         let verdict: String
@@ -177,10 +177,7 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
                 + " the project's \(word) risk tolerance."
         }
 
-        let sorted = threats.sorted { left, right in
-            if left.riskScore != right.riskScore { return left.riskScore > right.riskScore }
-            return left.name < right.name
-        }
+        let sorted = threats.sorted(by: ReportThreat.worstFirst)
 
         return ReportExecutiveSummary(
             verdict: verdict,
@@ -495,6 +492,13 @@ public struct ReportThreat: Equatable, Sendable {
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
         self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? riskScore
         self.severityDecision = severityDecision
+    }
+
+    /// Worst risk score first, a tie breaking on the name, so every section
+    /// that ranks threats by residual risk orders them the same way.
+    public static func worstFirst(_ left: ReportThreat, _ right: ReportThreat) -> Bool {
+        if left.riskScore != right.riskScore { return left.riskScore > right.riskScore }
+        return left.name < right.name
     }
 }
 

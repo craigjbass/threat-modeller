@@ -128,6 +128,10 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             recommendations: model.recommendations
         )
 
+        // Computed once so the verdict sentence and the Findings section
+        // can never disagree about which threats sit above tolerance.
+        let findingsCut = ReportFindingsCut.build(from: threats, tolerance: tolerance)
+
         return BuildThreatModelReportResponse(
             report: Report(
                 modelName: model.name,
@@ -176,12 +180,13 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 rollups: ReportRollups.build(threats: threats, zones: zones),
                 assumptions: assumptions,
                 assumedMitigations: assumedMitigations,
-                findings: ReportFindingsCut.build(from: threats, tolerance: tolerance),
+                findings: findingsCut,
                 toleranceLabel: tolerance.label,
                 executiveSummary: ReportExecutiveSummary.build(
                     threats: threats,
                     recommendations: recommendations,
-                    tolerance: tolerance
+                    tolerance: tolerance,
+                    findings: findingsCut
                 ),
                 methodology: ReportMethodology.build(zones: zones, tolerance: tolerance)
             )
