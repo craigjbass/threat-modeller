@@ -11,14 +11,14 @@ where each place is wrong.
 | A | Canvas viewport | Done, commit `4df0e02` |
 | B | Layout faults | Done, commit `6c728b3` |
 | C | Project lifecycle | Done, commit `be7ac5b` |
-| D | Feature parity | Not started |
-| E | Analyst flow | Not started, and not specified |
+| D | Feature parity | Done, commit `a07177e`, with the four use case commits before it |
+| E | Analyst flow | Done, commits `1dc9bd7` and `133f31f` |
 | F | Opening a large model | Not started. New; see below |
 
 One request arrived after the split and is done: a `.arch` or a `.controls`
 file opens the project that holds it, commit `5579fb3`.
 
-Nothing is pushed. Four commits sit on local `main`.
+Nothing is pushed. Twenty-seven commits sit on local `main`.
 
 ## What the old hand-over got wrong
 
@@ -60,11 +60,45 @@ control writes through one, so each feature needs a use case, the source
 builder or the controls compiler to write it back to the file, a control in
 the interface, and tests at each level.
 
-## Piece E: what is missing
+## Piece D: what was written
 
-The user asked for "a dedicated flow: architecture, then threats, then
-controls". Nothing in the code states what that route is. It needs a design in
-chat before any code.
+Each of the four features now has a use case, a method on
+`ThreatModelSession` or `ProjectSession`, and a control in the interface:
+
+| Feature | Use case | Control |
+| --- | --- | --- |
+| assumptions | `SetAssumption`, `RemoveAssumption` | `AssumptionsPanel` |
+| `mitigates` | `SetMitigatesEdge`, `RemoveMitigatesEdge` | `MitigatesPanel`, `MitigatesSheet` |
+| `likelihood` | `SetLikelihoodFinding`, `RemoveLikelihoodFinding` | `LikelihoodSheet` |
+| `stale threat` | `ListStaleAnswers`, `RemoveStaleAnswer` | `StaleAnswersPanel` |
+
+`threatmodellerTests/ReachingEveryFeatureTests.swift` proves each one is
+reachable through the session.
+
+**One fault this found.** Every caller built the key a finding is stored
+under. `CompensatingControlSheet` built `"\(threatId)@\(sourceId)"` by hand,
+and a new caller used `overrideKey`, which is `"technologyId::threatId"`. The
+finding was written under a key the assessment never reads, and the score did
+not move. `AssessedThreat` now carries `threatKey`, minted by the core, and
+every caller reads it.
+
+## Piece E: the three stages
+
+`WorkStage` states the three: Architecture, Threats, Controls. The control is
+a segmented picker at the left of the workflow bar, and `ProjectColumns`
+draws the columns of the stage:
+
+| Stage | Columns |
+| --- | --- |
+| Architecture | palette, diagram, what the system takes on trust |
+| Threats | diagram, threat list with a likelihood row on each card |
+| Controls | the threat list alone, stale answers at the top |
+
+A stage is a view of one model, not a mode. Every stage keeps the system
+picker, Synchronise, Generate Report and Auto Sync, and nothing is locked.
+
+`threatmodellerTests/AnalystFlowTests.swift` measures the columns of each
+stage in a real window, and draws each new view.
 
 ## Piece F: opening a large model
 
@@ -189,3 +223,11 @@ moving it.
 **A measurement note.** Do not measure this through Xcode's `RunCodeSnippet`.
 It launches the whole application; one attempt ran seven minutes and printed
 nothing. Time `LayOutModel` in the package instead, where it lives.
+
+## What is left
+
+1. **Nothing is pushed.** Twenty-seven commits sit on local `main`, and the
+   hand-over on `origin/gui-overhaul-handover` is still the stale one.
+2. **The layout on the save path is still waste.** See above. Removing it
+   needs zone membership from the source nesting.
+3. **`brokenBoundaries` has not been measured again** since `hypot` went.
