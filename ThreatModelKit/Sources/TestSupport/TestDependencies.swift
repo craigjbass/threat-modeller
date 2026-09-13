@@ -128,6 +128,14 @@ public final class TestDependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    public func setLikelihoodFinding() -> SetLikelihoodFindingUseCase {
+        SetLikelihoodFinding(models: models)
+    }
+
+    public func removeLikelihoodFinding() -> RemoveLikelihoodFindingUseCase {
+        RemoveLikelihoodFinding(models: models)
+    }
+
     public func setMitigatesEdge() -> SetMitigatesEdgeUseCase {
         SetMitigatesEdge(models: models)
     }

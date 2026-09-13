@@ -129,6 +129,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    func setLikelihoodFinding() -> SetLikelihoodFindingUseCase {
+        SetLikelihoodFinding(models: models)
+    }
+
+    func removeLikelihoodFinding() -> RemoveLikelihoodFindingUseCase {
+        RemoveLikelihoodFinding(models: models)
+    }
+
     func setMitigatesEdge() -> SetMitigatesEdgeUseCase {
         SetMitigatesEdge(models: models)
     }
