@@ -180,10 +180,14 @@ struct AssessLeverageTests {
 
         let measured = app.assessLeverage().execute(AssessLeverageRequest()).leverage
 
-        // The 90% edge names no action, so it stays assumed while the 50% one
-        // is measured. If it were counted the measured action would appear to
-        // remove nothing, because a stronger edge would already hold the score
-        // down.
-        #expect(measured[0].removes > 0)
+        // The 90% edge names no action, so it stays assumed while the 50%
+        // one is measured. Baseline totals 10 (store 8, queue 2, neither
+        // edge adopted). Adopting only the 50% edge leaves store at 4 and
+        // queue untouched at 2, for a total of 6: removes = 10 - 6 = 4.
+        // Promoting the 90% sibling alongside the measured edge would push
+        // store to 1, raising removes to 7, not driving it to nothing -- an
+        // inequality check cannot tell the two apart, so this asserts the
+        // exact figure.
+        #expect(measured[0].removes == 4)
     }
 }

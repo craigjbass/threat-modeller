@@ -9,7 +9,9 @@ public struct AssessLeverageRequest: Equatable, Sendable {
 /// What one action would remove, and what the model scores without it.
 public struct LeverageOfAction: Equatable, Sendable {
     public let action: Action
-    /// Residual points this action removes across the whole model.
+    /// Residual points this action removes across the whole model, measured
+    /// alone against today's posture. Not additive: two actions answering
+    /// one threat do not sum, so never add two `removes` values together.
     public let removes: Int
     /// The sum of every threat's residual score before any action.
     public let totalResidual: Int
@@ -100,6 +102,12 @@ public struct AssessLeverage: AssessLeverageUseCase {
 
             return LeverageOfAction(
                 action: action,
+                // `max(0, ...)` never fires: `ComponentMitigations` always
+                // takes the strongest answering edge, so adopting one more
+                // edge can only lower a score, never raise it, and the
+                // parser rejects a `reduces_risk_by` outside 0 to 100. The
+                // floor stays as a guard against a future change to either
+                // fact, not because this one can go negative today.
                 removes: max(0, baseline.total - after.total),
                 totalResidual: baseline.total,
                 threatsMoved: baseline.byKey.filter { key, score in
