@@ -180,4 +180,52 @@ struct ActionLanguageTests {
         let edge = try #require(read.source?.mitigates.first)
         #expect(edge.action == nil)
     }
+
+    @Test func joinsTwoEdgesUnderOneLabelWhenOnlyOneStatesText() throws {
+        let read = read("""
+        system "Payments" {
+          component "store" { technology = "aws-rds" }
+          component "queue" { technology = "aws-rds" }
+          component "guard" { technology = "aws-ec2" }
+          mitigates guard -> store {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 60
+            status          = "assumed"
+            recommendation "adopt" { text = "Adopt the guard" }
+          }
+          mitigates guard -> queue {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 40
+            status          = "assumed"
+            recommendation "adopt" {}
+          }
+        }
+        """)
+
+        #expect(read.diagnostics.isEmpty)
+        let edges = try #require(read.source?.mitigates)
+        #expect(edges[0].action?.text == "Adopt the guard")
+        #expect(edges[1].action != nil)
+        #expect(edges[1].action?.text == nil)
+    }
+
+    @Test func refusesAnActionTrippingTwoFaultsAndReportsOne() throws {
+        let read = read(
+            system
+                .replacingOccurrences(of: "      text       = \"Adopt the guard\"\n", with: "")
+                .replacingOccurrences(
+                    of: "blocked_by = \"guard-not-deployed\"",
+                    with: "blocked_by = \"nobody-declares-this\""
+                )
+        )
+
+        #expect(
+            read.diagnostics.contains {
+                $0.message == "the action \"adopt-the-guard\" is blocked by \"nobody-declares-this\", which no assumption declares"
+            }
+        )
+        #expect(read.diagnostics.contains { $0.message == "the action \"adopt-the-guard\" states no text" } == false)
+        let edge = try #require(read.source?.mitigates.first)
+        #expect(edge.action == nil)
+    }
 }

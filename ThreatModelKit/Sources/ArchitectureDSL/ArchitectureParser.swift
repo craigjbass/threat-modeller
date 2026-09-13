@@ -122,6 +122,8 @@ struct ArchitectureParser {
                 continue
             }
 
+            // An edge can trip more than one of these at once. Report the
+            // first one this order finds, not every one it trips.
             var fault: String?
             if (edge.status ?? "adopted") != "assumed" {
                 fault = "the mitigates edge \"\(edge.id)\" is adopted, so it carries no recommendation"
@@ -150,7 +152,8 @@ struct ArchitectureParser {
             record("the action \"\(label)\" states its text twice", severity: .warning)
         }
 
-        let named = Set(kept.compactMap { $0.action.flatMap { $0.text == nil ? nil : $0.label } })
+        let actionsStatingText = kept.compactMap(\.action).filter { $0.text != nil }
+        let named = Set(actionsStatingText.map(\.label))
         let nameless = Set(kept.compactMap(\.action?.label)).subtracting(named)
         for label in nameless.sorted() {
             record("the action \"\(label)\" states no text", severity: .warning)
