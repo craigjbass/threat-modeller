@@ -143,6 +143,28 @@ struct MarkdownExecutiveSummaryTests {
         #expect(text.contains("   across 8 threats; worst falls 13 \u{2192} 5. Blocked by devtool-rules-disabled."))
     }
 
+    @Test func writesTheSingularForAnActionThatMovesOneThreat() {
+        let summary = ReportExecutiveSummary(
+            verdict: "v",
+            totalThreats: 1,
+            topLeverageActions: [
+                ReportAction(
+                    label: "reenable",
+                    text: "Re-enable the dev-tool read rules",
+                    removes: 19,
+                    totalResidual: 412,
+                    threatsMoved: 1,
+                    worstBefore: 13,
+                    worstAfter: 5
+                )
+            ]
+        )
+
+        let text = MarkdownExecutiveSummary.lines(summary, components: []).joined(separator: "\n")
+
+        #expect(text.contains("   across 1 threat; worst falls 13 \u{2192} 5."))
+    }
+
     @Test func writesTheRecommendationsWhenTheModelDeclaresNoAction() {
         let summary = ReportExecutiveSummary(
             verdict: "v",

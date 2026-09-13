@@ -45,7 +45,8 @@ public enum MarkdownExecutiveSummary {
                     "\(index + 1). \(action.text) \u{2014} removes \(action.removes)"
                         + " of \(action.totalResidual) residual points"
                 )
-                var second = "   across \(action.threatsMoved) threats;"
+                let threatWord = action.threatsMoved == 1 ? "threat" : "threats"
+                var second = "   across \(action.threatsMoved) \(threatWord);"
                 second += action.worstBefore == action.worstAfter
                     ? " worst stays \(action.worstBefore)."
                     : " worst falls \(action.worstBefore) \u{2192} \(action.worstAfter)."
