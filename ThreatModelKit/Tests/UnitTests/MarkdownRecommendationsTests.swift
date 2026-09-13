@@ -12,18 +12,28 @@ struct MarkdownRecommendationsTests {
         )
     }
 
-    @Test func ordersByTheRiskItAnswersNotByTheElement() throws {
+    /// `RecommendationsReport` decides the order (see
+    /// `RecommendationsSectionTests.theBuiltListOrdersByTheRiskItAnswersNotByTheElement`).
+    /// This writer prints the list it is given, in that order, and does not
+    /// sort it again.
+    @Test func printsTheListInTheOrderItIsGivenWithoutSortingIt() throws {
         let text = MarkdownRecommendations.lines([
             recommendation("small", 3, on: "Alpha"),
             recommendation("large", 13, on: "Beta"),
             recommendation("middle", 8, on: "Alpha")
         ]).joined(separator: "\n")
 
+        let small = try #require(text.range(of: "small"))
         let large = try #require(text.range(of: "large"))
         let middle = try #require(text.range(of: "middle"))
-        let small = try #require(text.range(of: "small"))
 
+        #expect(small.lowerBound < large.lowerBound)
         #expect(large.lowerBound < middle.lowerBound)
-        #expect(middle.lowerBound < small.lowerBound)
+    }
+
+    @Test func endsWithABlankLine() {
+        let lines = MarkdownRecommendations.lines([recommendation("small", 3, on: "Alpha")])
+
+        #expect(lines.last == "")
     }
 }

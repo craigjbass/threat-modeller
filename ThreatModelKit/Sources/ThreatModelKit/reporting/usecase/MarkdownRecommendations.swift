@@ -2,15 +2,14 @@
 ///
 /// This is the most actionable page of the report, so it sits above the
 /// threat register and reads worst risk first, whatever raised it.
+///
+/// `RecommendationsReport` decides the order. This writer prints the list it
+/// is given, in that order, and does not sort it again.
 public enum MarkdownRecommendations {
     public static func lines(_ recommendations: [ReportRecommendation]) -> [String] {
         guard recommendations.isEmpty == false else { return [] }
 
         var lines = ["## Recommendations", ""]
-
-        // A reader works down this list, so the worst risk is first. Grouping
-        // by element hid the order a team should work in.
-        let recommendations = recommendations.sorted { $0.riskScore > $1.riskScore }
 
         for recommendation in recommendations {
             lines.append("- \(recommendation.text)")
@@ -23,6 +22,7 @@ public enum MarkdownRecommendations {
             }
             lines += Markdown.sourceLines(recommendation.sources)
         }
+        lines.append("")
         return lines
     }
 }

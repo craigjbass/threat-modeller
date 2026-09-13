@@ -95,20 +95,25 @@ struct RecommendationsSectionTests {
         #expect(lines.contains { $0.hasPrefix("  - Source:") } == false)
     }
 
-    @Test func recommendationsAreOrderedByTheWorstRiskFirst() throws {
-        let lines = MarkdownRecommendations.lines([
-            ReportRecommendation(text: "b", note: nil, threatName: "B", sourceName: "store", riskScore: 8),
-            ReportRecommendation(text: "a", note: nil, threatName: "A", sourceName: "guard", riskScore: 20),
-            ReportRecommendation(text: "c", note: nil, threatName: "C", sourceName: "store", riskScore: 12)
-        ])
+    /// `RecommendationsReport.build` decides the order, not the writer. See
+    /// `theBuiltListOrdersByTheRiskItAnswersNotByTheElement` below.
+    @Test func theBuiltListOrdersByTheRiskItAnswersNotByTheElement() throws {
+        let built = RecommendationsReport.build(
+            threats: [
+                threat("a", "guard", 20),
+                threat("b", "store", 8),
+                threat("c", "store", 12)
+            ],
+            recommendations: [
+                ThreatKey(threatId: "a", sourceId: "component:guard"): [Recommendation(text: "a")],
+                ThreatKey(threatId: "b", sourceId: "component:store"): [Recommendation(text: "b")],
+                ThreatKey(threatId: "c", sourceId: "component:store"): [Recommendation(text: "c")]
+            ]
+        )
 
         // The worst recommendation (a, 20) comes first, then c (12), then b (8),
-        // regardless of the source.
-        let aIndex = try #require(lines.firstIndex(of: "- a"))
-        let cIndex = try #require(lines.firstIndex(of: "- c"))
-        let bIndex = try #require(lines.firstIndex(of: "- b"))
-        #expect(aIndex < cIndex)
-        #expect(cIndex < bIndex)
+        // regardless of the element it answers.
+        #expect(built.map(\.text) == ["a", "c", "b"])
     }
 
     @Test func theDependencySectionNamesTheProtectorAndWhatIsUnanswered() {
