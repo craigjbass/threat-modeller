@@ -591,6 +591,14 @@ Each of these five checks is a warning, not an error: the faulty
 `recommendation` block drops, and the `mitigates` edge that held it survives
 with its own numbers.
 
+A warning prints when `threatmodeller format` reads the file. `compile`,
+`report` and `check` read the same file and apply the same fault, but print
+nothing for it today; this matches every other architecture warning, such as
+a zone with no components. A `recommendation` block with a fault of its own
+drops with no message under those three commands, and the report then has no
+leverage section and gives no reason why. Run `threatmodeller format` to see
+the warning.
+
 ### 4.8 Identity and namespaces
 
 An identifier in quotation marks is identity, not display text. `component "api"`
