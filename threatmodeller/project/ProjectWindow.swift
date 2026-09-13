@@ -99,10 +99,7 @@ struct ProjectWindow: View {
     /// still window reads as a broken one, so the window says the stage it is
     /// in and which stage that is of the four.
     private func loadingNotice(_ stage: ProjectSession.LoadingStage) -> some View {
-        let stages = ProjectSession.LoadingStage.allCases
-        let reached = (stages.firstIndex(of: stage) ?? 0) + 1
-
-        return VStack(spacing: 14) {
+        VStack(spacing: 14) {
             // The shape of the diagram as the layout search last had it, so a
             // person watches it settle rather than watching nothing.
             if let forming = session.formingDiagram {
@@ -116,7 +113,7 @@ struct ProjectWindow: View {
             Text(stage.says)
                 .font(.title3)
 
-            Text("Step \(reached) of \(stages.count)")
+            Text(stepOf(stage))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -207,9 +204,40 @@ struct ProjectWindow: View {
     private var chrome: some View {
         VStack(spacing: 0) {
             WorkflowBar(session: session)
+            loadingBar
             filesChangedNotice
             diagnosticsNotice
         }
+    }
+
+    /// What a load is doing, as a strip above the diagram.
+    ///
+    /// The window draws this whenever a load runs. When a diagram is already
+    /// on screen the strip is the only thing that says so, because the
+    /// diagram stays: replacing it would throw away what the user was looking
+    /// at every time they picked another system.
+    @ViewBuilder
+    private var loadingBar: some View {
+        if let stage = session.loading {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(stage.says)
+                    .font(.callout)
+                Spacer(minLength: 8)
+                Text(stepOf(stage))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(8)
+            .background(.bar)
+            .accessibilityIdentifier("loading-bar")
+        }
+    }
+
+    private func stepOf(_ stage: ProjectSession.LoadingStage) -> String {
+        let stages = ProjectSession.LoadingStage.allCases
+        return "Step \((stages.firstIndex(of: stage) ?? 0) + 1) of \(stages.count)"
     }
 
     /// A file changed on disk and this application did not redraw, because
