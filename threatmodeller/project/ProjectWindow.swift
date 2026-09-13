@@ -95,6 +95,8 @@ struct ProjectWindow: View {
                         ProgressView()
                             .controlSize(.small)
                     }
+                    // Clear of the system picker to its left.
+                    .padding(.leading, 16)
                     .accessibilityIdentifier("loading-bar")
                 }
             }
