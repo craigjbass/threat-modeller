@@ -18,9 +18,10 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// assumptions and the risk tolerance. An older build does not know these
     /// fields, so it would open a version 5 file and then drop them again on
     /// the next save; refusing the file by its version number stops that
-    /// silent loss instead.
-    public static let formatVersion = 5
-    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5]
+    /// silent loss instead. Version 6 adds the action an assumed edge
+    /// carries.
+    public static let formatVersion = 6
+    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6]
 
     public init() {}
 
@@ -85,7 +86,16 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                         target: $0.target.value,
                         threatIds: $0.threatIds.map(\.value),
                         reducesRiskBy: $0.reducesRiskBy,
-                        status: $0.status?.rawValue
+                        status: $0.status?.rawValue,
+                        action: $0.action.map {
+                            EdgeActionJSON(
+                                label: $0.label,
+                                text: $0.text,
+                                note: $0.note,
+                                blockedBy: $0.blockedBy,
+                                sources: $0.sources.isEmpty ? nil : $0.sources
+                            )
+                        }
                     )
                 },
                 recommendations: Dictionary(
@@ -182,6 +192,15 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     reducesRiskBy: $0.reducesRiskBy,
                     status: try $0.status.map { raw in
                         try Self.value(MitigationStatus(rawValue: raw), field: "status", raw: raw)
+                    },
+                    action: $0.action.map {
+                        EdgeAction(
+                            label: $0.label,
+                            text: $0.text,
+                            note: $0.note,
+                            blockedBy: $0.blockedBy,
+                            sources: $0.sources ?? []
+                        )
                     }
                 )
             },

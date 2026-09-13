@@ -99,7 +99,7 @@ struct DocumentFormatVersionFiveTests {
     @Test func theFormatVersionIsFive() throws {
         let data = try ThreatModelCodec().encode(model())
         let text = try #require(String(data: data, encoding: .utf8))
-        #expect(text.contains("\"formatVersion\" : 5"))
+        #expect(text.contains("\"formatVersion\" : 6"))
     }
 
     /// A file written before this change carries none of the four keys, and

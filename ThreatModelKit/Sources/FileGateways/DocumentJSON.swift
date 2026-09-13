@@ -64,6 +64,18 @@ struct MitigatesEdgeJSON: Codable {
     /// Absent means `adopted`, so a file written before this field existed
     /// keeps its numbers.
     let status: String?
+    /// Version 6 adds this.
+    let action: EdgeActionJSON?
+}
+
+/// Version 6 adds this. A file written before it has none, and its edges keep
+/// their numbers.
+struct EdgeActionJSON: Codable {
+    let label: String
+    let text: String?
+    let note: String?
+    let blockedBy: String?
+    let sources: [String]?
 }
 
 struct RecommendationJSON: Codable {
