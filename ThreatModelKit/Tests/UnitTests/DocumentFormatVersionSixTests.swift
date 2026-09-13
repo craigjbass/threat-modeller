@@ -49,10 +49,30 @@ struct DocumentFormatVersionSixTests {
 
         #expect(back.mitigatesEdges[0].action?.label == "adopt-the-guard")
         #expect(back.mitigatesEdges[0].action?.text == "Adopt the guard")
+        #expect(back.mitigatesEdges[0].action?.note == "It is bought and not deployed.")
         #expect(back.mitigatesEdges[0].action?.blockedBy == "guard-not-deployed")
         #expect(back.mitigatesEdges[0].action?.sources == ["https://example.com/ticket/1"])
         #expect(back.mitigatesEdges[1].action == nil)
         #expect(back.mitigatesEdges[1].reducesRiskBy == 40)
+    }
+
+    @Test func readsBackAnActionWithNoSources() throws {
+        var model = ThreatModel(name: "Payments")
+        model.mitigatesEdges = [
+            MitigatesEdge(
+                source: ComponentId("guard"),
+                target: ComponentId("store"),
+                threatIds: [ThreatId("credential-theft")],
+                reducesRiskBy: 60,
+                status: .assumed,
+                action: EdgeAction(label: "adopt-the-guard", text: "Adopt the guard")
+            )
+        ]
+
+        let written = try ThreatModelCodec().encode(model)
+        let back = try ThreatModelCodec().decode(written)
+
+        #expect(back.mitigatesEdges[0].action?.sources == [])
     }
 
     /// A file written at version 5 has no `action` key on any edge. It still
