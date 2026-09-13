@@ -35,6 +35,29 @@ public enum ProjectConvention {
             .map { path(directory, $0) }
     }
 
+    /// The file stem a system with this name is written under.
+    ///
+    /// A project lists its systems by file name, so a name the user types has
+    /// to become one file name and always the same one. Letters and digits
+    /// stay, lower case; everything else becomes a single hyphen, and a
+    /// hyphen never starts or ends the stem.
+    public static func fileName(forSystemNamed name: String) -> String {
+        var stem = ""
+        var pendingHyphen = false
+
+        for character in name.lowercased() {
+            if character.isLetter || character.isNumber {
+                if pendingHyphen && stem.isEmpty == false { stem.append("-") }
+                pendingHyphen = false
+                stem.append(character)
+            } else {
+                pendingHyphen = true
+            }
+        }
+
+        return stem
+    }
+
     public static func path(_ directory: String, _ fileName: String) -> String {
         directory.hasSuffix("/") ? "\(directory)\(fileName)" : "\(directory)/\(fileName)"
     }

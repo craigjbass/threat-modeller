@@ -519,7 +519,7 @@ struct EmptyProjectTests {
 
         #expect(session.canInitialise)
         #expect(session.examples.isEmpty == false)
-        #expect(session.errorMessage?.contains("Start from an example") == true)
+        #expect(session.errorMessage?.contains("Name a system") == true)
     }
 
     @Test func writesTheExampleAndDrawsIt() throws {
@@ -576,6 +576,39 @@ struct EmptyProjectTests {
 
         #expect(session.errorMessage == "This application no longer holds that example.")
         #expect(session.canInitialise)
+    }
+
+    // MARK: starting with nothing in it
+
+    @Test func writesAnEmptySystemAndDrawsIt() throws {
+        let (session, useCases) = anEmptyRoot()
+
+        session.initialiseEmpty(systemName: "Payments")
+
+        #expect(session.canInitialise == false)
+        #expect(session.systems == ["payments"])
+        #expect(session.chosenSystem == "payments")
+        #expect(session.model?.canvas.components.isEmpty == true)
+        #expect(session.errorMessage == nil)
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.arch"))
+        #expect(written.hasPrefix("system \"Payments\" {"))
+    }
+
+    @Test func saysSoWhenTheSystemNameIsBlank() {
+        let (session, _) = anEmptyRoot()
+
+        session.initialiseEmpty(systemName: "   ")
+
+        #expect(session.errorMessage == "Give the system a name.")
+        #expect(session.canInitialise)
+    }
+
+    /// The name a user is offered first. Typing the folder name again is work
+    /// nobody needs, and the folder is usually what the system is called.
+    @Test func offersTheFolderNameAsTheSystemName() {
+        let (session, _) = anEmptyRoot()
+
+        #expect(session.suggestedSystemName == "work")
     }
 
     @Test func offersNothingWhenNoProjectIsOpen() {

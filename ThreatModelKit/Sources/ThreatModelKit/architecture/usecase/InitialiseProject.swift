@@ -1,15 +1,25 @@
+import Foundation
+
 public protocol InitialiseProjectUseCase {
     func execute(_ request: InitialiseProjectRequest) -> InitialiseProjectResponse
 }
 
+/// What a project starts from.
+public enum ProjectStart: Equatable, Sendable {
+    /// A bundled example, or the first one when the id is nil.
+    case example(id: String?)
+    /// A system with a name and nothing else, for a user who already knows
+    /// what they are about to draw.
+    case empty(systemName: String)
+}
+
 public struct InitialiseProjectRequest: Equatable, Sendable {
     public let root: String
-    /// Which bundled example to write, or nil for the first one.
-    public let sampleId: String?
+    public let start: ProjectStart
 
-    public init(root: String, sampleId: String? = nil) {
+    public init(root: String, start: ProjectStart = .example(id: nil)) {
         self.root = root
-        self.sampleId = sampleId
+        self.start = start
     }
 }
 
@@ -18,6 +28,8 @@ public enum InitialiseProjectResponse: Equatable, Sendable {
     /// The root already holds a system, so nothing was written.
     case alreadyHasSystems(names: [String])
     case noSuchSample
+    /// An empty start was asked for with no name to give the system.
+    case needsASystemName
     case notAProject(reason: String)
     case cannotWrite(reason: String)
 }
@@ -62,20 +74,30 @@ public struct InitialiseProject: InitialiseProjectUseCase {
             return .alreadyHasSystems(names: layout.systems.map(\.name))
         }
 
-        let every = samples.all()
-        let chosen: SampleModel?
-        if let sampleId = request.sampleId {
-            chosen = every.first { $0.id == sampleId }
-        } else {
-            chosen = every.first
-        }
-        guard let sample = chosen else { return .noSuchSample }
-
         let model: ThreatModel
-        do {
-            model = try files.decode(try samples.document(id: sample.id))
-        } catch {
-            return .cannotWrite(reason: String(describing: error))
+        let fileName: String
+
+        switch request.start {
+        case .example(let sampleId):
+            let every = samples.all()
+            let chosen = sampleId.map { id in every.first { $0.id == id } } ?? every.first
+            guard let sample = chosen else { return .noSuchSample }
+
+            do {
+                model = try files.decode(try samples.document(id: sample.id))
+            } catch {
+                return .cannotWrite(reason: String(describing: error))
+            }
+            fileName = sample.id
+
+        case .empty(let systemName):
+            let name = systemName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard name.isEmpty == false else { return .needsASystemName }
+            let slug = ProjectConvention.fileName(forSystemNamed: name)
+            guard slug.isEmpty == false else { return .needsASystemName }
+
+            model = ThreatModel(name: name)
+            fileName = slug
         }
 
         // A new project takes the convention directory, whatever the root held
@@ -87,7 +109,7 @@ public struct InitialiseProject: InitialiseProjectUseCase {
         )
         let path = ProjectConvention.path(
             directory,
-            "\(sample.id).\(ProjectConvention.architectureExtension)"
+            "\(fileName).\(ProjectConvention.architectureExtension)"
         )
 
         do {
@@ -96,6 +118,6 @@ public struct InitialiseProject: InitialiseProjectUseCase {
             return .cannotWrite(reason: String(describing: error))
         }
 
-        return .created(systemName: sample.id, path: path)
+        return .created(systemName: fileName, path: path)
     }
 }

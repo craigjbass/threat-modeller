@@ -40,9 +40,8 @@ extension FocusedValues {
 
 /// Everything the toolbar and the canvas do, with a menu item and a key.
 ///
-/// Undo and redo **replace** the document's own pair rather than sitting beside
-/// them: `DocumentGroup` installs `NSUndoManager`'s, and two undo stacks that
-/// disagree is worse than one.
+/// Undo and redo **replace** the pair AppKit puts in the Edit menu rather than
+/// sitting beside them: two undo stacks that disagree is worse than one.
 struct ThreatModelCommands: Commands {
     @FocusedValue(\.threatModelSession) private var session
     @FocusedValue(\.threatModelCanvas) private var canvas

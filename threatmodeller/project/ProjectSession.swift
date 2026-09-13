@@ -100,15 +100,35 @@ final class ProjectSession {
         useCases.listSampleModels().execute(ListSampleModelsRequest()).samples
     }
 
+    /// The name to offer for a new system: the project folder's own name.
+    /// Typing the folder name again is work nobody needs, and the folder is
+    /// usually what the system is called.
+    var suggestedSystemName: String {
+        guard let root else { return "" }
+        return (root as NSString).lastPathComponent
+    }
+
     /// Writes one example into the open root, and draws it.
     ///
     /// It never writes over a system, so a root that already holds one says so
     /// and changes nothing.
     func initialise(sampleId: String? = nil) {
+        start(.example(id: sampleId))
+    }
+
+    /// Writes a system with this name and nothing else, and draws it.
+    ///
+    /// A user who already knows the system they are about to draw does not
+    /// want an example to delete first.
+    func initialiseEmpty(systemName: String) {
+        start(.empty(systemName: systemName))
+    }
+
+    private func start(_ from: ProjectStart) {
         guard let root else { return }
 
         switch useCases.initialiseProject().execute(
-            InitialiseProjectRequest(root: root, sampleId: sampleId)
+            InitialiseProjectRequest(root: root, start: from)
         ) {
         case .created:
             errorMessage = nil
@@ -120,10 +140,12 @@ final class ProjectSession {
             errorMessage = "This project already holds \(names.joined(separator: ", "))." 
         case .noSuchSample:
             errorMessage = "This application no longer holds that example."
+        case .needsASystemName:
+            errorMessage = "Give the system a name."
         case .notAProject(let reason):
             errorMessage = "That is not a project: \(reason)"
         case .cannotWrite(let reason):
-            errorMessage = "The example could not be written: \(reason)"
+            errorMessage = "The system could not be written: \(reason)"
         }
     }
 
@@ -141,7 +163,7 @@ final class ProjectSession {
             self.directory = directory
             self.systems = systems
             errorMessage = systems.isEmpty
-                ? "\(directory) holds no .arch files. Start from an example, or write one."
+                ? "\(directory) holds no .arch files. Name a system, or start from an example."
                 : nil
 
             // Every system reads every library, so they load before one is

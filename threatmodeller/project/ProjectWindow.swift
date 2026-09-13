@@ -11,6 +11,8 @@ struct ProjectWindow: View {
     @State private var isShowingDiagnostics = false
     @State private var isShowingLibraries = false
     @State private var canvas = CanvasState()
+    /// The name the user gives a system they start with nothing in it.
+    @State private var newSystemName = ""
 
     var body: some View {
         // The chrome is a row above the columns, not an inset over them.
@@ -102,12 +104,18 @@ struct ProjectWindow: View {
             Text(
                 "A project keeps its systems in a threatmodel directory: "
                     + "one .arch file for the architecture, and a .controls file beside it. "
-                    + "Start from an example and change it."
+                    + "Name a system to start with nothing in it, or start from an example."
             )
             .font(.callout)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
             .frame(maxWidth: 420)
+
+            emptyStart
+
+            Text("Or start from an example")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
 
             VStack(spacing: 8) {
                 ForEach(session.examples, id: \.id) { example in
@@ -127,7 +135,6 @@ struct ProjectWindow: View {
                     .accessibilityIdentifier("initialise-\(example.id)")
                 }
             }
-            .padding(.top, 4)
 
             if let root = session.root {
                 Text("It will be written to \(root)/threatmodel.")
@@ -138,6 +145,29 @@ struct ProjectWindow: View {
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("empty-project")
+        // The field starts on the folder's own name, which is usually what
+        // the system is called.
+        .onAppear { if newSystemName.isEmpty { newSystemName = session.suggestedSystemName } }
+    }
+
+    /// Name a system and start with nothing in it.
+    private var emptyStart: some View {
+        HStack(spacing: 8) {
+            TextField("System name", text: $newSystemName)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 260)
+                .onSubmit { createEmptySystem() }
+                .accessibilityIdentifier("new-system-name")
+
+            Button("Create", action: createEmptySystem)
+                .buttonStyle(.borderedProminent)
+                .disabled(newSystemName.trimmingCharacters(in: .whitespaces).isEmpty)
+                .accessibilityIdentifier("initialise-empty")
+        }
+    }
+
+    private func createEmptySystem() {
+        session.initialiseEmpty(systemName: newSystemName)
     }
 
     private var chrome: some View {
@@ -219,7 +249,19 @@ private struct ProjectColumns: View {
     let session: ThreatModelSession
     let canvas: CanvasState
 
+    @State private var isSampleBrowserOpen = false
+
     var body: some View {
+        columns
+            .focusedSceneValue(\.threatModelSampleBrowser, ShowSampleBrowser {
+                isSampleBrowserOpen = true
+            })
+            .sheet(isPresented: $isSampleBrowserOpen) {
+                SampleBrowser(session: session, canvas: canvas)
+            }
+    }
+
+    private var columns: some View {
         NavigationSplitView {
             PaletteView(session: session, canvas: canvas)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260)

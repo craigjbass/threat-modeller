@@ -2,11 +2,8 @@ import AppKit
 import SwiftUI
 import ThreatModelKit
 
-/// macOS opens an untitled document at launch when the application declares a
-/// document type. This application opens on the welcome window instead.
+/// The application opens on the welcome window.
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
-
     /// Clicking the Dock icon with no window open brings the welcome window
     /// back. When that window is gone, AppKit does what it does by default.
     func applicationShouldHandleReopen(
@@ -50,8 +47,7 @@ struct ThreatModellerApp: App {
     }()
 
     var body: some Scene {
-        // First in the body, so macOS opens this window at launch rather than
-        // the file open panel the document type would otherwise bring up.
+        // First in the body, so macOS opens this window at launch.
         Window("Craig's Threat Modeller", id: Self.welcomeWindowId) {
             WelcomeWindow(
                 catalogue: catalogue,
@@ -62,10 +58,6 @@ struct ThreatModellerApp: App {
         }
         .windowResizability(.contentSize)
 
-        DocumentGroup(newDocument: ThreatModelDocument()) { file in
-            ContentView(document: file.document)
-        }
-        .defaultSize(width: 1400, height: 900)
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("About Craig's Threat Modeller") { openAbout() }

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import ThreatModelKit
 
@@ -58,6 +59,22 @@ enum LayoutPreview {
         if ids.count == 2 {
             session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
         }
+        return session
+    }
+
+    /// A project open on a directory with nothing in it, so the window draws
+    /// what it offers a user who has just made a folder.
+    @MainActor
+    static func emptyProjectSession() -> ProjectSession {
+        guard let useCases = try? Dependencies() else {
+            fatalError("the bundled catalogue did not load")
+        }
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("preview-empty-project")
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let session = ProjectSession(useCases: useCases)
+        session.open(root: root.path)
         return session
     }
 
@@ -126,6 +143,25 @@ enum LayoutPreview {
         session: session,
         canvas: LayoutPreview.canvasSelectingTheFirstComponent(of: session)
     )
+}
+
+// MARK: the way in, now that a file is not one of them
+
+#Preview("Welcome, 620x520", traits: .fixedLayout(width: 620, height: 520)) {
+    WelcomeWindow(
+        catalogue: ViewCatalogueVersionResponse(
+            repository: "github.com/craigjbass/threat-catalogue",
+            tag: "v1.0.1",
+            technologyCount: 214
+        ),
+        recents: RecentProjects(),
+        openProject: {},
+        openRecentProject: { _ in }
+    )
+}
+
+#Preview("A project holding nothing, 900x700", traits: .fixedLayout(width: 900, height: 700)) {
+    ProjectWindow(session: LayoutPreview.emptyProjectSession())
 }
 
 // MARK: the viewport, panned back past the origin

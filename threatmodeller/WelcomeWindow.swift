@@ -1,15 +1,13 @@
-import AppKit
 import SwiftUI
 import ThreatModelKit
 
 /// What the application opens on.
 ///
-/// It offers the two ways in: a project, which is a directory of .arch files,
-/// and a model file, which is one document. The file open panel is no longer
-/// the first thing a user meets.
+/// There is one way in: a project, which is a directory of .arch files. A
+/// system is a file in that directory, so nothing here opens a single file.
 struct WelcomeWindow: View {
     /// Nil when the catalogue could not be loaded. The window then offers no
-    /// route, because neither route would work.
+    /// route, because the route would not work.
     let catalogue: ViewCatalogueVersionResponse?
     let recents: RecentProjects
     /// Runs the same open panel the File menu runs.
@@ -27,10 +25,7 @@ struct WelcomeWindow: View {
                     description: Text("This application cannot open a model until it loads.")
                 )
             } else {
-                routes
-
-                Button("New Model File") { NSDocumentController.shared.newDocument(nil) }
-                    .accessibilityIdentifier("welcome-new-model")
+                openProjectRoute
 
                 recentList
             }
@@ -57,23 +52,15 @@ struct WelcomeWindow: View {
         }
     }
 
-    private var routes: some View {
-        HStack(spacing: 16) {
-            route(
-                title: "Open Project\u{2026}",
-                explanation: "A folder of .arch files, one per system.",
-                systemImage: "folder",
-                identifier: "welcome-open-project",
-                action: openProject
-            )
-            route(
-                title: "Open Model File\u{2026}",
-                explanation: "One document you drew in this application.",
-                systemImage: "doc",
-                identifier: "welcome-open-file",
-                action: { NSDocumentController.shared.openDocument(nil) }
-            )
-        }
+    private var openProjectRoute: some View {
+        route(
+            title: "Open Project\u{2026}",
+            explanation: "A folder of .arch files, one per system. "
+                + "An empty folder starts a new one.",
+            systemImage: "folder",
+            identifier: "welcome-open-project",
+            action: openProject
+        )
     }
 
     private func route(
@@ -93,8 +80,12 @@ struct WelcomeWindow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    // The card is one line tall without this, and the
+                    // explanation is longer than one line.
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(width: 220, height: 140)
+            .frame(width: 360)
+            .padding(.vertical, 20)
             .contentShape(Rectangle())
         }
         .buttonStyle(.bordered)
@@ -104,9 +95,8 @@ struct WelcomeWindow: View {
     @ViewBuilder
     private var recentList: some View {
         let projects = recents.list()
-        let files = Array(NSDocumentController.shared.recentDocumentURLs.prefix(5))
 
-        if projects.isEmpty == false || files.isEmpty == false {
+        if projects.isEmpty == false {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Recent")
                     .font(.headline)
@@ -122,21 +112,6 @@ struct WelcomeWindow: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("recent-project-\(project.name)")
-                    }
-
-                    ForEach(files, id: \.self) { url in
-                        Button {
-                            NSDocumentController.shared.openDocument(
-                                withContentsOf: url,
-                                display: true
-                            ) { _, _, _ in }
-                        } label: {
-                            Label(url.lastPathComponent, systemImage: "doc")
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("recent-file-\(url.lastPathComponent)")
                     }
                 }
                 .frame(height: 130)

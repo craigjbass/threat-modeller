@@ -12,7 +12,16 @@ struct InitialiseProjectTests {
         sampleId: String? = nil
     ) -> InitialiseProjectResponse {
         app.initialiseProject().execute(
-            InitialiseProjectRequest(root: root, sampleId: sampleId)
+            InitialiseProjectRequest(root: root, start: .example(id: sampleId))
+        )
+    }
+
+    private func initialiseEmpty(
+        root: String = "/work",
+        named name: String
+    ) -> InitialiseProjectResponse {
+        app.initialiseProject().execute(
+            InitialiseProjectRequest(root: root, start: .empty(systemName: name))
         )
     }
 
@@ -91,5 +100,55 @@ struct InitialiseProjectTests {
             return
         }
         #expect(systemName == FakeSampleModels.sampleId)
+    }
+
+    // MARK: starting with nothing in it
+
+    /// A user who knows the system they are about to draw does not want an
+    /// example to delete first.
+    @Test func writesASystemWithANameAndNothingElse() throws {
+        anEmptyRoot()
+
+        let response = initialiseEmpty(named: "Payments")
+
+        guard case .created(let systemName, let path) = response else {
+            Issue.record("expected an empty system to be written, got \(response)")
+            return
+        }
+        // A project lists its systems by file name, and every other use case
+        // names a system that way, so the response does too.
+        #expect(systemName == "payments")
+        #expect(path == "/work/threatmodel/payments.arch")
+        let written = try #require(app.project.text(at: path))
+        #expect(written.hasPrefix("system \"Payments\" {"))
+    }
+
+    @Test func writesAnEmptySystemTheApplicationCanOpen() throws {
+        anEmptyRoot()
+        _ = initialiseEmpty(named: "Payments")
+
+        let opened = app.openProject().execute(OpenProjectRequest(root: "/work"))
+
+        #expect(opened == .opened(systems: ["payments"], directory: "/work/threatmodel"))
+        let drawn = app.openSystem().execute(
+            OpenSystemRequest(root: "/work", systemName: "payments")
+        )
+        #expect(drawn == .opened(name: "Payments", warnings: []))
+        #expect(app.viewThreatModel().execute(ViewThreatModelRequest()).components.isEmpty)
+    }
+
+    @Test func neverWritesAnEmptySystemOverOneThatIsAlreadyThere() {
+        app.project.put("system \"Mine\" { }", at: "/work/threatmodel/mine.arch")
+
+        let response = initialiseEmpty(named: "Payments")
+
+        #expect(response == .alreadyHasSystems(names: ["mine"]))
+        #expect(app.project.text(at: "/work/threatmodel/payments.arch") == nil)
+    }
+
+    @Test func refusesASystemNameThatIsBlank() {
+        anEmptyRoot()
+
+        #expect(initialiseEmpty(named: "   ") == .needsASystemName)
     }
 }

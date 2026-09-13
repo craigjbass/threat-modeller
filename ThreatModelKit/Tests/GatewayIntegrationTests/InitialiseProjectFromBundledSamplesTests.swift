@@ -25,7 +25,7 @@ struct InitialiseProjectFromBundledSamplesTests {
                 files: ThreatModelCodec(),
                 sources: architecture
             )
-            .execute(InitialiseProjectRequest(root: root.path, sampleId: sample.id))
+            .execute(InitialiseProjectRequest(root: root.path, start: .example(id: sample.id)))
 
             guard case .created(_, let path) = response else {
                 Issue.record("\(sample.id) was not written: \(response)")
