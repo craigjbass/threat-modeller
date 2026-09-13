@@ -4,6 +4,32 @@ import ThreatModelKit
 
 /// The application opens on the welcome window.
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// What opens a `.arch` or a `.controls` file the user double-clicked.
+    /// The scene sets it, because the scene owns the project session and the
+    /// windows. Until it does, a file that arrives is kept and opened then:
+    /// macOS delivers the file before the first window draws.
+    var openSystemFile: ((URL) -> Void)? {
+        didSet {
+            guard let openSystemFile else { return }
+            for url in waiting { openSystemFile(url) }
+            waiting = []
+        }
+    }
+
+    private var waiting: [URL] = []
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        // One system at a time: a second window on the same project would
+        // fight the first over its files.
+        guard let url = urls.first else { return }
+
+        if let openSystemFile {
+            openSystemFile(url)
+        } else {
+            waiting = [url]
+        }
+    }
+
     /// Clicking the Dock icon with no window open brings the welcome window
     /// back. When that window is gone, AppKit does what it does by default.
     func applicationShouldHandleReopen(
@@ -55,6 +81,7 @@ struct ThreatModellerApp: App {
                 openProject: { openProject() },
                 openRecentProject: { entry in openRecent(entry) }
             )
+            .onAppear { appDelegate.openSystemFile = { url in openSystemFile(url) } }
         }
         .windowResizability(.contentSize)
 
@@ -145,6 +172,16 @@ struct ThreatModellerApp: App {
         recents.record(url: url)
         openWindow(id: Self.projectWindowId)
         project.open(root: url.path)
+        dismissWindow(id: Self.welcomeWindowId)
+    }
+
+    /// A `.arch` or a `.controls` file was opened from Finder, or dropped on
+    /// the Dock icon. It names the project that holds it and the system in it.
+    private func openSystemFile(_ url: URL) {
+        guard let project, project.openSystemFile(at: url.path) else { return }
+
+        recents.record(url: URL(fileURLWithPath: project.root ?? url.path))
+        openWindow(id: Self.projectWindowId)
         dismissWindow(id: Self.welcomeWindowId)
     }
 

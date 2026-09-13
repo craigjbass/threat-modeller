@@ -71,6 +71,39 @@ struct ProjectSessionTests {
         return (ProjectSession(useCases: useCases, watcher: watcher, defaults: aTestDefaults()), useCases, watcher)
     }
 
+    // MARK: opening one of a project's own files
+
+    /// A user double-clicks a system's file in Finder. This application opens
+    /// projects, so the file has to open the project that holds it, on that
+    /// system.
+    @Test func opensTheProjectAroundASystemFileAndDrawsThatSystem() {
+        let (session, _) = aProject()
+
+        let opened = session.openSystemFile(at: "/work/threatmodel/reporting.arch")
+
+        #expect(opened)
+        #expect(session.root == "/work")
+        #expect(session.chosenSystem == "reporting")
+    }
+
+    @Test func opensTheSameProjectFromASystemsControlsFile() {
+        let (session, _) = aProject()
+
+        let opened = session.openSystemFile(at: "/work/threatmodel/reporting.controls")
+
+        #expect(opened)
+        #expect(session.chosenSystem == "reporting")
+    }
+
+    @Test func opensNothingForAFileThisApplicationDoesNotRead() {
+        let (session, _) = aProject()
+
+        let opened = session.openSystemFile(at: "/work/notes.txt")
+
+        #expect(opened == false)
+        #expect(session.root == nil)
+    }
+
     @Test func listsTheSystemsAndDrawsTheFirst() {
         let (session, _) = aProject()
 

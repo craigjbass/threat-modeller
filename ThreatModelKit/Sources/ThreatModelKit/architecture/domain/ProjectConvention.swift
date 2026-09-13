@@ -1,3 +1,5 @@
+import Foundation
+
 /// The rule that pairs an architecture file with its answers and its report.
 ///
 /// Every gateway uses this, so the fake and the real one cannot pair files
@@ -57,6 +59,37 @@ public enum ProjectConvention {
 
         return stem
     }
+
+    /// The project a file belongs to, and the system it names, or nil when
+    /// this application does not read that file.
+    ///
+    /// A user double-clicks a system's file and means "open this system". The
+    /// application opens projects, not files, so a file has to say which
+    /// project holds it. A system's files sit in the convention directory, and
+    /// `discover` also allows a project that keeps them in its root, so both
+    /// arrangements resolve here.
+    public static func system(atPath path: String) -> (root: String, systemName: String)? {
+        let file = path as NSString
+        let fileExtension = file.pathExtension
+        guard fileExtension == architectureExtension || fileExtension == controlsExtension else {
+            return nil
+        }
+
+        let directory = file.deletingLastPathComponent
+        guard directory.isEmpty == false, directory != "/" else { return nil }
+
+        let root = (directory as NSString).lastPathComponent == conventionDirectoryName
+            ? (directory as NSString).deletingLastPathComponent
+            : directory
+        guard root.isEmpty == false else { return nil }
+
+        return (root: root, systemName: (file.deletingPathExtension as NSString).lastPathComponent)
+    }
+
+    /// The directory a project keeps its systems in. `ProjectSourceGateway`
+    /// states the same name; this copy is here because the rule that reads a
+    /// path cannot reach a gateway.
+    static let conventionDirectoryName = "threatmodel"
 
     public static func path(_ directory: String, _ fileName: String) -> String {
         directory.hasSuffix("/") ? "\(directory)\(fileName)" : "\(directory)/\(fileName)"

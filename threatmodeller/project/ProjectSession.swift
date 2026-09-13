@@ -149,6 +149,20 @@ final class ProjectSession {
         }
     }
 
+    /// Opens the project that holds a system's file, on that system.
+    ///
+    /// A user double-clicks a `.arch` or a `.controls` file in Finder. This
+    /// application opens projects, not files, so the file names the project
+    /// that holds it. Returns false for a file this application does not read,
+    /// and changes nothing.
+    @discardableResult
+    func openSystemFile(at path: String) -> Bool {
+        guard let found = ProjectConvention.system(atPath: path) else { return false }
+
+        open(root: found.root, preferring: found.systemName)
+        return true
+    }
+
     /// Opens a project root and draws one of its systems.
     ///
     /// It draws the system named in `preferring` when the project still holds
