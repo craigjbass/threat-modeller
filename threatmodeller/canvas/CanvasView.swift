@@ -136,6 +136,7 @@ struct CanvasView: View {
             }
 
             ConnectionsLayer(
+                origin: contentRect.origin,
                 connections: session.canvas.connections,
                 boxes: boxes,
                 componentsById: componentsById,
@@ -146,7 +147,10 @@ struct CanvasView: View {
                 selectedConnectionIds: canvas.selectedConnectionIds,
                 preview: previewLine
             )
-            .frame(width: contentSize.width, height: contentSize.height)
+            .frame(width: contentRect.width, height: contentRect.height)
+            // The layer starts back past the origin, so it is placed there
+            // rather than at the origin the rest of this stack draws from.
+            .offset(x: contentRect.minX, y: contentRect.minY)
 
             ForEach(session.canvas.components, id: \.id) { component in
                 let componentBox = boxes[component.id] ?? ComponentBox(x: component.x, y: component.y)
@@ -240,10 +244,10 @@ struct CanvasView: View {
         Set(session.canvas.components.filter(\.threatsDisabled).map(\.id))
     }
 
-    /// The drawing layer follows the model, so a saved diagram that reaches
-    /// far from the origin still draws its links.
-    private var contentSize: CGSize {
-        CanvasHitTest.contentSize(
+    /// The drawing layer follows the model, so a diagram that reaches far from
+    /// the origin still draws its links, whichever way it reaches.
+    private var contentRect: CGRect {
+        CanvasHitTest.contentRect(
             components: session.canvas.components,
             zones: session.canvas.zones
         )

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Testing
 import ThreatModelKit
 @testable import threatmodeller
@@ -6,6 +7,7 @@ import ThreatModelKit
 struct ConnectionLabelTests {
     private func label(description: String?, kindId: String = "network") -> String {
         ConnectionsLayer(
+            origin: .zero,
             connections: [],
             boxes: [:],
             componentsById: [:],

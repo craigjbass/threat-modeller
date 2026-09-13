@@ -79,6 +79,7 @@ nonisolated struct CanvasPicture: View {
             }
 
             ConnectionsLayer(
+                origin: origin,
                 connections: connections,
                 boxes: boxes,
                 componentsById: Dictionary(uniqueKeysWithValues: components.map { ($0.id, $0) }),
@@ -89,6 +90,11 @@ nonisolated struct CanvasPicture: View {
                 selectedConnectionIds: [],
                 preview: nil
             )
+            // The layer's own top-left is the model point the picture starts
+            // at, which is not the origin when the diagram reaches back past
+            // it. A `Canvas` paints nothing outside its frame.
+            .frame(width: size.width, height: size.height)
+            .offset(x: origin.x, y: origin.y)
 
             ForEach(components, id: \.id) { component in
                 node(component)

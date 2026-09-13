@@ -172,21 +172,27 @@ struct CanvasHitTestTests {
         #expect(CanvasHitTest.zone(under: CGPoint(x: 5000, y: 5000), zones: zones) == nil)
     }
 
-    @Test func givesAnEmptyModelARoomySquare() {
-        let size = CanvasHitTest.contentSize(components: [], zones: [])
+    /// An empty model is the minimum square, and the margin on every side is
+    /// the room to drag a node out of it in any direction.
+    @Test func givesAnEmptyModelARoomySquareWithRoomEachWay() {
+        let rect = CanvasHitTest.contentRect(components: [], zones: [])
 
-        #expect(size.width == CanvasHitTest.minimumContentSize.width)
-        #expect(size.height == CanvasHitTest.minimumContentSize.height)
+        #expect(rect.minX == -CanvasHitTest.contentMargin)
+        #expect(rect.minY == -CanvasHitTest.contentMargin)
+        #expect(rect.width == CanvasHitTest.minimumContentSize.width + CanvasHitTest.contentMargin)
+        #expect(rect.height == CanvasHitTest.minimumContentSize.height + CanvasHitTest.contentMargin)
     }
 
     @Test func growsToHoldTheFarthestComponent() {
-        let size = CanvasHitTest.contentSize(
+        let rect = CanvasHitTest.contentRect(
             components: [component("c1", x: 9000, y: 40)],
             zones: []
         )
 
-        #expect(size.width > 9000 + ComponentBox(x: 9000, y: 40, shape: .process).rect.width)
-        #expect(size.height == CanvasHitTest.minimumContentSize.height)
+        #expect(rect.maxX > 9000 + ComponentBox(x: 9000, y: 40, shape: .process).rect.width)
+        // Nothing reaches past the minimum the other way, so that side is
+        // the minimum and its margin.
+        #expect(rect.height == CanvasHitTest.minimumContentSize.height + CanvasHitTest.contentMargin)
     }
 
     @Test func growsToHoldTheFarthestZone() {
@@ -208,6 +214,56 @@ struct CanvasHitTestTests {
         // farthest out, so the layer is bigger than what it holds.
         let farthest = ComponentBox(x: 3000, y: 3000, shape: .process).rect.maxX
         #expect(size.width >= farthest + CanvasHitTest.contentMargin)
+    }
+
+    /// A model reaches either way from the origin. The user drags a node up
+    /// and to the left and it takes a negative coordinate; the layer has to
+    /// hold it, or nothing at that coordinate is drawn.
+    @Test func reachesBackToHoldAComponentAtANegativeCoordinate() {
+        let rect = CanvasHitTest.contentRect(
+            components: [component("c1", x: -9000, y: -40)],
+            zones: []
+        )
+
+        #expect(rect.minX <= -9000)
+        #expect(rect.minY <= -40)
+    }
+
+    @Test func reachesBackToHoldAZoneAtANegativeCoordinate() {
+        let rect = CanvasHitTest.contentRect(
+            components: [],
+            zones: [viewedZone("z1", x: -300, y: -8000)]
+        )
+
+        #expect(rect.minY <= -8000)
+    }
+
+    /// The user has to be able to drag a node further back than whatever is
+    /// currently farthest back, so the layer reaches past it.
+    @Test func leavesRoomToDragPastTheFarthestThingBackwards() {
+        let rect = CanvasHitTest.contentRect(
+            components: [component("c1", x: -3000, y: -3000)],
+            zones: []
+        )
+
+        // The margin is measured from the drawn footprint, as it is the other
+        // way. A process draws as a circle inside its slot, so the footprint
+        // starts further in than the component's own coordinate.
+        let box = ComponentBox(x: -3000, y: -3000, shape: .process)
+        #expect(rect.minX <= box.rect.minX - CanvasHitTest.contentMargin)
+        #expect(rect.minY <= box.rect.minY - CanvasHitTest.contentMargin)
+    }
+
+    /// The origin is not the back edge. A model that sits on the positive
+    /// side still has room behind it, or the first drag that way clips.
+    @Test func reachesBackPastTheOriginWhenNothingIsThereYet() {
+        let rect = CanvasHitTest.contentRect(
+            components: [component("c1", x: 300, y: 300)],
+            zones: []
+        )
+
+        #expect(rect.minX == -CanvasHitTest.contentMargin)
+        #expect(rect.minY == -CanvasHitTest.contentMargin)
     }
 
     @Test func leavesRoomForTheProcessCircleAtTheEdgeOfTheDiagram() {

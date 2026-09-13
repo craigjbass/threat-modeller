@@ -157,5 +157,16 @@ Then `BuildProject`, then `RenderPreview`. The build alone clears a second
 fault with the same symptom, in which the preview pipeline reports
 `FailedToAddDependency` after a source file changes under it.
 
+When the same error repeats and `pgrep -x threatmodeller` shows a new process
+each time, the preview daemon is holding the old session. Stop it as well, and
+`launchd` starts it again:
+
+```
+pkill -x threatmodeller
+kill -9 $(pgrep -f PreviewsOSSupport.framework/Support/previewsd)
+```
+
+Wait three seconds, then render.
+
 **Prevention.** Run `pkill -x threatmodeller` after every `RunAllTests` or
 `RunSomeTests`, before the next preview or snippet.

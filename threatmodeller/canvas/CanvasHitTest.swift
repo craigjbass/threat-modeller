@@ -131,19 +131,44 @@ nonisolated enum CanvasHitTest {
     /// spare. A fixed square either wastes memory or clips a saved model that
     /// reaches past it.
     static func contentSize(components: [ViewedComponent], zones: [ViewedZone]) -> CGSize {
-        var width = minimumContentSize.width - contentMargin
-        var height = minimumContentSize.height - contentMargin
+        contentRect(components: components, zones: zones).size
+    }
+
+    /// Where the drawing layer sits and how big it is, in model coordinates.
+    ///
+    /// This is a rectangle and not a size because a model reaches either way
+    /// from the origin. A component the user drags up and to the left takes a
+    /// negative coordinate, and a layer that starts at the origin does not
+    /// hold it.
+    static func contentRect(components: [ViewedComponent], zones: [ViewedZone]) -> CGRect {
+        // The origin is always inside the layer, so an empty model still
+        // draws around it.
+        var minX = 0.0
+        var minY = 0.0
+        var maxX = minimumContentSize.width - contentMargin
+        var maxY = minimumContentSize.height - contentMargin
 
         for component in components {
             let rect = Self.box(for: component).rect
-            width = max(width, rect.maxX)
-            height = max(height, rect.maxY)
+            minX = min(minX, rect.minX)
+            minY = min(minY, rect.minY)
+            maxX = max(maxX, rect.maxX)
+            maxY = max(maxY, rect.maxY)
         }
         for zone in zones {
-            width = max(width, zone.x + zone.width)
-            height = max(height, zone.y + zone.height)
+            minX = min(minX, zone.x)
+            minY = min(minY, zone.y)
+            maxX = max(maxX, zone.x + zone.width)
+            maxY = max(maxY, zone.y + zone.height)
         }
 
-        return CGSize(width: width + contentMargin, height: height + contentMargin)
+        // The margin goes on every side, so the user can drag a node past
+        // whatever is farthest out in any direction, the origin included.
+        return CGRect(
+            x: minX - contentMargin,
+            y: minY - contentMargin,
+            width: (maxX - minX) + contentMargin * 2,
+            height: (maxY - minY) + contentMargin * 2
+        )
     }
 }

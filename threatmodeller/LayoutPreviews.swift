@@ -44,6 +44,34 @@ enum LayoutPreview {
         return session
     }
 
+    /// The same two components and flow, back past the origin, where the
+    /// drawing layer used to stop.
+    @MainActor
+    static func sessionPastTheOrigin() -> ThreatModelSession {
+        guard let useCases = try? Dependencies() else {
+            fatalError("the bundled catalogue did not load")
+        }
+        let session = ThreatModelSession(useCases: useCases)
+        session.add(technologyId: "aws-ec2", x: -1000, y: -1000)
+        session.add(technologyId: "aws-rds", x: -600, y: -860)
+        let ids = session.canvas.components.map(\.id)
+        if ids.count == 2 {
+            session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
+        }
+        return session
+    }
+
+    /// The canvas panned so the model point `x, y` sits at view point 200, 200.
+    @MainActor
+    static func canvasBringing(_ x: Double, _ y: Double) -> CanvasState {
+        let canvas = CanvasState()
+        canvas.transform = CanvasTransform(
+            pan: CGSize(width: 200 - x, height: 200 - y),
+            zoom: 1
+        )
+        return canvas
+    }
+
     /// The canvas state with the first component selected, which is what puts
     /// the bottom bar on screen.
     @MainActor
@@ -97,6 +125,15 @@ enum LayoutPreview {
     return CanvasView(
         session: session,
         canvas: LayoutPreview.canvasSelectingTheFirstComponent(of: session)
+    )
+}
+
+// MARK: the viewport, panned back past the origin
+
+#Preview("Canvas at a negative coordinate, 1000x600", traits: .fixedLayout(width: 1000, height: 600)) {
+    CanvasView(
+        session: LayoutPreview.sessionPastTheOrigin(),
+        canvas: LayoutPreview.canvasBringing(-1000, -1000)
     )
 }
 

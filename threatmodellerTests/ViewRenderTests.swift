@@ -553,6 +553,7 @@ struct ViewRenderTests {
 
         expectDrawn(
             ConnectionsLayer(
+                origin: .zero,
                 connections: [
                     ViewedConnection(
                         id: "f1",

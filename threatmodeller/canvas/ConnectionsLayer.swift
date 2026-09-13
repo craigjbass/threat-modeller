@@ -27,6 +27,11 @@ struct ConnectionsLayer: View {
     /// its product and its kind, and the whole of it covers the diagram.
     static let guardLimit = 30
 
+    /// The model point this layer's own top-left corner sits at. Everything
+    /// below draws in model coordinates, and a `Canvas` paints nothing outside
+    /// its own frame, so the layer reaches back past the origin and shifts its
+    /// drawing by the same amount.
+    let origin: CGPoint
     let connections: [ViewedConnection]
     let boxes: [String: ComponentBox]
     /// Every component by id, so the layer can tell which zone each end of a
@@ -47,6 +52,8 @@ struct ConnectionsLayer: View {
 
     var body: some View {
         Canvas { context, _ in
+            context.translateBy(x: -origin.x, y: -origin.y)
+
             var marked: [BoundaryCrossings.MarkedCrossing] = []
             var sampled: [String: [Point]] = [:]
             var toLabel: [(connectionId: String, text: String, curve: FlowCurve)] = []
