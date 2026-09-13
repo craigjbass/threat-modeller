@@ -8,24 +8,26 @@ struct ReportActionsTests {
     @Test func theReportCarriesWhatEachActionRemoves() {
         guard case .added(let guardId) = app.addComponent().execute(
             AddComponentRequest(technologyId: "aws-waf", x: 0, y: 0, sensitivity: "restricted")
-        ), case .added(let storeId) = app.addComponent().execute(
+        ), case .added(let store1Id) = app.addComponent().execute(
             AddComponentRequest(technologyId: "aws-rds", x: 400, y: 0, sensitivity: "restricted")
+        ), case .added(let store2Id) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-rds", x: 400, y: 200, sensitivity: "public")
         ) else {
             Issue.record("the components were not added")
             return
         }
         let allThreats = app.assessThreatModel().execute(AssessThreatModelRequest()).threats
-        let threatsOnStore = allThreats
-            .filter { $0.source.id == "component:\(storeId)" }
-        let threats = threatsOnStore.map { ThreatId($0.threatId) }
+        let threatsOnStore1 = allThreats
+            .filter { $0.source.id == "component:\(store1Id)" }
+        let threats = threatsOnStore1.map { ThreatId($0.threatId) }
 
         var model = app.modelStore.current()
         model.mitigatesEdges = [
             MitigatesEdge(
                 source: ComponentId(guardId),
-                target: ComponentId(storeId),
+                target: ComponentId(store1Id),
                 threatIds: threats,
-                reducesRiskBy: 50,
+                reducesRiskBy: 75,
                 status: .assumed,
                 action: EdgeAction(label: "adopt", text: "Adopt the guard", blockedBy: nil)
             )
@@ -38,17 +40,20 @@ struct ReportActionsTests {
         #expect(report.actions[0].text == "Adopt the guard")
 
         let action = report.actions[0]
-        // Guard aws-waf raises no threats. Only store (aws-rds) threats remain.
-        // Baseline: store threat score 8, total 8, worst 8
-        // After 50% mitigation: max(1, round(8 × 0.5)) = 4
-        // Removes: 8 - 4 = 4 (one threat moves from 8 to 4)
-        // Total after: 4
-        // Worst after: 4 (the mitigated threat becomes the worst)
-        #expect(action.removes == 4)
-        #expect(action.totalResidual == 8)
+        // Guard aws-waf raises no threats. Two stores: one restricted, one public.
+        // Store 1 (restricted): threat score 8
+        // Store 2 (public): same threat at lower sensitivity score 2
+        // Baseline: total 10, worst 8
+        // Mitigation targets only store1 with 75% reduction.
+        // Store 1: max(1, round(8 × 0.25)) = 2
+        // Store 2: 2 (untouched)
+        // After: total 4, worst 2
+        // Removes: 10 - 4 = 6
+        #expect(action.removes == 6)
+        #expect(action.totalResidual == 10)
         #expect(action.threatsMoved == 1)
         #expect(action.worstBefore == 8)
-        #expect(action.worstAfter == 4)
+        #expect(action.worstAfter == 2)
     }
 
     @Test func theReportCarriesNoActionForAModelDeclaringNone() {
