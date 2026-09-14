@@ -1,13 +1,15 @@
 # The language of Craig's Threat Modeller
 
-A reference for the three source languages this application reads: the
+A reference for the four source languages this application reads: the
 architecture language, written in a `.arch` file; the controls language, written
-in a `.controls` file; and the library language, written in a `.lib` file.
+in a `.controls` file; the library language, written in a `.lib` file; and the
+attack tree language, written in a `.attacktree` file.
 
-The three languages share one lexical structure and one block syntax. They
+The four languages share one lexical structure and one block syntax. They
 differ only in their keywords and in what a block means. Sections 2 and 3 hold
 what is common. Section 4 holds the architecture language, section 5 the
-controls language, and section 6 the library language.
+controls language, section 6 the library language, and section 7 the attack
+tree language.
 
 ## Contents
 
@@ -17,11 +19,12 @@ controls language, and section 6 the library language.
 4. [The architecture language](#4-the-architecture-language)
 5. [The controls language](#5-the-controls-language)
 6. [The library language](#6-the-library-language)
-7. [Diagnostics](#7-diagnostics)
-8. [Canonical form](#8-canonical-form)
-9. [A worked example](#9-a-worked-example)
-10. [The grammar in full](#10-the-grammar-in-full)
-11. [Where the code is](#11-where-the-code-is)
+7. [The attack tree language](#7-the-attack-tree-language)
+8. [Diagnostics](#8-diagnostics)
+9. [Canonical form](#9-canonical-form)
+10. [A worked example](#10-a-worked-example)
+11. [The grammar in full](#11-the-grammar-in-full)
+12. [Where the code is](#12-where-the-code-is)
 
 ## 1. Notation
 
@@ -716,10 +719,22 @@ them.
 ControlsFile = ControlsBlock ;
 
 ControlsBlock = "controls" "for" String "{" { ControlsEntry } "}" ;
-ControlsEntry = CatalogueAttr | ToleranceAttr | ThreatBlock ;
+ControlsEntry = CatalogueAttr | ToleranceAttr | ThreatBlock | TreeAnswerBlock ;
 
 CatalogueAttr = "catalogue" "=" String ;
 ToleranceAttr = "tolerance" "=" String ;
+
+TreeAnswerBlock = [ "stale" ] "tree" String "{" { TreeAnswerEntry } "}" ;
+TreeAnswerEntry = "goal"           "=" String
+                | "chain"          "=" Number
+                | "raises_risk_by" "=" Number
+                | "score"          "=" Number
+                | "score_before"   "=" Number
+                | StepAnswerBlock ;
+
+StepAnswerBlock = "step" String "{" { StepAnswerAttr } "}" ;
+StepAnswerAttr  = "state" "=" String
+                | "by"    "=" String ;
 
 ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String "{" { ThreatEntry } "}" ;
 SourceKind  = "component" | "zone" | "flow" ;
@@ -878,7 +893,60 @@ compile moves the answer back out of `stale` with its statuses intact.
 read the answer, then either restore what raised the threat or delete the
 block.
 
-### 5.5 `control`
+### 5.5 `tree` and `stale tree`
+
+The compiler writes one stanza for every tree the `.attacktree` file states, so
+the controls file reads alone. Every number here is recomputed on the next
+compile, the way `severity` and `score` are, so an edit changes nothing.
+
+```hcl
+tree "read-every-customer-record" {
+  goal           = "data-exfiltration@component:db"
+  chain          = 100
+  raises_risk_by = 40
+  score          = 7
+  score_before   = 5
+
+  step "ssrf-attack@component:appserver" {
+    state = "open"
+  }
+
+  step "credential-theft@component:appserver" {
+    state = "closed"
+    by    = "Enforce IMDSv2 with a hop limit of 1"
+  }
+}
+```
+
+| Attribute | Meaning |
+| --- | --- |
+| `goal` | the threat key the boost lands on |
+| `chain` | the chain factor the weakest open step gave, as a percentage |
+| `raises_risk_by` | the number the `.attacktree` file states |
+| `score` | the goal's score after the boost |
+| `score_before` | the goal's score before it |
+| `step.state` | `open` or `closed` |
+| `step.by` | the control description that closed the step, when one did |
+
+A live `tree` stanza never holds `unbound`, because one unbound step moves the
+whole tree into `stale tree`:
+
+```hcl
+stale tree "read-every-customer-record" {
+  step "credential-theft@component:appserver" {
+    state = "unbound"
+  }
+}
+```
+
+A stale tree states no number: nothing recomputed them, and a number nobody can
+trust is worse than no number. `threatmodeller check` exits 1 while one
+remains, and prints `the tree "<id>" is written but no longer binds`.
+
+A tree the `.attacktree` file no longer states writes no stanza at all, because
+a person owns that file and deleting a tree there loses nothing.
+
+### 5.6 `control`
 
 ```hcl
 control "Enforce MFA on all administrative access" {
@@ -921,7 +989,7 @@ A `status` outside the four values is an error that lists the four.
 
 `note` is free text, and a rewrite keeps it.
 
-### 5.6 `compensating`
+### 5.7 `compensating`
 
 ```hcl
 compensating "Break-glass account watched by the SIEM" {
@@ -955,7 +1023,7 @@ being `implemented`.
 Two compensating controls on one threat give the stronger of the two, not the
 sum.
 
-### 5.7 `likelihood`
+### 5.8 `likelihood`
 
 A `likelihood` block is a finding: what a person learned about how often an
 attack of this kind happens, and why. It is evidence, not a control, and it
@@ -1004,7 +1072,7 @@ while the residual score sits at or below the project's risk tolerance.
 Section 4.2 and section 5.2 state that tolerance; `--tolerance <level>`
 overrides it for one run.
 
-### 5.8 `severity_override`
+### 5.9 `severity_override`
 
 A `severity_override` block is a person's decision to raise or lower a
 threat's severity from what the catalogue states, with the reasoning kept
@@ -1041,7 +1109,7 @@ A label naming a severity the catalogue does not hold is not a parser error:
 holds, so the severity_override on "<threat id>" is not applied`, and the
 catalogue's own severity stands.
 
-### 5.9 Threat keys
+### 5.10 Threat keys
 
 Each threat block names one key. The key pairs the threat identifier with what
 raised it:
@@ -1059,7 +1127,7 @@ So `threat "t-mitm" on flow "cdn->api"` holds the key
 
 Two blocks with the same key are the error `<key> is answered twice`.
 
-### 5.10 What the application does with the answers
+### 5.11 What the application does with the answers
 
 `ApplyControlAnswers` reads the file against the threats the architecture
 raises. It skips every `stale` block, and it warns rather than fails when a file
@@ -1071,7 +1139,7 @@ says something the model does not:
 | the threat no longer offers that control | `"<threat>" no longer offers the control "<description>", so its answer is not applied` |
 | the `severity_override` names a severity the catalogue does not hold | `"<severity>" is not a severity this catalogue holds, so the severity_override on "<threat>" is not applied` |
 
-### 5.11 The merge
+### 5.12 The merge
 
 `threatmodeller compile` reads the architecture and the existing `.controls`
 file, then writes the `.controls` file back.
@@ -1394,9 +1462,153 @@ this project already holds a library called "acme"
 A library that does not load stops the project opening, rather than loading the
 libraries that do, because half a catalogue draws a diagram nobody can trust.
 
-## 7. Diagnostics
+## 7. The attack tree language
 
-### 7.1 The shape
+A `.attacktree` file sits beside the `.arch` file it belongs to and takes the
+same stem: `threatmodel/payments.arch` pairs with
+`threatmodel/payments.attacktree`. A person writes it. It states the routes
+through a system that a person confirmed, and how much each route raises the
+threat it ends on.
+
+### 7.1 Grammar
+
+```
+AttackTreeFile = AttackTreesBlock ;
+
+AttackTreesBlock = "attack_trees" "for" String "{" { AttackTreesEntry } "}" ;
+AttackTreesEntry = CatalogueAttr | TreeBlock ;
+
+CatalogueAttr = "catalogue" "=" String ;
+
+TreeBlock = "tree" String "{" { TreeEntry } "}" ;
+TreeEntry = "name"           "=" String
+          | "description"    "=" String
+          | "raises_risk_by" "=" Number
+          | GoalStatement
+          | NodeBlock
+          | StepBlock ;
+
+GoalStatement = "goal" String "on" SourceKind String ;
+SourceKind    = "component" | "zone" | "flow" ;
+
+NodeBlock = ( "all_of" | "any_of" ) "{" { NodeEntry } "}" ;
+NodeEntry = StepBlock | NodeBlock ;
+
+StepBlock = "step" String "on" SourceKind String [ "{" { StepEntry } "}" ] ;
+StepEntry = "note" "=" String ;
+```
+
+A file holds exactly one `attack_trees for` block. Text after its closing brace
+is not read.
+
+### 7.2 The blocks and the attributes
+
+| Block | Label | Attribute | Values | Default |
+| --- | --- | --- | --- | --- |
+| `attack_trees for` | the system name | `catalogue` | a tag string | the catalogue in use |
+| `tree` | the tree id | `name` | string | the label |
+| | | `description` | string | none |
+| | | `raises_risk_by` | number, 0 to 100 | `0` |
+| `goal` | the threat id, then the source | | | **required** |
+| `step` | the threat id, then the source | `note` | string | none |
+
+`raises_risk_by = 0` is a tree that narrates and scores nothing. The report
+prints it, `check` gates on it, and no number moves.
+
+A tree body holds exactly one root, which is one `all_of`, one `any_of` or one
+`step`.
+
+```hcl
+attack_trees for "Two-Tier Web Application" {
+  catalogue = "v1.0.1"
+
+  tree "read-every-customer-record" {
+    name           = "Read every customer record"
+    description    = "An unauthenticated caller reaches the customer table."
+    raises_risk_by = 40
+
+    goal "data-exfiltration" on component "db"
+
+    all_of {
+      step "ssrf-attack" on component "appserver" {
+        note = "The avatar import fetches a URL the user gives it."
+      }
+
+      any_of {
+        step "credential-theft" on component "appserver"
+
+        all_of {
+          step "excessive-permissions" on component "secrets"
+          step "privilege-escalation" on component "secrets"
+        }
+      }
+    }
+  }
+}
+```
+
+### 7.3 `goal` and `step`
+
+Both take the two-label shape the controls language uses in section 5.3:
+`"<threat id>" on component "<id>"`, and `zone` and `flow` in place of
+`component`. One shape, read by one rule, in three languages.
+
+A `step` with no body is that same step with an empty body, which is the rule
+`flow a -> b` already sets in section 4.6.
+
+### 7.4 `all_of` and `any_of`
+
+| Node | Open while | Factor |
+| --- | --- | --- |
+| `step` | nothing has closed it | the threat's own likelihood factor |
+| `any_of` | any child is open | the **strongest** open child |
+| `all_of` | every child is open | the **weakest** child |
+
+`any_of` takes the strongest child because an attacker picks the easiest
+branch. `all_of` takes the weakest because the chain needs every one of them.
+A tree whose root is closed gives no boost.
+
+### 7.5 What binds, and what closes
+
+A step **binds** when the resolved model raises that threat on that source. A
+bound step is **closed** when its threat holds at least one `implemented`
+control or a `compensating` block, and **open** otherwise.
+
+`not_applicable` and `accepted` answer a threat and close no step: the control
+does not apply, or the team lives with it, and an attacker still walks the
+step. A `likelihood` finding closes no step either; it lowers the step's
+factor.
+
+One step that does not bind, or a goal that does not bind, makes the whole tree
+**stale**. A stale tree moves no score, the compile writes it as a
+`stale tree` stanza, and `threatmodeller check` exits 1 while one remains.
+
+A step naming a component the `.arch` file does not declare is not a parser
+fault: the parser reads one file and the architecture is another, the way
+section 4.10 states for the catalogue warning.
+
+### 7.6 What the parser refuses
+
+Errors, which stop the read and produce no source:
+
+| Check | Message |
+| --- | --- |
+| a file that does not start with `attack_trees` | `expected attack_trees, not "<word>"` |
+| a block missing `for` | `expected for, not "<word>"` |
+| a tree id declared twice | `the tree "<id>" is declared twice` |
+| a tree with no `goal` | `the tree "<id>" states no goal` |
+| a tree with two `goal` statements | `the tree "<id>" states two goals; it states one` |
+| a tree with no root node | `the tree "<id>" holds no steps` |
+| a tree with two root nodes | `the tree "<id>" holds two roots; it holds one` |
+| an `all_of` or `any_of` with no entries | `the <word> in the tree "<id>" holds nothing` |
+| a source kind that is not `component`, `zone` or `flow` | `a step is raised by a component, a zone or a flow, not "<word>"` |
+| a `goal` or `step` with no `on` | `a step says what raises it: on component, on zone or on flow` |
+| `raises_risk_by` outside 0 to 100 | `raises_risk_by is <n>; it runs from 0 to 100` |
+| an entry the grammar does not hold | `a tree holds name, description, raises_risk_by, goal, all_of, any_of and step, not "<word>"` |
+
+## 8. Diagnostics
+
+### 8.1 The shape
 
 A diagnostic carries a severity, a line, a column and a message, and prints as:
 
@@ -1406,7 +1618,7 @@ threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0
 
 An editor and a build log both read that shape.
 
-### 7.2 The severities
+### 8.2 The severities
 
 | Severity | Effect |
 | --- | --- |
@@ -1415,7 +1627,7 @@ An editor and a build log both read that shape.
 
 One error anywhere in a file stops the whole file. Warnings alone do not.
 
-### 7.3 Recovery
+### 8.3 Recovery
 
 Neither the lexer nor the parser stops at the first fault, so a file with four
 faults reports four rather than one.
@@ -1427,10 +1639,10 @@ faults reports four rather than one.
 | a missing required attribute | records one diagnostic and drops the block |
 | an unknown character | records one diagnostic and skips that one character |
 
-### 7.4 What each block holds
+### 8.4 What each block holds
 
 An entry that is not one of a block's own attributes or nested blocks is the
-message below. The parser then does what section 7.3 states for "an unknown
+message below. The parser then does what section 8.3 states for "an unknown
 entry" or "an unknown attribute".
 
 | Language | Block | Message |
@@ -1451,13 +1663,16 @@ entry" or "an unknown attribute".
 | controls | `control` | `a control holds status and note, not "<word>"` |
 | controls | `compensating` | `a compensating control holds reduces_risk_by, rationale and sources, not "<word>"` |
 | controls | `recommendation` | `a recommendation holds note and sources, not "<word>"` |
+| controls | `tree` | `a tree holds goal, chain, raises_risk_by, score, score_before and step, not "<word>"` |
+| controls | `step` (in a `tree`) | `a step holds state and by, not "<word>"` |
+| attack tree | `tree` | `a tree holds name, description, raises_risk_by, goal, all_of, any_of and step, not "<word>"` |
 | library | `library` | `a library holds name, catalogue, technology, threat, mitigation and threat_actor, not "<word>"` |
 | library | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | library | `threat` | `a threat holds name, description, severity, stride, connection, zone, zone_context, mitre, control, applies_to, boundary, runs_as, pathway and likelihood, not "<word>"` |
 | library | `mitre` | `a mitre technique holds name and tactic, not "<word>"` |
 | library | `mitigation` | `a mitigation holds name, description, mitigates, provided_by, reduces_risk_by and mode, not "<word>"` |
 
-## 8. Canonical form
+## 9. Canonical form
 
 The writer emits one shape, so a rewrite of an unchanged source produces no
 diff. `threatmodeller format` rewrites every `.arch` file in this shape.
@@ -1488,7 +1703,7 @@ writes `severity` and `score`, then the `likelihood` block, then the controls
 sorted by description, then the `severity_override` block, then the
 compensating controls, then the recommendations.
 
-## 9. A worked example
+## 10. A worked example
 
 `threatmodel/payments.arch`:
 
@@ -1566,7 +1781,7 @@ controls for "Payments" {
 `threatmodeller check` exits 1 while `t-mitm` and `t-lateral-movement` hold no
 answer. `threatmodeller report` writes `threatmodel/payments.md`.
 
-## 10. The grammar in full
+## 11. The grammar in full
 
 ```
 (* common *)
@@ -1661,9 +1876,21 @@ ActionAttr  = "text"       "=" String
 ControlsFile = ControlsBlock ;
 
 ControlsBlock = "controls" "for" String "{" { ControlsEntry } "}" ;
-ControlsEntry = CatalogueAttr | ToleranceAttr | ThreatBlock ;
+ControlsEntry = CatalogueAttr | ToleranceAttr | ThreatBlock | TreeAnswerBlock ;
 
 ToleranceAttr = "tolerance" "=" String ;
+
+TreeAnswerBlock = [ "stale" ] "tree" String "{" { TreeAnswerEntry } "}" ;
+TreeAnswerEntry = "goal"           "=" String
+                | "chain"          "=" Number
+                | "raises_risk_by" "=" Number
+                | "score"          "=" Number
+                | "score_before"   "=" Number
+                | StepAnswerBlock ;
+
+StepAnswerBlock = "step" String "{" { StepAnswerAttr } "}" ;
+StepAnswerAttr  = "state" "=" String
+                | "by"    "=" String ;
 
 ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String
               "{" { ThreatEntry } "}" ;
@@ -1739,9 +1966,32 @@ MitigationAttr  = "name"            "=" String
                 | "provided_by"     "=" StringList
                 | "reduces_risk_by" "=" Number
                 | "mode"            "=" String ;
+
+(* the attack tree language *)
+
+AttackTreeFile = AttackTreesBlock ;
+
+AttackTreesBlock = "attack_trees" "for" String "{" { AttackTreesEntry } "}" ;
+AttackTreesEntry = CatalogueAttr | TreeBlock ;
+
+TreeBlock = "tree" String "{" { TreeEntry } "}" ;
+TreeEntry = "name"           "=" String
+          | "description"    "=" String
+          | "raises_risk_by" "=" Number
+          | GoalStatement
+          | NodeBlock
+          | StepBlock ;
+
+GoalStatement = "goal" String "on" SourceKind String ;
+
+NodeBlock = ( "all_of" | "any_of" ) "{" { NodeEntry } "}" ;
+NodeEntry = StepBlock | NodeBlock ;
+
+StepBlock = "step" String "on" SourceKind String [ "{" { StepEntry } "}" ] ;
+StepEntry = "note" "=" String ;
 ```
 
-## 11. Where the code is
+## 12. Where the code is
 
 | File | What it holds |
 | --- | --- |
@@ -1753,10 +2003,12 @@ MitigationAttr  = "name"            "=" String
 | [`ControlsWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/ControlsWriter.swift) | the canonical form of a `.controls` file |
 | [`LibraryParser.swift`](../ThreatModelKit/Sources/ArchitectureDSL/LibraryParser.swift) | section 6 |
 | [`LibraryWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/LibraryWriter.swift) | the canonical form of a `.lib` file |
+| [`AttackTreeParser.swift`](../ThreatModelKit/Sources/ArchitectureDSL/AttackTreeParser.swift) | section 7 |
+| [`AttackTreeWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/AttackTreeWriter.swift) | the canonical form of a `.attacktree` file |
 | [`Library.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/Library.swift) | the prefix rule of section 6.4, and the taxonomy check |
 | [`MergedCatalogue.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/MergedCatalogue.swift) | how a library and the vendored catalogue read as one |
-| [`Diagnostic.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/Diagnostic.swift) | section 7 |
-| [`ControlsSource.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ControlsSource.swift) | the value tree, and the threat key of section 5.9 |
+| [`Diagnostic.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/Diagnostic.swift) | section 8 |
+| [`ControlsSource.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ControlsSource.swift) | the value tree, and the threat key of section 5.10 |
 | [`ProjectConvention.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ProjectConvention.swift) | how a `.arch` file pairs with its `.controls` and its `.md` |
 
 Related documents:

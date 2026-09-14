@@ -3,13 +3,14 @@
 A macOS application and a command line executable that build a threat model from
 text files a team commits to git.
 
-A project holds two source files for each system, and the application writes a
-third:
+A project holds three source files for each system, and the application writes
+a fourth:
 
 | File | Who writes it | What it holds |
 | --- | --- | --- |
 | `<name>.arch` | a person | the architecture: technologies, zones, components and flows |
 | `<name>.controls` | the compiler writes it, then a person fills it in | the answer for every threat the architecture raises |
+| `<name>.attacktree` | a person | the routes through several components, and what each route raises |
 | `<name>.md` | the compiler | the report |
 | `library/<name>.lib` | a team, and shared with other teams | technologies, threats and controls every system in the project reads |
 
@@ -17,7 +18,7 @@ The application draws the same files on a canvas. The executable reads them in
 continuous integration, so a pull request that adds a database and answers
 nothing fails the build.
 
-**Read [the language guide](docs/LANGUAGE.md) for the syntax of all three source
+**Read [the language guide](docs/LANGUAGE.md) for the syntax of all four source
 files:** the lexical rules, the grammar, every block and attribute, the
 diagnostics and the canonical form.
 
@@ -227,22 +228,24 @@ report — is the residual score recalculated as though every `assumed`
 `mitigates` edge were `adopted`. The two numbers differ only when a model
 carries an assumed edge; the report prints the target score only then.
 
-The resolver runs seven stages, in this fixed order, to reach the residual
+The resolver runs eight stages, in this fixed order, to reach the residual
 score:
 
 1. **Base score.** The threat's severity rank, multiplied by the component's
    data sensitivity. The severity is the threat's own, unless a
    `severity_override` block in the `.controls` file names this one threat on
-   this one source, or, failing that, a technology-wide override set from the
-   sidebar names it. A pathway threat uses the highest sensitivity among the
+   this one source, or, failing that, an override set from the sidebar names
+   this threat on this element. A pathway threat uses the highest sensitivity among the
    components it feeds directly, when that is higher than its own.
 2. **Zone.** The zone's `reduces_risk_by` percent, when the component sits in
    a private zone.
 3. **Controls.** The implemented controls, by their share of the applicable
    controls.
-4. **Pathway mitigation.** The strongest mitigation in the Pathway
-   Mitigations panel that is upstream of the component, switched on, and
-   provided by an upstream technology.
+4. **Pathway mitigation.** Every mitigation in the Pathway Mitigations panel
+   that is switched on and provided by an upstream technology. Two mitigations
+   answering one threat compound: each acts on the risk the one before it
+   left. A zone threat reads the mitigations the components inside that zone
+   provide, because nothing is upstream of a zone.
 5. **`mitigates` edges.** The strongest `mitigates` edge that targets this
    component and names this threat, counting only edges whose `status` is
    `adopted`. An edge whose `status` is `assumed` is skipped at this stage, so
@@ -256,18 +259,26 @@ score:
    back to `commodity`.
 7. **Compensating control.** The strongest `compensating` block on the threat
    reduces both the residual score and the target score.
+8. **Attack tree.** An open tree in the `.attacktree` file raises the score of
+   the threat it names as its goal, by `raises_risk_by` scaled by the chain
+   factor. The chain takes the **weakest** open step, because a route is as
+   likely as its least likely step, and the goal's own likelihood is not in
+   the chain. A step is closed by an `implemented` control or a `compensating`
+   block and by nothing else. The stage raises the target score by the same
+   boost, and neither score passes the top of the scale. The design is
+   [`docs/superpowers/specs/2026-09-14-attack-trees-design.md`](docs/superpowers/specs/2026-09-14-attack-trees-design.md).
 
-Two mitigations at the same stage — two `mitigates` edges, two pathway
-mitigations, or two compensating controls — give the stronger of the two, not
+Two answers at the same stage — two `mitigates` edges or two compensating
+controls — give the stronger of the two, not
 the sum. The report shows the score before controls and before compensation,
 alongside the residual score. The threat card shows the score before pathway
 mitigation.
 
-A threat raised by a flow runs stages 1 to 4 and 6 to 7: it takes the source
+A threat raised by a flow runs stages 1 to 4 and 6 to 8: it takes the source
 component's upstream pathway mitigations, but no `mitigates` edge targets a
-flow. A threat raised by a zone runs stages 1, 2, 3, 6 and 7 only: a zone
-sits outside the connection graph, so nothing is upstream of it and no
-`mitigates` edge targets it.
+flow. A threat raised by a zone runs stages 1, 2, 3, 4, 6, 7 and 8: a zone
+sits outside the connection graph, so it reads the mitigations inside itself
+rather than upstream ones, and no `mitigates` edge targets it.
 
 ### Risk tolerance and likelihood findings
 
@@ -500,7 +511,7 @@ and undo takes it back.
 ## More documentation
 
 - [The language guide](docs/LANGUAGE.md) — the syntax and the semantics of
-  `.arch`, `.controls` and `.lib`.
+  `.arch`, `.controls`, `.lib` and `.attacktree`.
 - [The shared element library design](docs/superpowers/specs/2026-09-09-shared-element-library-design.md) —
   why a library is shaped this way, and how it is vendored.
 - [The code-first design](docs/superpowers/specs/2026-09-08-code-first-dsl-design.md) —
