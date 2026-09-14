@@ -25,8 +25,11 @@ public enum MarkdownThreatStanza {
         // threat that already scored 1 must not hide them.
         if threat.likelihoodRationale != nil || threat.likelihoodLabel != Likelihood.commodity.label {
             let scoreChanged = threat.scoreBeforeLikelihood != threat.riskScore
+            // A finding writes its own rationale on the next line, so naming
+            // the finding here would say the same thing twice.
+            let reason = threat.likelihoodRationale == nil ? ", \(threat.likelihoodReason)" : ""
             lines.append(
-                "- Likelihood: \(threat.likelihoodLabel)"
+                "- Likelihood: \(threat.likelihoodLabel)\(reason)"
                     + (scoreChanged
                         ? " (\(threat.scoreBeforeLikelihood) \u{2192} \(threat.riskScore))"
                         : "")
@@ -49,6 +52,9 @@ public enum MarkdownThreatStanza {
         }
         if threat.mitreTechniqueIds.isEmpty == false {
             lines.append("- MITRE ATT&CK: \(threat.mitreTechniqueIds.joined(separator: ", "))")
+        }
+        if threat.performedByLabels.isEmpty == false {
+            lines.append("- Performed by: \(threat.performedByLabels.joined(separator: ", "))")
         }
         for compensating in threat.compensating {
             lines.append(

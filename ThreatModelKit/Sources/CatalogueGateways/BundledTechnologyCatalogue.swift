@@ -68,6 +68,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     private let zoneThreatsValue: [Threat]
     private let pathwayMitigationsValue: [PathwayMitigationDefinition]
     private let versionValue: CatalogueVersion
+    private let threatActorsValue: [ThreatActor]
     private let faultsValue: [CatalogueFault]
 
     public convenience init() throws {
@@ -191,6 +192,26 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
             declaredThreatIds: Set(threats.keys)
         )
 
+        // Application-owned, like the external actors: the vendored library
+        // states no adversary.
+        let threatActorsJSON = try decoder.decode(
+            ThreatActorsFileJSON.self,
+            from: try resources.appOwnedData(named: "threat-actors.json")
+        )
+        threatActorsValue = threatActorsJSON.threatActors.map {
+            ThreatActor(
+                id: ThreatActorId($0.id),
+                name: $0.name,
+                description: $0.description ?? "",
+                aliases: $0.aliases ?? [],
+                capability: $0.capability.flatMap(Likelihood.init(rawValue:)) ?? .targeted,
+                intent: $0.intent ?? "",
+                performs: ($0.performs ?? []).map(ThreatId.init),
+                techniques: $0.techniques ?? [],
+                performsCatalogueTier: $0.performsCatalogueTier.flatMap(Likelihood.init(rawValue:))
+            )
+        }
+
         let mitigationsJSON = try decoder.decode(
             PathwayMitigationsFileJSON.self,
             from: try resources.data(named: "mitigations/pathway-mitigations.json")
@@ -253,6 +274,12 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     public func taxonomy() -> Taxonomy { taxonomyValue }
 
     public func providers() -> [Provider] { providersValue }
+
+    public func threatActors() -> [ThreatActor] { threatActorsValue }
+
+    public func findActor(_ id: ThreatActorId) -> ThreatActor? {
+        threatActorsValue.first { $0.id == id }
+    }
 
     public func faults() -> [CatalogueFault] { faultsValue }
 }

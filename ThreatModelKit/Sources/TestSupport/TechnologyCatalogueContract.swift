@@ -90,6 +90,17 @@ public func verifyTechnologyCatalogueContract(
     #expect(version.repository.isEmpty == false)
     #expect(version.tag.isEmpty == false)
 
+    // Spec section 4.4: every catalogue holds the built-in actor and finds it
+    // by its id.
+    let actors = subject.threatActors()
+    #expect(actors.isEmpty == false)
+    #expect(Set(actors.map(\.id)).count == actors.count)
+    for actor in actors {
+        #expect(subject.findActor(actor.id) == actor)
+        #expect(actor.name.isEmpty == false)
+    }
+    #expect(subject.findActor(ThreatActorId("no-such-actor")) == nil)
+
     // A sound catalogue reports no fault. Every gateway reads the same
     // catalogue the same way, so every gateway must agree it is sound.
     #expect(subject.faults() == [])

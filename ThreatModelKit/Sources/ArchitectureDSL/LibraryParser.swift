@@ -38,6 +38,7 @@ struct LibraryParser {
         var technologies: [SourceTechnology] = []
         var threats: [SourceLibraryThreat] = []
         var mitigations: [SourceLibraryMitigation] = []
+        var threatActors: [SourceThreatActor] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -51,10 +52,19 @@ struct LibraryParser {
                 if let threat = parseThreat() { threats.append(threat) }
             case "mitigation":
                 if let mitigation = parseMitigation() { mitigations.append(mitigation) }
+            case "threat_actor":
+                let token = current
+                if let actor = parseThreatActor() {
+                    if threatActors.contains(where: { $0.id == actor.id }) {
+                        record("the threat actor \"\(actor.id)\" is declared twice", at: token)
+                    } else {
+                        threatActors.append(actor)
+                    }
+                }
             default:
                 record(
-                    "a library holds name, catalogue, technology, threat and mitigation, "
-                        + "not \"\(current.text)\""
+                    "a library holds name, catalogue, technology, threat, mitigation and "
+                        + "threat_actor, not \"\(current.text)\""
                 )
                 skipToNextBlock()
             }
@@ -67,7 +77,8 @@ struct LibraryParser {
             catalogueTag: catalogueTag,
             technologies: technologies,
             threats: threats,
-            mitigations: mitigations
+            mitigations: mitigations,
+            threatActors: threatActors
         )
     }
 
@@ -282,6 +293,79 @@ struct LibraryParser {
             technologyIds: providedBy,
             reducesRiskBy: reducesRiskBy ?? 0,
             mode: mode
+        )
+    }
+
+    /// A `threat_actor` block. The same attributes in a `.lib` file and in an
+    /// `.arch` file, so an actor reads the same in both.
+    private mutating func parseThreatActor() -> SourceThreatActor? {
+        advance()
+        guard let id = expect(.string, "the threat actor's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var name: String?
+        var description = ""
+        var aliases: [String] = []
+        var capability: String?
+        var intent = ""
+        var performs: [String] = []
+        var techniques: [String] = []
+        var performsCatalogueTier: String?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": name = parseTextAttribute()
+            case "description": description = parseTextAttribute() ?? ""
+            case "aliases": aliases = parseListAttribute()
+            case "capability":
+                let token = current
+                capability = parseTextAttribute()
+                if let word = capability, Likelihood(rawValue: word) == nil {
+                    record(
+                        "capability is \"\(word)\"; this application holds \"commodity\", "
+                            + "\"targeted\", \"research\"",
+                        at: token
+                    )
+                    capability = nil
+                }
+            case "intent": intent = parseTextAttribute() ?? ""
+            case "performs": performs = parseListAttribute()
+            case "techniques": techniques = parseListAttribute()
+            case "performs_catalogue_tier":
+                let token = current
+                performsCatalogueTier = parseTextAttribute()
+                if let word = performsCatalogueTier, Likelihood(rawValue: word) == nil {
+                    record(
+                        "performs_catalogue_tier is \"\(word)\"; this application holds "
+                            + "\"commodity\", \"targeted\", \"research\"",
+                        at: token
+                    )
+                    performsCatalogueTier = nil
+                }
+            default:
+                record(
+                    "a threat actor holds name, description, aliases, capability, intent, "
+                        + "performs, techniques and performs_catalogue_tier, not \"\(current.text)\""
+                )
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let name else {
+            record("the threat actor \"\(id.text)\" has no name", at: id)
+            return nil
+        }
+        return SourceThreatActor(
+            id: id.text,
+            name: name,
+            description: description,
+            aliases: aliases,
+            capability: capability,
+            intent: intent,
+            performs: performs,
+            techniques: techniques,
+            performsCatalogueTier: performsCatalogueTier
         )
     }
 

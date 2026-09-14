@@ -57,6 +57,22 @@ public struct MergedCatalogue: TechnologyCatalogue {
         base.providers() + store.all().map(\.provider)
     }
 
+    /// The base catalogue's actors, then every actor the libraries define. An
+    /// id the base catalogue already holds keeps the base catalogue's actor.
+    public func threatActors() -> [ThreatActor] {
+        var seen: Set<ThreatActorId> = []
+        var actors: [ThreatActor] = []
+        for actor in base.threatActors() + store.all().flatMap(\.threatActors)
+        where seen.insert(actor.id).inserted {
+            actors.append(actor)
+        }
+        return actors
+    }
+
+    public func findActor(_ id: ThreatActorId) -> ThreatActor? {
+        threatActors().first { $0.id == id }
+    }
+
     /// The base catalogue's faults, then every fault a library adds.
     public func faults() -> [CatalogueFault] {
         var found = base.faults()

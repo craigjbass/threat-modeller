@@ -54,6 +54,41 @@ struct LibraryWriter {
             body.append("")
         }
 
+        for actor in source.threatActors {
+            body.append("threat_actor \(quoted(actor.id)) {")
+            var attributes: [(String, String)] = [("name", quoted(actor.name))]
+            if actor.description.isEmpty == false {
+                attributes.append(("description", quoted(actor.description)))
+            }
+            if actor.aliases.isEmpty == false {
+                attributes.append(
+                    ("aliases", "[" + actor.aliases.map(quoted).joined(separator: ", ") + "]")
+                )
+            }
+            if let capability = actor.capability {
+                attributes.append(("capability", quoted(capability)))
+            }
+            if actor.intent.isEmpty == false {
+                attributes.append(("intent", quoted(actor.intent)))
+            }
+            if actor.performs.isEmpty == false {
+                attributes.append(
+                    ("performs", "[" + actor.performs.map(quoted).joined(separator: ", ") + "]")
+                )
+            }
+            if actor.techniques.isEmpty == false {
+                attributes.append(
+                    ("techniques", "[" + actor.techniques.map(quoted).joined(separator: ", ") + "]")
+                )
+            }
+            if let tier = actor.performsCatalogueTier {
+                attributes.append(("performs_catalogue_tier", quoted(tier)))
+            }
+            body += indent(aligned(attributes))
+            body.append("}")
+            body.append("")
+        }
+
         while body.last == "" { body.removeLast() }
         lines += indent(body)
         lines.append("}")

@@ -11,6 +11,7 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue, @unchecked 
     private let providersValue: [Provider]
     private let pathwayMitigationsValue: [PathwayMitigationDefinition]
     private let versionValue: CatalogueVersion
+    private let threatActorsValue: [ThreatActor]
     private let faultsValue: [CatalogueFault]
 
     public init(
@@ -19,6 +20,7 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue, @unchecked 
         taxonomy: Taxonomy,
         providers: [Provider],
         pathwayMitigations: [PathwayMitigationDefinition] = [],
+        threatActors: [ThreatActor] = [],
         version: CatalogueVersion = CatalogueVersion(repository: "fixture", tag: "v0.0.0")
     ) {
         // The same audit the real gateway runs, so both answer the same way
@@ -34,6 +36,7 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue, @unchecked 
         self.taxonomyValue = taxonomy
         self.providersValue = providers
         self.pathwayMitigationsValue = pathwayMitigations
+        self.threatActorsValue = threatActors
         self.versionValue = version
     }
 
@@ -63,6 +66,12 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue, @unchecked 
     public func taxonomy() -> Taxonomy { taxonomyValue }
 
     public func providers() -> [Provider] { providersValue }
+
+    public func threatActors() -> [ThreatActor] { threatActorsValue }
+
+    public func findActor(_ id: ThreatActorId) -> ThreatActor? {
+        threatActorsValue.first { $0.id == id }
+    }
 
     public func faults() -> [CatalogueFault] { faultsValue }
 }

@@ -1,0 +1,12 @@
+{
+  "threatActors": [
+    {
+      "id": "commodity-crimeware",
+      "name": "Commodity crimeware",
+      "description": "Malware families and untargeted campaigns running today.",
+      "capability": "commodity",
+      "intent": "opportunistic",
+      "performsCatalogueTier": "commodity"
+    }
+  ]
+}

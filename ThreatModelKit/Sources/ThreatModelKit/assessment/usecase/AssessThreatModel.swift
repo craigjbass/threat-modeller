@@ -195,6 +195,12 @@ public struct AssessedThreat: Hashable, Sendable {
     /// Where the likelihood finding comes from. Empty when the library's
     /// prior stands.
     public let likelihoodSources: [String]
+    /// What set this likelihood: `from the catalogue`, `set by <actor>`, or
+    /// the label of the finding that answered it.
+    public let likelihoodReason: String
+    /// The faced threat actors that perform this threat, by name. Empty when
+    /// the system faces nobody who does.
+    public let performedByLabels: [String]
     /// The score when every assumed mitigation is in place. Equal to
     /// `riskScore` when no assumed edge answers this threat.
     public let scoreIfAssumptionsHold: Int
@@ -234,6 +240,8 @@ public struct AssessedThreat: Hashable, Sendable {
         scoreBeforeLikelihood: Int? = nil,
         likelihoodRationale: String? = nil,
         likelihoodSources: [String] = [],
+        likelihoodReason: String = LikelihoodSource.catalogue(.commodity).reason,
+        performedByLabels: [String] = [],
         scoreIfAssumptionsHold: Int? = nil,
         assumedByComponentLabels: [String] = [],
         severityDecision: AssessedSeverityDecision? = nil
@@ -266,6 +274,8 @@ public struct AssessedThreat: Hashable, Sendable {
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
         self.likelihoodRationale = likelihoodRationale
         self.likelihoodSources = likelihoodSources
+        self.likelihoodReason = likelihoodReason
+        self.performedByLabels = performedByLabels
         self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? riskScore
         self.assumedByComponentLabels = assumedByComponentLabels
         self.severityDecision = severityDecision
@@ -354,6 +364,8 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     scoreBeforeLikelihood: threat.scoreBeforeLikelihood,
                     likelihoodRationale: threat.likelihoodFinding?.rationale,
                     likelihoodSources: threat.likelihoodFinding?.sources ?? [],
+                    likelihoodReason: threat.likelihoodSource.reason,
+                    performedByLabels: threat.performedBy.map(\.name),
                     scoreIfAssumptionsHold: threat.scoreIfAssumptionsHold,
                     assumedByComponentLabels: threat.assumedMitigations.map(\.protectorName),
                     severityDecision: threat.severityDecision.map { decision in

@@ -209,9 +209,29 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     actions: actions
                 ),
                 methodology: ReportMethodology.build(zones: zones, tolerance: tolerance),
-                actions: actions
+                actions: actions,
+                threatActors: Self.threatActors(
+                    faced: ThreatActorLookup(model: model, catalogue: catalogue).faced(),
+                    threats: assessment.threats
+                )
             )
         )
+    }
+
+    /// The adversaries this assessment is written against, and how many of
+    /// this model's threats each one performs.
+    static func threatActors(
+        faced: [ThreatActor],
+        threats: [AssessedThreat]
+    ) -> [ReportThreatActor] {
+        faced.map { actor in
+            ReportThreatActor(
+                name: actor.name,
+                capabilityLabel: actor.capability.label,
+                intent: actor.intent,
+                threatsPerformed: threats.filter { $0.performedByLabels.contains(actor.name) }.count
+            )
+        }
     }
 
     /// A control is counted once per distinct key, the way `SummariseRisk`
@@ -249,6 +269,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             riskLevel: assessed.riskLevel,
             strideLabels: strideLabels,
             mitreTechniqueIds: assessed.mitreTechniques.map(\.id),
+            performedByLabels: assessed.performedByLabels,
+            likelihoodReason: assessed.likelihoodReason,
             sourceName: assessed.source.displayName,
             sourceKind: kind(of: assessed.source),
             sourceId: assessed.source.id,

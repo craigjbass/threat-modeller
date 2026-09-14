@@ -9,19 +9,22 @@ public struct Library: Equatable, Sendable {
     public let technologies: [Technology]
     public let threats: [Threat]
     public let pathwayMitigations: [PathwayMitigationDefinition]
+    public let threatActors: [ThreatActor]
 
     public init(
         label: String,
         provider: Provider,
         technologies: [Technology],
         threats: [Threat],
-        pathwayMitigations: [PathwayMitigationDefinition] = []
+        pathwayMitigations: [PathwayMitigationDefinition] = [],
+        threatActors: [ThreatActor] = []
     ) {
         self.label = label
         self.provider = provider
         self.technologies = technologies
         self.threats = threats
         self.pathwayMitigations = pathwayMitigations
+        self.threatActors = threatActors
     }
 }
 
@@ -164,6 +167,25 @@ public extension Library {
             )
         }
 
+        // Spec section 3.3: a library's actor id is minted the way a
+        // technology id and a threat id are.
+        let actors = source.threatActors.map { actor in
+            ThreatActor(
+                id: ThreatActorId(prefixed(actor.id)),
+                name: actor.name,
+                description: actor.description,
+                aliases: actor.aliases,
+                capability: actor.capability.flatMap(Likelihood.init(rawValue:)) ?? .targeted,
+                intent: actor.intent,
+                performs: actor.performs.map {
+                    ThreatId(declared.contains($0) ? prefixed($0) : $0)
+                },
+                techniques: actor.techniques,
+                performsCatalogueTier: actor.performsCatalogueTier
+                    .flatMap(Likelihood.init(rawValue:))
+            )
+        }
+
         guard faults.isEmpty else { return (nil, faults) }
         return (
             Library(
@@ -174,7 +196,8 @@ public extension Library {
                 ),
                 technologies: technologies,
                 threats: threats,
-                pathwayMitigations: mitigations
+                pathwayMitigations: mitigations,
+                threatActors: actors
             ),
             []
         )

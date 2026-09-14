@@ -42,6 +42,9 @@ public struct Report: Equatable, Sendable {
     /// What a team could do, worst first by what it removes. Empty when the
     /// model declares no action.
     public let actions: [ReportAction]
+    /// The adversaries this assessment is written against, in the order the
+    /// model faces them. Empty for a model that faces nobody.
+    public let threatActors: [ReportThreatActor]
 
     public init(
         modelName: String,
@@ -64,7 +67,8 @@ public struct Report: Equatable, Sendable {
         toleranceLabel: String = RiskLevel.low.label,
         executiveSummary: ReportExecutiveSummary = ReportExecutiveSummary(),
         methodology: ReportMethodology = ReportMethodology(),
-        actions: [ReportAction] = []
+        actions: [ReportAction] = [],
+        threatActors: [ReportThreatActor] = []
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -87,6 +91,24 @@ public struct Report: Equatable, Sendable {
         self.executiveSummary = executiveSummary
         self.methodology = methodology
         self.actions = actions
+        self.threatActors = threatActors
+    }
+}
+
+/// One adversary the assessment is written against.
+public struct ReportThreatActor: Equatable, Sendable {
+    public let name: String
+    public let capabilityLabel: String
+    /// What the actor is after. Empty when the file states none.
+    public let intent: String
+    /// How many of this model's threats this actor performs.
+    public let threatsPerformed: Int
+
+    public init(name: String, capabilityLabel: String, intent: String, threatsPerformed: Int) {
+        self.name = name
+        self.capabilityLabel = capabilityLabel
+        self.intent = intent
+        self.threatsPerformed = threatsPerformed
     }
 }
 
@@ -447,6 +469,12 @@ public struct ReportThreat: Equatable, Sendable {
     public let riskLevel: String
     public let strideLabels: [String]
     public let mitreTechniqueIds: [String]
+    /// The faced threat actors that perform this threat, by name. Empty when
+    /// the system faces nobody who performs it.
+    public let performedByLabels: [String]
+    /// What set the likelihood: `from the catalogue`, `set by <actor>`, or the
+    /// label of the finding that answered it.
+    public let likelihoodReason: String
     public let sourceName: String
     /// "Component", "Connection" or "Zone", so a reader can group by what
     /// raised the threat.
@@ -494,6 +522,8 @@ public struct ReportThreat: Equatable, Sendable {
         riskLevel: String,
         strideLabels: [String],
         mitreTechniqueIds: [String],
+        performedByLabels: [String] = [],
+        likelihoodReason: String = LikelihoodSource.catalogue(.commodity).reason,
         sourceName: String,
         sourceKind: String,
         sourceId: String = "",
@@ -523,6 +553,8 @@ public struct ReportThreat: Equatable, Sendable {
         self.riskLevel = riskLevel
         self.strideLabels = strideLabels
         self.mitreTechniqueIds = mitreTechniqueIds
+        self.performedByLabels = performedByLabels
+        self.likelihoodReason = likelihoodReason
         self.sourceName = sourceName
         self.sourceKind = sourceKind
         self.controls = controls

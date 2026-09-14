@@ -111,7 +111,8 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `category`, `description`, `threats`, `encrypts`, `zone`, `kind`, `network`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
 `shape`, `asset`, `flow`, `mitigates`, `status`, `recommendation`, `note`,
-`blocked_by`, `sources`.
+`blocked_by`, `sources`, `faces`, `threat_actor`, `aliases`, `capability`,
+`intent`, `performs`, `techniques`, `performs_catalogue_tier`.
 
 The controls language reads these keywords: `controls`, `for`, `catalogue`,
 `tolerance`, `stale`, `threat`, `on`, `severity`, `score`, `likelihood`,
@@ -122,7 +123,9 @@ The library language reads these keywords: `library`, `name`, `catalogue`,
 `technology`, `category`, `description`, `threats`, `encrypts`, `threat`,
 `severity`, `stride`, `connection`, `zone`, `zone_context`, `applies_to`,
 `boundary`, `runs_as`, `pathway`, `likelihood`, `mitre`, `tactic`, `control`,
-`mitigation`, `mitigates`, `provided_by`, `reduces_risk_by`.
+`mitigation`, `mitigates`, `provided_by`, `reduces_risk_by`, `mode`,
+`threat_actor`, `aliases`, `capability`, `intent`, `performs`, `techniques`,
+`performs_catalogue_tier`.
 
 ### 2.7 String literals
 
@@ -217,15 +220,28 @@ ArchitectureFile = SystemBlock ;
 SystemBlock  = "system" String "{" { SystemEntry } "}" ;
 SystemEntry  = CatalogueAttr
              | RiskToleranceAttr
+             | FacesAttr
              | TechnologyBlock
              | ZoneBlock
              | ComponentBlock
              | FlowStatement
              | MitigatesBlock
-             | AssumptionBlock ;
+             | AssumptionBlock
+             | ThreatActorBlock ;
 
 CatalogueAttr     = "catalogue" "=" String ;
 RiskToleranceAttr = "risk_tolerance" "=" String ;
+FacesAttr         = "faces" "=" StringList ;
+
+ThreatActorBlock = "threat_actor" String "{" { ThreatActorAttr } "}" ;
+ThreatActorAttr  = "name"                    "=" String
+                 | "description"             "=" String
+                 | "aliases"                 "=" StringList
+                 | "capability"              "=" String
+                 | "intent"                  "=" String
+                 | "performs"                "=" StringList
+                 | "techniques"              "=" StringList
+                 | "performs_catalogue_tier" "=" String ;
 
 AssumptionBlock = "assumption" String "{" { AssumptionAttr } "}" ;
 AssumptionAttr  = "text"  "=" String
@@ -295,6 +311,31 @@ The label is the system's name, which the report and the window title show.
 | --- | --- | --- | --- |
 | `catalogue` | string | the catalogue in use | the catalogue tag this file was written against |
 | `risk_tolerance` | string | `low` | the risk level a likelihood finding may answer up to |
+| `faces` | list of strings | empty | the threat actor ids this system faces |
+
+`faces` names the adversaries this system is assessed against. An entry naming
+an actor no library, no catalogue and no `threat_actor` block in this file
+holds is the error `this project holds no threat actor called "<id>"`. A system
+that states `faces` twice keeps the last list.
+
+**`threat_actor`.** A system may declare its own actors, the way it declares
+its own technologies. The block takes the attributes of section 6.3, and its id
+is the label with no provider prefix. A local block whose label matches a
+library actor id overrides that actor whole: the local block's attributes are
+the actor, and the library's are not merged in.
+
+```hcl
+system "Payments" {
+  faces = ["commodity-crimeware", "acme-insider"]
+
+  threat_actor "contractor" {
+    name       = "Third-party contractor"
+    capability = "targeted"
+    intent     = "financial"
+    performs   = ["supply-chain-compromise"]
+  }
+}
+```
 
 `risk_tolerance` takes `low`, `medium`, `high` or `critical`. A system that
 states none reads as `low`. `threatmodeller check --tolerance <level>`
@@ -653,9 +694,15 @@ Warnings, which do not stop the import:
 | --- | --- |
 | a zone that declares no components | `the zone "<id>" holds no components` |
 | a technology neither declared nor in the catalogue | `"<id>" is neither in this file nor in the catalogue, so "<component>" raises no threats` |
+| a faced actor that performs no threat this model raises | `the threat actor "<id>" performs no threat this model raises` |
+| a `performs` entry naming a threat no catalogue holds | `the threat actor "<id>" performs "<threat id>", which no catalogue holds` |
 
-The second warning is raised by `ImportArchitecture`, not by the parser, because
-only the import knows the catalogue.
+The last three warnings are raised by `ImportArchitecture`, not by the parser,
+because only the import knows the catalogue.
+
+A `techniques` entry that matches no threat is neither an error nor a warning.
+ATT&CK holds hundreds of live techniques and the vendored catalogue names a few
+dozen, so an unmatched technique is the normal case.
 
 ## 5. The controls language
 
@@ -1094,7 +1141,8 @@ LibraryEntry = "name"      "=" String
              | "catalogue" "=" String
              | TechnologyBlock
              | ThreatBlock
-             | MitigationBlock ;
+             | MitigationBlock
+             | ThreatActorBlock ;
 
 ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
 ThreatEntry = "name"         "=" String
@@ -1240,14 +1288,52 @@ A zone threat reads the mitigations the components **inside that zone**
 provide. A zone sits nowhere in the connection graph, so nothing is upstream of
 it; a firewall in the zone answers the threats about moving inside it.
 
+A `threat_actor` block declares an adversary a system can face. `capability`
+carries the factor a likelihood tier carries: `commodity` 1.0, `targeted` 0.6,
+`research` 0.25. A capability says how many attackers of this kind there are,
+not how skilled one of them is.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `name` | string | any | **required** |
+| `description` | string | any | empty |
+| `aliases` | list of strings | any | empty |
+| `capability` | string | `commodity`, `targeted`, `research` | `targeted` |
+| `intent` | string | any | empty |
+| `performs` | list of strings | threat ids | empty |
+| `techniques` | list of strings | MITRE technique ids | empty |
+| `performs_catalogue_tier` | string | `commodity`, `targeted`, `research` | none |
+
+```hcl
+threat_actor "insider" {
+  name        = "Disgruntled operator"
+  description = "A person with production access who has resigned."
+  aliases     = ["leaver"]
+  capability  = "commodity"
+  intent      = "sabotage"
+  performs    = ["data-exfiltration", "credential-theft"]
+  techniques  = ["T1078", "T1530"]
+}
+```
+
+An actor performs a threat when any one of three tests passes: `performs` holds
+the threat's id; `techniques` holds a technique whose parent matches the parent
+of one of the threat's own techniques, so `T1550.001` matches `T1550`; or
+`performs_catalogue_tier` equals the threat's catalogue likelihood.
+
+A threat's likelihood is then the highest capability among the actors the
+system faces that perform it. A threat no faced actor performs keeps the
+catalogue's own likelihood, so a short or wrong actor list never lowers a
+score. A `likelihood` block in a `.controls` file beats both.
+
 A `control` is a statement with a label and no body, because a library states
 what a control is and a `.controls` file states its status. Its key is minted
 from its description, which is the rule the vendored catalogue follows.
 
 ### 6.4 Identity
 
-The label of the `library` block is a provider id. Every technology id and every
-threat id the file declares is minted `<label>-<id>`, so two teams can both
+The label of the `library` block is a provider id. Every technology id, every
+threat id and every threat actor id the file declares is minted `<label>-<id>`, so two teams can both
 define `cribl-stream` and neither clashes:
 
 ```hcl
@@ -1276,6 +1362,10 @@ Errors, which stop the project opening:
 | a technology with no `category` | `the technology "<id>" has no category` |
 | a threat with no `name` | `the threat "<id>" has no name` |
 | a threat with no `severity` | `the threat "<id>" has no severity` |
+| a duplicate threat actor id | `the threat actor "<id>" is declared twice` |
+| a threat actor with no `name` | `the threat actor "<id>" has no name` |
+| a `capability` outside the three tiers | `capability is "<word>"; this application holds "commodity", "targeted", "research"` |
+| a `performs_catalogue_tier` outside the three tiers | `performs_catalogue_tier is "<word>"; this application holds "commodity", "targeted", "research"` |
 | a `mitre` block with no `name` | `the technique "<id>" has no name` |
 | a `mitre` block with no `tactic` | `the technique "<id>" has no tactic` |
 | a block or an attribute the grammar does not hold | `a library holds name, catalogue, technology, threat and mitigation, not "<word>"` |
@@ -1345,7 +1435,7 @@ entry" or "an unknown attribute".
 
 | Language | Block | Message |
 | --- | --- | --- |
-| architecture | `system` | `a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance and assumption, not "<word>"` |
+| architecture | `system` | `a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance, assumption, faces and threat_actor, not "<word>"` |
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
@@ -1361,7 +1451,7 @@ entry" or "an unknown attribute".
 | controls | `control` | `a control holds status and note, not "<word>"` |
 | controls | `compensating` | `a compensating control holds reduces_risk_by, rationale and sources, not "<word>"` |
 | controls | `recommendation` | `a recommendation holds note and sources, not "<word>"` |
-| library | `library` | `a library holds name, catalogue, technology, threat and mitigation, not "<word>"` |
+| library | `library` | `a library holds name, catalogue, technology, threat, mitigation and threat_actor, not "<word>"` |
 | library | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | library | `threat` | `a threat holds name, description, severity, stride, connection, zone, zone_context, mitre, control, applies_to, boundary, runs_as, pathway and likelihood, not "<word>"` |
 | library | `mitre` | `a mitre technique holds name and tactic, not "<word>"` |
@@ -1385,7 +1475,8 @@ Both writers share these rules:
 - comments are not written
 
 The architecture writer writes, in this order: `risk_tolerance`, then every
-`assumption` block, then `catalogue`, then the technologies, then the zones
+`assumption` block, then `catalogue`, then `faces`, then the `threat_actor`
+blocks, then the technologies, then the zones
 with their components nested in declaration order, then the top-level
 components, then the flows, then the `mitigates` edges. Inside a block the
 attribute order is fixed, and it is the order of the tables in section 4.
@@ -1494,15 +1585,28 @@ ArchitectureFile = SystemBlock ;
 SystemBlock  = "system" String "{" { SystemEntry } "}" ;
 SystemEntry  = CatalogueAttr
              | RiskToleranceAttr
+             | FacesAttr
              | TechnologyBlock
              | ZoneBlock
              | ComponentBlock
              | FlowStatement
              | MitigatesBlock
-             | AssumptionBlock ;
+             | AssumptionBlock
+             | ThreatActorBlock ;
 
 CatalogueAttr     = "catalogue" "=" String ;
 RiskToleranceAttr = "risk_tolerance" "=" String ;
+FacesAttr         = "faces" "=" StringList ;
+
+ThreatActorBlock = "threat_actor" String "{" { ThreatActorAttr } "}" ;
+ThreatActorAttr  = "name"                    "=" String
+                 | "description"             "=" String
+                 | "aliases"                 "=" StringList
+                 | "capability"              "=" String
+                 | "intent"                  "=" String
+                 | "performs"                "=" StringList
+                 | "techniques"              "=" StringList
+                 | "performs_catalogue_tier" "=" String ;
 
 AssumptionBlock = "assumption" String "{" { AssumptionAttr } "}" ;
 AssumptionAttr  = "text"  "=" String
@@ -1603,7 +1707,8 @@ LibraryEntry = "name"      "=" String
              | "catalogue" "=" String
              | TechnologyBlock
              | ThreatBlock
-             | MitigationBlock ;
+             | MitigationBlock
+             | ThreatActorBlock ;
 
 ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
 ThreatEntry = "name"         "=" String

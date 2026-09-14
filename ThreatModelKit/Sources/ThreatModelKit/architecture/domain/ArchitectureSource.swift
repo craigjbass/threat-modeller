@@ -15,6 +15,10 @@ public struct ArchitectureSource: Equatable, Sendable {
     /// The risk level a likelihood finding may answer up to. Nil means low.
     public let riskTolerance: String?
     public let assumptions: [SourceAssumption]
+    /// The threat actor ids this system faces, in file order.
+    public let faces: [String]
+    /// The threat actors this file declares for itself.
+    public let threatActors: [SourceThreatActor]
 
     public init(
         systemName: String,
@@ -25,7 +29,9 @@ public struct ArchitectureSource: Equatable, Sendable {
         flows: [SourceFlow] = [],
         mitigates: [SourceMitigates] = [],
         riskTolerance: String? = nil,
-        assumptions: [SourceAssumption] = []
+        assumptions: [SourceAssumption] = [],
+        faces: [String] = [],
+        threatActors: [SourceThreatActor] = []
     ) {
         self.systemName = systemName
         self.catalogueTag = catalogueTag
@@ -36,6 +42,8 @@ public struct ArchitectureSource: Equatable, Sendable {
         self.mitigates = mitigates
         self.riskTolerance = riskTolerance
         self.assumptions = assumptions
+        self.faces = faces
+        self.threatActors = threatActors
     }
 
     /// Every component the file declares, wherever it declared it.

@@ -101,6 +101,11 @@ public struct ResolvedThreat: Equatable, Sendable {
     /// What a controls file found out about this threat's likelihood, or nil
     /// when the library's prior stands.
     public let likelihoodFinding: LikelihoodFinding?
+    /// The likelihood the score used, and what set it.
+    public let likelihoodSource: LikelihoodSource
+    /// The faced threat actors that perform this threat. Empty when the
+    /// system faces nobody who does.
+    public let performedBy: [ThreatActor]
     /// What an assessor decided this threat's severity is, and why, or nil
     /// when no decision names this threat on this source.
     public let severityDecision: SeverityDecision?
@@ -130,6 +135,8 @@ public struct ResolvedThreat: Equatable, Sendable {
         likelihood: Likelihood = .commodity,
         scoreBeforeLikelihood: Int? = nil,
         likelihoodFinding: LikelihoodFinding? = nil,
+        likelihoodSource: LikelihoodSource? = nil,
+        performedBy: [ThreatActor] = [],
         severityDecision: SeverityDecision? = nil,
         scoreIfAssumptionsHold: Int? = nil,
         assumedMitigations: [ComponentMitigation] = []
@@ -153,6 +160,10 @@ public struct ResolvedThreat: Equatable, Sendable {
         self.likelihood = likelihood
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? score.value
         self.likelihoodFinding = likelihoodFinding
+        self.likelihoodSource = likelihoodSource
+            ?? likelihoodFinding.map(LikelihoodSource.finding)
+            ?? .catalogue(likelihood)
+        self.performedBy = performedBy
         self.severityDecision = severityDecision
         self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? score.value
         self.assumedMitigations = assumedMitigations
@@ -203,11 +214,15 @@ public struct ThreatResolver {
     private let model: ThreatModel
     private let catalogue: TechnologyCatalogue
     private let lookup: TechnologyLookup
+    /// The actors this system faces, resolved once. Spec section 4.5: the
+    /// model's own actors answer first and the catalogue's answer second.
+    private let facedActors: [ThreatActor]
 
     public init(model: ThreatModel, catalogue: TechnologyCatalogue) {
         self.model = model
         self.catalogue = catalogue
         lookup = TechnologyLookup(model: model, catalogue: catalogue)
+        facedActors = ThreatActorLookup(model: model, catalogue: catalogue).faced()
     }
 
     public func resolve() -> [ResolvedThreat] {
@@ -481,8 +496,13 @@ public struct ThreatResolver {
     private func likelihooded(_ threat: ResolvedThreat) -> ResolvedThreat {
         let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
         let finding = model.likelihoodFindings[key]
-        let likelihood = finding?.likelihood ?? threat.threat.likelihood
-        guard finding != nil || likelihood != .commodity else { return threat }
+        let performers = ActorLikelihood.performers(of: threat.threat, among: facedActors)
+        // Spec section 4.3: a finding in the controls file is the strongest
+        // claim, the faced actors come next, and the catalogue's own tier
+        // stands when neither says anything.
+        let source: LikelihoodSource = finding.map(LikelihoodSource.finding)
+            ?? ActorLikelihood.likelihood(of: threat.threat, faced: facedActors)
+        let likelihood = source.likelihood
         let reduced = Likelihood.apply(to: threat.score.value, likelihood: likelihood)
         let reducedTarget = Likelihood.apply(to: threat.scoreIfAssumptionsHold, likelihood: likelihood)
 
@@ -506,6 +526,8 @@ public struct ThreatResolver {
             likelihood: likelihood,
             scoreBeforeLikelihood: threat.score.value,
             likelihoodFinding: finding,
+            likelihoodSource: source,
+            performedBy: performers,
             severityDecision: threat.severityDecision,
             scoreIfAssumptionsHold: reducedTarget,
             assumedMitigations: threat.assumedMitigations

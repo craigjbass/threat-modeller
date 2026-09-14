@@ -65,6 +65,12 @@ public struct ThreatModel: Equatable, Sendable {
     /// Technologies this model defines for itself. Spec section 8: they travel
     /// in the document.
     public var customTechnologies: [CustomTechnology]
+    /// The threat actors this system faces, in the order the `.arch` file
+    /// states them. A model that faces nobody scores by the catalogue alone.
+    public var facedActorIds: [String]
+    /// The threat actors the `.arch` file declares for itself. One of these
+    /// beats a library actor of the same id, whole.
+    public var localActors: [ThreatActor]
     /// When the model was first created, and when it last changed. A document
     /// carries both. Spec section 8.
     public var createdAt: Date
@@ -91,6 +97,8 @@ public struct ThreatModel: Equatable, Sendable {
         riskTolerance: RiskLevel? = nil,
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
+        facedActorIds: [String] = [],
+        localActors: [ThreatActor] = [],
         createdAt: Date = Date(timeIntervalSince1970: 0),
         updatedAt: Date = Date(timeIntervalSince1970: 0),
         catalogueVersion: CatalogueVersion? = nil
@@ -116,6 +124,8 @@ public struct ThreatModel: Equatable, Sendable {
         }
         self.pathwayMitigations = pathwayMitigations
         self.customTechnologies = customTechnologies
+        self.facedActorIds = facedActorIds
+        self.localActors = localActors
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.catalogueVersion = catalogueVersion

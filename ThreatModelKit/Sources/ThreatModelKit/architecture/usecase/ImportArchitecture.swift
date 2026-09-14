@@ -181,6 +181,23 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
         }
         model.riskTolerance = riskTolerance
 
+        // Spec section 3.2: a local block is the actor, whole. A parser has
+        // already refused a tier word outside the three.
+        model.localActors = source.threatActors.map {
+            ThreatActor(
+                id: ThreatActorId($0.id),
+                name: $0.name,
+                description: $0.description,
+                aliases: $0.aliases,
+                capability: $0.capability.flatMap(Likelihood.init(rawValue:)) ?? .targeted,
+                intent: $0.intent,
+                performs: $0.performs.map(ThreatId.init),
+                techniques: $0.techniques,
+                performsCatalogueTier: $0.performsCatalogueTier.flatMap(Likelihood.init(rawValue:))
+            )
+        }
+        model.facedActorIds = source.faces
+
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         var warnings = read.warnings + statusWarnings + toleranceWarnings
         for component in source.everyComponent
@@ -196,10 +213,80 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             )
         }
 
+        // Spec section 3.6: a `faces` entry naming no actor stops the project
+        // opening, and a faced actor that performs nothing this model raises
+        // is a warning.
+        let actors = ThreatActorLookup(model: model, catalogue: catalogue)
+        let unknownActorIds = actors.unknownFacedIds()
+        if unknownActorIds.isEmpty == false {
+            return .refused(
+                diagnostics: unknownActorIds.map {
+                    Diagnostic(
+                        severity: .error,
+                        line: 1,
+                        column: 1,
+                        message: "this project holds no threat actor called \"\($0.value)\""
+                    )
+                }
+            )
+        }
+        warnings += Self.actorWarnings(model: model, catalogue: catalogue, faced: actors.faced())
+
         let imported = model
         return models.mutate { current in
             current = imported
             return .imported(name: imported.name, warnings: warnings)
         }
     }
+
+    /// What a faced actor says that this model cannot use.
+    ///
+    /// Neither stops the project opening: an actor list is a statement about
+    /// the world, and a model that does not raise a threat that actor performs
+    /// is a normal thing to write.
+    static func actorWarnings(
+        model: ThreatModel,
+        catalogue: TechnologyCatalogue,
+        faced: [ThreatActor]
+    ) -> [Diagnostic] {
+        let lookup = TechnologyLookup(model: model, catalogue: catalogue)
+        let shared = catalogue.connectionThreats() + catalogue.zoneThreats()
+        let raised = model.components.flatMap { lookup.threatsFor(technologyId: $0.technologyId) }
+            + shared
+        let everyThreatId = Set(
+            (lookup.all().flatMap { lookup.threatsFor(technologyId: $0.id) } + shared).map(\.id)
+        )
+
+        var warnings: [Diagnostic] = []
+        for actor in faced {
+            for threatId in actor.performs where everyThreatId.contains(threatId) == false {
+                warnings.append(
+                    Diagnostic(
+                        severity: .warning,
+                        line: 1,
+                        column: 1,
+                        message: "the threat actor \"\(actor.id.value)\" performs "
+                            + "\"\(threatId.value)\", which no catalogue holds"
+                    )
+                )
+            }
+            let performsSomething = raised.contains { threat in
+                ActorLikelihood.performers(of: threat, among: [actor]).isEmpty == false
+            }
+            if performsSomething == false {
+                warnings.append(
+                    Diagnostic(
+                        severity: .warning,
+                        line: 1,
+                        column: 1,
+                        message: "the threat actor \"\(actor.id.value)\" performs no threat "
+                            + "this model raises"
+                    )
+                )
+            }
+        }
+        return warnings
+    }
+
+
 }

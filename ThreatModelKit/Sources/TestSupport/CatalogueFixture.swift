@@ -232,13 +232,28 @@ public enum CatalogueFixture {
         ]
     }
 
+    /// The one actor the application ships, shaped like the vendored file.
+    public static func threatActors() -> [ThreatActor] {
+        [
+            ThreatActor(
+                id: ThreatActorId("commodity-crimeware"),
+                name: "Commodity crimeware",
+                description: "Malware families and untargeted campaigns running today.",
+                capability: .commodity,
+                intent: "opportunistic",
+                performsCatalogueTier: .commodity
+            )
+        ]
+    }
+
     public static func catalogue() -> InMemoryTechnologyCatalogue {
         InMemoryTechnologyCatalogue(
             technologies: [ec2(), rds(), bigQuery(), waf(), user()],
             threats: ec2Threats() + connectionThreats() + zoneThreats(),
             taxonomy: taxonomy(),
             providers: providers(),
-            pathwayMitigations: pathwayMitigations()
+            pathwayMitigations: pathwayMitigations(),
+            threatActors: threatActors()
         )
     }
 }

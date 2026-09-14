@@ -269,4 +269,87 @@ struct ImportArchitectureTests {
         let assumption = try #require(app.modelStore.current().assumptions.first)
         #expect(assumption.owner == nil)
     }
+
+    // Spec section 3.6: what a `faces` list refuses, and what it warns about.
+
+    @Test func refusesAFacesEntryNamingNoActor() {
+        guard case .refused(let diagnostics) = importIt("""
+        system "Payments" {
+          faces = ["nation-state"]
+
+          component "api" {
+            technology = "aws-ec2"
+            data       = "confidential"
+          }
+        }
+        """) else {
+            Issue.record("Expected the file to be refused")
+            return
+        }
+
+        #expect(
+            diagnostics.map(\.message)
+                == ["this project holds no threat actor called \"nation-state\""]
+        )
+    }
+
+    @Test func warnsAboutAFacedActorThatPerformsNoThreatThisModelRaises() {
+        guard case .imported(_, let warnings) = importIt("""
+        system "Payments" {
+          faces = ["contractor"]
+
+          threat_actor "contractor" {
+            name     = "Third-party contractor"
+            performs = ["supply-chain-compromise"]
+          }
+
+          component "api" {
+            technology = "aws-ec2"
+            data       = "confidential"
+          }
+        }
+        """) else {
+            Issue.record("Expected the file to be drawn")
+            return
+        }
+
+        #expect(
+            warnings.map(\.message).contains(
+                "the threat actor \"contractor\" performs no threat this model raises"
+            )
+        )
+        #expect(
+            warnings.map(\.message).contains(
+                "the threat actor \"contractor\" performs \"supply-chain-compromise\", "
+                    + "which no catalogue holds"
+            )
+        )
+    }
+
+    @Test func drawsAModelThatFacesAnActorItCanUse() {
+        guard case .imported(_, let warnings) = importIt("""
+        system "Payments" {
+          faces = ["contractor"]
+
+          threat_actor "contractor" {
+            name       = "Third-party contractor"
+            capability = "targeted"
+            performs   = ["credential-theft"]
+          }
+
+          component "api" {
+            technology = "aws-ec2"
+            data       = "confidential"
+          }
+        }
+        """) else {
+            Issue.record("Expected the file to be drawn")
+            return
+        }
+
+        #expect(warnings.isEmpty)
+        #expect(app.modelStore.current().facedActorIds == ["contractor"])
+        #expect(app.modelStore.current().localActors.map(\.name) == ["Third-party contractor"])
+    }
+
 }

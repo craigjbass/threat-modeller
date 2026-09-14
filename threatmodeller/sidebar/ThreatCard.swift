@@ -30,6 +30,16 @@ struct ThreatCard: View {
                     .foregroundStyle(.secondary)
             }
 
+            // Read only. A person who wants a different actor set edits the
+            // `.arch` file, and the application reloads it.
+            if threat.performedByLabels.isEmpty == false {
+                Text("Performed by: \(threat.performedByLabels.joined(separator: ", "))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("performed-by-\(threat.threatKey)")
+            }
+
             if focus == .controls {
                 if threat.controls.isEmpty == false {
                     Divider()
@@ -124,6 +134,10 @@ struct ThreatCard: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Happens: \(threat.likelihoodLabel)")
                     .font(.caption)
+                Text(threat.likelihoodReason)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("likelihood-reason-\(threat.threatKey)")
                 if threat.scoreBeforeLikelihood != threat.riskScore {
                     Text("\(threat.scoreBeforeLikelihood) \u{2192} \(threat.riskScore)")
                         .font(.caption2.monospacedDigit())

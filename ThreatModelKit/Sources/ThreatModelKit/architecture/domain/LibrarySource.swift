@@ -12,6 +12,7 @@ public struct LibrarySource: Equatable, Sendable {
     public let technologies: [SourceTechnology]
     public let threats: [SourceLibraryThreat]
     public let mitigations: [SourceLibraryMitigation]
+    public let threatActors: [SourceThreatActor]
 
     public init(
         label: String,
@@ -19,7 +20,8 @@ public struct LibrarySource: Equatable, Sendable {
         catalogueTag: String? = nil,
         technologies: [SourceTechnology] = [],
         threats: [SourceLibraryThreat] = [],
-        mitigations: [SourceLibraryMitigation] = []
+        mitigations: [SourceLibraryMitigation] = [],
+        threatActors: [SourceThreatActor] = []
     ) {
         self.label = label
         self.displayName = displayName
@@ -27,6 +29,50 @@ public struct LibrarySource: Equatable, Sendable {
         self.technologies = technologies
         self.threats = threats
         self.mitigations = mitigations
+        self.threatActors = threatActors
+    }
+}
+
+/// A threat actor a library or an architecture file declares.
+///
+/// The words are the file's words. `Library.build` and `ImportArchitecture`
+/// turn them into a `ThreatActor`, and the parser has already refused a tier
+/// word outside the three.
+public struct SourceThreatActor: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let description: String
+    public let aliases: [String]
+    /// A tier id: `commodity`, `targeted` or `research`. Nil means the
+    /// application's own default, `targeted`.
+    public let capability: String?
+    public let intent: String
+    public let performs: [String]
+    public let techniques: [String]
+    /// A tier id, or nil. An actor that states one performs every threat the
+    /// catalogue marks at that tier.
+    public let performsCatalogueTier: String?
+
+    public init(
+        id: String,
+        name: String,
+        description: String = "",
+        aliases: [String] = [],
+        capability: String? = nil,
+        intent: String = "",
+        performs: [String] = [],
+        techniques: [String] = [],
+        performsCatalogueTier: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.aliases = aliases
+        self.capability = capability
+        self.intent = intent
+        self.performs = performs
+        self.techniques = techniques
+        self.performsCatalogueTier = performsCatalogueTier
     }
 }
 
