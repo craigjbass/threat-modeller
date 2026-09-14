@@ -227,7 +227,7 @@ struct ApplyControlAnswersTests {
             CheckControlAnswersRequest(architectureText: payments)
         )
 
-        guard case .checked(let unanswered, let stale, _, _) = response else {
+        guard case .checked(let unanswered, let stale, _, _, _) = response else {
             Issue.record("expected the check to run, got \(response)")
             return
         }
@@ -268,7 +268,7 @@ struct ApplyControlAnswersTests {
             CheckControlAnswersRequest(architectureText: payments, controlsText: text)
         )
 
-        guard case .checked(_, _, let diagnostics, _) = response else {
+        guard case .checked(_, _, _, let diagnostics, _) = response else {
             Issue.record("expected the check to run, got \(response)")
             return
         }
@@ -324,7 +324,7 @@ struct ApplyControlAnswersTests {
             CheckControlAnswersRequest(architectureText: payments, controlsText: text, tolerance: "medium")
         )
 
-        guard case .checked(let unanswered, _, _, let usedTolerance) = response else {
+        guard case .checked(let unanswered, _, _, _, let usedTolerance) = response else {
             Issue.record("expected the check to run, got \(response)")
             return
         }
@@ -357,7 +357,7 @@ struct ApplyControlAnswersTests {
             CheckControlAnswersRequest(architectureText: payments, controlsText: text)
         )
 
-        guard case .checked(let unanswered, _, _, let usedTolerance) = response else {
+        guard case .checked(let unanswered, _, _, _, let usedTolerance) = response else {
             Issue.record("expected the check to run, got \(response)")
             return
         }
@@ -383,7 +383,7 @@ struct ApplyControlAnswersTests {
             CheckControlAnswersRequest(architectureText: payments, controlsText: text)
         )
 
-        guard case .checked(_, let stale, _, _) = response else {
+        guard case .checked(_, let stale, _, _, _) = response else {
             Issue.record("expected the check to run, got \(response)")
             return
         }

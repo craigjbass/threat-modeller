@@ -5,12 +5,20 @@ public protocol CheckControlAnswersUseCase {
 public struct CheckControlAnswersRequest: Equatable, Sendable {
     public let architectureText: String
     public let controlsText: String?
+    /// The trees a person wrote, or nil when the project holds no such file.
+    public let attackTreeText: String?
     /// A risk level that overrides what the architecture file states, or nil.
     public let tolerance: String?
 
-    public init(architectureText: String, controlsText: String? = nil, tolerance: String? = nil) {
+    public init(
+        architectureText: String,
+        controlsText: String? = nil,
+        attackTreeText: String? = nil,
+        tolerance: String? = nil
+    ) {
         self.architectureText = architectureText
         self.controlsText = controlsText
+        self.attackTreeText = attackTreeText
         self.tolerance = tolerance
     }
 }
@@ -34,12 +42,20 @@ public struct UnansweredThreat: Equatable, Sendable {
 }
 
 public enum CheckControlAnswersResponse: Equatable, Sendable {
-    case checked(unanswered: [UnansweredThreat], stale: [String], diagnostics: [Diagnostic], tolerance: String)
+    case checked(
+        unanswered: [UnansweredThreat],
+        stale: [String],
+        staleTrees: [String],
+        diagnostics: [Diagnostic],
+        tolerance: String
+    )
     case refused(diagnostics: [Diagnostic])
 
     public var isClean: Bool {
-        guard case .checked(let unanswered, let stale, _, _) = self else { return false }
-        return unanswered.isEmpty && stale.isEmpty
+        guard case .checked(let unanswered, let stale, let staleTrees, _, _) = self else {
+            return false
+        }
+        return unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty
     }
 }
 
@@ -61,7 +77,8 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
         let compiled = compiles.execute(
             CompileControlsRequest(
                 architectureText: request.architectureText,
-                controlsText: request.controlsText
+                controlsText: request.controlsText,
+                attackTreeText: request.attackTreeText
             )
         )
 
@@ -100,9 +117,17 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             )
         }
 
+        // A tree whose goal or whose step no longer binds is work for a
+        // person: the route it describes is a claim about a system that is no
+        // longer there.
+        let staleTrees = source.trees
+            .filter(\.isStale)
+            .map { StaleTree(treeId: $0.treeId, stepCount: $0.steps.count).described }
+
         return .checked(
             unanswered: unanswered,
             stale: stale,
+            staleTrees: staleTrees,
             diagnostics: read.warnings + compileWarnings,
             tolerance: tolerance.rawValue
         )

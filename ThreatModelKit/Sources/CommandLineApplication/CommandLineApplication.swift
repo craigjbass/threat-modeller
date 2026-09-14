@@ -240,7 +240,7 @@ public struct CommandLineApplication {
                     tolerance: tolerance
                 )
             )
-            guard case .checked(let unanswered, let stale, let diagnostics, let usedTolerance) = response else {
+            guard case .checked(let unanswered, let stale, _, let diagnostics, let usedTolerance) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
                     output(diagnostic.described(in: system.architecturePath))

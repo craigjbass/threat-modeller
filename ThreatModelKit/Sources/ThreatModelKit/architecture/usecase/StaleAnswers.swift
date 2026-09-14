@@ -23,6 +23,26 @@ public struct StaleAnswer: Equatable, Sendable {
     }
 }
 
+/// A tree a person wrote that the architecture no longer supports.
+///
+/// Nothing deletes one. It is work for a person: read the tree, then either
+/// restore what it names or delete it.
+public struct StaleTree: Equatable, Sendable {
+    public let treeId: String
+    /// How many steps the tree holds, so a person sees what they lose by
+    /// deleting it.
+    public let stepCount: Int
+
+    public init(treeId: String, stepCount: Int) {
+        self.treeId = treeId
+        self.stepCount = stepCount
+    }
+
+    public var described: String {
+        "the tree \"\(treeId)\" is written but no longer binds"
+    }
+}
+
 public protocol ListStaleAnswersUseCase {
     func execute(_ request: ListStaleAnswersRequest) -> ListStaleAnswersResponse
 }

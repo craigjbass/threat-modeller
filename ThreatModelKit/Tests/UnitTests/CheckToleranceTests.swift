@@ -71,4 +71,78 @@ struct CheckToleranceTests {
         let read = HclControlsSource().read(controls(score: 3, tolerance: "extreme"))
         #expect(read.diagnostics.filter { $0.severity == .error }.count == 1)
     }
+
+    // A tree the architecture no longer supports is work for a person, so a
+    // check fails while one remains.
+
+    private let twoTier = """
+    system "P" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      component "db" {
+        technology = "aws-rds"
+        data       = "restricted"
+      }
+
+      flow api -> db
+    }
+    """
+
+    private func check(trees: String?) -> CheckControlAnswersResponse {
+        app.checkControlAnswers().execute(
+            CheckControlAnswersRequest(
+                architectureText: twoTier,
+                controlsText: nil,
+                attackTreeText: trees,
+                tolerance: "critical"
+            )
+        )
+    }
+
+    @Test func failsWhileATreeNoLongerBinds() {
+        let response = check(trees: """
+        attack_trees for "P" {
+          tree "t" {
+            goal "misconfiguration" on component "db"
+            step "credential-theft" on component "gone"
+          }
+        }
+        """)
+
+        guard case .checked(_, _, let staleTrees, _, _) = response else {
+            Issue.record("the check refused: \(response)")
+            return
+        }
+        #expect(staleTrees == ["the tree \"t\" is written but no longer binds"])
+        #expect(response.isClean == false)
+    }
+
+    @Test func passesForATreeThatStillBinds() {
+        let response = check(trees: """
+        attack_trees for "P" {
+          tree "t" {
+            goal "misconfiguration" on component "db"
+            step "credential-theft" on component "api"
+          }
+        }
+        """)
+
+        guard case .checked(_, _, let staleTrees, _, _) = response else {
+            Issue.record("the check refused: \(response)")
+            return
+        }
+        #expect(staleTrees.isEmpty)
+    }
+
+    @Test func passesForASystemWithNoTreeFile() {
+        guard case .checked(_, _, let staleTrees, _, _) = check(trees: nil) else {
+            Issue.record("the check refused")
+            return
+        }
+        #expect(staleTrees.isEmpty)
+    }
+
 }
