@@ -33,6 +33,9 @@ public struct ThreatModel: Equatable, Sendable {
     public var severityDecisions: [ThreatKey: SeverityDecision]
     /// What the model takes on trust. The report gives them a section.
     public var assumptions: [SystemAssumption]
+    /// The routes a person wrote in the `.attacktree` file. Empty when the
+    /// project holds no such file.
+    public var attackTrees: [SourceAttackTree]
     /// The risk level a likelihood finding may answer up to. Nil means the
     /// file states none, so `effectiveRiskTolerance` is what a check uses.
     public var riskTolerance: RiskLevel?
@@ -84,6 +87,7 @@ public struct ThreatModel: Equatable, Sendable {
         likelihoodFindings: [ThreatKey: LikelihoodFinding] = [:],
         severityDecisions: [ThreatKey: SeverityDecision] = [:],
         assumptions: [SystemAssumption] = [],
+        attackTrees: [SourceAttackTree] = [],
         riskTolerance: RiskLevel? = nil,
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
@@ -103,6 +107,7 @@ public struct ThreatModel: Equatable, Sendable {
         self.likelihoodFindings = likelihoodFindings
         self.severityDecisions = severityDecisions
         self.assumptions = assumptions
+        self.attackTrees = attackTrees
         self.riskTolerance = riskTolerance
         // The two ways of saying the same thing meet here: a caller may pass
         // either, and a recorded control is a status.

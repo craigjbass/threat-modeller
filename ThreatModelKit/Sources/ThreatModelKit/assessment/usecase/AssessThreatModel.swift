@@ -26,17 +26,21 @@ public struct AssessThreatModelResponse: Equatable, Sendable {
     public let protectionDependencies: [ProtectionDependency]
     /// What a reader must know before they trust a reduction.
     public let warnings: [String]
+    /// The trees a person wrote, bound to this model and scored.
+    public let attackTrees: [BoundAttackTree]
 
     public init(
         threats: [AssessedThreat],
         severities: [AssessedSeverity] = [],
         protectionDependencies: [ProtectionDependency] = [],
-        warnings: [String] = []
+        warnings: [String] = [],
+        attackTrees: [BoundAttackTree] = []
     ) {
         self.threats = threats
         self.severities = severities
         self.protectionDependencies = protectionDependencies
         self.warnings = warnings
+        self.attackTrees = attackTrees
     }
 }
 
@@ -288,7 +292,10 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
         let model = models.current()
         let taxonomy = catalogue.taxonomy()
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
-        let resolved = ThreatResolver(model: model, catalogue: catalogue).resolve()
+        let resolvedByStages = ThreatResolver(model: model, catalogue: catalogue).resolve()
+        let bound = AttackTreeBinding.bind(trees: model.attackTrees, to: resolvedByStages)
+        let staged = AttackTreeScoring.apply(trees: bound, to: resolvedByStages)
+        let resolved = staged.threats
         let nameOf: (ComponentId) -> String = { id in
             guard let component = model.components.first(where: { $0.id == id }) else {
                 return id.value
@@ -363,7 +370,8 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                 AssessedSeverity(id: $0.id, label: $0.label)
             },
             protectionDependencies: dependencies,
-            warnings: ProtectionDependencies.warnings(for: dependencies)
+            warnings: ProtectionDependencies.warnings(for: dependencies),
+            attackTrees: staged.trees
         )
     }
 
