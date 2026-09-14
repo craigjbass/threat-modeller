@@ -4,7 +4,14 @@ public protocol ImportArchitectureUseCase {
 
 public struct ImportArchitectureRequest: Equatable, Sendable {
     public let text: String
-    public init(text: String) { self.text = text }
+    /// The `.attacktree` file beside the architecture, or nil when the project
+    /// holds none.
+    public let attackTreeText: String?
+
+    public init(text: String, attackTreeText: String? = nil) {
+        self.text = text
+        self.attackTreeText = attackTreeText
+    }
 }
 
 public enum ImportArchitectureResponse: Equatable, Sendable {
@@ -22,17 +29,20 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
     private let sources: ArchitectureSourceGateway
+    private let attackTreeSources: AttackTreeSourceGateway
     private let layout: LayOutModelUseCase
 
     public init(
         models: ThreatModelGateway,
         catalogue: TechnologyCatalogue,
         sources: ArchitectureSourceGateway,
+        attackTreeSources: AttackTreeSourceGateway = NoAttackTreeSource(),
         layout: LayOutModelUseCase
     ) {
         self.models = models
         self.catalogue = catalogue
         self.sources = sources
+        self.attackTreeSources = attackTreeSources
         self.layout = layout
     }
 
@@ -40,6 +50,18 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
         let read = sources.read(request.text)
         guard let source = read.source, read.hasErrors == false else {
             return .refused(diagnostics: read.diagnostics)
+        }
+
+        // The trees beside the architecture are part of the system, so
+        // importing one reads both. A tree file that does not parse refuses
+        // the whole import: half a model states a route nobody can check.
+        var attackTrees: [SourceAttackTree] = []
+        if let treeText = request.attackTreeText, treeText.isEmpty == false {
+            let treeRead = attackTreeSources.read(treeText)
+            guard let treeSource = treeRead.source, treeRead.hasErrors == false else {
+                return .refused(diagnostics: treeRead.diagnostics)
+            }
+            attackTrees = treeSource.trees
         }
 
         // The layout holds no catalogue, and measures the picture it drew, so
@@ -180,6 +202,7 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             )
         }
         model.riskTolerance = riskTolerance
+        model.attackTrees = attackTrees
 
         // Spec section 3.2: a local block is the actor, whole. A parser has
         // already refused a tier word outside the three.

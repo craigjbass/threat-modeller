@@ -54,7 +54,15 @@ public struct OpenSystem: OpenSystemUseCase {
             return .cannotRead(reason: String(describing: error))
         }
 
-        switch imports.execute(ImportArchitectureRequest(text: text)) {
+        // The trees beside the architecture are part of the system, the way
+        // the answers are.
+        let attackTreeText = projects.exists(path: system.attackTreePath)
+            ? try? projects.read(path: system.attackTreePath)
+            : nil
+
+        switch imports.execute(
+            ImportArchitectureRequest(text: text, attackTreeText: attackTreeText)
+        ) {
         case .imported(let name, let warnings):
             // The answers beside the architecture are part of the system, so
             // opening one reads both.

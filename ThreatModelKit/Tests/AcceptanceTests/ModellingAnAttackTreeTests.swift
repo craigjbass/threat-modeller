@@ -76,4 +76,86 @@ struct ModellingAnAttackTreeTests {
         #expect(bound.scoreBefore == baselineScore)
         #expect(bound.score == goal.riskScore)
     }
+
+    // The report names the tree on the threat it raised.
+
+    private let twoTier = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      component "db" {
+        technology = "aws-rds"
+        data       = "restricted"
+      }
+
+      flow api -> db
+    }
+
+    """
+
+    private let oneTree = """
+    attack_trees for "Payments" {
+      tree "read-every-customer-record" {
+        name           = "Read every customer record"
+        raises_risk_by = 40
+
+        goal "misconfiguration" on component "db"
+
+        step "credential-theft" on component "api"
+      }
+    }
+
+    """
+
+    private func reportOfTheOpenSystem() -> String {
+        _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
+        return app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
+    }
+
+    @Test func namesTheTreeOnTheThreatItRaised() {
+        app.project.put(twoTier, at: "/work/threatmodel/payments.arch")
+        app.project.put(oneTree, at: "/work/threatmodel/payments.attacktree")
+
+        let report = reportOfTheOpenSystem()
+
+        #expect(report.contains("## Attack trees"))
+        #expect(report.contains("- Raised by the tree: Read every customer record"))
+        #expect(report.contains("- Before the attack tree: "))
+    }
+
+    @Test func namesNoTreeOnAThreatNoTreeRaised() {
+        app.project.put(twoTier, at: "/work/threatmodel/payments.arch")
+        app.project.put(oneTree, at: "/work/threatmodel/payments.attacktree")
+
+        let report = reportOfTheOpenSystem()
+
+        // The tree names one goal, so every other threat's stanza states no
+        // tree at all.
+        let stanzas = report.components(separatedBy: "### ")
+        let untouched = stanzas.filter { $0.contains("Credential Theft") }
+        #expect(untouched.isEmpty == false)
+        #expect(untouched.allSatisfy { $0.contains("Raised by the tree") == false })
+    }
+
+    @Test func writesNoTreeSectionForASystemWithNoTreeFile() {
+        app.project.put(twoTier, at: "/work/threatmodel/payments.arch")
+
+        let report = reportOfTheOpenSystem()
+
+        #expect(report.contains("## Attack trees") == false)
+        #expect(report.contains("Raised by the tree") == false)
+    }
+
+    @Test func opensASystemWhoseTreeFileSitsBesideIt() {
+        app.project.put(twoTier, at: "/work/threatmodel/payments.arch")
+        app.project.put(oneTree, at: "/work/threatmodel/payments.attacktree")
+
+        _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
+
+        #expect(app.modelStore.current().attackTrees.map(\.id) == ["read-every-customer-record"])
+    }
+
 }

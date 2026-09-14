@@ -117,6 +117,7 @@ public final class TestDependencies: UseCaseFactory {
             models: models,
             catalogue: catalogue,
             sources: architectureSources,
+            attackTreeSources: attackTreeSources,
             layout: layOutModel()
         )
     }

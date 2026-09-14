@@ -67,8 +67,14 @@ public struct CompileControls: CompileControlsUseCase {
             models: store,
             catalogue: catalogue,
             sources: architectureSources,
+            attackTreeSources: attackTreeSources,
             layout: layout
-        ).execute(ImportArchitectureRequest(text: request.architectureText))
+        ).execute(
+            ImportArchitectureRequest(
+                text: request.architectureText,
+                attackTreeText: request.attackTreeText
+            )
+        )
 
         guard case .imported = imported else {
             guard case .refused(let diagnostics) = imported else {
@@ -103,20 +109,11 @@ public struct CompileControls: CompileControlsUseCase {
             }
         }
 
-        var trees: [SourceAttackTree] = []
-        if let attackTreeText = request.attackTreeText, attackTreeText.isEmpty == false {
-            let read = attackTreeSources.read(attackTreeText)
-            guard let source = read.source, read.hasErrors == false else {
-                return .refused(diagnostics: read.diagnostics)
-            }
-            trees = source.trees
-        }
-
         let model = store.current()
         // Stage 8 runs over the whole resolved set, because whether a step is
         // open depends on another threat's answers.
         let resolvedByStages = ThreatResolver(model: model, catalogue: catalogue).resolve()
-        let bound = AttackTreeBinding.bind(trees: trees, to: resolvedByStages)
+        let bound = AttackTreeBinding.bind(trees: model.attackTrees, to: resolvedByStages)
         let staged = AttackTreeScoring.apply(trees: bound, to: resolvedByStages)
         let resolved = staged.threats
 

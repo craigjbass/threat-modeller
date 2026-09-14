@@ -26,6 +26,9 @@ public enum MarkdownExecutiveSummary {
                             + " and runs as \(element.privilegeLabel)."
                     )
                 }
+                if let raisedByTree = threat.raisedByTree {
+                    lines.append("   The tree \(raisedByTree) raises this threat.")
+                }
                 let key = ReportRecommendation.key(
                     threatId: threat.threatId,
                     sourceId: threat.sourceId

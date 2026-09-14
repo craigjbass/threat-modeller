@@ -55,9 +55,23 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             }
         )
 
+        // An open tree raises its goal, so the goal's stanza names the tree
+        // and the score the stage received. A stale tree and a closed tree
+        // raise nothing and name nothing.
+        var treeByGoal: [ThreatKey: BoundAttackTree] = [:]
+        for tree in assessment.attackTrees where tree.isStale == false && tree.isOpen {
+            let strongest = treeByGoal[tree.goal]
+            if strongest == nil || tree.score > (strongest?.score ?? 0) {
+                treeByGoal[tree.goal] = tree
+            }
+        }
+
         let threats = assessment.threats.map { assessed in
             Self.threat(
                 from: assessed,
+                tree: treeByGoal[
+                    ThreatKey(threatId: assessed.threatId, sourceId: assessed.source.id)
+                ],
                 compensating: model.compensatingControls[
                     ThreatKey(
                         threatId: assessed.threatId,
@@ -259,6 +273,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
 
     private static func threat(
         from assessed: AssessedThreat,
+        tree: BoundAttackTree?,
         compensating: [ReportCompensatingControl],
         strideLabels: [String]
     ) -> ReportThreat {
@@ -273,6 +288,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             mitreTechniqueIds: assessed.mitreTechniques.map(\.id),
             performedByLabels: assessed.performedByLabels,
             likelihoodReason: assessed.likelihoodReason,
+            scoreBeforeTree: tree?.scoreBefore,
+            raisedByTree: tree?.name,
             sourceName: assessed.source.displayName,
             sourceKind: kind(of: assessed.source),
             sourceId: assessed.source.id,

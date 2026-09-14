@@ -484,6 +484,11 @@ public struct ReportThreat: Equatable, Sendable {
     /// What set the likelihood: `from the catalogue`, `set by <actor>`, or the
     /// label of the finding that answered it.
     public let likelihoodReason: String
+    /// The score before the attack tree stage, or nil when no open tree names
+    /// this threat as its goal.
+    public let scoreBeforeTree: Int?
+    /// The tree that raised this threat, or nil when none did.
+    public let raisedByTree: String?
     public let sourceName: String
     /// "Component", "Connection" or "Zone", so a reader can group by what
     /// raised the threat.
@@ -533,6 +538,8 @@ public struct ReportThreat: Equatable, Sendable {
         mitreTechniqueIds: [String],
         performedByLabels: [String] = [],
         likelihoodReason: String = LikelihoodSource.catalogue(.commodity).reason,
+        scoreBeforeTree: Int? = nil,
+        raisedByTree: String? = nil,
         sourceName: String,
         sourceKind: String,
         sourceId: String = "",
@@ -564,6 +571,8 @@ public struct ReportThreat: Equatable, Sendable {
         self.mitreTechniqueIds = mitreTechniqueIds
         self.performedByLabels = performedByLabels
         self.likelihoodReason = likelihoodReason
+        self.scoreBeforeTree = scoreBeforeTree
+        self.raisedByTree = raisedByTree
         self.sourceName = sourceName
         self.sourceKind = sourceKind
         self.controls = controls

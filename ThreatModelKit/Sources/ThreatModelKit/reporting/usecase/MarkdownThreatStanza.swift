@@ -44,6 +44,12 @@ public enum MarkdownThreatStanza {
             lines.append("  - Rationale: \(decision.rationale)")
             lines += Markdown.sourceLines(decision.sources)
         }
+        if let scoreBeforeTree = threat.scoreBeforeTree {
+            lines.append("- Before the attack tree: \(scoreBeforeTree)")
+        }
+        if let raisedByTree = threat.raisedByTree {
+            lines.append("- Raised by the tree: \(raisedByTree)")
+        }
         if threat.scoreIfAssumptionsHold != threat.riskScore {
             lines.append("- If the assumptions hold: \(threat.scoreIfAssumptionsHold)")
         }

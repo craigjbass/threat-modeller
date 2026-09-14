@@ -20,6 +20,7 @@ struct CommandLineDependencies {
             models: models,
             catalogue: catalogue,
             sources: architectureSources,
+            attackTreeSources: attackTreeSources,
             layout: layOutModel()
         )
     }
