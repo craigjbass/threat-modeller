@@ -171,6 +171,27 @@ Wait three seconds, then render.
 **Prevention.** Run `pkill -x threatmodeller` after every `RunAllTests` or
 `RunSomeTests`, before the next preview or snippet.
 
+## What reading the history costs
+
+`threatmodeller history` and `threatmodeller report` compile the model once per
+sampled commit, so the cost grows with the bound. Measured in a release build,
+by the method the next section states, with a fake git gateway so no `git`
+process is in the number:
+
+| Model | Commits | Time |
+| --- | --- | --- |
+| 60 components, one system | 100 | 0.376 s |
+
+That is the compile and the assessment of every commit, and it is why the
+default bound is 50 and why nothing reads the history when a window opens.
+Reading `git` itself adds one `git log` and one `git show` per file per commit,
+which the number above does not hold.
+
+Measure it again the way the layout is measured: write a probe under
+`ThreatModelKit/Tests/UnitTests/`, build the model in it, time
+`ReadRiskHistory.execute`, run `swift test -c release --filter <the probe>`,
+then remove the probe. Do not measure through Xcode's `RunCodeSnippet`.
+
 ## Measuring what a layout costs
 
 `LayOutModel` is the slow part of opening a model. Measure it in the package,

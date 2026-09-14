@@ -13,6 +13,7 @@ struct CommandLineDependencies {
     let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     let governanceSources: GovernanceSourceGateway = HclGovernanceSource()
     let policySources: PolicySourceGateway = HclPolicySource()
+    let history: GitHistoryGateway
     /// The day a review date is measured against.
     let clock: Clock = SystemClock()
     private let models: ThreatModelGateway = InMemoryThreatModelGateway()

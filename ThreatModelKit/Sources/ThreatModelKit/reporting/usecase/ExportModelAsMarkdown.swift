@@ -13,13 +13,29 @@ public struct ExportModelAsMarkdownRequest: Equatable, Sendable {
     /// The picture drawn for each control, by file name, keyed by the id of
     /// the component the protection comes from.
     public let controlPictures: [String: String]
+    /// The file the caller wrote the risk-over-time graph to, relative to the
+    /// report, or nil when it drew none.
+    public let riskOverTimePicture: String?
+    /// What the model scored at each sampled commit, and what changed since
+    /// the newest one. Empty when nobody asked for the history.
+    public let history: [RiskHistoryRow]
+    public let historyTruncated: Bool
+    public let change: RiskChange?
 
     public init(
         threatPictures: [String: String] = [:],
-        controlPictures: [String: String] = [:]
+        controlPictures: [String: String] = [:],
+        riskOverTimePicture: String? = nil,
+        history: [RiskHistoryRow] = [],
+        historyTruncated: Bool = false,
+        change: RiskChange? = nil
     ) {
         self.threatPictures = threatPictures
         self.controlPictures = controlPictures
+        self.riskOverTimePicture = riskOverTimePicture
+        self.history = history
+        self.historyTruncated = historyTruncated
+        self.change = change
     }
 }
 
@@ -46,7 +62,13 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
     }
 
     public func execute(_ request: ExportModelAsMarkdownRequest) -> ExportModelAsMarkdownResponse {
-        let report = reports.execute(BuildThreatModelReportRequest()).report
+        let report = reports.execute(
+            BuildThreatModelReportRequest(
+                history: request.history,
+                historyTruncated: request.historyTruncated,
+                change: request.change
+            )
+        ).report
         var lines: [String] = []
 
         lines.append("# \(report.modelName)")
@@ -58,9 +80,16 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
 
         lines += MarkdownExecutiveSummary.lines(
             report.executiveSummary,
-            components: report.components
+            components: report.components,
+            direction: report.change?.direction
         )
         lines += MarkdownPolicy.lines(report.policy)
+        lines += MarkdownRiskOverTime.lines(
+            report.history,
+            picturePath: request.riskOverTimePicture,
+            truncated: report.historyTruncated
+        )
+        lines += MarkdownWhatChanged.lines(report.change, since: report.history.first?.commit)
         lines += MarkdownRollups.lines(
             report.rollups,
             showsAssumed: report.assumedMitigations.isEmpty == false

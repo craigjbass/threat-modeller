@@ -3,7 +3,24 @@ public protocol BuildThreatModelReportUseCase {
 }
 
 public struct BuildThreatModelReportRequest: Equatable, Sendable {
-    public init() {}
+    /// What the model scored at each sampled commit, newest first. Empty when
+    /// nobody asked for the history: it is read at a person's request and
+    /// never at open time.
+    public let history: [RiskHistoryRow]
+    /// True when the bound left commits out.
+    public let historyTruncated: Bool
+    /// What changed between the previous sampled commit and the working tree.
+    public let change: RiskChange?
+
+    public init(
+        history: [RiskHistoryRow] = [],
+        historyTruncated: Bool = false,
+        change: RiskChange? = nil
+    ) {
+        self.history = history
+        self.historyTruncated = historyTruncated
+        self.change = change
+    }
 }
 
 public struct BuildThreatModelReportResponse: Equatable, Sendable {
@@ -307,6 +324,9 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     faced: ThreatActorLookup(model: model, catalogue: catalogue).faced(),
                     threats: assessment.threats
                 ),
+                history: request.history,
+                historyTruncated: request.historyTruncated,
+                change: request.change,
                 policy: policyRules.map {
                     ReportPolicyRule(name: $0.name, asks: $0.asks, breaches: $0.breaches.count)
                 },

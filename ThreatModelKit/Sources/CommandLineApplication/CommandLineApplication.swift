@@ -25,6 +25,7 @@ public struct CommandLineApplication {
     private let controls: ControlsSourceGateway
     private let attackTrees: AttackTreeSourceGateway
     private let libraries: LibrarySourceGateway
+    private let history: GitHistoryGateway
     private let fetcher: LibraryFetching
     /// Built once a catalogue is known, which is only when a verb needs one.
     private let makeCatalogue: () throws -> TechnologyCatalogue
@@ -35,6 +36,7 @@ public struct CommandLineApplication {
         controls: ControlsSourceGateway = HclControlsSource(),
         attackTrees: AttackTreeSourceGateway = HclAttackTreeSource(),
         libraries: LibrarySourceGateway = HclLibrarySource(),
+        history: GitHistoryGateway = GitHistory(),
         fetcher: LibraryFetching = GitLibraryFetcher(),
         catalogue: @escaping () throws -> TechnologyCatalogue = { try BundledTechnologyCatalogue() }
     ) {
@@ -43,6 +45,7 @@ public struct CommandLineApplication {
         self.controls = controls
         self.attackTrees = attackTrees
         self.libraries = libraries
+        self.history = history
         self.fetcher = fetcher
         makeCatalogue = catalogue
     }
@@ -59,6 +62,7 @@ public struct CommandLineApplication {
         var wantsHtml = false
         var machineOutput = MachineOutput.plain
         var unknownFormat: String?
+        var commits = ReadRiskHistory.defaultCommits
 
         var flagless: [String] = []
         var index = 0
@@ -74,6 +78,9 @@ public struct CommandLineApplication {
             case "--tolerance":
                 index += 1
                 tolerance = index < words.count ? words[index] : nil
+            case "--commits":
+                index += 1
+                commits = index < words.count ? (Int(words[index]) ?? commits) : commits
             case "--format":
                 index += 1
                 let named = index < words.count ? words[index] : ""
@@ -126,6 +133,8 @@ public struct CommandLineApplication {
             return compile(root: root, isQuiet: isQuiet, as: machineOutput, output: output)
         case "check":
             return check(root: root, tolerance: tolerance, as: machineOutput, output: output)
+        case "history":
+            return self.history(root: root, commits: commits, as: machineOutput, output: output)
         case "library":
             return library(words: Array(words.dropFirst()), isForced: isForced, output: output)
         case "report":
@@ -135,6 +144,7 @@ public struct CommandLineApplication {
                 into: into,
                 wantsHtml: wantsHtml,
                 isQuiet: isQuiet,
+                commits: commits,
                 output: output
             )
         case "draw":
@@ -383,6 +393,76 @@ public struct CommandLineApplication {
         }
     }
 
+    /// Prints what the model scored at each sampled commit.
+    ///
+    /// The history is git: the project's own commits hold the files of that
+    /// day. Nothing is stored, and nothing is read until a person asks.
+    private func history(
+        root: String,
+        commits: Int,
+        as machineOutput: MachineOutput,
+        output: (String) -> Void
+    ) -> Int32 {
+        let catalogue: TechnologyCatalogue
+        do {
+            catalogue = try makeCatalogue()
+        } catch {
+            output("threatmodeller: the catalogue could not be loaded: \(error)")
+            return ExitCode.fileFault.rawValue
+        }
+
+        let read = ReadRiskHistory(
+            projects: projects,
+            history: history,
+            catalogue: catalogue,
+            architectureSources: architecture,
+            controlsSources: controls,
+            attackTreeSources: attackTrees,
+            governanceSources: HclGovernanceSource(),
+            layout: LayOutModel()
+        ).execute(ReadRiskHistoryRequest(root: root, commits: commits))
+
+        switch read {
+        case .read(let history):
+            let rows = history.rows
+            guard rows.isEmpty == false else {
+                output("threatmodeller: no commit touched a threat model file")
+                return ExitCode.success.rawValue
+            }
+            for row in rows {
+                output(Self.said(row))
+            }
+            if history.truncated {
+                output(
+                    "threatmodeller: the newest \(rows.count) commits; the project holds more"
+                )
+            }
+            return ExitCode.success.rawValue
+        case .notARepository(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.success.rawValue
+        case .noSuchSystem:
+            output("threatmodeller: this project holds no such system")
+            return ExitCode.fileFault.rawValue
+        case .cannotRead(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        }
+    }
+
+    /// One history row, as a person reads it.
+    static func said(_ row: RiskHistoryRow) -> String {
+        let head = "\(MarkdownRiskOverTime.day(row.commit.date))  \(row.commit.shortHash)"
+            + "  \(row.commit.author)"
+        guard let numbers = row.numbers else { return "\(head)  did not parse" }
+
+        let critical = numbers.byLevel[RiskLevel.critical.rawValue] ?? 0
+        let high = numbers.byLevel[RiskLevel.high.rawValue] ?? 0
+        return "\(head)  total \(numbers.totalScore)  worst \(numbers.worstScore)"
+            + "  critical \(critical)  high \(high)  accepted \(numbers.acceptedRisks)"
+            + "  trees \(numbers.openAttackTrees)  \(numbers.catalogueTag ?? "\u{2014}")"
+    }
+
     /// Says what a pull request has not answered.
     ///
     /// `plain` writes the lines a person reads. `github` writes the workflow
@@ -574,6 +654,7 @@ public struct CommandLineApplication {
         into: String?,
         wantsHtml: Bool,
         isQuiet: Bool,
+        commits: Int = ReadRiskHistory.defaultCommits,
         output: (String) -> Void
     ) -> Int32 {
         forEachSystem(root: root, output: output) { system, useCases in
@@ -627,12 +708,52 @@ public struct CommandLineApplication {
                 }
             }
 
+            // The history is git, and reading it compiles the model once per
+            // sampled commit, so `--commits 0` turns it off.
+            var historyRead = RiskHistory()
+            if commits > 0 {
+                let read = ReadRiskHistory(
+                    projects: projects,
+                    history: history,
+                    catalogue: useCases.catalogue,
+                    architectureSources: architecture,
+                    controlsSources: controls,
+                    attackTreeSources: attackTrees,
+                    governanceSources: HclGovernanceSource(),
+                    layout: LayOutModel()
+                ).execute(ReadRiskHistoryRequest(root: root, commits: commits))
+                if case .read(let found) = read { historyRead = found }
+            }
+
             // A picture of each of the top residual threats, beside the
             // report. The core cannot draw one: drawing depends on the core.
-            let report = useCases.buildThreatModelReport()
-                .execute(BuildThreatModelReportRequest()).report
             let canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
             let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+
+            // What changed between the previous sampled commit and the
+            // working tree. A project with one commit compares against
+            // nothing and the report writes no such section.
+            var change: RiskChange?
+            if historyRead.rows.count >= 2 || historyRead.rows.count == 1 {
+                guard case .compared(let compared) = CompareRiskToCommit().execute(
+                    CompareRiskToCommitRequest(
+                        now: assessment.threats.map(ReadRiskHistory.compared),
+                        then: historyRead.previousThreats,
+                        catalogueNow: useCases.catalogue.version().tag,
+                        catalogueThen: historyRead.previousCatalogueTag
+                    )
+                ) else { return .fileFault }
+                change = compared.isEmpty ? nil : compared
+            }
+
+            let report = useCases.buildThreatModelReport()
+                .execute(
+                    BuildThreatModelReportRequest(
+                        history: historyRead.rows,
+                        historyTruncated: historyRead.truncated,
+                        change: change
+                    )
+                ).report
             let drawn = DiagramBuilder.Model(
                 components: canvas.components,
                 connections: canvas.connections,
@@ -662,16 +783,34 @@ public struct CommandLineApplication {
             let controlPictures = Dictionary(
                 uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) }
             )
+            // The graph is written beside the report, the way the threat
+            // pictures are, and only when the history holds enough to draw.
+            let chart = RiskOverTimeChart.svg(of: historyRead.rows)
+            let chartFileName = chart.isEmpty ? nil : "\(system.name)-risk-over-time.svg"
+
             let markdown = useCases.exportModelAsMarkdown()
                 .execute(
                     ExportModelAsMarkdownRequest(
                         threatPictures: threatPictures,
-                        controlPictures: controlPictures
+                        controlPictures: controlPictures,
+                        riskOverTimePicture: chartFileName,
+                        history: historyRead.rows,
+                        historyTruncated: historyRead.truncated,
+                        change: change
                     )
                 )
             let path = into.map { ProjectConvention.path($0, "\(system.name).md") }
                 ?? system.reportPath
             let beside = String(path.dropLast("\(system.name).md".count))
+
+            if let chartFileName {
+                do {
+                    try projects.write(chart, to: beside + chartFileName)
+                } catch {
+                    output("threatmodeller: \(Self.described(error))")
+                    return .fileFault
+                }
+            }
 
             for picture in pictures {
                 do {
@@ -900,7 +1039,8 @@ public struct CommandLineApplication {
             let useCases = CommandLineDependencies(
                 catalogue: merged,
                 architectureSources: architecture,
-                controlsSources: controls
+                controlsSources: controls,
+                history: history
             )
             let code = act(system, useCases)
             if code != .success { worst = code }
@@ -1126,6 +1266,7 @@ public struct CommandLineApplication {
     Usage:
       threatmodeller compile [<root>]  write or merge every .controls file
       threatmodeller check   [<root>]  say what has no answer, and exit 1 if any has none
+      threatmodeller history [<root>]  say what the model scored at each sampled commit
       threatmodeller report  [<root>]  write every .md report
       threatmodeller draw    [<root>]  write every diagram as a picture
       threatmodeller format  [<root>]  rewrite every .arch file in the canonical shape
@@ -1147,6 +1288,7 @@ public struct CommandLineApplication {
       --catalogue <dir>     read the threat catalogue from this directory
       --tolerance <level>   a likelihood finding answers a threat up to this level
       --format <name>       plain, github or json; check, compile and format read it
+      --commits <n>         how many commits history samples, newest first
       -q, --quiet           say nothing about a file that did not change
       -f, --force           remove a library a system still names
 

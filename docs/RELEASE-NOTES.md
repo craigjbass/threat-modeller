@@ -6,6 +6,17 @@ it.
 
 ## Unreleased
 
+### Risk over time
+
+`threatmodeller history` states what the model scored at each commit that
+touched a threat model file, newest first. The report writes `## Risk over
+time` with a graph, `## What changed` since the previous sampled commit, and
+one sentence in the executive summary stating the direction.
+
+The history is git: nothing is stored, nothing is checked out, and neither the
+working tree nor the index is touched. The sample is bounded by `--commits`,
+which defaults to 50; `--commits 0` turns the sections off.
+
 ### A project states the rules it enforces
 
 `threatmodel/policy.hcl` states the rules `threatmodeller check` enforces for

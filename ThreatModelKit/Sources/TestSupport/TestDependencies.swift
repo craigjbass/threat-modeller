@@ -27,6 +27,7 @@ public final class TestDependencies: UseCaseFactory {
     private let librarySources: LibrarySourceGateway = HclLibrarySource()
     private let governanceSources: GovernanceSourceGateway = HclGovernanceSource()
     private let policySources: PolicySourceGateway = HclPolicySource()
+    public let history = FakeGitHistory(root: "/work")
     private let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     /// The fetcher this root wires, so a test states what a repository holds
     /// and no test runs `git`.
@@ -203,6 +204,19 @@ public final class TestDependencies: UseCaseFactory {
 
     public func applyPolicy() -> ApplyPolicyUseCase {
         ApplyPolicy(models: models, sources: policySources)
+    }
+
+    public func readRiskHistory() -> ReadRiskHistoryUseCase {
+        ReadRiskHistory(
+            projects: projects,
+            history: history,
+            catalogue: catalogue,
+            architectureSources: architectureSources,
+            controlsSources: controlsSources,
+            attackTreeSources: attackTreeSources,
+            governanceSources: governanceSources,
+            layout: layOutModel()
+        )
     }
 
     public func checkPolicy() -> CheckPolicyUseCase {

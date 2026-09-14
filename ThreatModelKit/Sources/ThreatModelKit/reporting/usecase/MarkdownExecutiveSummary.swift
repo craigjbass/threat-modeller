@@ -5,9 +5,12 @@
 /// Every number in it comes from `ReportExecutiveSummary`; this writer counts
 /// nothing itself.
 public enum MarkdownExecutiveSummary {
+    /// `direction` is the one sentence the history states, or nil when
+    /// nobody asked for the history.
     public static func lines(
         _ summary: ReportExecutiveSummary,
-        components: [ReportComponent]
+        components: [ReportComponent],
+        direction: String? = nil
     ) -> [String] {
         var lines = ["## Executive summary", "", summary.verdict, ""]
 
@@ -37,6 +40,11 @@ public enum MarkdownExecutiveSummary {
                     lines.append("   No recommendation names this threat, so none is listed below.")
                 }
             }
+            lines.append("")
+        }
+
+        if let direction {
+            lines.append(direction)
             lines.append("")
         }
 

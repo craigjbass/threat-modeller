@@ -383,6 +383,7 @@ printed empty.
 ```
 threatmodeller compile [<root>]              # writes or merges every .controls file
 threatmodeller check   [<root>]              # says what has no answer
+threatmodeller history [<root>]              # says what the model scored at each commit
 threatmodeller report  [<root>] [-o <dir>]   # writes every .md report and its diagrams
 threatmodeller draw    [<root>] [-o <dir>]   # writes every diagram as SVG or PNG
 threatmodeller format  [<root>]              # rewrites every .arch file canonically
@@ -433,6 +434,33 @@ fails `check` the first time it runs after this change. The fix is two steps:
 The report writes `## Accepted risks` after `## Recommendations`, one row per
 accepted control, governed or not, and the executive summary states how many
 are past their review date.
+
+### Risk over time
+
+A report states the posture of one day. `threatmodeller history` states the
+direction:
+
+```
+2026-09-14  a1b2c3d  Craig  total 184  worst 12  critical 2  high 5  accepted 1  trees 1  v1.0.1
+2026-09-07  9f8e7d6  Craig  did not parse
+```
+
+The history is your git history. Every commit that touched a threat model file
+holds the files of that day, the compile is deterministic, so the score at that
+commit is recoverable by reading them. Nothing is stored, nothing is checked
+out, and neither the working tree nor the index is touched.
+
+`--commits <n>` bounds the sample, newest first, and defaults to 50. A commit
+whose files do not parse keeps its row and says so, because a zero would read
+as "no risk".
+
+`report` writes `## Risk over time` with a graph beside it, and `## What
+changed` between the previous sampled commit and the working tree: threats
+raised and gone, controls whose status moved, risks newly accepted, review
+dates moved, and the score of each element. The executive summary states the
+direction in one sentence. `--commits 0` turns all of it off. The application
+reads the same rows from the History button, at your request and never on open.
+What reading it costs is measured in [docs/TESTING.md](docs/TESTING.md).
 
 ### Policy: the rules a project sets for itself
 

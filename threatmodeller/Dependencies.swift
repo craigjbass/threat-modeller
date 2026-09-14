@@ -22,6 +22,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let librarySources: LibrarySourceGateway = HclLibrarySource()
     private let governanceSources: GovernanceSourceGateway = HclGovernanceSource()
     private let policySources: PolicySourceGateway = HclPolicySource()
+    private let history: GitHistoryGateway = GitHistory()
     private let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     /// The one place this application runs `git`.
     private let libraryFetcher: LibraryFetching = GitLibraryFetcher()
@@ -204,6 +205,19 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func applyPolicy() -> ApplyPolicyUseCase {
         ApplyPolicy(models: models, sources: policySources)
+    }
+
+    func readRiskHistory() -> ReadRiskHistoryUseCase {
+        ReadRiskHistory(
+            projects: projects,
+            history: history,
+            catalogue: catalogue,
+            architectureSources: architectureSources,
+            controlsSources: controlsSources,
+            attackTreeSources: attackTreeSources,
+            governanceSources: governanceSources,
+            layout: layOutModel()
+        )
     }
 
     func checkPolicy() -> CheckPolicyUseCase {

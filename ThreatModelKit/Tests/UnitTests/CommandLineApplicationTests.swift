@@ -1,3 +1,4 @@
+import Foundation
 import CommandLineApplication
 import Testing
 import ThreatModelKit
@@ -397,6 +398,98 @@ struct CommandLineApplicationTests {
 
         #expect(result.code == 0)
         #expect(result.lines.contains { $0.contains("every threat is answered") })
+    }
+
+    // MARK: the history verb
+
+    private func aHistory() -> FakeGitHistory {
+        let git = FakeGitHistory(root: "/work")
+        git.add(
+            hash: "aaaaaaa1111",
+            date: Date(timeIntervalSince1970: 1_000_000),
+            files: ["threatmodel/payments.arch": payments]
+        )
+        git.add(
+            hash: "bbbbbbb2222",
+            date: Date(timeIntervalSince1970: 2_000_000),
+            files: ["threatmodel/payments.arch": payments]
+        )
+        return git
+    }
+
+    private func run(_ words: [String], history: GitHistoryGateway) -> (code: Int32, lines: [String]) {
+        var lines: [String] = []
+        let code = CommandLineApplication(
+            projects: project,
+            history: history,
+            catalogue: { CatalogueFixture.catalogue() }
+        )
+        .run(arguments: ["threatmodeller"] + words, output: { lines.append($0) })
+        return (code, lines)
+    }
+
+    @Test func historyPrintsOneRowPerSampledCommit() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run(["history", "/work"], history: aHistory())
+
+        #expect(result.code == 0)
+        #expect(result.lines.count == 2)
+        #expect(result.lines.allSatisfy { $0.contains("total ") })
+        #expect(result.lines.first?.contains("bbbbbbb") == true)
+    }
+
+    @Test func historyPrintsTheSameRowsTwice() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        let git = aHistory()
+
+        #expect(run(["history", "/work"], history: git).lines
+            == run(["history", "/work"], history: git).lines)
+    }
+
+    @Test func historyBoundsTheSampleAndSaysSo() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run(["history", "--commits", "1", "/work"], history: aHistory())
+
+        #expect(result.lines.count == 2)
+        #expect(result.lines.contains { $0.contains("the project holds more") })
+    }
+
+    @Test func historySaysSoForADirectoryThatIsNoRepository() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        let git = aHistory()
+        git.forget("/work")
+
+        let result = run(["history", "/work"], history: git)
+
+        #expect(result.code == 0)
+        #expect(result.lines.contains { $0.contains("is not a git repository") })
+    }
+
+    @Test func reportWritesTheRiskOverTimeSectionAndItsGraph() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        #expect(run(["report", "/work"], history: aHistory()).code == 0)
+
+        let report = try #require(try project.read(path: "/work/threatmodel/payments.md"))
+        #expect(report.contains("## Risk over time"))
+        #expect(report.contains("payments-risk-over-time.svg"))
+        let chart = try #require(
+            try project.read(path: "/work/threatmodel/payments-risk-over-time.svg")
+        )
+        #expect(chart.hasPrefix("<svg"))
+    }
+
+    @Test func reportWritesNoHistorySectionForAProjectWithNoHistory() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        let git = FakeGitHistory(root: "/work")
+
+        #expect(run(["report", "/work"], history: git).code == 0)
+
+        let report = try #require(try project.read(path: "/work/threatmodel/payments.md"))
+        #expect(report.contains("## Risk over time") == false)
+        #expect(report.contains("## What changed") == false)
     }
 
     // MARK: the policy file

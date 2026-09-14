@@ -45,6 +45,14 @@ public struct Report: Equatable, Sendable {
     /// The adversaries this assessment is written against, in the order the
     /// model faces them. Empty for a model that faces nobody.
     public let threatActors: [ReportThreatActor]
+    /// What the model scored at each sampled commit, newest first. Empty when
+    /// nobody asked for the history.
+    public let history: [RiskHistoryRow]
+    /// True when the bound left commits out.
+    public let historyTruncated: Bool
+    /// What changed between the previous sampled commit and the working tree,
+    /// or nil when there is nothing to compare.
+    public let change: RiskChange?
     /// The rules this project states for itself, and whether this system
     /// keeps them. Empty for a project with no policy file.
     public let policy: [ReportPolicyRule]
@@ -80,6 +88,9 @@ public struct Report: Equatable, Sendable {
         methodology: ReportMethodology = ReportMethodology(),
         actions: [ReportAction] = [],
         threatActors: [ReportThreatActor] = [],
+        history: [RiskHistoryRow] = [],
+        historyTruncated: Bool = false,
+        change: RiskChange? = nil,
         policy: [ReportPolicyRule] = [],
         acceptedRisks: [ReportAcceptedRisk] = [],
         attackTrees: [BoundAttackTree] = [],
@@ -107,6 +118,9 @@ public struct Report: Equatable, Sendable {
         self.methodology = methodology
         self.actions = actions
         self.threatActors = threatActors
+        self.history = history
+        self.historyTruncated = historyTruncated
+        self.change = change
         self.policy = policy
         self.acceptedRisks = acceptedRisks
         self.attackTrees = attackTrees

@@ -10,6 +10,7 @@ struct ProjectWindow: View {
 
     @State private var isShowingDiagnostics = false
     @State private var isShowingLibraries = false
+    @State private var isShowingHistory = false
     @State private var canvas = CanvasState()
     /// The stage of the work the window draws.
     @State private var stage: WorkStage = .architecture
@@ -60,6 +61,14 @@ struct ProjectWindow: View {
                 dismiss: { isShowingDiagnostics = false }
             )
         }
+        .sheet(isPresented: $isShowingHistory) {
+            if let root = session.root {
+                HistorySheet(
+                    session: HistorySession(useCases: session.useCases, root: root),
+                    dismiss: { isShowingHistory = false }
+                )
+            }
+        }
         .sheet(isPresented: $isShowingLibraries) {
             if let root = session.root {
                 LibrariesSheet(
@@ -106,6 +115,15 @@ struct ProjectWindow: View {
                     .padding(.leading, 16)
                     .accessibilityIdentifier("loading-bar")
                 }
+            }
+
+            ToolbarItem {
+                // Reading the history compiles the model once per sampled
+                // commit, so it is read when a person asks and never on open.
+                Button("History", systemImage: "chart.line.uptrend.xyaxis") {
+                    isShowingHistory = true
+                }
+                .accessibilityIdentifier("show-history")
             }
 
             ToolbarItem {
