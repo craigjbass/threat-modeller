@@ -1444,7 +1444,7 @@ entry" or "an unknown attribute".
 | architecture | `flow` | `a flow holds kind and description, not "<word>"` |
 | architecture | `mitigates` | `a mitigates edge holds threats, reduces_risk_by, status and recommendation, not "<word>"` |
 | architecture | `recommendation` (on a `mitigates` edge) | `a recommendation holds text, note, blocked_by and sources, not "<word>"` |
-| controls | `controls for` | `a controls file holds catalogue, tolerance, threat and stale threat, not "<word>"` |
+| controls | `controls for` | `a controls file holds catalogue, tolerance, threat, tree, stale threat and stale tree, not "<word>"` |
 | controls | `threat` | `a threat holds severity, score, likelihood, severity_override, control, compensating and recommendation, not "<word>"` |
 | controls | `likelihood` | `a likelihood holds tier, prior, rationale and sources, not "<word>"` |
 | controls | `severity_override` | `a severity_override holds rationale and sources, not "<word>"` |

@@ -6,17 +6,22 @@ public struct ControlsSource: Equatable, Sendable {
     /// compiler from the architecture file. Nil means low.
     public let riskTolerance: String?
     public let answers: [SourceThreatAnswer]
+    /// What the compiler found out about the trees a person wrote. The
+    /// application recomputes every number here, so an edit changes nothing.
+    public let trees: [SourceTreeAnswer]
 
     public init(
         systemName: String,
         catalogueTag: String? = nil,
         riskTolerance: String? = nil,
-        answers: [SourceThreatAnswer] = []
+        answers: [SourceThreatAnswer] = [],
+        trees: [SourceTreeAnswer] = []
     ) {
         self.systemName = systemName
         self.catalogueTag = catalogueTag
         self.riskTolerance = riskTolerance
         self.answers = answers
+        self.trees = trees
     }
 
     public func answer(for key: ThreatKey) -> SourceThreatAnswer? {
@@ -149,5 +154,56 @@ public struct ControlsRead: Equatable, Sendable {
 
     public var warnings: [Diagnostic] {
         diagnostics.filter { $0.severity == .warning }
+    }
+}
+
+/// One tree, as the compiler wrote it into the controls file.
+public struct SourceTreeAnswer: Equatable, Sendable {
+    public let treeId: String
+    /// The threat key the boost lands on, as `<threat>@<kind>:<id>`.
+    public let goalKey: String
+    /// The chain factor as a whole percentage.
+    public let chain: Int
+    public let raisesRiskBy: Int
+    public let score: Int
+    public let scoreBefore: Int
+    public let steps: [SourceTreeStepAnswer]
+    /// True when a step or the goal no longer binds. A person deletes a stale
+    /// tree, or restores what the tree names.
+    public let isStale: Bool
+
+    public init(
+        treeId: String,
+        goalKey: String = "",
+        chain: Int = 0,
+        raisesRiskBy: Int = 0,
+        score: Int = 0,
+        scoreBefore: Int = 0,
+        steps: [SourceTreeStepAnswer] = [],
+        isStale: Bool = false
+    ) {
+        self.treeId = treeId
+        self.goalKey = goalKey
+        self.chain = chain
+        self.raisesRiskBy = raisesRiskBy
+        self.score = score
+        self.scoreBefore = scoreBefore
+        self.steps = steps
+        self.isStale = isStale
+    }
+}
+
+public struct SourceTreeStepAnswer: Equatable, Sendable {
+    /// `<threat>@<kind>:<id>`.
+    public let key: String
+    /// `open`, `closed` or `unbound`. A live stanza never holds `unbound`.
+    public let state: String
+    /// The control that closed this step, or nil.
+    public let closedBy: String?
+
+    public init(key: String, state: String, closedBy: String? = nil) {
+        self.key = key
+        self.state = state
+        self.closedBy = closedBy
     }
 }

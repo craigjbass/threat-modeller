@@ -35,6 +35,7 @@ struct ControlsParser {
         var catalogueTag: String?
         var riskTolerance: String?
         var answers: [SourceThreatAnswer] = []
+        var trees: [SourceTreeAnswer] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -54,13 +55,19 @@ struct ControlsParser {
                 }
             case "stale":
                 advance()
-                if let answer = parseThreat(isStale: true) { answers.append(answer) }
+                if current.text == "tree" {
+                    if let tree = parseTree(isStale: true) { trees.append(tree) }
+                } else if let answer = parseThreat(isStale: true) {
+                    answers.append(answer)
+                }
             case "threat":
                 if let answer = parseThreat(isStale: false) { answers.append(answer) }
+            case "tree":
+                if let tree = parseTree(isStale: false) { trees.append(tree) }
             default:
                 record(
-                    "a controls file holds catalogue, tolerance, threat and stale threat, "
-                        + "not \"\(current.text)\""
+                    "a controls file holds catalogue, tolerance, threat, tree, stale threat "
+                        + "and stale tree, not \"\(current.text)\""
                 )
                 skipToNextBlock()
             }
@@ -76,8 +83,73 @@ struct ControlsParser {
             systemName: name.text,
             catalogueTag: catalogueTag,
             riskTolerance: riskTolerance,
-            answers: answers
+            answers: answers,
+            trees: trees
         )
+    }
+
+    /// A `tree` stanza, which the compiler writes and a person reads.
+    private mutating func parseTree(isStale: Bool) -> SourceTreeAnswer? {
+        guard expectKeyword("tree") else { return nil }
+        guard let id = expect(.string, "the tree's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var goalKey = ""
+        var chain = 0
+        var raisesRiskBy = 0
+        var score = 0
+        var scoreBefore = 0
+        var steps: [SourceTreeStepAnswer] = []
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "goal": goalKey = parseTextAttribute() ?? ""
+            case "chain": chain = parseNumberAttribute() ?? 0
+            case "raises_risk_by": raisesRiskBy = parseNumberAttribute() ?? 0
+            case "score": score = parseNumberAttribute() ?? 0
+            case "score_before": scoreBefore = parseNumberAttribute() ?? 0
+            case "step":
+                if let step = parseTreeStep() { steps.append(step) }
+            default:
+                record(
+                    "a tree holds goal, chain, raises_risk_by, score, score_before and step, "
+                        + "not \"\(current.text)\""
+                )
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        return SourceTreeAnswer(
+            treeId: id.text,
+            goalKey: goalKey,
+            chain: chain,
+            raisesRiskBy: raisesRiskBy,
+            score: score,
+            scoreBefore: scoreBefore,
+            steps: steps,
+            isStale: isStale
+        )
+    }
+
+    private mutating func parseTreeStep() -> SourceTreeStepAnswer? {
+        advance()
+        guard let key = expect(.string, "the step's threat key") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var state = "open"
+        var closedBy: String?
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "state": state = parseTextAttribute() ?? "open"
+            case "by": closedBy = parseTextAttribute()
+            default:
+                record("a step holds state and by, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+        return SourceTreeStepAnswer(key: key.text, state: state, closedBy: closedBy)
     }
 
     private mutating func parseThreat(isStale: Bool) -> SourceThreatAnswer? {

@@ -186,4 +186,128 @@ struct ControlsParserTests {
         #expect(source.answers[0].controls[0].status == .notImplemented)
         #expect(source.answers[0].isAnswered == false)
     }
+
+    // The compiler writes what it worked out about each tree into the controls
+    // file, so the file reads alone.
+
+    @Test func readsATreeStanza() throws {
+        let read = gateway.read("""
+        controls for "P" {
+          tree "read-every-customer-record" {
+            goal           = "data-exfiltration@component:db"
+            chain          = 100
+            raises_risk_by = 40
+            score          = 7
+            score_before   = 5
+
+            step "ssrf-attack@component:appserver" {
+              state = "open"
+            }
+
+            step "credential-theft@component:appserver" {
+              state = "closed"
+              by    = "Enforce IMDSv2 with a hop limit of 1"
+            }
+          }
+        }
+        """)
+
+        let tree = try #require(read.source?.trees.first)
+        #expect(read.diagnostics.isEmpty)
+        #expect(tree.treeId == "read-every-customer-record")
+        #expect(tree.goalKey == "data-exfiltration@component:db")
+        #expect(tree.chain == 100)
+        #expect(tree.raisesRiskBy == 40)
+        #expect(tree.score == 7)
+        #expect(tree.scoreBefore == 5)
+        #expect(tree.isStale == false)
+        #expect(tree.steps.map(\.state) == ["open", "closed"])
+        #expect(tree.steps[1].closedBy == "Enforce IMDSv2 with a hop limit of 1")
+    }
+
+    @Test func readsAStaleTreeStanza() throws {
+        let read = gateway.read("""
+        controls for "P" {
+          stale tree "t" {
+            step "a@component:gone" {
+              state = "unbound"
+            }
+          }
+        }
+        """)
+
+        let tree = try #require(read.source?.trees.first)
+        #expect(tree.isStale)
+        #expect(tree.steps[0].state == "unbound")
+    }
+
+    @Test func writesATreeStanzaBackWithNoDiff() throws {
+        let text = """
+        controls for "P" {
+          tree "t" {
+            goal           = "g@component:db"
+            chain          = 100
+            raises_risk_by = 40
+            score          = 7
+            score_before   = 5
+
+            step "a@component:api" {
+              state = "open"
+            }
+          }
+        }
+
+        """
+
+        let source = try #require(gateway.read(text).source)
+        #expect(gateway.write(source) == text)
+    }
+
+    @Test func writesALiveTreeBeforeAStaleOne() throws {
+        let source = ControlsSource(
+            systemName: "P",
+            trees: [
+                SourceTreeAnswer(treeId: "gone", steps: [], isStale: true),
+                SourceTreeAnswer(treeId: "here", goalKey: "g@component:db")
+            ]
+        )
+
+        let written = gateway.write(source)
+
+        let live = try #require(written.range(of: "tree \"here\""))
+        let stale = try #require(written.range(of: "stale tree \"gone\""))
+        #expect(live.lowerBound < stale.lowerBound)
+    }
+
+    @Test func refusesAWordATreeDoesNotHold() {
+        let read = gateway.read("""
+        controls for "P" {
+          tree "t" {
+            colour = "red"
+          }
+        }
+        """)
+
+        #expect(
+            read.diagnostics.map(\.message) == [
+                "a tree holds goal, chain, raises_risk_by, score, score_before and step, "
+                    + "not \"colour\""
+            ]
+        )
+    }
+
+    @Test func refusesAWordAStepDoesNotHold() {
+        let read = gateway.read("""
+        controls for "P" {
+          tree "t" {
+            step "a@component:api" {
+              colour = "red"
+            }
+          }
+        }
+        """)
+
+        #expect(read.diagnostics.map(\.message) == ["a step holds state and by, not \"colour\""])
+    }
+
 }

@@ -26,10 +26,58 @@ struct ControlsWriter {
             body.append("")
         }
 
+        for tree in source.trees.sorted(by: Self.treeOrder) {
+            body += treeBlock(tree)
+            body.append("")
+        }
+
         while body.last == "" { body.removeLast() }
         lines += indent(body)
         lines.append("}")
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// Live trees first, then stale ones; inside each group, by id.
+    static func treeOrder(_ left: SourceTreeAnswer, _ right: SourceTreeAnswer) -> Bool {
+        if left.isStale != right.isStale { return right.isStale }
+        return left.treeId < right.treeId
+    }
+
+    private func treeBlock(_ tree: SourceTreeAnswer) -> [String] {
+        let header = "tree \(quoted(tree.treeId)) {"
+        var lines: [String] = [tree.isStale ? "stale " + header : header]
+        var body: [String] = []
+
+        // A stale tree states no number: nothing recomputed them, and a number
+        // nobody can trust is worse than no number.
+        if tree.isStale == false {
+            body += aligned([
+                ("goal", quoted(tree.goalKey)),
+                ("chain", String(tree.chain)),
+                ("raises_risk_by", String(tree.raisesRiskBy)),
+                ("score", String(tree.score)),
+                ("score_before", String(tree.scoreBefore))
+            ])
+            body.append("")
+        }
+
+        for step in tree.steps {
+            var stepBody = [String]()
+            if let closedBy = step.closedBy {
+                stepBody = aligned([("state", quoted(step.state)), ("by", quoted(closedBy))])
+            } else {
+                stepBody = aligned([("state", quoted(step.state))])
+            }
+            body.append("step \(quoted(step.key)) {")
+            body += indent(stepBody)
+            body.append("}")
+            body.append("")
+        }
+
+        while body.last == "" { body.removeLast() }
+        lines += indent(body)
+        lines.append("}")
+        return lines
     }
 
     /// Live answers first, in the order component, flow, zone; stale answers
