@@ -48,6 +48,10 @@ struct ThreatSidebar: View {
 
     @State private var collapsed: Set<String> = []
 
+    /// The group at the top of the view. Reordering puts it back, so the
+    /// place a person was reading stays on screen.
+    @State private var topGroup: String?
+
     /// One group per source, each holding that source's threats. Groups are
     /// ordered by their worst threat, so the component needing most attention
     /// is at the top. `session.threats` is already worst first, so the first
@@ -71,6 +75,9 @@ struct ThreatSidebar: View {
 
     var body: some View {
         sidebar
+            // A stage is a different reading of one model, so entering one
+            // starts from the worst-first order.
+            .onChange(of: focus) { session.resortThreats() }
             .sheet(item: $compensating) { chosen in
                 CompensatingControlSheet(threat: chosen.threat, session: session)
             }
@@ -110,6 +117,7 @@ struct ThreatSidebar: View {
                         PathwayMitigationsPanel(session: session, isExpanded: pathwayExpanded)
                         Divider()
                         RiskSummaryView(summary: session.summary)
+                        reorderBar
                         Divider()
 
                         LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
@@ -156,9 +164,48 @@ struct ThreatSidebar: View {
                     .frame(maxWidth: 1000)
                     .frame(maxWidth: .infinity)
                 }
+                .scrollPosition(id: $topGroup, anchor: .top)
             }
         }
         .navigationTitle("Threats")
+    }
+
+    /// The Reorder button, beside the risk summary.
+    ///
+    /// The list holds its order while a person answers it, so an edit that
+    /// changes a score leaves the cards where they are and this button says
+    /// how many rows a sort would move.
+    @ViewBuilder
+    private var reorderBar: some View {
+        if session.rowsOutOfOrder > 0 {
+            HStack(spacing: 8) {
+                Button {
+                    // The group the person is reading stays on screen: the
+                    // sort moves the cards, and the view does not move with
+                    // them.
+                    let wasOnTop = topGroup
+                    withAnimation(.easeInOut(duration: 0.25)) { session.resortThreats() }
+                    topGroup = wasOnTop
+                } label: {
+                    Label("Reorder", systemImage: "arrow.up.arrow.down")
+                }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .accessibilityIdentifier("reorder-threats")
+
+                Text(rowsOutOfOrderSays)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private var rowsOutOfOrderSays: String {
+        session.rowsOutOfOrder == 1
+            ? "1 row is out of order"
+            : "\(session.rowsOutOfOrder) rows are out of order"
     }
 
     private func groupHeader(_ group: (id: String, name: String, threats: [AssessedThreat])) -> some View {

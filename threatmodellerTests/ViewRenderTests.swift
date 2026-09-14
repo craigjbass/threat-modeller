@@ -390,6 +390,36 @@ struct ViewRenderTests {
         #expect(hasContent(drawn.image), "the threat sidebar drew a blank rectangle")
     }
 
+    /// The list holds its order while a person answers it, so the sidebar
+    /// draws three states: in order, out of order with the Reorder button, and
+    /// in order again after Reorder.
+    @Test func drawsTheThreatSidebarBeforeAndAfterAReorder() async throws {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-ec2", x: 400, y: 0)
+
+        let inOrder = try #require(
+            hostedDrawing(of: ThreatSidebar(session: session), width: 400, height: 700)
+        )
+        #expect(hasContent(inOrder.image), "the threat sidebar drew a blank rectangle")
+        #expect(session.rowsOutOfOrder == 0)
+
+        let control = try #require(session.threats.first?.controls.first)
+        session.setControl(key: control.key, implemented: true)
+        #expect(session.rowsOutOfOrder > 0)
+        let outOfOrder = try #require(
+            hostedDrawing(of: ThreatSidebar(session: session), width: 400, height: 700)
+        )
+        #expect(hasContent(outOfOrder.image), "the sidebar with the Reorder button drew blank")
+
+        session.resortThreats()
+        let reordered = try #require(
+            hostedDrawing(of: ThreatSidebar(session: session), width: 400, height: 700)
+        )
+        #expect(hasContent(reordered.image), "the reordered sidebar drew blank")
+        #expect(session.rowsOutOfOrder == 0)
+    }
+
     @Test func drawsTheNodePanel() async throws {
         let session = aModel()
         let component = try #require(session.canvas.components.first)

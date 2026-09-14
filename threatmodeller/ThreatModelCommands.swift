@@ -115,6 +115,15 @@ struct ThreatModelCommands: Commands {
 
             Divider()
 
+            // The threat list holds its order while a person answers it. This
+            // is how a person puts it back to worst first without reaching
+            // for the sidebar.
+            Button("Reorder Threats") { session?.resortThreats() }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .disabled(session?.rowsOutOfOrder ?? 0 == 0)
+
+            Divider()
+
             Button("Select All") {
                 guard let session, let canvas else { return }
                 canvas.selectAll(componentIds: session.canvas.components.map(\.id), zoneIds: [])

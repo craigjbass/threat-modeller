@@ -23,7 +23,22 @@ final class ThreatModelSession {
         connections: [],
         zones: []
     )
+    /// The threats, in the order the list draws them.
+    ///
+    /// The order holds still while a person answers the register one card at a
+    /// time. `AssessThreatModel` answers worst first; this list keeps the
+    /// order it was last sorted into, so a card the person is working in does
+    /// not move out from under the pointer when its score changes.
     private(set) var threats: [AssessedThreat] = []
+    /// How many rows sit somewhere other than where a sort would put them.
+    /// Zero while the list is in order, which is when the Reorder button is
+    /// not shown.
+    private(set) var rowsOutOfOrder = 0
+    /// The row keys of the drawn list, so the next read keeps this order.
+    private var drawnOrder: [String] = []
+    /// True when the next read sorts rather than holds. It starts true, so a
+    /// model that has just loaded is worst first.
+    private var resortsOnNextRead = true
     /// The risk of every element on the diagram, by source id. The canvas
     /// paints from this, so the picture and the threat list never disagree.
     private(set) var elementRisks: [String: ElementRisk] = [:]
@@ -825,7 +840,51 @@ final class ThreatModelSession {
             errorMessage = "That example could not be opened: \(reason)"
         }
 
+        // A model that has just loaded is worst first.
+        resortThreats()
+    }
+
+    /// Sorts the list worst first and hides the Reorder button.
+    ///
+    /// The button calls this, and so does every event that is not an edit: a
+    /// model loading from disk, and the stage changing.
+    func resortThreats() {
+        resortsOnNextRead = true
         refresh()
+    }
+
+    /// The threats in the order the list already draws them.
+    ///
+    /// A threat the architecture newly raises enters at the place a sort would
+    /// put it, and a threat it no longer raises leaves. Nothing else moves.
+    static func held(_ assessed: [AssessedThreat], inOrderOf previous: [String]) -> [AssessedThreat] {
+        let byKey = Dictionary(
+            assessed.map { ($0.threatKey, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var drawn = previous.compactMap { byKey[$0] }
+        var known = Set(drawn.map(\.threatKey))
+
+        for (index, row) in assessed.enumerated() where known.contains(row.threatKey) == false {
+            let precedingDrawn = assessed.prefix(index)
+                .map(\.threatKey)
+                .last { known.contains($0) }
+            let place = precedingDrawn
+                .flatMap { key in drawn.firstIndex { $0.threatKey == key }.map { $0 + 1 } }
+                ?? 0
+            drawn.insert(row, at: place)
+            known.insert(row.threatKey)
+        }
+
+        return drawn
+    }
+
+    /// How many rows a sort would move.
+    static func rowsOutOfOrder(
+        drawn: [AssessedThreat],
+        sorted: [AssessedThreat]
+    ) -> Int {
+        zip(drawn, sorted).count { $0.threatKey != $1.threatKey }
     }
 
     private func clipboardText() -> String? {
@@ -839,7 +898,14 @@ final class ThreatModelSession {
         palette = useCases.listTechnologies().execute(ListTechnologiesRequest()).providers
         canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
         let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
-        threats = assessment.threats
+        if resortsOnNextRead {
+            threats = assessment.threats
+            resortsOnNextRead = false
+        } else {
+            threats = Self.held(assessment.threats, inOrderOf: drawnOrder)
+        }
+        rowsOutOfOrder = Self.rowsOutOfOrder(drawn: threats, sorted: assessment.threats)
+        drawnOrder = threats.map(\.threatKey)
         severityChoices = assessment.severities
         elementRisks = ElementRiskRollup.byElement(
             assessment.threats,
