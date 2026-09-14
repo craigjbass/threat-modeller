@@ -316,16 +316,25 @@ covered by a test ported from the original suite.
 - "Upstream" is strict: a component is not upstream of itself, so a component
   never mitigates its own threats.
 - The catalogue supplies each mitigation's id, label, the threat ids it
-  mitigates and the technology ids that provide it. It supplies no mode and no
-  percentage; those are the user's settings, stored on the model.
-- Defaults, which the catalogue does not state: the master toggle is **off**, and
-  each mitigation is enabled with mode `reduce` at 50 per cent. A model must not
+  mitigates, the technology ids that provide it, and the mode and percentage it
+  starts at. The user's settings, stored on the model, win over both.
+- The master toggle is **off** until the user turns it on. A model must not
   score lower than the catalogue says until the user states the mitigation is
   real on their system.
+- The application's own default, used only for what the catalogue leaves out:
+  mode `reduce` at 50 per cent. The vendored library states neither today.
 - Mode `remove`: the threat is dropped entirely.
 - Mode `reduce`: `max(1, floor(score − score × percent / 100))`. A reduced threat
   never reaches zero.
+- **Two mitigations answering one threat compound**: each acts on the risk the
+  one before it left, so the score is
+  `max(1, floor(score × (1 − p1/100) × (1 − p2/100) × …))`. Order does not
+  change the result. One mitigation in `remove` mode drops the threat. The rule
+  and a worked number are in `docs/LANGUAGE.md`.
 - Connection threats use the *source* component's upstream mitigations.
+- A zone threat reads the mitigations the components **inside that zone**
+  provide. A zone sits nowhere in the connection graph, so nothing is upstream
+  of it.
 
 **Connection encryption**
 

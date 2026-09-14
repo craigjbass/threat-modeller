@@ -46,6 +46,9 @@ struct LibraryWriter {
                 ("provided_by", "[" + mitigation.technologyIds.map(quoted).joined(separator: ", ") + "]")
             )
             attributes.append(("reduces_risk_by", String(mitigation.reducesRiskBy)))
+            if let mode = mitigation.mode {
+                attributes.append(("mode", quoted(mode)))
+            }
             body += indent(aligned(attributes))
             body.append("}")
             body.append("")

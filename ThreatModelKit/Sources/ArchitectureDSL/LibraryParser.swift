@@ -228,6 +228,7 @@ struct LibraryParser {
         var mitigates: [String] = []
         var providedBy: [String] = []
         var reducesRiskBy: Int?
+        var mode: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -241,10 +242,20 @@ struct LibraryParser {
                 if let percent = reducesRiskBy, percent < 0 || percent > 100 {
                     record("reduces_risk_by is \(percent); it runs from 0 to 100", at: token)
                 }
+            case "mode":
+                let token = current
+                mode = parseTextAttribute()
+                if let word = mode, PathwayMitigationMode(rawValue: word) == nil {
+                    record(
+                        "mode is \"\(word)\"; this application holds \"remove\" and \"reduce\"",
+                        at: token
+                    )
+                    mode = nil
+                }
             default:
                 record(
-                    "a mitigation holds name, description, mitigates, provided_by and "
-                        + "reduces_risk_by, not \"\(current.text)\""
+                    "a mitigation holds name, description, mitigates, provided_by, "
+                        + "reduces_risk_by and mode, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -269,7 +280,8 @@ struct LibraryParser {
             description: description,
             mitigatesThreatIds: mitigates,
             technologyIds: providedBy,
-            reducesRiskBy: reducesRiskBy ?? 0
+            reducesRiskBy: reducesRiskBy ?? 0,
+            mode: mode
         )
     }
 

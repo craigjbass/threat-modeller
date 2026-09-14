@@ -98,6 +98,10 @@ public struct SourceLibraryMitigation: Equatable, Sendable {
     public let mitigatesThreatIds: [String]
     public let technologyIds: [String]
     public let reducesRiskBy: Int
+    /// What the mitigation does to a threat it answers: `remove` or `reduce`.
+    /// Nil when the file states none, and the application's own default mode
+    /// stands.
+    public let mode: String?
 
     public init(
         id: String,
@@ -105,7 +109,8 @@ public struct SourceLibraryMitigation: Equatable, Sendable {
         description: String = "",
         mitigatesThreatIds: [String] = [],
         technologyIds: [String] = [],
-        reducesRiskBy: Int = 0
+        reducesRiskBy: Int = 0,
+        mode: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -113,6 +118,7 @@ public struct SourceLibraryMitigation: Equatable, Sendable {
         self.mitigatesThreatIds = mitigatesThreatIds
         self.technologyIds = technologyIds
         self.reducesRiskBy = reducesRiskBy
+        self.mode = mode
     }
 }
 

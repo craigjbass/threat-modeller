@@ -902,9 +902,9 @@ struct AssessThreatModelTests {
         #expect(flood.scoreBeforePathwayMitigation == 2)
     }
 
-    @Test func neverMitigatesAZoneThreat() {
-        // A zone sits nowhere in the connection graph, so nothing is upstream
-        // of it.
+    @Test func leavesAZoneThreatNoMitigationInTheZoneAnswers() {
+        // The fixture's waf-protection answers credential-theft, which is not
+        // a zone threat, so the zone's own threats stand.
         let response = assess(
             ThreatModel(
                 components: [waf(), ec2(id: "c1")],

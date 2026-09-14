@@ -16,10 +16,14 @@ public struct PathwayMitigationDefinition: Equatable, Sendable {
     public let mitigatesThreatIds: [ThreatId]
     /// The technologies that provide this mitigation.
     public let technologyIds: [TechnologyId]
-    /// The percentage a library states this mitigation reduces risk by, or nil
-    /// when the catalogue states none. The user's settings start from this
+    /// The percentage the catalogue states this mitigation reduces risk by, or
+    /// nil when the catalogue states none. The user's settings start from this
     /// value until the user sets their own.
     public let reducesRiskBy: Int?
+    /// What the catalogue states this mitigation does to a threat it answers,
+    /// or nil when the catalogue states nothing. The user's settings start
+    /// from this mode until the user sets their own.
+    public let defaultMode: PathwayMitigationMode?
 
     public init(
         id: PathwayMitigationId,
@@ -27,7 +31,8 @@ public struct PathwayMitigationDefinition: Equatable, Sendable {
         description: String,
         mitigatesThreatIds: [ThreatId],
         technologyIds: [TechnologyId],
-        reducesRiskBy: Int? = nil
+        reducesRiskBy: Int? = nil,
+        defaultMode: PathwayMitigationMode? = nil
     ) {
         self.id = id
         self.label = label
@@ -35,6 +40,7 @@ public struct PathwayMitigationDefinition: Equatable, Sendable {
         self.mitigatesThreatIds = mitigatesThreatIds
         self.technologyIds = technologyIds
         self.reducesRiskBy = reducesRiskBy
+        self.defaultMode = defaultMode
     }
 
     public func mitigates(_ threatId: ThreatId) -> Bool {

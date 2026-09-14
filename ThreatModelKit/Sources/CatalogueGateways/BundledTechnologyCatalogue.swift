@@ -207,7 +207,9 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
                 label: $0.label,
                 description: $0.description,
                 mitigatesThreatIds: $0.mitigatesThreatIds.map(ThreatId.init),
-                technologyIds: $0.technologyIds.map(TechnologyId.init)
+                technologyIds: $0.technologyIds.map(TechnologyId.init),
+                reducesRiskBy: $0.reducesRiskBy,
+                defaultMode: $0.mode.flatMap(PathwayMitigationMode.init(rawValue:))
             )
         }
     }

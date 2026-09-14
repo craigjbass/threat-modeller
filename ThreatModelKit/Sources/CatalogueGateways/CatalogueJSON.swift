@@ -82,6 +82,11 @@ struct PathwayMitigationJSON: Decodable {
     let description: String
     let mitigatesThreatIds: [String]
     let technologyIds: [String]
+    /// What the catalogue states this mitigation does to a threat it answers,
+    /// and the percentage it lowers a score by. Both are absent from the
+    /// vendored library today, and the application's own defaults stand.
+    let mode: String?
+    let reducesRiskBy: Int?
 }
 
 struct LockFileJSON: Decodable {

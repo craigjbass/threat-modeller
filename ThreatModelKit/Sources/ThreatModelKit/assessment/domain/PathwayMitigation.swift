@@ -35,6 +35,8 @@ public struct PathwayMitigationConfig: Equatable, Sendable {
 /// catalogue says until the user states the mitigation is real on their
 /// system. A mitigation the user has never touched takes `defaultConfig`.
 public struct PathwayMitigationSettings: Equatable, Sendable {
+    /// What a mitigation takes when neither the user nor the catalogue states
+    /// a mode or a percentage. The vendored library states neither today.
     public static let defaultConfig = PathwayMitigationConfig(
         isEnabled: true,
         mode: .reduce,
@@ -56,16 +58,17 @@ public struct PathwayMitigationSettings: Equatable, Sendable {
         configs[id] ?? Self.defaultConfig
     }
 
-    /// The configuration for one definition. A definition nobody has
-    /// configured yet starts from the percentage the library states, or from
-    /// `defaultConfig` when the library states none.
+    /// The configuration for one definition.
+    ///
+    /// The user's own settings win. A definition the user has never touched
+    /// takes the mode and the percentage the catalogue states for it, and
+    /// takes `defaultConfig` only for what the catalogue leaves out.
     public func config(for definition: PathwayMitigationDefinition) -> PathwayMitigationConfig {
         if let config = configs[definition.id] { return config }
-        guard let reducesRiskBy = definition.reducesRiskBy else { return Self.defaultConfig }
         return PathwayMitigationConfig(
             isEnabled: Self.defaultConfig.isEnabled,
-            mode: Self.defaultConfig.mode,
-            reductionPercent: reducesRiskBy
+            mode: definition.defaultMode ?? Self.defaultConfig.mode,
+            reductionPercent: definition.reducesRiskBy ?? Self.defaultConfig.reductionPercent
         )
     }
 }
@@ -87,12 +90,29 @@ public enum PathwayMitigation {
         mode: PathwayMitigationMode,
         percent: Int
     ) -> PathwayMitigationOutcome {
-        switch mode {
-        case .remove:
-            return .removed
-        case .reduce:
-            let reduced = Double(score) - Double(score) * Double(percent) / 100
-            return .reduced(to: max(1, Int(reduced.rounded(.down))))
+        combined(score: score, by: [(mode: mode, percent: percent)])
+    }
+
+    /// What two or more mitigations answering one threat do to a score.
+    ///
+    /// The mitigations compound: each one acts on the risk the one before it
+    /// left, which is `score × (1 − p1/100) × (1 − p2/100) × …`, floored, and
+    /// never below 1. One mitigation in `remove` mode drops the threat, so the
+    /// other modes do not matter.
+    ///
+    /// Multiplication does not care about order, and the floor runs once at
+    /// the end, so the same set of mitigations always gives the same score.
+    public static func combined(
+        score: Int,
+        by mitigations: [(mode: PathwayMitigationMode, percent: Int)]
+    ) -> PathwayMitigationOutcome {
+        guard mitigations.isEmpty == false else { return .unchanged }
+        if mitigations.contains(where: { $0.mode == .remove }) { return .removed }
+
+        var remaining = Double(score)
+        for mitigation in mitigations {
+            remaining -= remaining * Double(mitigation.percent) / 100
         }
+        return .reduced(to: max(1, Int(remaining.rounded(.down))))
     }
 }

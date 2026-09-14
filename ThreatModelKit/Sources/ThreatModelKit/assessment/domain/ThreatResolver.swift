@@ -394,7 +394,22 @@ public struct ThreatResolver {
                 let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard zoned.value > 0 else { continue }
                 let controls = sharedControls(for: threat, keyedBy: ControlIdentity.zoneControl)
-                let score = RiskScore(value: ControlCoverage.apply(to: zoned.value, controls: controls))
+                let covered = ControlCoverage.apply(to: zoned.value, controls: controls)
+                // A zone sits nowhere in the connection graph, so nothing is
+                // upstream of it. The mitigations a zone threat reads are the
+                // ones the components inside that zone provide: a firewall in
+                // the zone answers the threats about moving inside it.
+                let inZone = Set(
+                    model.components
+                        .filter { zonesByComponent[$0.id]?.id == zone.id }
+                        .map(\.technologyId)
+                )
+                guard let mitigation = mitigated(
+                    threat: threat,
+                    score: covered,
+                    providedBy: inZone
+                ) else { continue }
+                let score = RiskScore(value: mitigation.score)
 
                 raise(
                     ResolvedThreat(
@@ -408,10 +423,8 @@ public struct ThreatResolver {
                         isTlsMitigated: false,
                         overrideKey: overrideKey,
                         overriddenSeverityId: chosen.overriddenId,
-                        // A zone sits nowhere in the connection graph, so
-                        // nothing is upstream of it and nothing mitigates it.
-                        mitigatedBy: [],
-                        scoreBeforePathwayMitigation: score.value,
+                        mitigatedBy: mitigation.by,
+                        scoreBeforePathwayMitigation: covered,
                         scoreBeforeControls: zoned.value,
                         severityDecision: chosen.decision
                     )
@@ -564,40 +577,48 @@ public struct ThreatResolver {
         graph: UpstreamGraph,
         technologyById: [ComponentId: TechnologyId]
     ) -> (score: Int, by: [PathwayMitigationDefinition])? {
+        mitigated(
+            threat: threat,
+            score: score,
+            providedBy: Set(graph.upstream(of: component).compactMap { technologyById[$0] })
+        )
+    }
+
+    /// What the mitigations a set of technologies provides do to one threat's
+    /// score, or nil when the threat is removed.
+    ///
+    /// Spec section 5.3: two mitigations answering one threat compound, so
+    /// each acts on the risk the one before it left.
+    private func mitigated(
+        threat: Threat,
+        score: Int,
+        providedBy technologies: Set<TechnologyId>
+    ) -> (score: Int, by: [PathwayMitigationDefinition])? {
         let settings = model.pathwayMitigations
         guard settings.isMasterEnabled else { return (score, []) }
+        guard technologies.isEmpty == false else { return (score, []) }
 
-        let upstreamTechnologies = Set(
-            graph.upstream(of: component).compactMap { technologyById[$0] }
-        )
-        guard upstreamTechnologies.isEmpty == false else { return (score, []) }
-
-        var lowest = score
         var applied: [PathwayMitigationDefinition] = []
+        var acting: [(mode: PathwayMitigationMode, percent: Int)] = []
 
         for definition in catalogue.pathwayMitigations() {
             let config = settings.config(for: definition)
             guard config.isEnabled,
                   definition.mitigates(threat.id),
-                  upstreamTechnologies.contains(where: definition.isProvidedBy) else { continue }
+                  technologies.contains(where: definition.isProvidedBy) else { continue }
 
             applied.append(definition)
-
-            switch PathwayMitigation.outcome(
-                score: score,
-                mode: config.mode,
-                percent: config.reductionPercent
-            ) {
-            case .removed:
-                return nil
-            case .reduced(let to):
-                lowest = min(lowest, to)
-            case .unchanged:
-                break
-            }
+            acting.append((mode: config.mode, percent: config.reductionPercent))
         }
 
-        return (lowest, applied)
+        switch PathwayMitigation.combined(score: score, by: acting) {
+        case .removed:
+            return nil
+        case .reduced(let to):
+            return (to, applied)
+        case .unchanged:
+            return (score, applied)
+        }
     }
 
     private func componentControls(

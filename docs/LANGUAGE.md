@@ -1123,7 +1123,8 @@ MitigationAttr  = "name"            "=" String
                 | "description"     "=" String
                 | "mitigates"       "=" StringList
                 | "provided_by"     "=" StringList
-                | "reduces_risk_by" "=" Number ;
+                | "reduces_risk_by" "=" Number
+                | "mode"            "=" String ;
 ```
 
 `TechnologyBlock` is the block section 4.5's `.arch` file holds, read by the
@@ -1163,6 +1164,7 @@ read.
 | | | `mitigates` | a list of threat ids | **required** |
 | | | `provided_by` | a list of technology ids | **required** |
 | | | `reduces_risk_by` | number, 0 to 100 | `0` |
+| | | `mode` | `remove`, `reduce` | `reduce` |
 
 `connection = true` makes the threat one a link between two components raises.
 `zone = true` makes it one a network zone raises. `applies_to` narrows a
@@ -1197,11 +1199,46 @@ number runs from 0 to 100`.
 
 A `mitigation` block declares a pathway mitigation: a control a technology
 provides that lowers named threats. `reduces_risk_by` is the percentage the
-mitigation starts at; a project's settings may change it. A block with no
+mitigation starts at and `mode` is what it does to a threat it answers;
+a project's settings may change either. A block with no
 `name` is the error `the mitigation "<id>" has no name`. A block with no
 `mitigates` is the error `the mitigation "<id>" names no threats`. A block
 with no `provided_by` is the error `the mitigation "<id>" names no
-technologies`.
+technologies`. A `mode` outside the two words is the error `mode is "<word>";
+this application holds "remove" and "reduce"`.
+
+The library states the mode and the percentage; the application states neither.
+A mitigation whose block leaves one out takes the application's own default for
+that one alone: mode `reduce` at 50 per cent.
+
+**Two mitigations answering one threat compound.** Each one acts on the risk
+the one before it left, so two mitigations always lower a score further than
+the stronger of the two alone:
+
+```
+score = score × (1 − p1/100) × (1 − p2/100) × …
+```
+
+The result is floored, and never falls below 1: a control that lowers a risk
+has not removed it. One mitigation in `remove` mode drops the threat, whatever
+the others say. Multiplication does not care about order, and the floor runs
+once at the end, so the same set of mitigations always gives the same score.
+
+Worked number. Credential theft is critical (4) on confidential data (3), so
+it scores 12. A WAF reduces it by 50 per cent and secret rotation reduces it by
+25 per cent:
+
+```
+12 × (1 − 50/100) = 6
+ 6 × (1 − 25/100) = 4.5
+floor(4.5)        = 4
+```
+
+The threat scores 4. The stronger mitigation alone would leave 6.
+
+A zone threat reads the mitigations the components **inside that zone**
+provide. A zone sits nowhere in the connection graph, so nothing is upstream of
+it; a firewall in the zone answers the threats about moving inside it.
 
 A `control` is a statement with a label and no body, because a library states
 what a control is and a `.controls` file states its status. Its key is minted
@@ -1328,7 +1365,7 @@ entry" or "an unknown attribute".
 | library | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | library | `threat` | `a threat holds name, description, severity, stride, connection, zone, zone_context, mitre, control, applies_to, boundary, runs_as, pathway and likelihood, not "<word>"` |
 | library | `mitre` | `a mitre technique holds name and tactic, not "<word>"` |
-| library | `mitigation` | `a mitigation holds name, description, mitigates, provided_by and reduces_risk_by, not "<word>"` |
+| library | `mitigation` | `a mitigation holds name, description, mitigates, provided_by, reduces_risk_by and mode, not "<word>"` |
 
 ## 8. Canonical form
 
@@ -1595,7 +1632,8 @@ MitigationAttr  = "name"            "=" String
                 | "description"     "=" String
                 | "mitigates"       "=" StringList
                 | "provided_by"     "=" StringList
-                | "reduces_risk_by" "=" Number ;
+                | "reduces_risk_by" "=" Number
+                | "mode"            "=" String ;
 ```
 
 ## 11. Where the code is

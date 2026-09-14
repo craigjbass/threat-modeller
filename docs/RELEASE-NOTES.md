@@ -1,0 +1,48 @@
+# Release notes
+
+What changed in the application, newest first. A change that moves a score
+states the numbers it moved, measured on one model before the change and after
+it.
+
+## Unreleased
+
+### Two pathway mitigations answering one threat now compound
+
+Before this change, two mitigations answering one threat gave the **stronger**
+of the two: each one was worked out from the original score and the lowest
+answer won. Now each mitigation acts on the risk the one before it left, so the
+score is `max(1, floor(score × (1 − p1/100) × (1 − p2/100) × …))`.
+`docs/LANGUAGE.md` states the rule with a worked number.
+
+### A zone threat reads the mitigations inside that zone
+
+Before this change, a zone threat was never pathway-mitigated: a zone sits
+nowhere in the connection graph, so nothing was upstream of it. Now a zone
+threat reads the mitigations the components **inside that zone** provide, so a
+firewall in the zone answers the threats about moving inside it.
+
+### A mitigation's default mode and percentage come from the catalogue
+
+The catalogue and a `.lib` file now state `mode` and `reduces_risk_by` for each
+mitigation, and the user's own settings win over both. The application's own
+default — mode `reduce` at 50 per cent — is used only for what the catalogue
+leaves out. The vendored library states neither today, so the application's
+default still stands for every vendored mitigation.
+
+### What the three changes did to a score
+
+Measured on one model: CloudFront → API Gateway → EC2, with a network firewall
+in a private zone, the master pathway toggle **on**, and every mitigation at
+its default of `reduce` 50 per cent. The model raises 41 threats.
+
+| Threat | Source | Before | After |
+|---|---|---|---|
+| `dos-attack` | the EC2 instance, answered by DDoS Protection and Rate Limiting | 4 → 2 | 4 → 1 |
+| `lateral-movement` | the private zone, answered by Network Firewall | 5 → 5 | 5 → 2 |
+| the other 39 threats | — | unchanged | unchanged |
+
+The total of every score fell from 246 to 239.
+
+With the master pathway toggle **off** nothing changes at all, and all three
+bundled samples keep the toggle off, so every sample scores exactly what it
+scored before.

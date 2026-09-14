@@ -159,7 +159,8 @@ public extension Library {
                 technologyIds: mitigation.technologyIds.map {
                     TechnologyId(declaredTechnologies.contains($0) ? prefixed($0) : $0)
                 },
-                reducesRiskBy: mitigation.reducesRiskBy
+                reducesRiskBy: mitigation.reducesRiskBy,
+                defaultMode: mitigation.mode.flatMap(PathwayMitigationMode.init(rawValue:))
             )
         }
 
