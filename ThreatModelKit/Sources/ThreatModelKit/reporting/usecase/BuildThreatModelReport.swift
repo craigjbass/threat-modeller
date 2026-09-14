@@ -90,7 +90,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         label: $0.label,
                         reducesRiskBy: $0.reducesRiskBy,
                         rationale: $0.rationale,
-                        sources: $0.sources
+                        sources: $0.sources,
+                        evidence: $0.proof.isEmpty ? nil : $0.proof.says
                     )
                 } ?? [],
                 // The assessment names STRIDE by id. A report is read
@@ -338,7 +339,16 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 ReportControl(
                     description: $0.description,
                     isImplemented: $0.isImplemented,
-                    statusLabel: $0.statusLabel
+                    statusLabel: $0.statusLabel,
+                    // Only an implemented control states evidence: a control
+                    // nobody has put in place has nothing to prove.
+                    evidence: $0.isImplemented
+                        ? ControlProof(
+                            evidence: $0.evidenceId.flatMap(ControlEvidence.init(rawValue:)),
+                            reference: $0.evidenceReference ?? "",
+                            verifiedOn: $0.verifiedOn.flatMap { try? GovernanceDate.read($0).get() }
+                        ).says
+                        : nil
                 )
             },
             pathwayMitigationLabels: assessed.pathwayMitigationLabels,

@@ -93,6 +93,11 @@ public struct AssessedControl: Hashable, Sendable {
     public let reviewBy: String?
     /// True when that date has passed.
     public let isReviewOverdue: Bool
+    /// The evidence tier the file states for this control, or nil.
+    public let evidenceId: String?
+    /// Where the proof is, and when somebody last checked.
+    public let evidenceReference: String?
+    public let verifiedOn: String?
 
     public init(
         description: String,
@@ -103,7 +108,10 @@ public struct AssessedControl: Hashable, Sendable {
         statusLabel: String? = nil,
         acceptedBy: String? = nil,
         reviewBy: String? = nil,
-        isReviewOverdue: Bool = false
+        isReviewOverdue: Bool = false,
+        evidenceId: String? = nil,
+        evidenceReference: String? = nil,
+        verifiedOn: String? = nil
     ) {
         self.description = description
         self.isTechnologySpecific = isTechnologySpecific
@@ -112,6 +120,9 @@ public struct AssessedControl: Hashable, Sendable {
         self.acceptedBy = acceptedBy
         self.reviewBy = reviewBy
         self.isReviewOverdue = isReviewOverdue
+        self.evidenceId = evidenceId
+        self.evidenceReference = evidenceReference
+        self.verifiedOn = verifiedOn
         let status = statusId.flatMap(ControlStatus.init(rawValue:))
             ?? (isImplemented ? ControlStatus.implemented : .notImplemented)
         self.statusId = status.rawValue
@@ -373,7 +384,11 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                             statusId: control.status.rawValue,
                             acceptedBy: accepted?.owner.isEmpty == false ? accepted?.owner : nil,
                             reviewBy: accepted?.reviewBy?.description,
-                            isReviewOverdue: accepted?.isOverdue(on: today) ?? false
+                            isReviewOverdue: accepted?.isOverdue(on: today) ?? false,
+                            evidenceId: model.controlProofs[control.key]?.evidence?.rawValue,
+                            evidenceReference: model.controlProofs[control.key].map(\.reference)
+                                .flatMap { $0.isEmpty ? nil : $0 },
+                            verifiedOn: model.controlProofs[control.key]?.verifiedOn?.description
                         )
                     },
                     source: Self.source(threat.source),

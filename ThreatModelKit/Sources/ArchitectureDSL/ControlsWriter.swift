@@ -140,6 +140,7 @@ struct ControlsWriter {
             if let note = control.note, note.isEmpty == false {
                 inner.append(("note", quoted(note)))
             }
+            inner += Self.proofAttributes(control.proof, quoted: quoted)
             body += indent(aligned(inner))
             body.append("}")
         }
@@ -167,6 +168,7 @@ struct ControlsWriter {
                     ("sources", "[" + compensating.sources.map(quoted).joined(separator: ", ") + "]")
                 )
             }
+            inner += Self.proofAttributes(compensating.proof, quoted: quoted)
             body += indent(aligned(inner))
             body.append("}")
         }
@@ -192,6 +194,25 @@ struct ControlsWriter {
         lines += indent(body)
         lines.append("}")
         return lines
+    }
+
+    /// What proves a control is in place, when it states anything. A control
+    /// that states none of the three writes none of them.
+    static func proofAttributes(
+        _ proof: ControlProof,
+        quoted: (String) -> String
+    ) -> [(String, String)] {
+        var attributes: [(String, String)] = []
+        if let evidence = proof.evidence {
+            attributes.append(("evidence", quoted(evidence.rawValue)))
+        }
+        if proof.reference.isEmpty == false {
+            attributes.append(("reference", quoted(proof.reference)))
+        }
+        if let verifiedOn = proof.verifiedOn {
+            attributes.append(("verified_on", quoted(verifiedOn.description)))
+        }
+        return attributes
     }
 
     private func aligned(_ attributes: [(String, String)]) -> [String] {

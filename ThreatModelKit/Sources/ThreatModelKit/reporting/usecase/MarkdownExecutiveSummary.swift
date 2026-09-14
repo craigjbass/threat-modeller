@@ -49,6 +49,14 @@ public enum MarkdownExecutiveSummary {
             lines.append("")
         }
 
+        if summary.unevidencedControls > 0 {
+            lines.append(
+                "\(summary.unevidencedControls) of \(summary.implementedControls) implemented "
+                    + "controls state no evidence."
+            )
+            lines.append("")
+        }
+
         if summary.topLeverageActions.isEmpty == false {
             lines.append("**Do first**")
             lines.append("")

@@ -120,7 +120,7 @@ struct ModellingAnEndpointTests {
             CompileControlsRequest(architectureText: architecture, controlsText: controls)
         )
 
-        guard case .compiled(let text, _, _, let stale, _, _) = response else {
+        guard case .compiled(let text, _, _, let stale, _, _, _) = response else {
             Issue.record("the compile refused the files: \(response)")
             return
         }

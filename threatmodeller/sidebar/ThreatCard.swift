@@ -46,6 +46,7 @@ struct ThreatCard: View {
                     ForEach(threat.controls, id: \.key) { control in
                         VStack(alignment: .leading, spacing: 2) {
                             controlRow(control)
+                            evidence(control)
                             governance(control)
                         }
                     }
@@ -85,6 +86,30 @@ struct ThreatCard: View {
             .font(.caption2)
             .foregroundStyle(.secondary)
             .accessibilityIdentifier("governance-\(control.key)")
+        }
+    }
+
+    /// What proves an implemented control is in place. Read only: the
+    /// `.controls` file states it, and a person edits that file.
+    @ViewBuilder
+    private func evidence(_ control: AssessedControl) -> some View {
+        if control.isImplemented {
+            HStack(spacing: 4) {
+                if let tier = control.evidenceId {
+                    Text("Evidence: \(tier)")
+                    if let reference = control.evidenceReference {
+                        Text("· \(reference)")
+                    }
+                    if let verifiedOn = control.verifiedOn {
+                        Text("· verified \(verifiedOn)")
+                    }
+                } else {
+                    Text("No evidence")
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("evidence-\(control.key)")
         }
     }
 

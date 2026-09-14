@@ -38,6 +38,11 @@ struct ArchitectureWriter {
             body.append("")
         }
 
+        if let requiresEvidenceAbove = source.requiresEvidenceAbove {
+            body += aligned([("requires_evidence_above", quoted(requiresEvidenceAbove))])
+            body.append("")
+        }
+
         if source.faces.isEmpty == false {
             body += aligned([("faces", "[" + source.faces.map(quoted).joined(separator: ", ") + "]")])
             body.append("")

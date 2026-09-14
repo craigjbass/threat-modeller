@@ -314,14 +314,7 @@ public struct CommandLineApplication {
                     attackTreeText: treeText(of: system)
                 )
             )
-            guard case .compiled(
-                let text,
-                let answered,
-                let unanswered,
-                let stale,
-                let staleTrees,
-                let warnings
-            ) = response else {
+            guard case .compiled(let text, let answered, let unanswered, let stale, let staleTrees, _, let warnings) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
                     output(Self.said(diagnostic, in: system.architecturePath, as: machineOutput))

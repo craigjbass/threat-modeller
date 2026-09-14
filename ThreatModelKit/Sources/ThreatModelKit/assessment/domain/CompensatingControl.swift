@@ -9,12 +9,21 @@ public struct CompensatingControl: Equatable, Sendable {
     public let rationale: String
     /// Where the rationale comes from. Empty when a person names none.
     public let sources: [String]
+    /// What proves the compensating control is in place.
+    public let proof: ControlProof
 
-    public init(label: String, reducesRiskBy: Int, rationale: String, sources: [String] = []) {
+    public init(
+        label: String,
+        reducesRiskBy: Int,
+        rationale: String,
+        sources: [String] = [],
+        proof: ControlProof = ControlProof()
+    ) {
         self.label = label
         self.reducesRiskBy = reducesRiskBy
         self.rationale = rationale
         self.sources = sources
+        self.proof = proof
     }
 }
 

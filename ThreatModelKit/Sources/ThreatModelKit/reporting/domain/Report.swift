@@ -188,6 +188,10 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     /// How many accepted risks are past the date their owner set to read them
     /// again. A risk nobody has read again is a decision nobody has checked.
     public let acceptedRisksOverdue: Int
+    /// How many implemented controls state no evidence, and how many are
+    /// implemented at all. A reader who reads one page should see both.
+    public let unevidencedControls: Int
+    public let implementedControls: Int
 
     public init(
         verdict: String = "",
@@ -198,7 +202,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         totalThreats: Int = 0,
         topLeverageActions: [ReportAction] = [],
         topRisksWithNoAction: Set<String> = [],
-        acceptedRisksOverdue: Int = 0
+        acceptedRisksOverdue: Int = 0,
+        unevidencedControls: Int = 0,
+        implementedControls: Int = 0
     ) {
         self.verdict = verdict
         self.toleranceLabel = toleranceLabel
@@ -209,6 +215,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         self.totalThreats = totalThreats
         self.topRisksWithNoAction = topRisksWithNoAction
         self.acceptedRisksOverdue = acceptedRisksOverdue
+        self.unevidencedControls = unevidencedControls
+        self.implementedControls = implementedControls
     }
 
     /// How many of each the summary names.
@@ -225,6 +233,17 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         actions: [ReportAction] = [],
         acceptedRisks: [ReportAcceptedRisk] = []
     ) -> ReportExecutiveSummary {
+        // Counted once per distinct control key the way `SummariseRisk`
+        // counts, so a control shared across links is one control.
+        var seen: Set<String> = []
+        var implemented: [ReportControl] = []
+        for threat in threats {
+            for control in threat.controls
+            where control.isImplemented && seen.insert(control.description).inserted {
+                implemented.append(control)
+            }
+        }
+
         let above = findings.above.count + findings.notShown
         let word = tolerance.label.lowercased()
 
@@ -268,7 +287,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
                     .map { ReportRecommendation.key(threatId: $0.threatId, sourceId: $0.sourceId) }
                     .filter { answered.contains($0) == false }
             ),
-            acceptedRisksOverdue: acceptedRisks.filter(\.isOverdue).count
+            acceptedRisksOverdue: acceptedRisks.filter(\.isOverdue).count,
+            unevidencedControls: implemented.filter { $0.evidence == "no evidence" }.count,
+            implementedControls: implemented.count
         )
     }
 
@@ -657,11 +678,21 @@ public struct ReportControl: Equatable, Sendable {
     /// What the user said about it: Implemented, Not implemented, Not
     /// applicable or Accepted.
     public let statusLabel: String
+    /// What proves the control is in place: the tier, the reference and the
+    /// date, or `no evidence`. Nil for a control nobody has implemented,
+    /// which has nothing to prove.
+    public let evidence: String?
 
-    public init(description: String, isImplemented: Bool, statusLabel: String? = nil) {
+    public init(
+        description: String,
+        isImplemented: Bool,
+        statusLabel: String? = nil,
+        evidence: String? = nil
+    ) {
         self.description = description
         self.isImplemented = isImplemented
         self.statusLabel = statusLabel ?? (isImplemented ? "Implemented" : "Not implemented")
+        self.evidence = evidence
     }
 }
 
@@ -672,12 +703,21 @@ public struct ReportCompensatingControl: Equatable, Sendable {
     public let rationale: String
     /// Where the rationale comes from. Empty when a person names none.
     public let sources: [String]
+    /// What proves it is in place, or nil when the file states nothing.
+    public let evidence: String?
 
-    public init(label: String, reducesRiskBy: Int, rationale: String, sources: [String] = []) {
+    public init(
+        label: String,
+        reducesRiskBy: Int,
+        rationale: String,
+        sources: [String] = [],
+        evidence: String? = nil
+    ) {
         self.label = label
         self.reducesRiskBy = reducesRiskBy
         self.rationale = rationale
         self.sources = sources
+        self.evidence = evidence
     }
 }
 

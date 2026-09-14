@@ -1,3 +1,5 @@
+import Foundation
+
 public protocol CheckControlAnswersUseCase {
     func execute(_ request: CheckControlAnswersRequest) -> CheckControlAnswersResponse
 }
@@ -101,7 +103,15 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             )
         )
 
-        guard case .compiled(let text, _, _, _, _, let compileWarnings) = compiled else {
+        guard case .compiled(
+            let text,
+            _,
+            _,
+            _,
+            _,
+            let unevidenced,
+            let compileWarnings
+        ) = compiled else {
             guard case .refused(let diagnostics) = compiled else {
                 return .refused(diagnostics: [])
             }
@@ -166,9 +176,11 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             unanswered: unanswered,
             stale: stale,
             staleTrees: staleTrees,
-            governance: governanceFailures,
+            governance: governanceFailures + unevidenced,
             diagnostics: read.warnings + compileWarnings,
             tolerance: tolerance.rawValue
         )
     }
 }
+
+

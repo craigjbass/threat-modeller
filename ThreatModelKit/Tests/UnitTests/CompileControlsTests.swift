@@ -43,7 +43,7 @@ struct CompileControlsTests {
     }
 
     private func text(of response: CompileControlsResponse) -> String {
-        guard case .compiled(let text, _, _, _, _, _) = response else {
+        guard case .compiled(let text, _, _, _, _, _, _) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return ""
         }
@@ -53,7 +53,7 @@ struct CompileControlsTests {
     @Test func writesEveryThreatWithEveryControlUnanswered() throws {
         let response = compile(payments)
 
-        guard case .compiled(let text, let answered, let unanswered, let stale, _, _) = response else {
+        guard case .compiled(let text, let answered, let unanswered, let stale, _, _, _) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return
         }
@@ -122,7 +122,7 @@ struct CompileControlsTests {
 
         let response = compile(payments, answered)
 
-        guard case .compiled(let text, _, _, let stale, _, _) = response else {
+        guard case .compiled(let text, _, _, let stale, _, _, _) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return
         }
@@ -238,7 +238,7 @@ struct CompileControlsTests {
 
         let response = compile(payments, existing)
 
-        guard case .compiled(_, _, _, _, _, let warnings) = response else {
+        guard case .compiled(_, _, _, _, _, _, let warnings) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return
         }
@@ -379,7 +379,7 @@ struct CompileControlsTests {
         }
         """)
 
-        guard case .compiled(let text, _, _, _, let staleTrees, _) = response else {
+        guard case .compiled(let text, _, _, _, let staleTrees, _, _) = response else {
             Issue.record("the compile refused: \(response)")
             return
         }
@@ -400,7 +400,7 @@ struct CompileControlsTests {
         }
         """)
 
-        guard case .compiled(let text, _, _, _, let staleTrees, _) = response else {
+        guard case .compiled(let text, _, _, _, let staleTrees, _, _) = response else {
             Issue.record("the compile refused: \(response)")
             return
         }
@@ -423,7 +423,7 @@ struct CompileControlsTests {
 
         let response = compile(architecture: twoTier, controls: existing)
 
-        guard case .compiled(let text, _, _, _, let staleTrees, _) = response else {
+        guard case .compiled(let text, _, _, _, let staleTrees, _, _) = response else {
             Issue.record("the compile refused: \(response)")
             return
         }
@@ -443,14 +443,14 @@ struct CompileControlsTests {
         }
         """
 
-        guard case .compiled(let first, _, _, _, _, _) = compile(
+        guard case .compiled(let first, _, _, _, _, _, _) = compile(
             architecture: twoTier,
             trees: trees
         ) else {
             Issue.record("the first compile refused")
             return
         }
-        guard case .compiled(let second, _, _, _, _, _) = compile(
+        guard case .compiled(let second, _, _, _, _, _, _) = compile(
             architecture: twoTier,
             controls: first,
             trees: trees

@@ -204,6 +204,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             )
         }
         model.riskTolerance = riskTolerance
+        model.requiresEvidenceAbove = source.requiresEvidenceAbove
+            .flatMap(RiskLevel.init(rawValue:))
         model.attackTrees = attackTrees
 
         // Spec section 3.2: a local block is the actor, whole. A parser has

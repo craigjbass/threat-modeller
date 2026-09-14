@@ -434,6 +434,34 @@ The report writes `## Accepted risks` after `## Recommendations`, one row per
 accepted control, governed or not, and the executive summary states how many
 are past their review date.
 
+### Evidence: what proves a control is in place
+
+A `control` block takes `status = "implemented"`, and four teams write that
+word and mean four things. `evidence` says which: `asserted`, `documented`,
+`configured`, `tested` or `audited`, weakest first, which is the order of what
+a reader can check for themselves. `reference` says where the proof is and
+`verified_on` says when somebody last checked. A `compensating` block takes the
+same three.
+
+A tier moves no score. The control is either in place or it is not; the tier
+says how well a reader can check that claim. The report names the tier beside
+each implemented control and the executive summary counts the ones that state
+none.
+
+A project that wants more states it in its `.arch` file:
+
+```hcl
+system "Payments" {
+  requires_evidence_above = "high"
+}
+```
+
+`threatmodeller check` then exits 1 for an implemented control on a threat
+whose risk level **before its controls** is that level or worse and that states
+no tier. The level is read before the controls, because reading it after would
+let the controls lower the score far enough to exempt themselves. A project
+that states nothing fails nothing.
+
 ### What check writes, and for whom
 
 `--format <plain|github|json>` says which shape `check`, `compile` and `format`

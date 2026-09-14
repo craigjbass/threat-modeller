@@ -15,6 +15,9 @@ public struct ArchitectureSource: Equatable, Sendable {
     /// The risk level a likelihood finding may answer up to. Nil means low.
     public let riskTolerance: String?
     public let assumptions: [SourceAssumption]
+    /// The risk level at and above which an implemented control must state
+    /// evidence, or nil when the file states no such rule.
+    public let requiresEvidenceAbove: String?
     /// The threat actor ids this system faces, in file order.
     public let faces: [String]
     /// The threat actors this file declares for itself.
@@ -30,6 +33,7 @@ public struct ArchitectureSource: Equatable, Sendable {
         mitigates: [SourceMitigates] = [],
         riskTolerance: String? = nil,
         assumptions: [SourceAssumption] = [],
+        requiresEvidenceAbove: String? = nil,
         faces: [String] = [],
         threatActors: [SourceThreatActor] = []
     ) {
@@ -42,6 +46,7 @@ public struct ArchitectureSource: Equatable, Sendable {
         self.mitigates = mitigates
         self.riskTolerance = riskTolerance
         self.assumptions = assumptions
+        self.requiresEvidenceAbove = requiresEvidenceAbove
         self.faces = faces
         self.threatActors = threatActors
     }

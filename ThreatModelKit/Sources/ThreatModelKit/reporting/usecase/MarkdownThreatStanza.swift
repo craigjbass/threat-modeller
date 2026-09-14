@@ -67,6 +67,7 @@ public enum MarkdownThreatStanza {
                 "- Compensated by: \(compensating.label)"
                     + " (\(compensating.reducesRiskBy)%,"
                     + " \(threat.scoreBeforeCompensation) \u{2192} \(threat.riskScore))"
+                    + (compensating.evidence.map { ", \($0)" } ?? "")
             )
             lines.append("  - Rationale: \(compensating.rationale)")
             lines += Markdown.sourceLines(compensating.sources)
@@ -91,6 +92,7 @@ public enum MarkdownThreatStanza {
                 lines.append(
                     "- [\(control.isImplemented ? "x" : " ")] \(control.description)"
                         + " \u{2014} \(control.statusLabel)"
+                        + (control.evidence.map { " \u{2014} \($0)" } ?? "")
                 )
             }
         }

@@ -54,6 +54,7 @@ struct ArchitectureParser {
         var riskTolerance: String?
         var assumptions: [SourceAssumption] = []
         var faces: [String] = []
+        var requiresEvidenceAbove: String?
         var threatActors: [SourceThreatActor] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -84,6 +85,18 @@ struct ArchitectureParser {
                 }
             case "assumption":
                 if let assumption = parseAssumption() { assumptions.append(assumption) }
+            case "requires_evidence_above":
+                let token = current
+                let raw = parseTextAttribute() ?? ""
+                if RiskLevel(rawValue: raw) == nil {
+                    record(
+                        "requires_evidence_above is \"\(raw)\"; this application holds "
+                            + RiskLevel.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", "),
+                        at: token
+                    )
+                } else {
+                    requiresEvidenceAbove = raw
+                }
             case "faces":
                 // A second `faces` keeps the last value, the way every
                 // repeated attribute does.
@@ -98,7 +111,7 @@ struct ArchitectureParser {
                     }
                 }
             default:
-                record("a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance, assumption, faces and threat_actor, not \"\(current.text)\"")
+                record("a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, faces and threat_actor, not \"\(current.text)\"")
                 skipToNextBlock()
             }
         }
@@ -116,6 +129,7 @@ struct ArchitectureParser {
             mitigates: checked,
             riskTolerance: riskTolerance,
             assumptions: assumptions,
+            requiresEvidenceAbove: requiresEvidenceAbove,
             faces: faces,
             threatActors: threatActors
         )

@@ -65,6 +65,12 @@ public struct ThreatModel: Equatable, Sendable {
     /// Technologies this model defines for itself. Spec section 8: they travel
     /// in the document.
     public var customTechnologies: [CustomTechnology]
+    /// What proves each control is in place, by control key. Sparse: a
+    /// control that states none of the three attributes is not in here.
+    public var controlProofs: [ControlKey: ControlProof]
+    /// The risk level at and above which an implemented control must state
+    /// evidence, or nil when the project states no such rule.
+    public var requiresEvidenceAbove: RiskLevel?
     /// Who carries each accepted risk, keyed the way a compensating control
     /// is. Written by the governance file; it lowers no score.
     public var acceptedRisks: [ThreatKey: [RiskAcceptance]]
@@ -104,6 +110,8 @@ public struct ThreatModel: Equatable, Sendable {
         riskTolerance: RiskLevel? = nil,
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
+        controlProofs: [ControlKey: ControlProof] = [:],
+        requiresEvidenceAbove: RiskLevel? = nil,
         acceptedRisks: [ThreatKey: [RiskAcceptance]] = [:],
         plannedWork: [ThreatKey: [PlannedWork]] = [:],
         actionWork: [String: PlannedWork] = [:],
@@ -134,6 +142,8 @@ public struct ThreatModel: Equatable, Sendable {
         }
         self.pathwayMitigations = pathwayMitigations
         self.customTechnologies = customTechnologies
+        self.controlProofs = controlProofs
+        self.requiresEvidenceAbove = requiresEvidenceAbove
         self.acceptedRisks = acceptedRisks
         self.plannedWork = plannedWork
         self.actionWork = actionWork

@@ -81,7 +81,7 @@ struct RecommendationLanguageTests {
             layout: LayOutModel()
         ).execute(CompileControlsRequest(architectureText: architecture, controlsText: controls))
 
-        guard case .compiled(let text, _, _, _, _, _) = response else {
+        guard case .compiled(let text, _, _, _, _, _, _) = response else {
             Issue.record("the compile refused the file")
             return
         }
@@ -142,7 +142,7 @@ struct RecommendationLanguageTests {
 
         // A person adds a recommendation while the architecture still raises
         // the threat.
-        guard case .compiled(let firstText, _, _, _, _, _) = compile.execute(
+        guard case .compiled(let firstText, _, _, _, _, _, _) = compile.execute(
             CompileControlsRequest(
                 architectureText: architectureRaisingTheThreat,
                 controlsText: controlsWithRecommendation
@@ -154,7 +154,7 @@ struct RecommendationLanguageTests {
 
         // The component leaves the architecture, so the threat is no longer
         // raised, and the answer moves into a stale block.
-        guard case .compiled(let secondText, _, _, let stale, _, _) = compile.execute(
+        guard case .compiled(let secondText, _, _, let stale, _, _, _) = compile.execute(
             CompileControlsRequest(
                 architectureText: architectureWithNoSuchComponent,
                 controlsText: firstText

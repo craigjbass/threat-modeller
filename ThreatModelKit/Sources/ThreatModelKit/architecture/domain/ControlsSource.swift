@@ -131,11 +131,21 @@ public struct SourceControlAnswer: Equatable, Sendable {
     public let description: String
     public let status: ControlStatus
     public let note: String?
+    /// What proves the control is in place. Empty for a control that states
+    /// none of the three attributes, which is every control written before
+    /// they existed.
+    public let proof: ControlProof
 
-    public init(description: String, status: ControlStatus, note: String? = nil) {
+    public init(
+        description: String,
+        status: ControlStatus,
+        note: String? = nil,
+        proof: ControlProof = ControlProof()
+    ) {
         self.description = description
         self.status = status
         self.note = note
+        self.proof = proof
     }
 }
 

@@ -343,9 +343,15 @@ struct ControlsParser {
 
         var status = ControlStatus.notImplemented
         var note: String?
+        var evidence: ControlEvidence?
+        var reference = ""
+        var verifiedOn: GovernanceDate?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
+            case "evidence": evidence = parseEvidenceAttribute()
+            case "reference": reference = parseTextAttribute() ?? ""
+            case "verified_on": verifiedOn = parseVerifiedOnAttribute()
             case "status":
                 let token = current
                 let raw = parseTextAttribute() ?? ""
@@ -362,13 +368,25 @@ struct ControlsParser {
             case "note":
                 note = parseTextAttribute()
             default:
-                record("a control holds status and note, not \"\(current.text)\"")
+                record(
+                    "a control holds status, note, evidence, reference and verified_on, "
+                        + "not \"\(current.text)\""
+                )
                 skipAttribute()
             }
         }
         _ = expect(.rightBrace, "}")
 
-        return SourceControlAnswer(description: description.text, status: status, note: note)
+        return SourceControlAnswer(
+            description: description.text,
+            status: status,
+            note: note,
+            proof: ControlProof(
+                evidence: evidence,
+                reference: reference,
+                verifiedOn: verifiedOn
+            )
+        )
     }
 
     private mutating func parseCompensating() -> CompensatingControl? {
@@ -381,9 +399,15 @@ struct ControlsParser {
         var percent: Int?
         var rationale: String?
         var sources: [String] = []
+        var evidence: ControlEvidence?
+        var reference = ""
+        var verifiedOn: GovernanceDate?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
+            case "evidence": evidence = parseEvidenceAttribute()
+            case "reference": reference = parseTextAttribute() ?? ""
+            case "verified_on": verifiedOn = parseVerifiedOnAttribute()
             case "reduces_risk_by":
                 let token = current
                 percent = parseNumberAttribute()
@@ -396,8 +420,8 @@ struct ControlsParser {
                 sources = parseListAttribute()
             default:
                 record(
-                    "a compensating control holds reduces_risk_by, rationale and sources, "
-                        + "not \"\(current.text)\""
+                    "a compensating control holds reduces_risk_by, rationale, sources, "
+                        + "evidence, reference and verified_on, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -413,8 +437,40 @@ struct ControlsParser {
             label: label.text,
             reducesRiskBy: percent ?? 0,
             rationale: rationale,
-            sources: sources
+            sources: sources,
+            proof: ControlProof(
+                evidence: evidence,
+                reference: reference,
+                verifiedOn: verifiedOn
+            )
         )
+    }
+
+    /// The tier a control states, or nil when the word is no tier.
+    private mutating func parseEvidenceAttribute() -> ControlEvidence? {
+        let token = current
+        guard let raw = parseTextAttribute() else { return nil }
+        guard let tier = ControlEvidence(rawValue: raw) else {
+            record(
+                "evidence is \"\(raw)\"; this application holds \(ControlEvidence.wordsItHolds)",
+                at: token
+            )
+            return nil
+        }
+        return tier
+    }
+
+    /// The date somebody last checked, or nil when the text is not a date.
+    private mutating func parseVerifiedOnAttribute() -> GovernanceDate? {
+        let token = current
+        guard let raw = parseTextAttribute() else { return nil }
+        switch GovernanceDate.read(raw) {
+        case .success(let date):
+            return date
+        case .failure(let fault):
+            record(fault.message(attribute: "verified_on", raw: raw), at: token)
+            return nil
+        }
     }
 
     private mutating func parseRecommendation() -> SourceRecommendation? {

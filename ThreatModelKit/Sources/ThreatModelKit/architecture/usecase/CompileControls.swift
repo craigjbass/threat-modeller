@@ -27,6 +27,9 @@ public enum CompileControlsResponse: Equatable, Sendable {
         unanswered: Int,
         stale: Int,
         staleTrees: Int,
+        /// The implemented controls a project's own rule says must state
+        /// evidence and do not.
+        unevidenced: [String],
         warnings: [Diagnostic]
     )
     case refused(diagnostics: [Diagnostic])
@@ -121,6 +124,7 @@ public struct CompileControls: CompileControlsUseCase {
         var answeredKeys: Set<String> = []
         var answered = 0
         var unanswered = 0
+        var unevidenced: [String] = []
 
         for threat in resolved {
             let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
@@ -130,13 +134,30 @@ public struct CompileControls: CompileControlsUseCase {
             // A control that has left the catalogue is dropped, and its answer
             // with it: nothing keeps an answer to a question nobody asks.
             let controls = threat.controls.map { control in
-                SourceControlAnswer(
+                let answered = previous?.controls.first { $0.description == control.description }
+                return SourceControlAnswer(
                     description: control.description,
-                    status: previous?.controls
-                        .first { $0.description == control.description }?.status ?? .notImplemented,
-                    note: previous?.controls
-                        .first { $0.description == control.description }?.note
+                    status: answered?.status ?? .notImplemented,
+                    note: answered?.note,
+                    // What proves the control is in place is the person's, so
+                    // the merge keeps it whole.
+                    proof: answered?.proof ?? ControlProof()
                 )
+            }
+
+            // A project may rule that an implemented control above a stated
+            // risk level must say what proves it. The level is read before the
+            // controls: reading it after would let the controls lower the
+            // score far enough to exempt themselves.
+            if let level = model.requiresEvidenceAbove,
+               RiskScore(value: threat.scoreBeforeControls).level.rank >= level.rank {
+                for control in controls
+                where control.status == .implemented && control.proof.evidence == nil {
+                    unevidenced.append(
+                        "\(key.value): \"\(control.description)\" is implemented above "
+                            + "\(level.rawValue) risk with no evidence"
+                    )
+                }
             }
 
             let answer = SourceThreatAnswer(
@@ -213,6 +234,7 @@ public struct CompileControls: CompileControlsUseCase {
             unanswered: unanswered,
             stale: stale,
             staleTrees: treeAnswers.filter(\.isStale).count,
+            unevidenced: unevidenced,
             warnings: applyWarnings
         )
     }

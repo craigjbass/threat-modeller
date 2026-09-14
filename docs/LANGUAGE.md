@@ -117,12 +117,15 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
 `shape`, `asset`, `flow`, `mitigates`, `status`, `recommendation`, `note`,
 `blocked_by`, `sources`, `faces`, `threat_actor`, `aliases`, `capability`,
-`intent`, `performs`, `techniques`, `performs_catalogue_tier`.
+`intent`, `performs`, `techniques`, `performs_catalogue_tier`,
+`requires_evidence_above`.
 
 The controls language reads these keywords: `controls`, `for`, `catalogue`,
 `tolerance`, `stale`, `threat`, `on`, `severity`, `score`, `likelihood`,
 `tier`, `prior`, `rationale`, `sources`, `severity_override`, `control`,
-`status`, `note`, `compensating`, `reduces_risk_by`, `recommendation`.
+`status`, `note`, `compensating`, `reduces_risk_by`, `recommendation`,
+`evidence`, `reference`, `verified_on`, `tree`, `goal`, `chain`, `score_before`,
+`step`, `by`.
 
 The governance language reads these keywords: `governance`, `for`, `threat`,
 `on`, `stale`, `accepted`, `work`, `action`, `owner`, `accepted_on`,
@@ -230,6 +233,7 @@ ArchitectureFile = SystemBlock ;
 SystemBlock  = "system" String "{" { SystemEntry } "}" ;
 SystemEntry  = CatalogueAttr
              | RiskToleranceAttr
+             | RequiresEvidenceAboveAttr
              | FacesAttr
              | TechnologyBlock
              | ZoneBlock
@@ -241,6 +245,7 @@ SystemEntry  = CatalogueAttr
 
 CatalogueAttr     = "catalogue" "=" String ;
 RiskToleranceAttr = "risk_tolerance" "=" String ;
+RequiresEvidenceAboveAttr = "requires_evidence_above" "=" String ;
 FacesAttr         = "faces" "=" StringList ;
 
 ThreatActorBlock = "threat_actor" String "{" { ThreatActorAttr } "}" ;
@@ -322,6 +327,16 @@ The label is the system's name, which the report and the window title show.
 | `catalogue` | string | the catalogue in use | the catalogue tag this file was written against |
 | `risk_tolerance` | string | `low` | the risk level a likelihood finding may answer up to |
 | `faces` | list of strings | empty | the threat actor ids this system faces |
+| `requires_evidence_above` | string | none | the risk level at and above which an implemented control must state evidence |
+
+`requires_evidence_above` takes `low`, `medium`, `high` or `critical`. A
+project that states it fails `threatmodeller check` for an implemented control
+on a threat whose risk level **before its controls** is that level or worse and
+that states no `evidence` tier. The level is read before the controls, because
+reading it after would let the controls lower the score far enough to exempt
+themselves from proving they are in place. A project that states nothing fails
+nothing. A value outside the four is the error `requires_evidence_above is
+"<value>"; this application holds "low", "medium", "high", "critical"`.
 
 `faces` names the adversaries this system is assessed against. An entry naming
 an actor no library, no catalogue and no `threat_actor` block in this file
@@ -764,13 +779,19 @@ SeverityOverrideAttr  = "rationale" "=" String
                       | "sources"   "=" StringList ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
-ControlAttr  = "status" "=" String
-             | "note"   "=" String ;
+ControlAttr  = "status"      "=" String
+             | "note"        "=" String
+             | "evidence"    "=" String
+             | "reference"   "=" String
+             | "verified_on" "=" String ;
 
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number
                   | "rationale"       "=" String
-                  | "sources"         "=" StringList ;
+                  | "sources"         "=" StringList
+                  | "evidence"        "=" String
+                  | "reference"       "=" String
+                  | "verified_on"     "=" String ;
 
 RecommendationBlock = "recommendation" String "{" { RecommendationAttr } "}" ;
 RecommendationAttr  = "note"    "=" String
@@ -995,6 +1016,43 @@ control and no compensating control.
 A `status` outside the four values is an error that lists the four.
 
 `note` is free text, and a rewrite keeps it.
+
+**Evidence.** A `control` and a `compensating` block each state what proves
+the control is in place:
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `evidence` | string | `asserted`, `documented`, `configured`, `tested`, `audited` | none |
+| `reference` | string | any | empty |
+| `verified_on` | string | a date, `YYYY-MM-DD` | none |
+
+```hcl
+control "Enforce MFA on all administrative access" {
+  status      = "implemented"
+  evidence    = "tested"
+  reference   = "ci/okta-mfa-enforced-test"
+  verified_on = "2026-09-01"
+}
+```
+
+The five tiers run weakest first, and the order is the order of what a reader
+can check for themselves: somebody says so; a document says so; somebody read
+the configuration; a test fails when the control is off; an audit found it. A
+control that states no tier is unevidenced, which is what every control written
+before these attributes existed is.
+
+A tier moves no score. A score that moved with the tier would fall when a team
+wrote down what it already knew, and rise when a document went stale; the
+control is either in place or it is not, and the tier says how well a reader
+can check that claim. The report names the tier beside each implemented
+control, the executive summary counts the ones that state none, and
+`requires_evidence_above` in the `.arch` file is what makes a missing tier fail
+a build.
+
+An `evidence` outside the five is the error `evidence is "<raw>"; this
+application holds "asserted", "documented", "configured", "tested",
+"audited"`. A `verified_on` that is not a date gives the two messages section
+8.6 gives for a date.
 
 ### 5.7 `compensating`
 
@@ -1808,7 +1866,7 @@ entry" or "an unknown attribute".
 
 | Language | Block | Message |
 | --- | --- | --- |
-| architecture | `system` | `a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance, assumption, faces and threat_actor, not "<word>"` |
+| architecture | `system` | `a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, faces and threat_actor, not "<word>"` |
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
@@ -1821,8 +1879,8 @@ entry" or "an unknown attribute".
 | controls | `threat` | `a threat holds severity, score, likelihood, severity_override, control, compensating and recommendation, not "<word>"` |
 | controls | `likelihood` | `a likelihood holds tier, prior, rationale and sources, not "<word>"` |
 | controls | `severity_override` | `a severity_override holds rationale and sources, not "<word>"` |
-| controls | `control` | `a control holds status and note, not "<word>"` |
-| controls | `compensating` | `a compensating control holds reduces_risk_by, rationale and sources, not "<word>"` |
+| controls | `control` | `a control holds status, note, evidence, reference and verified_on, not "<word>"` |
+| controls | `compensating` | `a compensating control holds reduces_risk_by, rationale, sources, evidence, reference and verified_on, not "<word>"` |
 | controls | `recommendation` | `a recommendation holds note and sources, not "<word>"` |
 | controls | `tree` | `a tree holds goal, chain, raises_risk_by, score, score_before and step, not "<word>"` |
 | controls | `step` (in a `tree`) | `a step holds state and by, not "<word>"` |
@@ -1965,6 +2023,7 @@ ArchitectureFile = SystemBlock ;
 SystemBlock  = "system" String "{" { SystemEntry } "}" ;
 SystemEntry  = CatalogueAttr
              | RiskToleranceAttr
+             | RequiresEvidenceAboveAttr
              | FacesAttr
              | TechnologyBlock
              | ZoneBlock
@@ -1976,6 +2035,7 @@ SystemEntry  = CatalogueAttr
 
 CatalogueAttr     = "catalogue" "=" String ;
 RiskToleranceAttr = "risk_tolerance" "=" String ;
+RequiresEvidenceAboveAttr = "requires_evidence_above" "=" String ;
 FacesAttr         = "faces" "=" StringList ;
 
 ThreatActorBlock = "threat_actor" String "{" { ThreatActorAttr } "}" ;
@@ -2079,13 +2139,19 @@ SeverityOverrideAttr  = "rationale" "=" String
                       | "sources"   "=" StringList ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
-ControlAttr  = "status" "=" String
-             | "note"   "=" String ;
+ControlAttr  = "status"      "=" String
+             | "note"        "=" String
+             | "evidence"    "=" String
+             | "reference"   "=" String
+             | "verified_on" "=" String ;
 
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number
                   | "rationale"       "=" String
-                  | "sources"         "=" StringList ;
+                  | "sources"         "=" StringList
+                  | "evidence"        "=" String
+                  | "reference"       "=" String
+                  | "verified_on"     "=" String ;
 
 RecommendationBlock = "recommendation" String "{" { RecommendationAttr } "}" ;
 RecommendationAttr  = "note"    "=" String

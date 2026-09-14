@@ -53,6 +53,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         }
 
         var statuses: [ControlKey: ControlStatus] = [:]
+        var proofs: [ControlKey: ControlProof] = [:]
         var compensating: [ThreatKey: [CompensatingControl]] = [:]
         var recommendations: [ThreatKey: [Recommendation]] = [:]
         var likelihoods: [ThreatKey: LikelihoodFinding] = [:]
@@ -88,6 +89,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
                     continue
                 }
                 statuses[key] = control.status
+                if control.proof.isEmpty == false { proofs[key] = control.proof }
                 if control.status.isAnswered { applied += 1 }
             }
 
@@ -124,6 +126,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         }
 
         let readStatuses = statuses
+        let readProofs = proofs
         let readCompensating = compensating
         let readRecommendations = recommendations
         let readLikelihoods = likelihoods
@@ -133,6 +136,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
 
         return models.mutate { model in
             model.controlStatuses = readStatuses
+            model.controlProofs = readProofs
             model.compensatingControls = readCompensating
             model.recommendations = readRecommendations
             model.likelihoodFindings = readLikelihoods

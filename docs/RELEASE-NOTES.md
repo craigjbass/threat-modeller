@@ -6,6 +6,17 @@ it.
 
 ## Unreleased
 
+### A control states what proves it is in place
+
+A `control` and a `compensating` block take `evidence`, `reference` and
+`verified_on`. The five tiers are `asserted`, `documented`, `configured`,
+`tested` and `audited`. A tier moves no score: a model saved today opens
+unchanged and scores exactly what it scored before.
+
+A project that states `requires_evidence_above` in its `.arch` file fails
+`threatmodeller check` for an implemented control above that risk level with no
+tier. A project that states nothing fails nothing.
+
 ### An accepted risk states who carries it
 
 A `.governance` file beside each system's `.arch` and `.controls` files states
