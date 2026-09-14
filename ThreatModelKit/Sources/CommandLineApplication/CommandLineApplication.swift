@@ -23,6 +23,7 @@ public struct CommandLineApplication {
     private let projects: ProjectSourceGateway
     private let architecture: ArchitectureSourceGateway
     private let controls: ControlsSourceGateway
+    private let attackTrees: AttackTreeSourceGateway
     private let libraries: LibrarySourceGateway
     private let fetcher: LibraryFetching
     /// Built once a catalogue is known, which is only when a verb needs one.
@@ -32,6 +33,7 @@ public struct CommandLineApplication {
         projects: ProjectSourceGateway,
         architecture: ArchitectureSourceGateway = HclArchitectureSource(),
         controls: ControlsSourceGateway = HclControlsSource(),
+        attackTrees: AttackTreeSourceGateway = HclAttackTreeSource(),
         libraries: LibrarySourceGateway = HclLibrarySource(),
         fetcher: LibraryFetching = GitLibraryFetcher(),
         catalogue: @escaping () throws -> TechnologyCatalogue = { try BundledTechnologyCatalogue() }
@@ -39,6 +41,7 @@ public struct CommandLineApplication {
         self.projects = projects
         self.architecture = architecture
         self.controls = controls
+        self.attackTrees = attackTrees
         self.libraries = libraries
         self.fetcher = fetcher
         makeCatalogue = catalogue
@@ -168,19 +171,64 @@ public struct CommandLineApplication {
             }
 
             let written = architecture.write(source)
-            guard written != text else {
-                if isQuiet == false { output("unchanged \(system.architecturePath)") }
-                continue
+            if written != text {
+                do {
+                    try projects.write(written, to: system.architecturePath)
+                    if isQuiet == false { output("formatted \(system.architecturePath)") }
+                } catch {
+                    output("threatmodeller: \(Self.described(error))")
+                    code = .fileFault
+                }
+            } else if isQuiet == false {
+                output("unchanged \(system.architecturePath)")
             }
-            do {
-                try projects.write(written, to: system.architecturePath)
-                if isQuiet == false { output("formatted \(system.architecturePath)") }
-            } catch {
-                output("threatmodeller: \(Self.described(error))")
+
+            if formatAttackTree(of: system, isQuiet: isQuiet, output: output) == false {
                 code = .fileFault
             }
         }
         return code.rawValue
+    }
+
+    /// The trees beside a system, or nil when the project holds no such file.
+    private func treeText(of system: ProjectSystem) -> String? {
+        guard projects.exists(path: system.attackTreePath) else { return nil }
+        return try? projects.read(path: system.attackTreePath)
+    }
+
+    /// Rewrites one system's `.attacktree` file in the canonical shape.
+    ///
+    /// False means the file could not be written. A file that does not parse
+    /// is left as it is and its diagnostics are printed, the way the
+    /// architecture file is.
+    private func formatAttackTree(
+        of system: ProjectSystem,
+        isQuiet: Bool,
+        output: (String) -> Void
+    ) -> Bool {
+        guard let text = treeText(of: system) else { return true }
+
+        let read = attackTrees.read(text)
+        guard let source = read.source, read.hasErrors == false else {
+            for diagnostic in read.diagnostics {
+                output(diagnostic.described(in: system.attackTreePath))
+            }
+            return false
+        }
+
+        let written = attackTrees.write(source)
+        guard written != text else {
+            if isQuiet == false { output("unchanged \(system.attackTreePath)") }
+            return true
+        }
+        do {
+            try projects.write(written, to: system.attackTreePath)
+            if isQuiet == false { output("formatted \(system.attackTreePath)") }
+            return true
+        } catch {
+            output("threatmodeller: \(Self.described(error))")
+            return false
+        }
     }
 
     /// Writes or merges every system's answers.
@@ -194,9 +242,20 @@ public struct CommandLineApplication {
                 : nil
 
             let response = useCases.compileControls().execute(
-                CompileControlsRequest(architectureText: architectureText, controlsText: existing)
+                CompileControlsRequest(
+                    architectureText: architectureText,
+                    controlsText: existing,
+                    attackTreeText: treeText(of: system)
+                )
             )
-            guard case .compiled(let text, let answered, let unanswered, let stale, _, let warnings) = response else {
+            guard case .compiled(
+                let text,
+                let answered,
+                let unanswered,
+                let stale,
+                let staleTrees,
+                let warnings
+            ) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
                     output(diagnostic.described(in: system.architecturePath))
@@ -216,7 +275,8 @@ public struct CommandLineApplication {
             if isQuiet == false {
                 output(
                     "\(system.controlsPath): \(answered) answered,"
-                        + " \(unanswered) unanswered, \(stale) stale"
+                        + " \(unanswered) unanswered, \(stale) stale,"
+                        + " \(staleTrees) stale trees"
                 )
             }
             return .success
@@ -237,10 +297,17 @@ public struct CommandLineApplication {
                 CheckControlAnswersRequest(
                     architectureText: architectureText,
                     controlsText: existing,
+                    attackTreeText: treeText(of: system),
                     tolerance: tolerance
                 )
             )
-            guard case .checked(let unanswered, let stale, _, let diagnostics, let usedTolerance) = response else {
+            guard case .checked(
+                let unanswered,
+                let stale,
+                let staleTrees,
+                let diagnostics,
+                let usedTolerance
+            ) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
                     output(diagnostic.described(in: system.architecturePath))
@@ -257,8 +324,11 @@ public struct CommandLineApplication {
             for key in stale {
                 output("\(system.controlsPath): \(key) is answered but no longer raised")
             }
+            for described in staleTrees {
+                output("\(system.controlsPath): \(described)")
+            }
             output("\(system.name): checked against a \(usedTolerance) risk tolerance")
-            if unanswered.isEmpty && stale.isEmpty {
+            if unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty {
                 output("\(system.name): every threat is answered")
                 return .success
             }
@@ -280,7 +350,12 @@ public struct CommandLineApplication {
             }
 
             let imported = useCases.importArchitecture()
-                .execute(ImportArchitectureRequest(text: architectureText))
+                .execute(
+                    ImportArchitectureRequest(
+                        text: architectureText,
+                        attackTreeText: treeText(of: system)
+                    )
+                )
             guard case .imported = imported else {
                 guard case .refused(let diagnostics) = imported else { return .didNotParse }
                 for diagnostic in diagnostics {
@@ -447,7 +522,12 @@ public struct CommandLineApplication {
             }
 
             let imported = useCases.importArchitecture()
-                .execute(ImportArchitectureRequest(text: architectureText))
+                .execute(
+                    ImportArchitectureRequest(
+                        text: architectureText,
+                        attackTreeText: treeText(of: system)
+                    )
+                )
             guard case .imported = imported else {
                 guard case .refused(let diagnostics) = imported else { return .didNotParse }
                 for diagnostic in diagnostics {

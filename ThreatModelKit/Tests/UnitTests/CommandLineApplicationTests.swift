@@ -41,6 +41,108 @@ struct CommandLineApplicationTests {
 
     """
 
+    // MARK: the attack tree file
+
+    private let treeSystem = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      component "db" {
+        technology = "aws-rds"
+        data       = "restricted"
+      }
+
+      flow api -> db
+    }
+
+    """
+
+    private let oneTree = """
+    attack_trees for "Payments" {
+      tree "t" {
+        raises_risk_by = 40
+
+        goal "misconfiguration" on component "db"
+
+        step "credential-theft" on component "api"
+      }
+    }
+
+    """
+
+    private let brokenTree = """
+    attack_trees for "Payments" {
+      tree "t" {
+        goal "misconfiguration" on component "db"
+
+        step "credential-theft" on component "gone"
+      }
+    }
+
+    """
+
+    @Test func compileWritesATreeStanzaIntoTheControlsFile() throws {
+        project.put(treeSystem, at: "/work/threatmodel/payments.arch")
+        project.put(oneTree, at: "/work/threatmodel/payments.attacktree")
+
+        #expect(run("compile", "/work").code == 0)
+
+        let controls = try #require(try project.read(path: "/work/threatmodel/payments.controls"))
+        #expect(controls.contains("tree \"t\" {"))
+        #expect(controls.contains("step \"credential-theft@component:api\" {"))
+    }
+
+    @Test func checkFailsOnATreeThatNoLongerBinds() {
+        project.put(treeSystem, at: "/work/threatmodel/payments.arch")
+        project.put(brokenTree, at: "/work/threatmodel/payments.attacktree")
+        _ = run("compile", "/work")
+
+        let checked = run("check", "/work")
+
+        #expect(checked.code == 1)
+        #expect(checked.lines.contains {
+            $0.contains("the tree \"t\" is written but no longer binds")
+        })
+    }
+
+    @Test func reportWritesTheAttackTreeSection() throws {
+        project.put(treeSystem, at: "/work/threatmodel/payments.arch")
+        project.put(oneTree, at: "/work/threatmodel/payments.attacktree")
+
+        #expect(run("report", "/work").code == 0)
+
+        let report = try #require(try project.read(path: "/work/threatmodel/payments.md"))
+        #expect(report.contains("## Attack trees"))
+    }
+
+    @Test func formatRewritesTheAttackTreeFile() throws {
+        project.put(treeSystem, at: "/work/threatmodel/payments.arch")
+        project.put("""
+        attack_trees for "Payments" {
+        tree "t" {
+        goal "misconfiguration" on component "db"
+        step "credential-theft" on component "api"
+        }
+        }
+        """, at: "/work/threatmodel/payments.attacktree")
+
+        #expect(run("format", "/work").code == 0)
+
+        let written = try #require(try project.read(path: "/work/threatmodel/payments.attacktree"))
+        #expect(written.contains("  tree \"t\" {"))
+    }
+
+    @Test func everyVerbRunsOnASystemWithNoAttackTreeFile() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        #expect(run("compile", "/work").code == 0)
+        #expect(run("format", "/work").code == 0)
+        #expect(run("report", "/work").code == 0)
+    }
+
     // MARK: a library written against another catalogue tag
 
     @Test func namesALibraryWrittenAgainstAnotherCatalogueTagAndStillPasses() {
