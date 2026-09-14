@@ -13,7 +13,9 @@ public struct OpenSystemRequest: Equatable, Sendable {
 }
 
 public enum OpenSystemResponse: Equatable, Sendable {
-    case opened(name: String, warnings: [Diagnostic])
+    /// `catalogueTag` is the tag the `.arch` file states, or nil when it
+    /// states none. The window compares it with the catalogue in use.
+    case opened(name: String, warnings: [Diagnostic], catalogueTag: String? = nil)
     case refused(fileName: String, diagnostics: [Diagnostic])
     case noSuchSystem
     case cannotRead(reason: String)
@@ -63,7 +65,7 @@ public struct OpenSystem: OpenSystemUseCase {
         switch imports.execute(
             ImportArchitectureRequest(text: text, attackTreeText: attackTreeText)
         ) {
-        case .imported(let name, let warnings):
+        case .imported(let name, let warnings, let catalogueTag):
             // The answers beside the architecture are part of the system, so
             // opening one reads both.
             var everyWarning = warnings
@@ -79,7 +81,7 @@ public struct OpenSystem: OpenSystemUseCase {
                     )
                 }
             }
-            return .opened(name: name, warnings: everyWarning)
+            return .opened(name: name, warnings: everyWarning, catalogueTag: catalogueTag)
         case .refused(let diagnostics):
             return .refused(
                 fileName: fileName(of: system.architecturePath),

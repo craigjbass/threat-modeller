@@ -50,7 +50,7 @@ struct ImportArchitectureTests {
     @Test func placesEveryComponentTheFileDeclares() throws {
         let response = importIt(payments)
 
-        #expect(response == .imported(name: "Payments", warnings: []))
+        #expect(response == .imported(name: "Payments", warnings: [], catalogueTag: "v1.0.1"))
         let view = view()
         #expect(view.name == "Payments")
         #expect(view.components.map(\.id).sorted() == ["api", "db", "user"])
@@ -115,7 +115,7 @@ struct ImportArchitectureTests {
         }
         """)
 
-        guard case .imported(_, let warnings) = response else {
+        guard case .imported(_, let warnings, _) = response else {
             Issue.record("expected the import to go through, got \(response)")
             return
         }
@@ -294,7 +294,7 @@ struct ImportArchitectureTests {
     }
 
     @Test func warnsAboutAFacedActorThatPerformsNoThreatThisModelRaises() {
-        guard case .imported(_, let warnings) = importIt("""
+        guard case .imported(_, let warnings, _) = importIt("""
         system "Payments" {
           faces = ["contractor"]
 
@@ -327,7 +327,7 @@ struct ImportArchitectureTests {
     }
 
     @Test func drawsAModelThatFacesAnActorItCanUse() {
-        guard case .imported(_, let warnings) = importIt("""
+        guard case .imported(_, let warnings, _) = importIt("""
         system "Payments" {
           faces = ["contractor"]
 

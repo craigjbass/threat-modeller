@@ -69,7 +69,7 @@ struct InitialiseProjectFromBundledSamplesTests {
         )
         .execute(ImportArchitectureRequest(text: try projects.read(path: system.architecturePath)))
 
-        guard case .imported(_, let warnings) = imported else {
+        guard case .imported(_, let warnings, _) = imported else {
             Issue.record("the written example did not import: \(imported)")
             return
         }

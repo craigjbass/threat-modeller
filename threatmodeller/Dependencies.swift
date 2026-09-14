@@ -261,6 +261,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         ListOutdatedLibraries(projects: projects, fetcher: libraryFetcher)
     }
 
+    func adoptCatalogueVersion() -> AdoptCatalogueVersionUseCase {
+        AdoptCatalogueVersion(models: models, catalogue: catalogue)
+    }
+
     func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {
         ViewCatalogueVersion(catalogue: catalogue)
     }

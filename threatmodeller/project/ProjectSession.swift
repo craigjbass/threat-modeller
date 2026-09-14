@@ -30,6 +30,9 @@ final class ProjectSession {
     private(set) var unansweredThreats = 0
     /// Where the last report was written.
     private(set) var reportPath: String?
+    /// The tag the open system's file states against the tag in use, when the
+    /// two differ and the person has not said to keep the one the file states.
+    private(set) var catalogueDrift: CatalogueDrift?
 
     /// The session drawing the chosen system, or nil while nothing is drawn.
     private(set) var model: ThreatModelSession?
@@ -401,7 +404,7 @@ final class ProjectSession {
         formingDiagram = nil
 
         switch outcome {
-        case .opened(_, let warnings):
+        case .opened(_, let warnings, let statedTag):
             chosenSystem = systemName
             diagnostics = warnings
             diagnosticsFileName = "\(systemName).arch"
@@ -414,6 +417,7 @@ final class ProjectSession {
             hasFilesChangedOnDisk = false
             // Set last, so building the session does not count as a change.
             drawn.onChange = { [weak self] in self?.modelDidChange() }
+            readCatalogueDrift(statedTag: statedTag, systemName: systemName)
         case .refused(let fileName, let faults):
             chosenSystem = systemName
             diagnostics = faults
@@ -519,6 +523,54 @@ final class ProjectSession {
         case .cannotWrite(let reason):
             errorMessage = "The report could not be written: \(reason)"
         }
+    }
+
+    /// What the file states against what is in use, unless the person has
+    /// already said to keep what the file states.
+    ///
+    /// A file that states no tag drifts from nothing: it has never named a
+    /// catalogue, and naming one is the person's to do.
+    private func readCatalogueDrift(statedTag: String?, systemName: String) {
+        catalogueDrift = nil
+        guard let statedTag else { return }
+        let inUse = useCases.viewCatalogueVersion().execute(ViewCatalogueVersionRequest()).tag
+        guard statedTag != inUse else { return }
+
+        let drift = CatalogueDrift(
+            systemName: systemName,
+            fileName: "\(systemName).arch",
+            stated: statedTag,
+            inUse: inUse
+        )
+        guard defaults.bool(forKey: Self.driftKey(drift)) == false else { return }
+        catalogueDrift = drift
+    }
+
+    /// Takes the catalogue in use: the model states the new tag, the save
+    /// writes it into the file, and the system is read again against it.
+    func takeTheCatalogueInUse() {
+        guard let chosenSystem, let model else { return }
+        _ = model.adoptCatalogueVersion()
+        catalogueDrift = nil
+
+        inFlight = Task { [weak self] in
+            await self?.save()
+            await self?.choose(chosenSystem)
+        }
+    }
+
+    /// Keeps the tag the file states, and does not ask again for that file and
+    /// that pair of tags. A dismissal belongs to the file, not to the window.
+    func keepTheStatedCatalogue() {
+        guard let drift = catalogueDrift else { return }
+        defaults.set(true, forKey: Self.driftKey(drift))
+        catalogueDrift = nil
+    }
+
+    /// The dismissal is remembered per file and per pair of tags, so a later
+    /// catalogue asks again.
+    private static func driftKey(_ drift: CatalogueDrift) -> String {
+        "catalogue-drift:\(drift.fileName):\(drift.stated)->\(drift.inUse)"
     }
 
     func dismissDiagnostics() {

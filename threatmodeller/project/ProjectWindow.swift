@@ -228,6 +228,7 @@ struct ProjectWindow: View {
         VStack(spacing: 0) {
             WorkflowBar(session: session, stage: $stage)
             filesChangedNotice
+            catalogueDriftNotice
             diagnosticsNotice
         }
     }
@@ -262,6 +263,27 @@ struct ProjectWindow: View {
         session.hasUnsavedChanges
             ? "The files changed on disk. Your unsaved changes are still on screen."
             : "The files changed on disk. Auto Sync is off."
+    }
+
+    /// What the file states about the catalogue against what is in use, and
+    /// the two things a person can do about it.
+    @ViewBuilder
+    private var catalogueDriftNotice: some View {
+        if let drift = session.catalogueDrift {
+            HStack(spacing: 8) {
+                Image(systemName: "clock.arrow.circlepath")
+                Text(drift.says)
+                    .font(.callout)
+                Spacer(minLength: 8)
+                Button("Take \(drift.inUse)") { session.takeTheCatalogueInUse() }
+                    .accessibilityIdentifier("take-catalogue-in-use")
+                Button("Keep \(drift.stated)") { session.keepTheStatedCatalogue() }
+                    .accessibilityIdentifier("keep-stated-catalogue")
+            }
+            .padding(8)
+            .background(Color.yellow.opacity(0.25))
+            .accessibilityIdentifier("catalogue-drift-notice")
+        }
     }
 
     @ViewBuilder

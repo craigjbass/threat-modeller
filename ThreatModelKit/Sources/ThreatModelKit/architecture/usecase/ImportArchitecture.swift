@@ -15,7 +15,9 @@ public struct ImportArchitectureRequest: Equatable, Sendable {
 }
 
 public enum ImportArchitectureResponse: Equatable, Sendable {
-    case imported(name: String, warnings: [Diagnostic])
+    /// `catalogueTag` is the tag the file states, or nil when it states none.
+    /// A reader compares it with the catalogue in use and says what drifted.
+    case imported(name: String, warnings: [Diagnostic], catalogueTag: String? = nil)
     case refused(diagnostics: [Diagnostic])
 }
 
@@ -258,7 +260,11 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
         let imported = model
         return models.mutate { current in
             current = imported
-            return .imported(name: imported.name, warnings: warnings)
+            return .imported(
+                name: imported.name,
+                warnings: warnings,
+                catalogueTag: source.catalogueTag
+            )
         }
     }
 

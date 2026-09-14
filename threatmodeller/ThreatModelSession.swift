@@ -876,6 +876,13 @@ final class ThreatModelSession {
         collapsedGroups = []
     }
 
+    /// Stamps the model with the catalogue in use, so the next save writes
+    /// that tag into the file.
+    func adoptCatalogueVersion() {
+        _ = useCases.adoptCatalogueVersion().execute(AdoptCatalogueVersionRequest())
+        refresh()
+    }
+
     /// Sorts the list worst first and hides the Reorder button.
     ///
     /// The button calls this, and so does every event that is not an edit: a

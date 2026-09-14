@@ -52,6 +52,7 @@ public protocol UseCaseFactory: Sendable {
     func saveSystemAnswers() -> SaveSystemAnswersUseCase
     func compileSystemReport() -> CompileSystemReportUseCase
     func viewCatalogueVersion() -> ViewCatalogueVersionUseCase
+    func adoptCatalogueVersion() -> AdoptCatalogueVersionUseCase
     func listSampleModels() -> ListSampleModelsUseCase
     func loadSampleModel() -> LoadSampleModelUseCase
     func viewCustomTechnology() -> ViewCustomTechnologyUseCase

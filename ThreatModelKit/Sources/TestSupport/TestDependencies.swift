@@ -260,6 +260,10 @@ public final class TestDependencies: UseCaseFactory {
         SaveSystem(projects: projects, exports: exportArchitecture())
     }
 
+    public func adoptCatalogueVersion() -> AdoptCatalogueVersionUseCase {
+        AdoptCatalogueVersion(models: models, catalogue: catalogue)
+    }
+
     public func viewCatalogueVersion() -> ViewCatalogueVersionUseCase {
         ViewCatalogueVersion(catalogue: catalogue)
     }

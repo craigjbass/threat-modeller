@@ -52,7 +52,7 @@ struct ModellingFromSourceTests {
             ImportArchitectureRequest(text: payments)
         )
 
-        #expect(response == .imported(name: "Payments", warnings: []))
+        #expect(response == .imported(name: "Payments", warnings: [], catalogueTag: "v1.0.1"))
         let view = app.viewThreatModel().execute(ViewThreatModelRequest())
         #expect(view.components.count == 3)
         #expect(view.connections.count == 2)
