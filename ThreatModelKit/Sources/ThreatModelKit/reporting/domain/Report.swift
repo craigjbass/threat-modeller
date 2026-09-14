@@ -310,7 +310,9 @@ public struct ReportMethodology: Equatable, Sendable {
 
     /// The highest score the base arithmetic can reach: four severity ranks
     /// multiplied by four sensitivity ranks.
-    public static let highestScore = 16
+    /// The top of the scale, which `RiskScore` owns. The report states it in
+    /// prose, and one number in two files is one number that can drift.
+    public static let highestScore = RiskScore.maximum
 
     /// Reads the thresholds out of `RiskScore.level` rather than repeating
     /// them. A second copy would disagree with the scoring the day a

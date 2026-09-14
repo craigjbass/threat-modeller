@@ -101,7 +101,10 @@ struct AttackTreeWriter {
     private func aligned(_ attributes: [(String, String)]) -> [String] {
         let width = attributes.map(\.0.count).max() ?? 0
         return attributes.map { name, value in
-            name.padding(toLength: width, withPad: " ", startingAt: 0) + " = " + value
+            // `String(repeating:count:)` rather than Foundation's
+            // `padding(toLength:withPad:startingAt:)`: this package builds
+            // statically on Linux, where Foundation is a separate module.
+            name + String(repeating: " ", count: width - name.count) + " = " + value
         }
     }
 
