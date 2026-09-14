@@ -160,8 +160,11 @@ public struct ResolvedThreat: Equatable, Sendable {
 }
 
 public extension ResolvedThreat {
-    /// The same threat with another score. Stage 8 is the only caller.
-    func withScore(_ score: RiskScore) -> ResolvedThreat {
+    /// The same threat with another score and another target score. Stage 8
+    /// is the only caller. The two move together: section 6.1 of the design
+    /// states that an assumed mitigation closes no step, so the chain that
+    /// raises the residual score raises the target score by the same boost.
+    func withScore(_ score: RiskScore, scoreIfAssumptionsHold: Int) -> ResolvedThreat {
         ResolvedThreat(
             threat: threat,
             severity: severity,

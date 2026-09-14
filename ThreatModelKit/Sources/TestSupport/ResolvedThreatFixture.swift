@@ -9,7 +9,8 @@ public enum ResolvedThreatFixture {
         score: Int,
         statuses: [ControlStatus],
         compensating: [CompensatingControl],
-        likelihood: Likelihood
+        likelihood: Likelihood,
+        scoreIfAssumptionsHold: Int? = nil
     ) -> ResolvedThreat {
         let threat = Threat(
             id: ThreatId(threatId),
@@ -49,7 +50,7 @@ public enum ResolvedThreatFixture {
             scoreBeforeLikelihood: score,
             likelihoodFinding: nil,
             severityDecision: nil,
-            scoreIfAssumptionsHold: score,
+            scoreIfAssumptionsHold: scoreIfAssumptionsHold ?? score,
             assumedMitigations: []
         )
     }

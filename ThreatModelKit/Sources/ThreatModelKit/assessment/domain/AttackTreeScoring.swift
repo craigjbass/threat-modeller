@@ -23,12 +23,20 @@ public enum AttackTreeScoring {
         }
 
         var scoreByGoal: [ThreatKey: Int] = [:]
-        let threats = resolved.map { threat -> ResolvedThreat in
+        var threats: [ResolvedThreat] = []
+        for threat in resolved {
             let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
-            guard let boost = boostByGoal[key], boost > 0 else { return threat }
-            let raised = raise(threat.score.value, by: boost)
-            scoreByGoal[key] = raised
-            return threat.withScore(RiskScore(value: raised))
+            guard let boost = boostByGoal[key], boost > 0 else {
+                threats.append(threat)
+                continue
+            }
+            let raisedScore = raise(threat.score.value, by: boost)
+            // Design section 6.1: the target score takes the same boost, with
+            // the same clamp, because an assumed mitigation closes no step
+            // and leaves the chain unchanged.
+            let raisedTarget = raise(threat.scoreIfAssumptionsHold, by: boost)
+            scoreByGoal[key] = raisedScore
+            threats.append(threat.withScore(RiskScore(value: raisedScore), scoreIfAssumptionsHold: raisedTarget))
         }
 
         let scored = trees.map { tree in

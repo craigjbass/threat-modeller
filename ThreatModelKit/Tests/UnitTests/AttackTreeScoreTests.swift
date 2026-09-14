@@ -11,6 +11,7 @@ struct AttackTreeScoreTests {
     private func run(
         raises: Int,
         goalScore: Int,
+        goalScoreIfAssumptionsHold: Int? = nil,
         steps: [(String, ControlStatus, Likelihood)]
     ) -> (threats: [ResolvedThreat], trees: [BoundAttackTree]) {
         let tree = SourceAttackTree(
@@ -22,7 +23,8 @@ struct AttackTreeScoreTests {
         var resolved = [
             ResolvedThreatFixture.make(
                 threatId: "g", componentId: "db", score: goalScore,
-                statuses: [.notImplemented], compensating: [], likelihood: .commodity
+                statuses: [.notImplemented], compensating: [], likelihood: .commodity,
+                scoreIfAssumptionsHold: goalScoreIfAssumptionsHold
             ),
         ]
         resolved += steps.map {
@@ -35,8 +37,12 @@ struct AttackTreeScoreTests {
         return AttackTreeScoring.apply(trees: bound, to: resolved)
     }
 
+    private func goal(_ result: (threats: [ResolvedThreat], trees: [BoundAttackTree])) -> ResolvedThreat? {
+        result.threats.first { $0.threat.id.value == "g" }
+    }
+
     private func goalScore(_ result: (threats: [ResolvedThreat], trees: [BoundAttackTree])) -> Int {
-        result.threats.first { $0.threat.id.value == "g" }?.score.value ?? 0
+        goal(result)?.score.value ?? 0
     }
 
     @Test func reachesSevenOnTheWorkedExample() {
@@ -91,5 +97,76 @@ struct AttackTreeScoreTests {
         let result = run(raises: 40, goalScore: 5, steps: [("a", .notImplemented, .commodity)])
 
         #expect(result.threats.first { $0.threat.id.value == "a" }?.score.value == 4)
+    }
+
+    @Test func raisesTheTargetScoreTooWhenItStartsBelowTheResidualScore() {
+        let result = run(
+            raises: 40, goalScore: 5, goalScoreIfAssumptionsHold: 3,
+            steps: [("a", .notImplemented, .commodity)]
+        )
+
+        #expect(goalScore(result) == 7)
+        #expect(goal(result)?.scoreIfAssumptionsHold == 4)
+    }
+
+    @Test func keepsTheResidualAndTargetScoreEqualWhenTheyStartEqual() {
+        let result = run(raises: 40, goalScore: 5, steps: [
+            ("a", .notImplemented, .commodity),
+            ("b", .notImplemented, .commodity),
+        ])
+
+        let raised = goal(result)
+        #expect(raised?.score.value == 7)
+        #expect(raised?.scoreIfAssumptionsHold == raised?.score.value)
+    }
+
+    @Test func twoTreesOnOneGoalGiveTheStrongerBoostNotTheSum() {
+        let strongTree = SourceAttackTree(
+            id: "strong",
+            raisesRiskBy: 40,
+            goal: target("g", "db"),
+            root: .step(SourceTreeStep(target: target("a", "api")))
+        )
+        let weakTree = SourceAttackTree(
+            id: "weak",
+            raisesRiskBy: 10,
+            goal: target("g", "db"),
+            root: .step(SourceTreeStep(target: target("a", "api")))
+        )
+        let resolved = [
+            ResolvedThreatFixture.make(
+                threatId: "g", componentId: "db", score: 5,
+                statuses: [.notImplemented], compensating: [], likelihood: .commodity
+            ),
+            ResolvedThreatFixture.make(
+                threatId: "a", componentId: "api", score: 4,
+                statuses: [.notImplemented], compensating: [], likelihood: .commodity
+            ),
+        ]
+        let bound = AttackTreeBinding.bind(trees: [strongTree, weakTree], to: resolved)
+        let result = AttackTreeScoring.apply(trees: bound, to: resolved)
+
+        // The stronger boost (0.4) gives round(5 x 1.4) = 7. Summing the two
+        // boosts (0.4 + 0.1 = 0.5) would give round(5 x 1.5) = 8.
+        #expect(result.threats.first { $0.threat.id.value == "g" }?.score.value == 7)
+    }
+
+    @Test func raisesNothingWhenTheTreeIsStale() {
+        let tree = SourceAttackTree(
+            id: "t",
+            raisesRiskBy: 40,
+            goal: target("g", "db"),
+            root: .step(SourceTreeStep(target: target("missing", "api")))
+        )
+        let resolved = [
+            ResolvedThreatFixture.make(
+                threatId: "g", componentId: "db", score: 5,
+                statuses: [.notImplemented], compensating: [], likelihood: .commodity
+            ),
+        ]
+        let bound = AttackTreeBinding.bind(trees: [tree], to: resolved)
+        let result = AttackTreeScoring.apply(trees: bound, to: resolved)
+
+        #expect(result.threats.first { $0.threat.id.value == "g" }?.score.value == 5)
     }
 }
