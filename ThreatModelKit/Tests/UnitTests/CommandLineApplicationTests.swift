@@ -399,6 +399,100 @@ struct CommandLineApplicationTests {
         #expect(result.lines.contains { $0.contains("every threat is answered") })
     }
 
+    // MARK: the policy file
+
+    @Test func checkFailsForAPolicyBreachAndNamesTheRule() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        project.put(
+            """
+            policy {
+              system_requires_owner = true
+            }
+            """,
+            at: "/work/threatmodel/policy.hcl"
+        )
+
+        let result = run("check", "/work")
+
+        #expect(result.code == 1)
+        #expect(
+            result.lines.contains { $0.contains("system_requires_owner: this system states no owner") }
+        )
+    }
+
+    @Test func checkPassesWhenTheSystemKeepsTheRule() throws {
+        project.put(
+            """
+            system "Payments" {
+              owner = "Payments team"
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        project.put(
+            """
+            policy {
+              system_requires_owner = true
+            }
+            """,
+            at: "/work/threatmodel/policy.hcl"
+        )
+
+        #expect(run("check", "/work").code == 0)
+    }
+
+    @Test func writesAPolicyBreachAsAWorkflowCommand() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        project.put(
+            """
+            policy {
+              system_requires_owner = true
+            }
+            """,
+            at: "/work/threatmodel/policy.hcl"
+        )
+
+        let result = run("check", "--format", "github", "/work")
+
+        #expect(result.code == 1)
+        #expect(
+            result.lines.contains {
+                $0.hasPrefix("::error file=") && $0.contains("system_requires_owner")
+            }
+        )
+    }
+
+    @Test func checksAsItDidForAProjectWithNoPolicyFile() {
+        project.put(
+            """
+            system "Payments" { }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        #expect(run("check", "/work").code == 0)
+    }
+
+    @Test func reportWritesThePolicySection() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        project.put(
+            """
+            policy {
+              system_requires_owner = true
+            }
+            """,
+            at: "/work/threatmodel/policy.hcl"
+        )
+
+        #expect(run("report", "/work").code == 0)
+
+        let report = try #require(try project.read(path: "/work/threatmodel/payments.md"))
+        #expect(report.contains("## Policy"))
+        #expect(report.contains("| system_requires_owner | the file states an owner | no"))
+    }
+
     // MARK: the governance file
 
     @Test func compileWritesAGovernanceFileForAnAcceptedRisk() throws {

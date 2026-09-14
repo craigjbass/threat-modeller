@@ -56,6 +56,12 @@ public struct ProjectLayout: Equatable, Sendable {
         self.libraryPaths = libraryPaths
     }
 
+    /// The rules this project states for itself. One file for the whole
+    /// project, and it may not exist.
+    public var policyPath: String {
+        ProjectConvention.path(directory, ProjectConvention.policyFileName)
+    }
+
     public func system(named name: String) -> ProjectSystem? {
         systems.first { $0.name == name }
     }

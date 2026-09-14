@@ -45,6 +45,9 @@ public struct Report: Equatable, Sendable {
     /// The adversaries this assessment is written against, in the order the
     /// model faces them. Empty for a model that faces nobody.
     public let threatActors: [ReportThreatActor]
+    /// The rules this project states for itself, and whether this system
+    /// keeps them. Empty for a project with no policy file.
+    public let policy: [ReportPolicyRule]
     /// The risks the organisation decided to carry, worst first. Empty for a
     /// model that accepts nothing.
     public let acceptedRisks: [ReportAcceptedRisk]
@@ -77,6 +80,7 @@ public struct Report: Equatable, Sendable {
         methodology: ReportMethodology = ReportMethodology(),
         actions: [ReportAction] = [],
         threatActors: [ReportThreatActor] = [],
+        policy: [ReportPolicyRule] = [],
         acceptedRisks: [ReportAcceptedRisk] = [],
         attackTrees: [BoundAttackTree] = [],
         attackPathCount: Int = 0
@@ -103,6 +107,7 @@ public struct Report: Equatable, Sendable {
         self.methodology = methodology
         self.actions = actions
         self.threatActors = threatActors
+        self.policy = policy
         self.acceptedRisks = acceptedRisks
         self.attackTrees = attackTrees
         self.attackPathCount = attackPathCount

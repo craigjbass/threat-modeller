@@ -60,6 +60,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             report.executiveSummary,
             components: report.components
         )
+        lines += MarkdownPolicy.lines(report.policy)
         lines += MarkdownRollups.lines(
             report.rollups,
             showsAssumed: report.assumedMitigations.isEmpty == false

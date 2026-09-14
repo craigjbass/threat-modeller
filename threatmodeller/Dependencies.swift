@@ -21,6 +21,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let controlsSources: ControlsSourceGateway = HclControlsSource()
     private let librarySources: LibrarySourceGateway = HclLibrarySource()
     private let governanceSources: GovernanceSourceGateway = HclGovernanceSource()
+    private let policySources: PolicySourceGateway = HclPolicySource()
     private let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     /// The one place this application runs `git`.
     private let libraryFetcher: LibraryFetching = GitLibraryFetcher()
@@ -201,11 +202,25 @@ nonisolated final class Dependencies: UseCaseFactory {
         )
     }
 
+    func applyPolicy() -> ApplyPolicyUseCase {
+        ApplyPolicy(models: models, sources: policySources)
+    }
+
+    func checkPolicy() -> CheckPolicyUseCase {
+        CheckPolicy(
+            policies: policySources,
+            controlsSources: controlsSources,
+            governanceSources: governanceSources,
+            architectureSources: architectureSources
+        )
+    }
+
     func checkControlAnswers() -> CheckControlAnswersUseCase {
         CheckControlAnswers(
             compiles: compileControls(),
             sources: controlsSources,
-            governance: checkGovernance()
+            governance: checkGovernance(),
+            policy: checkPolicy()
         )
     }
 
@@ -231,7 +246,8 @@ nonisolated final class Dependencies: UseCaseFactory {
             projects: projects,
             imports: importArchitecture(),
             applies: applyControlAnswers(),
-            governance: applyGovernance()
+            governance: applyGovernance(),
+            policy: applyPolicy()
         )
     }
 

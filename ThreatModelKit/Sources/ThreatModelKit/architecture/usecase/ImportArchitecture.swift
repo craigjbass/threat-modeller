@@ -204,6 +204,7 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             )
         }
         model.riskTolerance = riskTolerance
+        model.owner = source.owner ?? ""
         model.requiresEvidenceAbove = source.requiresEvidenceAbove
             .flatMap(RiskLevel.init(rawValue:))
         model.attackTrees = attackTrees

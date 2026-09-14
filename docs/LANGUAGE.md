@@ -1,16 +1,18 @@
 # The language of Craig's Threat Modeller
 
-A reference for the five source languages this application reads: the
+A reference for the six source languages this application reads: the
 architecture language, written in a `.arch` file; the controls language, written
 in a `.controls` file; the library language, written in a `.lib` file; the
-attack tree language, written in a `.attacktree` file; and the governance
-language, written in a `.governance` file.
+attack tree language, written in a `.attacktree` file; the governance
+language, written in a `.governance` file; and the policy language, written in
+`threatmodel/policy.hcl`.
 
-The five languages share one lexical structure and one block syntax. They
+The six languages share one lexical structure and one block syntax. They
 differ only in their keywords and in what a block means. Sections 2 and 3 hold
 what is common. Section 4 holds the architecture language, section 5 the
 controls language, section 6 the library language, section 7 the attack tree
-language, and section 8 the governance language.
+language, section 8 the governance language, and section 9 the policy
+language.
 
 ## Contents
 
@@ -22,11 +24,12 @@ language, and section 8 the governance language.
 6. [The library language](#6-the-library-language)
 7. [The attack tree language](#7-the-attack-tree-language)
 8. [The governance language](#8-the-governance-language)
-9. [Diagnostics](#9-diagnostics)
-10. [Canonical form](#10-canonical-form)
-11. [A worked example](#11-a-worked-example)
-12. [The grammar in full](#12-the-grammar-in-full)
-13. [Where the code is](#13-where-the-code-is)
+9. [The policy language](#9-the-policy-language)
+10. [Diagnostics](#10-diagnostics)
+11. [Canonical form](#11-canonical-form)
+12. [A worked example](#12-a-worked-example)
+13. [The grammar in full](#13-the-grammar-in-full)
+14. [Where the code is](#14-where-the-code-is)
 
 ## 1. Notation
 
@@ -126,6 +129,12 @@ The controls language reads these keywords: `controls`, `for`, `catalogue`,
 `status`, `note`, `compensating`, `reduces_risk_by`, `recommendation`,
 `evidence`, `reference`, `verified_on`, `tree`, `goal`, `chain`, `score_before`,
 `step`, `by`.
+
+The policy language reads these keywords: `policy`, `max_open_at_level`,
+`accepted_requires_owner`, `accepted_requires_review_by`,
+`implemented_requires_evidence_above`,
+`restricted_data_stays_out_of_public_zones`, `assumptions_require_owner`,
+`system_requires_owner`.
 
 The governance language reads these keywords: `governance`, `for`, `threat`,
 `on`, `stale`, `accepted`, `work`, `action`, `owner`, `accepted_on`,
@@ -326,6 +335,7 @@ The label is the system's name, which the report and the window title show.
 | --- | --- | --- | --- |
 | `catalogue` | string | the catalogue in use | the catalogue tag this file was written against |
 | `risk_tolerance` | string | `low` | the risk level a likelihood finding may answer up to |
+| `owner` | string | empty | who owns this system |
 | `faces` | list of strings | empty | the threat actor ids this system faces |
 | `requires_evidence_above` | string | none | the risk level at and above which an implemented control must state evidence |
 
@@ -1825,9 +1835,91 @@ The report prints both.
 | a threat block with no `on` | `a threat says what raised it: on component, on zone or on flow` |
 | two blocks with one key | `<key> is governed twice` |
 
-## 9. Diagnostics
+## 9. The policy language
 
-### 9.1 The shape
+One `threatmodel/policy.hcl` for the whole project, beside the systems it
+governs. Every system is checked against it, and a project with no such file
+checks exactly as it does without one.
+
+The rules are a fixed set of names, not an expression language: a rule a team
+cannot mistype, that the report can explain, and that survives a change to the
+value tree.
+
+```hcl
+policy {
+  max_open_at_level                         = "high"
+  accepted_requires_owner                   = true
+  accepted_requires_review_by               = true
+  implemented_requires_evidence_above       = "high"
+  restricted_data_stays_out_of_public_zones = true
+  assumptions_require_owner                 = true
+  system_requires_owner                     = true
+}
+```
+
+### 9.1 Grammar
+
+```
+PolicyFile  = PolicyBlock ;
+
+PolicyBlock = "policy" "{" { PolicyEntry } "}" ;
+PolicyEntry = "max_open_at_level"                         "=" String
+            | "accepted_requires_owner"                   "=" Boolean
+            | "accepted_requires_review_by"               "=" Boolean
+            | "implemented_requires_evidence_above"       "=" String
+            | "restricted_data_stays_out_of_public_zones" "=" Boolean
+            | "assumptions_require_owner"                 "=" Boolean
+            | "system_requires_owner"                     "=" Boolean ;
+```
+
+A file holds exactly one `policy` block. Text after its closing brace is not
+read. A file that does not start with `policy` is the error `expected policy,
+not "<word>"`.
+
+### 9.2 The rules
+
+| Rule | Type | What it asks |
+| --- | --- | --- |
+| `max_open_at_level` | a risk level | no threat at that level or worse is unanswered |
+| `accepted_requires_owner` | boolean | every accepted risk names an owner |
+| `accepted_requires_review_by` | boolean | every accepted risk names a review date |
+| `implemented_requires_evidence_above` | a risk level | every implemented control on a threat at that level or worse, before its controls, states an evidence tier |
+| `restricted_data_stays_out_of_public_zones` | boolean | no component holding restricted data sits in a public zone, or outside every zone |
+| `assumptions_require_owner` | boolean | every assumption names an owner |
+| `system_requires_owner` | boolean | the `.arch` file states `owner` |
+
+A rule the file does not state is not in force, and `false` is the same as not
+stating it, so a team turns one off without deleting the line.
+
+A risk level is `low`, `medium`, `high` or `critical`. A value outside the four
+is the error `<rule> is "<raw>"; this application holds "low", "medium",
+"high", "critical"`. A name outside the set is the error `a policy holds
+max_open_at_level, accepted_requires_owner, accepted_requires_review_by,
+implemented_requires_evidence_above,
+restricted_data_stays_out_of_public_zones, assumptions_require_owner,
+system_requires_owner, not "<word>"`.
+
+### 9.3 What a breach prints
+
+`threatmodeller check` prints one line per breach, naming the rule first,
+because a person reading a build log is looking for which rule they broke:
+
+```
+threatmodel/payments.governance: system_requires_owner: this system states no owner
+```
+
+Any breach exits 1, which is the code every other `check` failure exits. Two
+rules restate a check that always runs — `accepted_requires_owner` and
+`accepted_requires_review_by` — and a breach either check finds is printed
+once.
+
+The report writes `## Policy` after the executive summary, listing every rule
+in force and whether this system keeps it, so a reader sees what the team
+enforces and not only what it failed.
+
+## 10. Diagnostics
+
+### 10.1 The shape
 
 A diagnostic carries a severity, a line, a column and a message, and prints as:
 
@@ -1837,7 +1929,7 @@ threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0
 
 An editor and a build log both read that shape.
 
-### 9.2 The severities
+### 10.2 The severities
 
 | Severity | Effect |
 | --- | --- |
@@ -1846,7 +1938,7 @@ An editor and a build log both read that shape.
 
 One error anywhere in a file stops the whole file. Warnings alone do not.
 
-### 9.3 Recovery
+### 10.3 Recovery
 
 Neither the lexer nor the parser stops at the first fault, so a file with four
 faults reports four rather than one.
@@ -1858,10 +1950,10 @@ faults reports four rather than one.
 | a missing required attribute | records one diagnostic and drops the block |
 | an unknown character | records one diagnostic and skips that one character |
 
-### 9.4 What each block holds
+### 10.4 What each block holds
 
 An entry that is not one of a block's own attributes or nested blocks is the
-message below. The parser then does what section 9.3 states for "an unknown
+message below. The parser then does what section 10.3 states for "an unknown
 entry" or "an unknown attribute".
 
 | Language | Block | Message |
@@ -1885,6 +1977,7 @@ entry" or "an unknown attribute".
 | controls | `tree` | `a tree holds goal, chain, raises_risk_by, score, score_before and step, not "<word>"` |
 | controls | `step` (in a `tree`) | `a step holds state and by, not "<word>"` |
 | attack tree | `tree` | `a tree holds name, description, raises_risk_by, goal, all_of, any_of and step, not "<word>"` |
+| policy | `policy` | `a policy holds max_open_at_level, accepted_requires_owner, accepted_requires_review_by, implemented_requires_evidence_above, restricted_data_stays_out_of_public_zones, assumptions_require_owner, system_requires_owner, not "<word>"` |
 | governance | `governance for` | `a governance file holds threat, action, stale threat and stale action, not "<word>"` |
 | governance | `threat` | `a governed threat holds accepted, work, stale accepted and stale work, not "<word>"` |
 | governance | `accepted` | `an accepted risk holds owner, accepted_on, review_by, rationale and sources, not "<word>"` |
@@ -1895,7 +1988,7 @@ entry" or "an unknown attribute".
 | library | `mitre` | `a mitre technique holds name and tactic, not "<word>"` |
 | library | `mitigation` | `a mitigation holds name, description, mitigates, provided_by, reduces_risk_by and mode, not "<word>"` |
 
-## 10. Canonical form
+## 11. Canonical form
 
 The writer emits one shape, so a rewrite of an unchanged source produces no
 diff. `threatmodeller format` rewrites every `.arch` file in this shape.
@@ -1926,7 +2019,7 @@ writes `severity` and `score`, then the `likelihood` block, then the controls
 sorted by description, then the `severity_override` block, then the
 compensating controls, then the recommendations.
 
-## 11. A worked example
+## 12. A worked example
 
 `threatmodel/payments.arch`:
 
@@ -2004,7 +2097,7 @@ controls for "Payments" {
 `threatmodeller check` exits 1 while `t-mitm` and `t-lateral-movement` hold no
 answer. `threatmodeller report` writes `threatmodel/payments.md`.
 
-## 12. The grammar in full
+## 13. The grammar in full
 
 ```
 (* common *)
@@ -2248,9 +2341,22 @@ WorkAttr    = "owner"      "=" String
             | "acceptance" "=" String
             | "note"       "=" String
             | "sources"    "=" StringList ;
+
+(* the policy language *)
+
+PolicyFile  = PolicyBlock ;
+
+PolicyBlock = "policy" "{" { PolicyEntry } "}" ;
+PolicyEntry = "max_open_at_level"                         "=" String
+            | "accepted_requires_owner"                   "=" Boolean
+            | "accepted_requires_review_by"               "=" Boolean
+            | "implemented_requires_evidence_above"       "=" String
+            | "restricted_data_stays_out_of_public_zones" "=" Boolean
+            | "assumptions_require_owner"                 "=" Boolean
+            | "system_requires_owner"                     "=" Boolean ;
 ```
 
-## 13. Where the code is
+## 14. Where the code is
 
 | File | What it holds |
 | --- | --- |
@@ -2266,9 +2372,11 @@ WorkAttr    = "owner"      "=" String
 | [`AttackTreeWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/AttackTreeWriter.swift) | the canonical form of a `.attacktree` file |
 | [`GovernanceParser.swift`](../ThreatModelKit/Sources/ArchitectureDSL/GovernanceParser.swift) | section 8 |
 | [`GovernanceWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/GovernanceWriter.swift) | the canonical form of a `.governance` file |
+| [`PolicyParser.swift`](../ThreatModelKit/Sources/ArchitectureDSL/PolicyParser.swift) | section 9 |
+| [`PolicyRules.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/PolicyRules.swift) | what each rule asks, read by the check and by the report |
 | [`Library.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/Library.swift) | the prefix rule of section 6.4, and the taxonomy check |
 | [`MergedCatalogue.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/MergedCatalogue.swift) | how a library and the vendored catalogue read as one |
-| [`Diagnostic.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/Diagnostic.swift) | section 9 |
+| [`Diagnostic.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/Diagnostic.swift) | section 10 |
 | [`ControlsSource.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ControlsSource.swift) | the value tree, and the threat key of section 5.10 |
 | [`ProjectConvention.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ProjectConvention.swift) | how a `.arch` file pairs with its `.controls` and its `.md` |
 

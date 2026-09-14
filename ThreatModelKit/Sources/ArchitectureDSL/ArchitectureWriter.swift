@@ -38,6 +38,11 @@ struct ArchitectureWriter {
             body.append("")
         }
 
+        if let owner = source.owner {
+            body += aligned([("owner", quoted(owner))])
+            body.append("")
+        }
+
         if let requiresEvidenceAbove = source.requiresEvidenceAbove {
             body += aligned([("requires_evidence_above", quoted(requiresEvidenceAbove))])
             body.append("")

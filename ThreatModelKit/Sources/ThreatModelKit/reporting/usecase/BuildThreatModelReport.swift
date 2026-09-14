@@ -205,6 +205,44 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             )
         }
 
+        // The rules the project states for itself, read over this model, by
+        // the same bodies the check runs.
+        let policyRules = model.policy.map { policy in
+            PolicyRules.evaluate(
+                policy,
+                reading: PolicyRules.Reading(
+                    threats: threats.map { threat in
+                        PolicyRules.Threat(
+                            key: ThreatKey(threatId: threat.threatId, sourceId: threat.sourceId),
+                            threatId: threat.threatId,
+                            sourceKind: threat.sourceKind.lowercased(),
+                            sourceId: threat.sourceId,
+                            riskLevel: RiskLevel(rawValue: threat.riskLevel) ?? .low,
+                            levelBeforeControls: RiskScore(value: threat.inherentScore).level,
+                            isAnswered: threat.controls.contains(where: { $0.isImplemented })
+                                || threat.compensating.isEmpty == false,
+                            unevidencedControls: threat.controls
+                                .filter { $0.isImplemented && $0.evidence == "no evidence" }
+                                .map(\.description),
+                            acceptedControls: threat.controls
+                                .filter { $0.statusLabel == ControlStatus.accepted.label }
+                                .map(\.description)
+                        )
+                    },
+                    elements: model.components.map { component in
+                        PolicyRules.Element(
+                            id: component.id.value,
+                            sensitivity: component.sensitivity,
+                            zone: (zoneByComponent[component.id] ?? nil)?.networkZone
+                        )
+                    },
+                    acceptedRisks: model.acceptedRisks,
+                    assumptions: model.assumptions.map { ($0.label, $0.owner ?? "") },
+                    systemOwner: model.owner
+                )
+            )
+        } ?? []
+
         return BuildThreatModelReportResponse(
             report: Report(
                 modelName: model.name,
@@ -269,6 +307,9 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     faced: ThreatActorLookup(model: model, catalogue: catalogue).faced(),
                     threats: assessment.threats
                 ),
+                policy: policyRules.map {
+                    ReportPolicyRule(name: $0.name, asks: $0.asks, breaches: $0.breaches.count)
+                },
                 acceptedRisks: acceptedRisks,
                 attackTrees: assessment.attackTrees,
                 attackPathCount: attack.paths.count + attack.notListed.count + attack.beyond

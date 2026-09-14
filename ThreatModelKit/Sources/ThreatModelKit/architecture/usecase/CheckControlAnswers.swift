@@ -12,6 +12,9 @@ public struct CheckControlAnswersRequest: Equatable, Sendable {
     /// Who carries each accepted risk, or nil when the project holds no such
     /// file.
     public let governanceText: String?
+    /// The rules the project states for itself, or nil when it holds no
+    /// policy file.
+    public let policyText: String?
     /// A risk level that overrides what the architecture file states, or nil.
     public let tolerance: String?
 
@@ -20,12 +23,14 @@ public struct CheckControlAnswersRequest: Equatable, Sendable {
         controlsText: String? = nil,
         attackTreeText: String? = nil,
         governanceText: String? = nil,
+        policyText: String? = nil,
         tolerance: String? = nil
     ) {
         self.architectureText = architectureText
         self.controlsText = controlsText
         self.attackTreeText = attackTreeText
         self.governanceText = governanceText
+        self.policyText = policyText
         self.tolerance = tolerance
     }
 }
@@ -81,15 +86,18 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
     private let compiles: CompileControlsUseCase
     private let sources: ControlsSourceGateway
     private let governance: CheckGovernanceUseCase?
+    private let policy: CheckPolicyUseCase?
 
     public init(
         compiles: CompileControlsUseCase,
         sources: ControlsSourceGateway,
-        governance: CheckGovernanceUseCase? = nil
+        governance: CheckGovernanceUseCase? = nil,
+        policy: CheckPolicyUseCase? = nil
     ) {
         self.compiles = compiles
         self.sources = sources
         self.governance = governance
+        self.policy = policy
     }
 
     public func execute(_ request: CheckControlAnswersRequest) -> CheckControlAnswersResponse {
@@ -172,15 +180,58 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             }
         }
 
+        // The rules a project states for itself. A breach the governance
+        // check already printed is not printed twice: the two rules that
+        // restate it are dropped here.
+        var policyBreaches: [String] = []
+        if let policy {
+            let checked = policy.execute(
+                CheckPolicyRequest(
+                    policyText: request.policyText,
+                    controlsText: text,
+                    governanceText: request.governanceText,
+                    architectureText: request.architectureText,
+                    threats: source.answers.compactMap(Self.policyThreat)
+                )
+            )
+            switch checked {
+            case .checked(let rules):
+                for rule in rules {
+                    let alreadyPrinted = governance != nil
+                        && (rule.name == "accepted_requires_owner"
+                            || rule.name == "accepted_requires_review_by")
+                    guard alreadyPrinted == false else { continue }
+                    policyBreaches += rule.breaches.map { "\(rule.name): \($0)" }
+                }
+            case .refused(let diagnostics):
+                return .refused(diagnostics: diagnostics)
+            }
+        }
+
         return .checked(
             unanswered: unanswered,
             stale: stale,
             staleTrees: staleTrees,
-            governance: governanceFailures + unevidenced,
+            governance: governanceFailures + unevidenced + policyBreaches,
             diagnostics: read.warnings + compileWarnings,
             tolerance: tolerance.rawValue
         )
     }
+    /// One compiled answer, as a policy rule reads it.
+    ///
+    /// The compiled file states the residual score. A rule that reads the
+    /// level before the controls reads it from the same file, because a
+    /// compile writes what a check reads and the two must never disagree.
+    static func policyThreat(_ answer: SourceThreatAnswer) -> PolicyThreat? {
+        let level = answer.score.map { RiskScore(value: $0).level } ?? .low
+        return PolicyThreat(
+            key: answer.key,
+            threatId: answer.threatId,
+            sourceKind: answer.sourceKind,
+            sourceId: answer.sourceId,
+            riskLevel: level,
+            levelBeforeControls: level
+        )
+    }
+
 }
-
-

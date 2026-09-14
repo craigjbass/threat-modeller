@@ -65,6 +65,12 @@ public struct ThreatModel: Equatable, Sendable {
     /// Technologies this model defines for itself. Spec section 8: they travel
     /// in the document.
     public var customTechnologies: [CustomTechnology]
+    /// Who owns this system, from the `.arch` file. Empty when it states
+    /// nobody.
+    public var owner: String
+    /// The rules the project states for itself, or nil when it holds no
+    /// policy file.
+    public var policy: PolicySource?
     /// What proves each control is in place, by control key. Sparse: a
     /// control that states none of the three attributes is not in here.
     public var controlProofs: [ControlKey: ControlProof]
@@ -110,6 +116,8 @@ public struct ThreatModel: Equatable, Sendable {
         riskTolerance: RiskLevel? = nil,
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
+        owner: String = "",
+        policy: PolicySource? = nil,
         controlProofs: [ControlKey: ControlProof] = [:],
         requiresEvidenceAbove: RiskLevel? = nil,
         acceptedRisks: [ThreatKey: [RiskAcceptance]] = [:],
@@ -142,6 +150,8 @@ public struct ThreatModel: Equatable, Sendable {
         }
         self.pathwayMitigations = pathwayMitigations
         self.customTechnologies = customTechnologies
+        self.owner = owner
+        self.policy = policy
         self.controlProofs = controlProofs
         self.requiresEvidenceAbove = requiresEvidenceAbove
         self.acceptedRisks = acceptedRisks

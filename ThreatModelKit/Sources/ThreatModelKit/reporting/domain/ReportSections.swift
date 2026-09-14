@@ -1,4 +1,19 @@
 /// One thing the assessment recommends, and where it came from.
+/// One rule a project states for itself, and whether this system keeps it.
+public struct ReportPolicyRule: Equatable, Sendable {
+    public let name: String
+    public let asks: String
+    public let breaches: Int
+
+    public init(name: String, asks: String, breaches: Int) {
+        self.name = name
+        self.asks = asks
+        self.breaches = breaches
+    }
+
+    public var holds: Bool { breaches == 0 }
+}
+
 /// One risk the organisation decided to carry.
 ///
 /// A row is written for every accepted control, governed or not, so a reader

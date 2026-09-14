@@ -55,6 +55,7 @@ struct ArchitectureParser {
         var assumptions: [SourceAssumption] = []
         var faces: [String] = []
         var requiresEvidenceAbove: String?
+        var owner: String?
         var threatActors: [SourceThreatActor] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -85,6 +86,8 @@ struct ArchitectureParser {
                 }
             case "assumption":
                 if let assumption = parseAssumption() { assumptions.append(assumption) }
+            case "owner":
+                owner = parseTextAttribute()
             case "requires_evidence_above":
                 let token = current
                 let raw = parseTextAttribute() ?? ""
@@ -111,7 +114,7 @@ struct ArchitectureParser {
                     }
                 }
             default:
-                record("a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, faces and threat_actor, not \"\(current.text)\"")
+                record("a system holds catalogue, owner, technology, zone, component, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, faces and threat_actor, not \"\(current.text)\"")
                 skipToNextBlock()
             }
         }
@@ -130,6 +133,7 @@ struct ArchitectureParser {
             riskTolerance: riskTolerance,
             assumptions: assumptions,
             requiresEvidenceAbove: requiresEvidenceAbove,
+            owner: owner,
             faces: faces,
             threatActors: threatActors
         )

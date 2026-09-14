@@ -27,17 +27,20 @@ public struct OpenSystem: OpenSystemUseCase {
     private let imports: ImportArchitectureUseCase
     private let applies: ApplyControlAnswersUseCase
     private let governance: ApplyGovernanceUseCase?
+    private let policy: ApplyPolicyUseCase?
 
     public init(
         projects: ProjectSourceGateway,
         imports: ImportArchitectureUseCase,
         applies: ApplyControlAnswersUseCase,
-        governance: ApplyGovernanceUseCase? = nil
+        governance: ApplyGovernanceUseCase? = nil,
+        policy: ApplyPolicyUseCase? = nil
     ) {
         self.projects = projects
         self.imports = imports
         self.applies = applies
         self.governance = governance
+        self.policy = policy
     }
 
     public func execute(_ request: OpenSystemRequest) -> OpenSystemResponse {
@@ -95,6 +98,22 @@ public struct OpenSystem: OpenSystemUseCase {
                 case .refused(let diagnostics):
                     return .refused(
                         fileName: fileName(of: system.governancePath),
+                        diagnostics: diagnostics
+                    )
+                }
+            }
+            // The rules the project states for itself. The report says
+            // whether this system keeps each one.
+            if let policy,
+               let layout = try? projects.discover(root: request.root),
+               projects.exists(path: layout.policyPath),
+               let policyText = try? projects.read(path: layout.policyPath) {
+                switch policy.execute(ApplyPolicyRequest(text: policyText)) {
+                case .applied:
+                    break
+                case .refused(let diagnostics):
+                    return .refused(
+                        fileName: ProjectConvention.policyFileName,
                         diagnostics: diagnostics
                     )
                 }

@@ -12,6 +12,7 @@ struct CommandLineDependencies {
     let controlsSources: ControlsSourceGateway
     let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     let governanceSources: GovernanceSourceGateway = HclGovernanceSource()
+    let policySources: PolicySourceGateway = HclPolicySource()
     /// The day a review date is measured against.
     let clock: Clock = SystemClock()
     private let models: ThreatModelGateway = InMemoryThreatModelGateway()
@@ -54,11 +55,25 @@ struct CommandLineDependencies {
         )
     }
 
+    func applyPolicy() -> ApplyPolicyUseCase {
+        ApplyPolicy(models: models, sources: policySources)
+    }
+
+    func checkPolicy() -> CheckPolicyUseCase {
+        CheckPolicy(
+            policies: policySources,
+            controlsSources: controlsSources,
+            governanceSources: governanceSources,
+            architectureSources: architectureSources
+        )
+    }
+
     func checkControlAnswers() -> CheckControlAnswersUseCase {
         CheckControlAnswers(
             compiles: compileControls(),
             sources: controlsSources,
-            governance: checkGovernance()
+            governance: checkGovernance(),
+            policy: checkPolicy()
         )
     }
 

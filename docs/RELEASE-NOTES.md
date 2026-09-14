@@ -6,6 +6,17 @@ it.
 
 ## Unreleased
 
+### A project states the rules it enforces
+
+`threatmodel/policy.hcl` states the rules `threatmodeller check` enforces for
+the whole project: `max_open_at_level`, `accepted_requires_owner`,
+`accepted_requires_review_by`, `implemented_requires_evidence_above`,
+`restricted_data_stays_out_of_public_zones`, `assumptions_require_owner` and
+`system_requires_owner`. A breach prints one line naming the rule and exits 1.
+
+A project with no policy file checks exactly as it did. The `.arch` file's
+`system` block takes one more attribute, `owner`, which one of the rules reads.
+
 ### A control states what proves it is in place
 
 A `control` and a `compensating` block take `evidence`, `reference` and

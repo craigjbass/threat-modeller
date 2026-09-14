@@ -10,6 +10,8 @@ public enum ProjectConvention {
     public static let reportExtension = "md"
     public static let attackTreeExtension = "attacktree"
     public static let governanceExtension = "governance"
+    /// The rules a project states for itself, one file for the whole project.
+    public static let policyFileName = "policy.hcl"
     /// The directory a project's shared libraries sit in.
     public static let libraryDirectory = "library"
     public static let libraryExtension = "lib"

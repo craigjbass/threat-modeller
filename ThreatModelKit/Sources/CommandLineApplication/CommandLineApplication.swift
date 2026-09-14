@@ -250,6 +250,14 @@ public struct CommandLineApplication {
         return labels
     }
 
+    /// The rules the project states for itself, or nil when it holds no
+    /// policy file. One file for the whole project.
+    private func policyText(root: String) -> String? {
+        guard let layout = try? projects.discover(root: root) else { return nil }
+        guard projects.exists(path: layout.policyPath) else { return nil }
+        return try? projects.read(path: layout.policyPath)
+    }
+
     /// Who carries each accepted risk, or nil when the project holds no such
     /// file.
     private func governanceText(of system: ProjectSystem) -> String? {
@@ -409,6 +417,7 @@ public struct CommandLineApplication {
                     controlsText: existing,
                     attackTreeText: treeText(of: system),
                     governanceText: governanceText(of: system),
+                    policyText: policyText(root: root),
                     tolerance: tolerance
                 )
             )
@@ -601,6 +610,20 @@ public struct CommandLineApplication {
                     for warning in warnings {
                         output(warning.described(in: system.controlsPath))
                     }
+                }
+            }
+
+            // The rules the project states for itself, so the report says
+            // whether this system keeps each one.
+            if let policyText = policyText(root: root) {
+                switch useCases.applyPolicy().execute(ApplyPolicyRequest(text: policyText)) {
+                case .applied:
+                    break
+                case .refused(let diagnostics):
+                    for diagnostic in diagnostics {
+                        output(diagnostic.described(in: ProjectConvention.policyFileName))
+                    }
+                    return .didNotParse
                 }
             }
 

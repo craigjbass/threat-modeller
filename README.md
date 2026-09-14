@@ -434,6 +434,40 @@ The report writes `## Accepted risks` after `## Recommendations`, one row per
 accepted control, governed or not, and the executive summary states how many
 are past their review date.
 
+### Policy: the rules a project sets for itself
+
+`threatmodeller check` fails a build for an unanswered threat, a stale answer,
+a stale tree and an accepted risk nobody governs. `threatmodel/policy.hcl` is
+where a project states the rest:
+
+```hcl
+policy {
+  max_open_at_level                         = "high"
+  accepted_requires_owner                   = true
+  accepted_requires_review_by               = true
+  implemented_requires_evidence_above       = "high"
+  restricted_data_stays_out_of_public_zones = true
+  assumptions_require_owner                 = true
+  system_requires_owner                     = true
+}
+```
+
+| Rule | What it asks |
+| --- | --- |
+| `max_open_at_level` | no threat at that level or worse is unanswered |
+| `accepted_requires_owner` | every accepted risk names an owner |
+| `accepted_requires_review_by` | every accepted risk names a review date |
+| `implemented_requires_evidence_above` | every implemented control on a threat at that level or worse, before its controls, states an evidence tier |
+| `restricted_data_stays_out_of_public_zones` | no component holding restricted data sits in a public zone, or outside every zone |
+| `assumptions_require_owner` | every assumption names an owner |
+| `system_requires_owner` | the `.arch` file states `owner` |
+
+The set is fixed names rather than an expression language, so a rule is one a
+team cannot mistype, the report can explain it, and it survives a change to the
+model. A breach prints one line naming the rule and exits 1. A project with no
+policy file checks exactly as it did. The report writes `## Policy` after the
+executive summary, listing every rule and whether the system keeps it.
+
 ### Evidence: what proves a control is in place
 
 A `control` block takes `status = "implemented"`, and four teams write that
@@ -616,7 +650,8 @@ and undo takes it back.
 ## More documentation
 
 - [The language guide](docs/LANGUAGE.md) — the syntax and the semantics of
-  `.arch`, `.controls`, `.lib`, `.attacktree` and `.governance`.
+  `.arch`, `.controls`, `.lib`, `.attacktree`, `.governance` and
+  `policy.hcl`.
 - [The shared element library design](docs/superpowers/specs/2026-09-09-shared-element-library-design.md) —
   why a library is shaped this way, and how it is vendored.
 - [The code-first design](docs/superpowers/specs/2026-09-08-code-first-dsl-design.md) —

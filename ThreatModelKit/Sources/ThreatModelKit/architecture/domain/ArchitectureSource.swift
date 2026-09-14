@@ -18,6 +18,9 @@ public struct ArchitectureSource: Equatable, Sendable {
     /// The risk level at and above which an implemented control must state
     /// evidence, or nil when the file states no such rule.
     public let requiresEvidenceAbove: String?
+    /// Who owns this system, or nil when the file states nobody. The policy
+    /// rule `system_requires_owner` and the report read it.
+    public let owner: String?
     /// The threat actor ids this system faces, in file order.
     public let faces: [String]
     /// The threat actors this file declares for itself.
@@ -34,6 +37,7 @@ public struct ArchitectureSource: Equatable, Sendable {
         riskTolerance: String? = nil,
         assumptions: [SourceAssumption] = [],
         requiresEvidenceAbove: String? = nil,
+        owner: String? = nil,
         faces: [String] = [],
         threatActors: [SourceThreatActor] = []
     ) {
@@ -47,6 +51,7 @@ public struct ArchitectureSource: Equatable, Sendable {
         self.riskTolerance = riskTolerance
         self.assumptions = assumptions
         self.requiresEvidenceAbove = requiresEvidenceAbove
+        self.owner = owner
         self.faces = faces
         self.threatActors = threatActors
     }
