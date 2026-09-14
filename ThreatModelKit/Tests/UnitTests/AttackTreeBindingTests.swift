@@ -58,6 +58,9 @@ struct AttackTreeBindingTests {
         let first = try #require(bound.first)
         #expect(first.isStale)
         #expect(first.steps.map(\.state) == [.open, .unbound])
+        #expect(first.chainFactor == 0)
+        #expect(first.isOpen == false)
+        #expect(first.scoreBefore == 8)
         #expect(first.score == first.scoreBefore)
     }
 
@@ -149,5 +152,18 @@ struct AttackTreeBindingTests {
         )
 
         #expect(try #require(bound.first).chainFactor == 0.6)
+    }
+
+    @Test func ignoresAClosedChildsFactorInAnAnyOf() throws {
+        let bound = AttackTreeBinding.bind(
+            trees: [tree(goal: target("g", "db"), root: .any([step("a", "api"), step("b", "api")]))],
+            to: [
+                resolved("g", "db"),
+                resolved("a", "api", statuses: [.implemented], likelihood: .commodity),
+                resolved("b", "api", likelihood: .research),
+            ]
+        )
+
+        #expect(try #require(bound.first).chainFactor == 0.25)
     }
 }

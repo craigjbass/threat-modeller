@@ -5,7 +5,7 @@
 /// step missing is a claim about a system that is no longer there.
 public enum AttackTreeBinding {
     /// What a node is doing: whether an attacker can still walk it, and the
-    /// weakest factor on the way.
+    /// factor the node rules give it.
     private struct NodeState {
         let isOpen: Bool
         let factor: Double
