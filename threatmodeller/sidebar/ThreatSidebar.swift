@@ -52,6 +52,10 @@ struct ThreatSidebar: View {
     /// place a person was reading stays on screen.
     @State private var topGroup: String?
 
+    /// What the search field and the filter menu keep. A model with hundreds
+    /// of threats is read by narrowing it.
+    @State private var filter = ThreatFilter()
+
     /// One group per source, each holding that source's threats. Groups are
     /// ordered by their worst threat, so the component needing most attention
     /// is at the top. `session.threats` is already worst first, so the first
@@ -61,7 +65,9 @@ struct ThreatSidebar: View {
         var bySource: [String: [AssessedThreat]] = [:]
         var names: [String: String] = [:]
 
-        for threat in session.threats {
+        // A group with no matching threat is not drawn, because a heading
+        // over nothing is a row a person reads and learns nothing from.
+        for threat in shownThreats {
             let id = threat.source.id
             if bySource[id] == nil {
                 order.append(id)
@@ -71,6 +77,15 @@ struct ThreatSidebar: View {
         }
 
         return order.map { (id: $0, name: names[$0] ?? $0, threats: bySource[$0] ?? []) }
+    }
+
+    /// The threats the list draws. The summary counts the whole model.
+    private var shownThreats: [AssessedThreat] {
+        filter.narrow(session.threats)
+    }
+
+    private var hiddenCount: Int {
+        session.threats.count - shownThreats.count
     }
 
     var body: some View {
@@ -118,6 +133,8 @@ struct ThreatSidebar: View {
                         Divider()
                         RiskSummaryView(summary: session.summary)
                         reorderBar
+                        Divider()
+                        filterBar
                         Divider()
 
                         LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
@@ -168,6 +185,75 @@ struct ThreatSidebar: View {
             }
         }
         .navigationTitle("Threats")
+    }
+
+    /// The search field and the filter menu.
+    ///
+    /// The summary above keeps counting the whole model, so this bar states
+    /// how many rows the filter hides rather than changing a number a person
+    /// reads as the state of the system.
+    private var filterBar: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                TextField("Search threats", text: $filter.text)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("threat-search")
+                if filter.isNarrowing {
+                    Button("Clear") { filter = ThreatFilter() }
+                        .font(.caption)
+                        .accessibilityIdentifier("clear-threat-filter")
+                }
+            }
+
+            HStack(spacing: 6) {
+                Picker("Risk", selection: $filter.levelId) {
+                    Text("Every level").tag(String?.none)
+                    ForEach(session.summary.byLevel, id: \.levelId) { level in
+                        Text(level.label).tag(String?.some(level.levelId))
+                    }
+                }
+                .accessibilityIdentifier("threat-level-filter")
+
+                Picker("STRIDE", selection: $filter.strideId) {
+                    Text("Every category").tag(String?.none)
+                    ForEach(session.summary.byStride, id: \.strideId) { stride in
+                        Text(stride.label).tag(String?.some(stride.strideId))
+                    }
+                }
+                .accessibilityIdentifier("threat-stride-filter")
+
+                Picker("Answered", selection: $filter.answered) {
+                    ForEach(ThreatFilter.Answered.allCases) { state in
+                        Text(state.label).tag(state)
+                    }
+                }
+                .accessibilityIdentifier("threat-answered-filter")
+            }
+            .labelsHidden()
+            .font(.caption)
+
+            if hiddenCount > 0 {
+                Text(
+                    hiddenCount == 1
+                        ? "1 threat is hidden by the filter"
+                        : "\(hiddenCount) threats are hidden by the filter"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("threats-hidden")
+            }
+
+            if shownThreats.isEmpty {
+                Text("No threat matches this search.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     /// The Reorder button, beside the risk summary.
