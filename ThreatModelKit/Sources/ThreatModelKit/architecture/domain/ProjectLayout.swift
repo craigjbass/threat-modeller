@@ -8,12 +8,16 @@ public struct ProjectSystem: Equatable, Sendable {
     public let controlsPath: String
     /// The report. It is written, not read.
     public let reportPath: String
+    /// The attack trees a person wrote for this system. The file may not
+    /// exist: a system that states no tree holds no such file.
+    public let attackTreePath: String
 
-    public init(name: String, architecturePath: String, controlsPath: String, reportPath: String) {
+    public init(name: String, architecturePath: String, controlsPath: String, reportPath: String, attackTreePath: String) {
         self.name = name
         self.architecturePath = architecturePath
         self.controlsPath = controlsPath
         self.reportPath = reportPath
+        self.attackTreePath = attackTreePath
     }
 }
 

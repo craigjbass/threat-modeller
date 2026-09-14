@@ -8,6 +8,7 @@ public enum ProjectConvention {
     public static let architectureExtension = "arch"
     public static let controlsExtension = "controls"
     public static let reportExtension = "md"
+    public static let attackTreeExtension = "attacktree"
     /// The directory a project's shared libraries sit in.
     public static let libraryDirectory = "library"
     public static let libraryExtension = "lib"
@@ -22,7 +23,8 @@ public enum ProjectConvention {
                     name: name,
                     architecturePath: path(directory, "\(name).\(architectureExtension)"),
                     controlsPath: path(directory, "\(name).\(controlsExtension)"),
-                    reportPath: path(directory, "\(name).\(reportExtension)")
+                    reportPath: path(directory, "\(name).\(reportExtension)"),
+                    attackTreePath: path(directory, "\(name).\(attackTreeExtension)")
                 )
             }
             .sorted { $0.name < $1.name }
@@ -71,7 +73,10 @@ public enum ProjectConvention {
     public static func system(atPath path: String) -> (root: String, systemName: String)? {
         let file = path as NSString
         let fileExtension = file.pathExtension
-        guard fileExtension == architectureExtension || fileExtension == controlsExtension else {
+        guard fileExtension == architectureExtension
+            || fileExtension == controlsExtension
+            || fileExtension == attackTreeExtension
+        else {
             return nil
         }
 

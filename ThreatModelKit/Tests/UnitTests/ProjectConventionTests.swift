@@ -48,4 +48,32 @@ struct ProjectConventionTests {
         #expect(ProjectConvention.system(atPath: "/work/notes.txt") == nil)
         #expect(ProjectConvention.system(atPath: "payments.arch") == nil)
     }
+
+    // MARK: attack trees
+
+    @Test func pairsAnAttackTreeFileWithItsArchitectureFile() throws {
+        let systems = ProjectConvention.systems(
+            in: "/p/threatmodel",
+            fileNames: ["payments.arch", "payments.controls", "payments.attacktree"]
+        )
+
+        let system = try #require(systems.first)
+        #expect(system.attackTreePath == "/p/threatmodel/payments.attacktree")
+    }
+
+    @Test func namesAnAttackTreePathForASystemThatHasNoSuchFile() throws {
+        let systems = ProjectConvention.systems(in: "/p", fileNames: ["payments.arch"])
+
+        let system = try #require(systems.first)
+        #expect(system.attackTreePath == "/p/payments.attacktree")
+    }
+
+    @Test func opensAProjectFromAnAttackTreeFile() throws {
+        let found = try #require(
+            ProjectConvention.system(atPath: "/p/threatmodel/payments.attacktree")
+        )
+
+        #expect(found.root == "/p")
+        #expect(found.systemName == "payments")
+    }
 }
