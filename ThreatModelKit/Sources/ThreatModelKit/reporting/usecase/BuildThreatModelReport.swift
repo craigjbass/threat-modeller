@@ -213,7 +213,9 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 threatActors: Self.threatActors(
                     faced: ThreatActorLookup(model: model, catalogue: catalogue).faced(),
                     threats: assessment.threats
-                )
+                ),
+                attackTrees: assessment.attackTrees,
+                attackPathCount: attack.paths.count + attack.notListed.count + attack.beyond
             )
         )
     }

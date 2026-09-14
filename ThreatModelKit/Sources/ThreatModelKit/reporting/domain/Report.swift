@@ -45,6 +45,11 @@ public struct Report: Equatable, Sendable {
     /// The adversaries this assessment is written against, in the order the
     /// model faces them. Empty for a model that faces nobody.
     public let threatActors: [ReportThreatActor]
+    /// The trees a person wrote, bound and scored. Empty for a model that
+    /// states no tree.
+    public let attackTrees: [BoundAttackTree]
+    /// How many routes the attack path walk found, listed and not listed.
+    public let attackPathCount: Int
 
     public init(
         modelName: String,
@@ -68,7 +73,9 @@ public struct Report: Equatable, Sendable {
         executiveSummary: ReportExecutiveSummary = ReportExecutiveSummary(),
         methodology: ReportMethodology = ReportMethodology(),
         actions: [ReportAction] = [],
-        threatActors: [ReportThreatActor] = []
+        threatActors: [ReportThreatActor] = [],
+        attackTrees: [BoundAttackTree] = [],
+        attackPathCount: Int = 0
     ) {
         self.modelName = modelName
         self.catalogueTag = catalogueTag
@@ -92,6 +99,8 @@ public struct Report: Equatable, Sendable {
         self.methodology = methodology
         self.actions = actions
         self.threatActors = threatActors
+        self.attackTrees = attackTrees
+        self.attackPathCount = attackPathCount
     }
 }
 
