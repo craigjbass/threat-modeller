@@ -94,3 +94,24 @@ public struct BoundAttackTree: Equatable, Sendable {
     /// and the report both print.
     public var chainPercentage: Int { Int((chainFactor * 100).rounded()) }
 }
+
+public extension BoundAttackTree {
+    /// The same tree with the score its goal reached.
+    func withScore(_ score: Int) -> BoundAttackTree {
+        BoundAttackTree(
+            id: id,
+            name: name,
+            description: description,
+            raisesRiskBy: raisesRiskBy,
+            goal: goal,
+            goalName: goalName,
+            goalSourceName: goalSourceName,
+            steps: steps,
+            chainFactor: chainFactor,
+            isOpen: isOpen,
+            isStale: isStale,
+            scoreBefore: scoreBefore,
+            score: score
+        )
+    }
+}

@@ -31,6 +31,10 @@ public enum RiskLevel: String, CaseIterable, Equatable, Hashable, Sendable {
 public struct RiskScore: Equatable, Sendable {
     public let value: Int
 
+    /// The top of the scale: the highest severity rank multiplied by the
+    /// highest data sensitivity rank.
+    public static let maximum = 16
+
     public init(value: Int) {
         self.value = value
     }

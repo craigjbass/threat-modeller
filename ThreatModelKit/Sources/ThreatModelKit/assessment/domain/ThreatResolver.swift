@@ -159,6 +159,36 @@ public struct ResolvedThreat: Equatable, Sendable {
     }
 }
 
+public extension ResolvedThreat {
+    /// The same threat with another score. Stage 8 is the only caller.
+    func withScore(_ score: RiskScore) -> ResolvedThreat {
+        ResolvedThreat(
+            threat: threat,
+            severity: severity,
+            source: source,
+            sensitivity: sensitivity,
+            score: score,
+            controls: controls,
+            context: context,
+            isTlsMitigated: isTlsMitigated,
+            overrideKey: overrideKey,
+            overriddenSeverityId: overriddenSeverityId,
+            mitigatedBy: mitigatedBy,
+            scoreBeforePathwayMitigation: scoreBeforePathwayMitigation,
+            scoreBeforeControls: scoreBeforeControls,
+            compensating: compensating,
+            scoreBeforeCompensation: scoreBeforeCompensation,
+            mitigatedByComponents: mitigatedByComponents,
+            likelihood: likelihood,
+            scoreBeforeLikelihood: scoreBeforeLikelihood,
+            likelihoodFinding: likelihoodFinding,
+            severityDecision: severityDecision,
+            scoreIfAssumptionsHold: scoreIfAssumptionsHold,
+            assumedMitigations: assumedMitigations
+        )
+    }
+}
+
 /// Resolves every threat a model raises, and scores each one.
 ///
 /// Component threats come from the component's technology. Connection threats
