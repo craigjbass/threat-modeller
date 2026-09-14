@@ -19,4 +19,7 @@ public protocol TechnologyCatalogue: Sendable {
     func version() -> CatalogueVersion
     func taxonomy() -> Taxonomy
     func providers() -> [Provider]
+    /// Every fault found while this catalogue was read. Empty for a sound
+    /// catalogue. Nothing is dropped without a fault naming what was dropped.
+    func faults() -> [CatalogueFault]
 }

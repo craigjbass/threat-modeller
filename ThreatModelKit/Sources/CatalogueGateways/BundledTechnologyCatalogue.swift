@@ -5,6 +5,54 @@ public enum CatalogueLoadError: Error, Equatable {
     case unknownSeverity(threatId: String, severity: String)
 }
 
+/// Where a catalogue gateway reads its files from.
+public protocol CatalogueResourceReader: Sendable {
+    /// A file inside the vendored library, named relative to `Library/`.
+    func data(named name: String) throws -> Data
+    /// A file this application owns, named relative to `Actors/`.
+    func appOwnedData(named name: String) throws -> Data
+}
+
+/// Reads the files this target vendors, or the directory `CatalogueLocation`
+/// names.
+public struct VendoredCatalogueResources: CatalogueResourceReader {
+    public init() {}
+
+    public func data(named name: String) throws -> Data {
+        try LibraryResources.data(named: name)
+    }
+
+    public func appOwnedData(named name: String) throws -> Data {
+        try LibraryResources.appOwnedData(named: name)
+    }
+}
+
+/// Reads a catalogue laid out on disk the way a release tarball lays it out:
+/// `Library/` and `Actors/` inside one directory.
+public struct CatalogueDirectoryResources: CatalogueResourceReader {
+    private let directory: String
+
+    public init(directory: String) {
+        self.directory = directory
+    }
+
+    public func data(named name: String) throws -> Data {
+        try read("Library/\(name)")
+    }
+
+    public func appOwnedData(named name: String) throws -> Data {
+        try read("Actors/\(name)")
+    }
+
+    private func read(_ path: String) throws -> Data {
+        let url = URL(fileURLWithPath: directory).appendingPathComponent(path)
+        guard let data = try? Data(contentsOf: url) else {
+            throw LibraryResourceError.notFound(url.path)
+        }
+        return data
+    }
+}
+
 /// Reads the catalogue vendored into this target's resource bundle.
 public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     private static let providerFiles = [
@@ -20,20 +68,31 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     private let zoneThreatsValue: [Threat]
     private let pathwayMitigationsValue: [PathwayMitigationDefinition]
     private let versionValue: CatalogueVersion
+    private let faultsValue: [CatalogueFault]
 
-    public init() throws {
+    public convenience init() throws {
+        try self.init(resources: VendoredCatalogueResources())
+    }
+
+    /// Reads a catalogue laid out on disk, for a test and for a tool that
+    /// checks a catalogue tag before it is vendored.
+    public convenience init(directory: String) throws {
+        try self.init(resources: CatalogueDirectoryResources(directory: directory))
+    }
+
+    public init(resources: CatalogueResourceReader) throws {
         let decoder = JSONDecoder()
 
         // Application-owned, and read first so the taxonomy can hold the
         // actors' own categories.
         let actorsJSON = try decoder.decode(
             ActorsFileJSON.self,
-            from: try LibraryResources.appOwnedData(named: "actors.json")
+            from: try resources.appOwnedData(named: "actors.json")
         )
 
         let taxonomyJSON = try decoder.decode(
             TaxonomyJSON.self,
-            from: try LibraryResources.data(named: "taxonomy.json")
+            from: try resources.data(named: "taxonomy.json")
         )
         taxonomyValue = Taxonomy(
             stride: taxonomyJSON.stride.map {
@@ -55,7 +114,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
 
         let threatsJSON = try decoder.decode(
             ThreatsFileJSON.self,
-            from: try LibraryResources.data(named: "threats/common-threats.json")
+            from: try resources.data(named: "threats/common-threats.json")
         )
         var threats: [ThreatId: Threat] = [:]
         var connectionThreatList: [Threat] = []
@@ -98,7 +157,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
         for file in Self.providerFiles.sorted() {
             let providerJSON = try decoder.decode(
                 ProviderFileJSON.self,
-                from: try LibraryResources.data(named: "technologies/\(file).json")
+                from: try resources.data(named: "technologies/\(file).json")
             )
             providers.append(
                 Provider(id: ProviderId(providerJSON.provider), displayName: providerJSON.displayName)
@@ -122,16 +181,23 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
         providers.append(Provider(id: actorProvider, displayName: actorsJSON.displayName))
 
         providersValue = providers
-        technologies = loaded
-        technologiesById = Dictionary(uniqueKeysWithValues: loaded.map { ($0.id, $0) })
+        // A duplicate technology id is a fault in the catalogue, not a reason
+        // to stop. The first entry read is kept, and the fault names the id.
+        let audit = CatalogueAudit.deduplicate(loaded)
+        technologies = audit.kept
+        technologiesById = Dictionary(uniqueKeysWithValues: audit.kept.map { ($0.id, $0) })
+        faultsValue = CatalogueAudit.faults(
+            technologies: loaded,
+            declaredThreatIds: Set(threats.keys)
+        )
 
         let mitigationsJSON = try decoder.decode(
             PathwayMitigationsFileJSON.self,
-            from: try LibraryResources.data(named: "mitigations/pathway-mitigations.json")
+            from: try resources.data(named: "mitigations/pathway-mitigations.json")
         )
         let lockJSON = try decoder.decode(
             LockFileJSON.self,
-            from: try LibraryResources.data(named: "library.lock.json")
+            from: try resources.data(named: "library.lock.json")
         )
         versionValue = CatalogueVersion(repository: lockJSON.repository, tag: lockJSON.tag)
 
@@ -185,4 +251,6 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     public func taxonomy() -> Taxonomy { taxonomyValue }
 
     public func providers() -> [Provider] { providersValue }
+
+    public func faults() -> [CatalogueFault] { faultsValue }
 }

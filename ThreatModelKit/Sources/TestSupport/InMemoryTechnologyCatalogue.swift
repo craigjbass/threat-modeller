@@ -11,6 +11,7 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue, @unchecked 
     private let providersValue: [Provider]
     private let pathwayMitigationsValue: [PathwayMitigationDefinition]
     private let versionValue: CatalogueVersion
+    private let faultsValue: [CatalogueFault]
 
     public init(
         technologies: [Technology],
@@ -20,9 +21,16 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue, @unchecked 
         pathwayMitigations: [PathwayMitigationDefinition] = [],
         version: CatalogueVersion = CatalogueVersion(repository: "fixture", tag: "v0.0.0")
     ) {
-        self.technologies = technologies
+        // The same audit the real gateway runs, so both answer the same way
+        // for a duplicate technology id and for a dangling threat id.
+        let audit = CatalogueAudit.deduplicate(technologies)
+        self.technologies = audit.kept
+        self.faultsValue = CatalogueAudit.faults(
+            technologies: technologies,
+            declaredThreatIds: Set(threats.map(\.id))
+        )
         self.orderedThreats = threats
-        self.threats = Dictionary(uniqueKeysWithValues: threats.map { ($0.id, $0) })
+        self.threats = Dictionary(threats.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         self.taxonomyValue = taxonomy
         self.providersValue = providers
         self.pathwayMitigationsValue = pathwayMitigations
@@ -55,4 +63,6 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue, @unchecked 
     public func taxonomy() -> Taxonomy { taxonomyValue }
 
     public func providers() -> [Provider] { providersValue }
+
+    public func faults() -> [CatalogueFault] { faultsValue }
 }

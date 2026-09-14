@@ -89,4 +89,42 @@ public func verifyTechnologyCatalogueContract(
     let version = subject.version()
     #expect(version.repository.isEmpty == false)
     #expect(version.tag.isEmpty == false)
+
+    // A sound catalogue reports no fault. Every gateway reads the same
+    // catalogue the same way, so every gateway must agree it is sound.
+    #expect(subject.faults() == [])
+}
+
+/// What every `TechnologyCatalogue` answers when one technology id is declared
+/// twice. Run it against the fake and the real gateway alike, so neither can
+/// trap and neither can keep a second row for the same id.
+public func verifyDuplicateTechnologyIdContract(
+    _ subject: TechnologyCatalogue,
+    duplicatedId: TechnologyId,
+    keptName: String
+) throws {
+    #expect(subject.faults() == [.duplicateTechnologyId(duplicatedId)])
+
+    // The first entry read is kept, and it is kept once.
+    #expect(subject.all().filter { $0.id == duplicatedId }.count == 1)
+    let found = try #require(subject.findById(duplicatedId))
+    #expect(found.name == keptName)
+    #expect(subject.threatsFor(technologyId: duplicatedId).map(\.id) == found.threatIds)
+}
+
+/// What every `TechnologyCatalogue` answers when a technology names a threat
+/// id no threat file declares. The threat is not read, and the fault names
+/// the technology and the id.
+public func verifyDanglingThreatIdContract(
+    _ subject: TechnologyCatalogue,
+    technologyId: TechnologyId,
+    danglingThreatId: ThreatId
+) throws {
+    #expect(
+        subject.faults()
+            == [.danglingThreatId(technologyId: technologyId, threatId: danglingThreatId)]
+    )
+
+    let read = subject.threatsFor(technologyId: technologyId)
+    #expect(read.contains { $0.id == danglingThreatId } == false)
 }

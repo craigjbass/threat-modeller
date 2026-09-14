@@ -11,8 +11,11 @@ public struct MergedCatalogue: TechnologyCatalogue {
         self.store = store
     }
 
+    /// The base catalogue, then every library technology whose id the base
+    /// catalogue does not already hold. A duplicate id is a fault, not a
+    /// second row in the palette.
     public func all() -> [Technology] {
-        base.all() + store.all().flatMap(\.technologies)
+        CatalogueAudit.deduplicate(base.all() + store.all().flatMap(\.technologies)).kept
     }
 
     public func findById(_ id: TechnologyId) -> Technology? {
@@ -52,6 +55,24 @@ public struct MergedCatalogue: TechnologyCatalogue {
 
     public func providers() -> [Provider] {
         base.providers() + store.all().map(\.provider)
+    }
+
+    /// The base catalogue's faults, then every fault a library adds.
+    public func faults() -> [CatalogueFault] {
+        var found = base.faults()
+        var seen = Set(base.all().map(\.id))
+        for library in store.all() {
+            for technology in library.technologies {
+                guard seen.insert(technology.id).inserted else {
+                    found.append(.duplicateTechnologyId(technology.id))
+                    continue
+                }
+                for threatId in technology.threatIds where threat(id: threatId) == nil {
+                    found.append(.danglingThreatId(technologyId: technology.id, threatId: threatId))
+                }
+            }
+        }
+        return found
     }
 
     /// A threat a library declares, else the same id in the base catalogue.
