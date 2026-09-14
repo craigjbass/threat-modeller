@@ -350,6 +350,21 @@ control have all already lowered it. The boost raises what is left.
 
 16 is the top of the scale `RiskScore` states.
 
+**The target score takes the same boost.** A threat carries two numbers: the
+residual score, and the target score the report prints as "if the assumptions
+hold". The stage raises both by the same boost, with the same clamp.
+
+The reason is that an assumed `mitigates` edge lowers a score and answers
+nothing. Section 5.2 states that a step closes on an implemented control or a
+compensating control, and on nothing else, so adopting every assumed edge
+closes no step and leaves the chain exactly as it was. The same chain gives the
+same boost.
+
+WARNING: a stage that raises the residual score and leaves the target score
+alone makes the two differ on a threat that carries no assumed mitigation at
+all. The report prints the "if the assumptions hold" line whenever the two
+differ, so that threat would state an assumption nobody made.
+
 ### 6.2 The chain factor
 
 The chain factor is the root node's factor, by the rules of section 5.3. A step
