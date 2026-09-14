@@ -63,13 +63,54 @@ jobs:
           set -e
           test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
 
-          # Answer everything, and it must pass.
-          sed -i 's/"not_implemented"/"accepted"/g' /tmp/sample/threatmodel/payments.controls
+          # Answer everything by putting the controls in place, and it must
+          # pass. Accepting them instead is also an answer, and an accepted
+          # risk asks who carries it, which the step below walks.
+          sed -i 's/"not_implemented"/"implemented"/g' /tmp/sample/threatmodel/payments.controls
           swift run threatmodeller-cli check /tmp/sample
 
           swift run threatmodeller-cli report /tmp/sample
           test -f /tmp/sample/threatmodel/payments.md
           head -20 /tmp/sample/threatmodel/payments.md
+
+      - name: An accepted risk asks who carries it
+        working-directory: ThreatModelKit
+        run: |
+          mkdir -p /tmp/accepted/threatmodel
+          cat > /tmp/accepted/threatmodel/payments.arch <<'ARCH'
+          system "Payments" {
+            component "api" { technology = "aws-ec2" }
+          }
+          ARCH
+          swift run threatmodeller-cli compile /tmp/accepted
+          sed -i 's/"not_implemented"/"accepted"/g' /tmp/accepted/threatmodel/payments.controls
+
+          # A control accepted and governed by nobody fails the build.
+          set +e
+          swift run threatmodeller-cli check /tmp/accepted
+          code=$?
+          set -e
+          test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
+
+          # The two migration steps the README states: compile writes the
+          # governance file, then a person fills in the owner and the date.
+          swift run threatmodeller-cli compile /tmp/accepted
+          test -f /tmp/accepted/threatmodel/payments.governance
+          python3 - <<'FILL'
+          from pathlib import Path
+
+          path = Path("/tmp/accepted/threatmodel/payments.governance")
+          lines = []
+          for line in path.read_text().splitlines():
+              lines.append(line)
+              if line.strip().startswith("accepted \"") and line.strip().endswith("{"):
+                  indent = " " * (len(line) - len(line.lstrip()) + 2)
+                  lines.append(indent + 'owner       = "The Platform Team"')
+                  lines.append(indent + 'accepted_on = "2026-01-01"')
+                  lines.append(indent + 'review_by   = "2099-01-01"')
+          path.write_text("\n".join(lines) + "\n")
+          FILL
+          swift run threatmodeller-cli check /tmp/accepted
 
       - name: Refuse a file that does not parse
         working-directory: ThreatModelKit
