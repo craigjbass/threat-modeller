@@ -174,3 +174,85 @@ struct ThreatListOrderTests {
         #expect(ThreatModelSession.rowsOutOfOrder(drawn: assessed, sorted: assessed) == 0)
     }
 }
+
+/// Opening and closing the groups of the threat list.
+@MainActor
+@Suite("The groups the threat list draws closed")
+struct ThreatGroupCollapseTests {
+    private func session() -> ThreatModelSession {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 400, y: 0)
+        return session
+    }
+
+    private func groupIds(_ session: ThreatModelSession) -> [String] {
+        var seen: [String] = []
+        for threat in session.threats where seen.contains(threat.source.id) == false {
+            seen.append(threat.source.id)
+        }
+        return seen
+    }
+
+    @Test func startsWithEveryGroupOpen() {
+        #expect(session().collapsedGroups.isEmpty)
+    }
+
+    @Test func closesAndOpensOneGroup() throws {
+        let session = session()
+        let first = try #require(groupIds(session).first)
+
+        session.toggleGroup(first)
+        #expect(session.collapsedGroups == [first])
+
+        session.toggleGroup(first)
+        #expect(session.collapsedGroups.isEmpty)
+    }
+
+    @Test func closesEveryGroupAndOpensThemAgain() {
+        let session = session()
+        let ids = groupIds(session)
+        #expect(ids.count == 2)
+
+        session.collapseEveryGroup(ids)
+        #expect(session.collapsedGroups == Set(ids))
+
+        session.expandEveryGroup()
+        #expect(session.collapsedGroups.isEmpty)
+    }
+
+    /// Option-clicking a group's disclosure does the same as the two buttons.
+    @Test func closesEveryGroupOnAnOptionClickOfAnOpenGroup() throws {
+        let session = session()
+        let ids = groupIds(session)
+        let first = try #require(ids.first)
+
+        session.toggleGroup(first, everyGroupId: ids, appliesToEveryGroup: true)
+
+        #expect(session.collapsedGroups == Set(ids))
+    }
+
+    @Test func opensEveryGroupOnAnOptionClickOfAClosedGroup() throws {
+        let session = session()
+        let ids = groupIds(session)
+        let first = try #require(ids.first)
+        session.collapseEveryGroup(ids)
+
+        session.toggleGroup(first, everyGroupId: ids, appliesToEveryGroup: true)
+
+        #expect(session.collapsedGroups.isEmpty)
+    }
+
+    /// The set lives on the session, so it survives every stage change and
+    /// every edit for as long as the system is open.
+    @Test func keepsTheClosedGroupsThroughAnEdit() throws {
+        let session = session()
+        let ids = groupIds(session)
+        session.collapseEveryGroup(ids)
+        let control = try #require(session.threats.first?.controls.first)
+
+        session.setControl(key: control.key, implemented: true)
+
+        #expect(session.collapsedGroups == Set(ids))
+    }
+}

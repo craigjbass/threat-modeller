@@ -46,8 +46,6 @@ struct ThreatSidebar: View {
     /// The threat whose likelihood finding the user is writing.
     @State private var likelihooding: CompensatedThreat?
 
-    @State private var collapsed: Set<String> = []
-
     /// The group at the top of the view. Reordering puts it back, so the
     /// place a person was reading stays on screen.
     @State private var topGroup: String?
@@ -140,7 +138,7 @@ struct ThreatSidebar: View {
                         LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
                             ForEach(groups, id: \.id) { group in
                                 Section {
-                                    if collapsed.contains(group.id) == false {
+                                    if session.collapsedGroups.contains(group.id) == false {
                                         ForEach(group.threats, id: \.rowIdentity) { threat in
                                             ThreatCard(
                                                 threat: threat,
@@ -194,6 +192,16 @@ struct ThreatSidebar: View {
     /// reads as the state of the system.
     private var filterBar: some View {
         VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Button("Collapse All") { session.collapseEveryGroup(groups.map(\.id)) }
+                    .font(.caption)
+                    .accessibilityIdentifier("collapse-all-groups")
+                Button("Expand All") { session.expandEveryGroup() }
+                    .font(.caption)
+                    .accessibilityIdentifier("expand-all-groups")
+                Spacer(minLength: 0)
+            }
+
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
@@ -295,10 +303,16 @@ struct ThreatSidebar: View {
     }
 
     private func groupHeader(_ group: (id: String, name: String, threats: [AssessedThreat])) -> some View {
-        let isCollapsed = collapsed.contains(group.id)
+        let isCollapsed = session.collapsedGroups.contains(group.id)
 
         return Button {
-            if isCollapsed { collapsed.remove(group.id) } else { collapsed.insert(group.id) }
+            // Option-click closes or opens every group, the way Finder reads
+            // one.
+            session.toggleGroup(
+                group.id,
+                everyGroupId: groups.map(\.id),
+                appliesToEveryGroup: NSEvent.modifierFlags.contains(.option)
+            )
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")

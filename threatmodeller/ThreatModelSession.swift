@@ -66,6 +66,12 @@ final class ThreatModelSession {
     /// and every change raises it. `ProjectSession` compares it with the
     /// number it recorded to answer whether anything on screen is unsaved.
     private(set) var revision = 0
+    /// The groups the threat list draws closed, by source id.
+    ///
+    /// It lives on the session rather than on the view, so it survives a stage
+    /// change and belongs to one system: opening another system builds another
+    /// session, which starts with every group open.
+    private(set) var collapsedGroups: Set<String> = []
     /// What a window that owns this session wants to know after every change.
     /// A document window sets nothing. A project window writes the files.
     var onChange: (() -> Void)?
@@ -842,6 +848,32 @@ final class ThreatModelSession {
 
         // A model that has just loaded is worst first.
         resortThreats()
+    }
+
+    /// Opens or closes one group.
+    ///
+    /// `appliesToEveryGroup` is what an option-click means, the way Finder
+    /// reads one: closing a group with the key held closes every group, and
+    /// opening one opens every group.
+    func toggleGroup(
+        _ id: String,
+        everyGroupId: [String] = [],
+        appliesToEveryGroup: Bool = false
+    ) {
+        let isCollapsed = collapsedGroups.contains(id)
+        guard appliesToEveryGroup else {
+            if isCollapsed { collapsedGroups.remove(id) } else { collapsedGroups.insert(id) }
+            return
+        }
+        collapsedGroups = isCollapsed ? [] : Set(everyGroupId)
+    }
+
+    func collapseEveryGroup(_ ids: [String]) {
+        collapsedGroups = Set(ids)
+    }
+
+    func expandEveryGroup() {
+        collapsedGroups = []
     }
 
     /// Sorts the list worst first and hides the Reorder button.
