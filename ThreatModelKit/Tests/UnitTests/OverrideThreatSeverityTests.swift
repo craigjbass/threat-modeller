@@ -7,7 +7,7 @@ struct OverrideThreatSeverityTests {
     private let catalogue = CatalogueFixture.catalogue()
 
     private let key = SeverityOverrideKey.forComponent(
-        technologyId: TechnologyId("aws-ec2"),
+        componentId: ComponentId("c1"),
         threatId: ThreatId("credential-theft")
     )
 

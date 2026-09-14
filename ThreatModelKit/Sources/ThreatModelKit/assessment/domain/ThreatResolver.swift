@@ -72,8 +72,8 @@ public struct ResolvedThreat: Equatable, Sendable {
     public let context: String?
     public let isTlsMitigated: Bool
     /// The key an override for this threat is recorded under. Spec section 5.3
-    /// keys a component threat by its technology, so every component of that
-    /// technology shares one override.
+    /// keys a component threat by its component, so an override on one node
+    /// leaves every other node of the same technology alone.
     public let overrideKey: SeverityOverrideKey
     /// The severity id the user overrode this threat to, or nil. When set,
     /// `severity` is that severity rather than the threat's own.
@@ -224,7 +224,7 @@ public struct ThreatResolver {
                     runsAs: component.runsAs
                 ) else { continue }
                 let overrideKey = SeverityOverrideKey.forComponent(
-                    technologyId: component.technologyId,
+                    componentId: component.id,
                     threatId: threat.id
                 )
                 let chosen = severity(
@@ -510,7 +510,7 @@ public struct ThreatResolver {
 
     /// The severity a threat is scored with. An assessor's own decision for
     /// this threat on this source wins, when the taxonomy knows the id it
-    /// names; else the user's technology-wide override, when the taxonomy
+    /// names; else the user's own override on this element, when the taxonomy
     /// knows that id; else the threat's own. An override or decision naming
     /// an id the taxonomy has never heard of is ignored rather than trusted;
     /// a catalogue update can retire a severity.
@@ -519,7 +519,7 @@ public struct ThreatResolver {
         let key = ThreatKey(threatId: threat.id.value, sourceId: sourceId)
         if let decision = model.severityDecisions[key],
            let chosen = catalogue.taxonomy().severity(id: decision.severityId) {
-            // `overriddenId` means only the user's technology-wide override.
+            // `overriddenId` means only the user's own override on the element.
             // A controls-file decision is a different store, carried instead
             // in `decision` and read back out as `severityDecision`.
             return (chosen, nil, decision)

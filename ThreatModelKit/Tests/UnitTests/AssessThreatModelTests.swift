@@ -577,9 +577,10 @@ struct AssessThreatModelTests {
             )
         )
 
-        // Keyed by technology, not by component. Spec section 5.3.
+        // A component threat is keyed by the component; a link threat and a
+        // zone threat are consolidated. Spec section 5.3.
         #expect(try #require(response.threats.first { $0.threatId == "credential-theft" }).overrideKey
-                == "aws-ec2::credential-theft")
+                == "node:c1::credential-theft")
         #expect(try #require(response.threats.first { $0.threatId == "connection-mitm" }).overrideKey
                 == "connection::connection-mitm")
         #expect(try #require(response.threats.first { $0.threatId == "lateral-movement" }).overrideKey
@@ -595,7 +596,7 @@ struct AssessThreatModelTests {
 
     @Test func scoresAThreatWithTheSeverityTheUserOverrodeItTo() throws {
         let key = SeverityOverrideKey.forComponent(
-            technologyId: TechnologyId("aws-ec2"),
+            componentId: ComponentId("c1"),
             threatId: ThreatId("credential-theft")
         )
         let response = assess(
@@ -619,10 +620,11 @@ struct AssessThreatModelTests {
         #expect(theft.overriddenSeverityId == nil)
     }
 
-    @Test func appliesOneOverrideToEveryComponentOfThatTechnology() {
-        // Spec section 5.3 keys a component override by technology.
+    @Test func leavesEveryOtherComponentOfThatTechnologyAlone() {
+        // Spec section 5.3 keys a component override by the component, so a
+        // second node of the same technology keeps the catalogue's severity.
         let key = SeverityOverrideKey.forComponent(
-            technologyId: TechnologyId("aws-ec2"),
+            componentId: ComponentId("c1"),
             threatId: ThreatId("credential-theft")
         )
         let response = assess(
@@ -631,12 +633,13 @@ struct AssessThreatModelTests {
 
         let theft = response.threats.filter { $0.threatId == "credential-theft" }
         #expect(theft.count == 2)
-        #expect(theft.allSatisfy { $0.severityId == "low" })
+        #expect(theft.filter { $0.severityId == "low" }.count == 1)
+        #expect(theft.filter { $0.severityId == "critical" }.count == 1)
     }
 
     @Test func appliesTheZoneMultiplierAfterTheOverride() throws {
         let key = SeverityOverrideKey.forComponent(
-            technologyId: TechnologyId("aws-ec2"),
+            componentId: ComponentId("c1"),
             threatId: ThreatId("credential-theft")
         )
         let response = assess(
@@ -654,7 +657,7 @@ struct AssessThreatModelTests {
 
     @Test func ignoresAnOverrideToASeverityTheTaxonomyDoesNotHave() throws {
         let key = SeverityOverrideKey.forComponent(
-            technologyId: TechnologyId("aws-ec2"),
+            componentId: ComponentId("c1"),
             threatId: ThreatId("credential-theft")
         )
         let response = assess(

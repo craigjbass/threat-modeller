@@ -153,15 +153,24 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             )
         }
 
+        let components = try document.components.map(Self.component(from:))
+
         return ThreatModel(
             name: document.name,
-            components: try document.components.map(Self.component(from:)),
+            components: components,
             connections: try document.connections.map(Self.connection(from:)),
             zones: try document.zones.map(Self.zone(from:)),
-            severityOverrides: Dictionary(
-                uniqueKeysWithValues: document.severityOverrides.map {
-                    (SeverityOverrideKey($0.key), $0.value)
-                }
+            // A file written before the element keying keys a component
+            // override by its technology. Reading it forward writes that
+            // override onto every component of that technology, so the user's
+            // work survives the change.
+            severityOverrides: SeverityOverrideMigration.migrated(
+                Dictionary(
+                    uniqueKeysWithValues: document.severityOverrides.map {
+                        (SeverityOverrideKey($0.key), $0.value)
+                    }
+                ),
+                components: components
             ),
             implementedControls: Set(document.implementedControls.map(ControlKey.init)),
             controlStatuses: Dictionary(

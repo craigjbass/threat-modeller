@@ -206,6 +206,91 @@ struct DocumentUseCaseTests {
         #expect(drift.hasDrift)
     }
 
+    /// Item 11 of the Milestone 10 carry-forward: a control key holds a
+    /// fingerprint of the wording it was minted from, so a reworded control
+    /// leaves the tick behind with nothing to read it.
+    @Test func prunesAControlAnswerWhoseWordingHasLeftTheCatalogue() {
+        _ = create("Payments")
+        models.mutate { model in
+            model.components.append(
+                Component(
+                    id: ComponentId("c1"),
+                    technologyId: TechnologyId("aws-ec2"),
+                    position: Point(x: 0, y: 0),
+                    sensitivity: .internalData
+                )
+            )
+            model.controlStatuses[
+                ControlIdentity.componentControl(
+                    componentId: ComponentId("c1"),
+                    threatId: ThreatId("credential-theft"),
+                    description: "A wording the catalogue no longer holds",
+                    isTechnologySpecific: false
+                )
+            ] = .implemented
+        }
+        let data = savedData()
+
+        guard case .opened(_, let drift) = open(data) else {
+            Issue.record("Expected the model to open")
+            return
+        }
+        #expect(drift.prunedControlKeys.count == 1)
+        #expect(drift.diagnostics.contains { $0.contains("1 control answers were dropped") })
+        #expect(drift.hasDrift)
+        #expect(models.current().controlStatuses.isEmpty)
+    }
+
+    @Test func keepsAControlAnswerTheCatalogueStillWords() {
+        _ = create("Payments")
+        let kept = ControlIdentity.componentControl(
+            componentId: ComponentId("c1"),
+            threatId: ThreatId("credential-theft"),
+            description: "Enforce IMDSv2 to block SSRF-based credential theft",
+            isTechnologySpecific: true
+        )
+        models.mutate { model in
+            model.components.append(
+                Component(
+                    id: ComponentId("c1"),
+                    technologyId: TechnologyId("aws-ec2"),
+                    position: Point(x: 0, y: 0),
+                    sensitivity: .internalData
+                )
+            )
+            model.controlStatuses[kept] = .implemented
+        }
+        let data = savedData()
+
+        guard case .opened(_, let drift) = open(data) else {
+            Issue.record("Expected the model to open")
+            return
+        }
+        #expect(drift.prunedControlKeys.isEmpty)
+        #expect(models.current().controlStatuses[kept] == .implemented)
+    }
+
+    /// A threat the catalogue no longer holds is drift, and drift keeps the
+    /// answers: a catalogue downgrade must not destroy a user's work.
+    @Test func keepsAControlAnswerWhoseThreatHasLeftTheCatalogue() {
+        _ = create("Payments")
+        let orphan = ControlIdentity.connectionControl(
+            threatId: ThreatId("retired-threat"),
+            description: "Something a retired threat asked for"
+        )
+        models.mutate { model in
+            model.controlStatuses[orphan] = .implemented
+        }
+        let data = savedData()
+
+        guard case .opened(_, let drift) = open(data) else {
+            Issue.record("Expected the model to open")
+            return
+        }
+        #expect(drift.prunedControlKeys.isEmpty)
+        #expect(models.current().controlStatuses[orphan] == .implemented)
+    }
+
     @Test func reportsNoDriftForAModelThatMatches() {
         _ = create("Payments")
         let data = savedData()

@@ -1,3 +1,5 @@
+import Foundation
+
 /// Identifies one control the user can record as in place.
 public struct ControlKey: Hashable, Sendable, CustomStringConvertible {
     public let value: String
@@ -56,6 +58,36 @@ public enum ControlIdentity {
     /// prunes by it.
     public static func componentPrefix(_ componentId: ComponentId) -> String {
         "node:\(componentId.value):"
+    }
+
+    /// The threat id and the fingerprint a key was minted from, or nil when
+    /// the key is not one of the four shapes above.
+    ///
+    /// The scope is read but not returned: pruning asks one question of a key,
+    /// and that is whether any wording of that threat still fingerprints to it.
+    public static func read(_ key: ControlKey) -> (threatId: ThreatId, fingerprint: String)? {
+        let halves = key.value.components(separatedBy: "::")
+        guard halves.count == 2 else { return nil }
+
+        let fingerprint = halves[1]
+        guard fingerprint.count == 8 else { return nil }
+
+        var segments = halves[0].components(separatedBy: ":")
+        guard let scope = segments.first else { return nil }
+        if segments.last == "tech" { segments.removeLast() }
+
+        switch scope {
+        case "node":
+            // node:{componentId}:{threatId}
+            guard segments.count == 3 else { return nil }
+            return (ThreatId(segments[2]), fingerprint)
+        case "connection", "zone":
+            // connection:{threatId} or zone:{threatId}
+            guard segments.count == 2 else { return nil }
+            return (ThreatId(segments[1]), fingerprint)
+        default:
+            return nil
+        }
     }
 
     private static func normalised(_ description: String) -> String {

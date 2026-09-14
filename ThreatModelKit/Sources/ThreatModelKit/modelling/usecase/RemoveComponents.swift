@@ -57,11 +57,15 @@ public struct RemoveComponents: RemoveComponentsUseCase {
             model.connections.removeAll { connection in doomed.contains(where: connection.touches) }
 
             // Spec section 5.3: removing a component prunes every key scoped to
-            // it. A severity override is keyed by technology, not by component,
-            // so nothing prunes one of those.
+            // it. A severity override is keyed by the component too, so the
+            // overrides on a removed component go with it.
             let prefixes = doomed.map(ControlIdentity.componentPrefix)
             model.implementedControls = model.implementedControls.filter { key in
                 prefixes.contains(where: key.value.hasPrefix) == false
+            }
+            let overridePrefixes = doomed.map(SeverityOverrideKey.componentPrefix)
+            model.severityOverrides = model.severityOverrides.filter { key, _ in
+                overridePrefixes.contains(where: key.value.hasPrefix) == false
             }
 
             return .removed(componentIds: removedComponents, connectionIds: removedConnections)

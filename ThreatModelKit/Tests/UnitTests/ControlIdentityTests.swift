@@ -103,3 +103,50 @@ struct ControlIdentityTests {
         #expect(theirs.value.hasPrefix(prefix) == false)
     }
 }
+
+@Suite("Reading a control key back")
+struct ControlKeyReadingTests {
+    @Test func readsAComponentKey() throws {
+        let key = ControlIdentity.componentControl(
+            componentId: ComponentId("c1"),
+            threatId: ThreatId("credential-theft"),
+            description: "Use IAM roles",
+            isTechnologySpecific: false
+        )
+
+        let read = try #require(ControlIdentity.read(key))
+        #expect(read.threatId == ThreatId("credential-theft"))
+        #expect(read.fingerprint == ControlIdentity.fingerprint(of: "Use IAM roles"))
+    }
+
+    @Test func readsATechnologySpecificComponentKey() throws {
+        let key = ControlIdentity.componentControl(
+            componentId: ComponentId("c1"),
+            threatId: ThreatId("credential-theft"),
+            description: "Enforce IMDSv2",
+            isTechnologySpecific: true
+        )
+
+        #expect(try #require(ControlIdentity.read(key)).threatId == ThreatId("credential-theft"))
+    }
+
+    @Test func readsALinkKeyAndAZoneKey() throws {
+        let link = ControlIdentity.connectionControl(
+            threatId: ThreatId("connection-mitm"),
+            description: "Use TLS"
+        )
+        let zone = ControlIdentity.zoneControl(
+            threatId: ThreatId("lateral-movement"),
+            description: "Segment the zone"
+        )
+
+        #expect(try #require(ControlIdentity.read(link)).threatId == ThreatId("connection-mitm"))
+        #expect(try #require(ControlIdentity.read(zone)).threatId == ThreatId("lateral-movement"))
+    }
+
+    @Test func readsNothingFromAKeyOfNoKnownShape() {
+        #expect(ControlIdentity.read(ControlKey("nonsense")) == nil)
+        #expect(ControlIdentity.read(ControlKey("node:c1::0002b606")) == nil)
+        #expect(ControlIdentity.read(ControlKey("thing:x::short")) == nil)
+    }
+}

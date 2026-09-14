@@ -40,7 +40,12 @@ struct ThreatModelCodecTests {
                 )
             ],
             severityOverrides: [
-                SeverityOverrideKey("aws-ec2::credential-theft"): "low"
+                SeverityOverrideKey.forComponent(
+                    componentId: ComponentId("c1"),
+                    threatId: ThreatId("credential-theft")
+                ): "low",
+                SeverityOverrideKey.forConnection(threatId: ThreatId("connection-mitm")): "high",
+                SeverityOverrideKey.forZone(threatId: ThreatId("lateral-movement")): "medium"
             ],
             implementedControls: [ControlKey("node:c1:credential-theft::0002b606")],
             pathwayMitigations: PathwayMitigationSettings(
@@ -62,6 +67,33 @@ struct ThreatModelCodecTests {
         let read = try codec.decode(try codec.encode(original))
 
         #expect(read == original)
+    }
+
+    /// A model holding an override of each kind writes the same bytes on the
+    /// second save as on the first.
+    @Test func writesTheSameFileForAnOverrideOfEachKind() throws {
+        let written = try codec.encode(fullModel())
+
+        let again = try codec.encode(try codec.decode(written))
+
+        #expect(again == written)
+    }
+
+    /// A file written before the element keying keys a component override by
+    /// its technology. Reading it forward keeps the user's work: the override
+    /// moves onto every component of that technology.
+    @Test func readsATechnologyKeyedOverrideForward() throws {
+        var old = fullModel()
+        old.severityOverrides = [SeverityOverrideKey("aws-ec2::credential-theft"): "low"]
+
+        let read = try codec.decode(try codec.encode(old))
+
+        #expect(read.severityOverrides == [
+            SeverityOverrideKey.forComponent(
+                componentId: ComponentId("c1"),
+                threatId: ThreatId("credential-theft")
+            ): "low"
+        ])
     }
 
     @Test func carriesAnEmptyModelThrough() throws {

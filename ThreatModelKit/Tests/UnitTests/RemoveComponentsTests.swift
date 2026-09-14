@@ -95,19 +95,27 @@ struct RemoveComponentsTests {
         #expect(models.current().implementedControls == [theirs, shared])
     }
 
-    @Test func leavesEverySeverityOverrideAlone() {
-        // An override is keyed by technology, so removing one component of that
-        // technology must not clear it.
-        let key = SeverityOverrideKey.forComponent(
-            technologyId: TechnologyId("aws-ec2"),
+    @Test func prunesTheSeverityOverridesOfTheComponentRemoved() {
+        // An override is keyed by the component, so removing the component
+        // removes its overrides and leaves every other component's alone.
+        let theirs = SeverityOverrideKey.forComponent(
+            componentId: ComponentId("c1"),
             threatId: ThreatId("credential-theft")
         )
+        let anothers = SeverityOverrideKey.forComponent(
+            componentId: ComponentId("c2"),
+            threatId: ThreatId("credential-theft")
+        )
+        let shared = SeverityOverrideKey.forConnection(threatId: ThreatId("connection-mitm"))
         let models = InMemoryThreatModelGateway(
-            ThreatModel(components: [Self.component("c1")], severityOverrides: [key: "low"])
+            ThreatModel(
+                components: [Self.component("c1"), Self.component("c2")],
+                severityOverrides: [theirs: "low", anothers: "high", shared: "medium"]
+            )
         )
 
         _ = RemoveComponents(models: models).execute(RemoveComponentsRequest(componentIds: ["c1"]))
 
-        #expect(models.current().severityOverrides == [key: "low"])
+        #expect(models.current().severityOverrides == [anothers: "high", shared: "medium"])
     }
 }

@@ -90,7 +90,7 @@ struct ReadingAndAnsweringThreatsTests {
         #expect(try threat("credential-theft").riskScore == 12)
     }
 
-    @Test func appliesOneOverrideToEveryComponentOfThatTechnology() throws {
+    @Test func leavesTheOtherComponentsOfThatTechnologyAlone() throws {
         _ = add("aws-ec2", sensitivity: "confidential")
         _ = add("aws-ec2", sensitivity: "confidential")
         let key = try threat("credential-theft").overrideKey
@@ -99,9 +99,12 @@ struct ReadingAndAnsweringThreatsTests {
             OverrideThreatSeverityRequest(overrideKey: key, severityId: "low")
         )
 
+        // An override is keyed by the component, so the second node keeps the
+        // catalogue's severity.
         let theft = threats().filter { $0.threatId == "credential-theft" }
         #expect(theft.count == 2)
-        #expect(theft.allSatisfy { $0.severityLabel == "Low" })
+        #expect(theft.filter { $0.severityLabel == "Low" }.count == 1)
+        #expect(theft.filter { $0.severityLabel == "Critical" }.count == 1)
     }
 
     @Test func summarisesTheWholeModel() throws {

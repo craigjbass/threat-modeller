@@ -103,10 +103,10 @@ struct SeverityDecisionTests {
         #expect(threat.severityDecision?.toLabel == threat.severityLabel)
     }
 
-    /// The file's block is keyed by threat and source, and the technology-wide
-    /// override is keyed by threat and technology. Both can name the same
+    /// The file's block is keyed by threat and source, and the user's own
+    /// override is keyed by threat and component. Both can name the same
     /// threat; the file's block wins.
-    @Test func beatsATechnologyWideOverrideOnTheSameThreat() throws {
+    @Test func beatsTheUsersOwnOverrideOnTheSameThreat() throws {
         app.useLibraries([endpointLibrary(threatId: "sip-bypass")])
         guard case .added(let componentId) = app.addComponent().execute(
             AddComponentRequest(technologyId: "endpoint-laptop", x: 0, y: 0, sensitivity: "restricted")
@@ -118,7 +118,7 @@ struct SeverityDecisionTests {
         app.modelStore.mutate { model in
             model.severityOverrides[
                 SeverityOverrideKey.forComponent(
-                    technologyId: TechnologyId("endpoint-laptop"),
+                    componentId: ComponentId(componentId),
                     threatId: ThreatId("endpoint-sip-bypass")
                 )
             ] = "low"

@@ -338,9 +338,21 @@ covered by a test ported from the original suite.
 
 Keyed as:
 
-- component threat: `{technologyId}::{threatId}`
+- component threat: `node:{componentId}::{threatId}`
 - connection threat: `connection::{threatId}`
 - zone threat: `zone::{threatId}`
+
+Every shape names the kind it belongs to first, so a technology, a component
+or a zone named `connection` cannot write a key another kind reads. An override
+on one component stays on that component: a second component of the same
+technology keeps the catalogue's severity.
+
+Removing a component prunes every `node:{componentId}::` override key.
+
+A file written before this keying keys a component override by its technology,
+`{technologyId}::{threatId}`. The codec reads that shape forward: the override
+is written onto every component of that technology, and the old key is
+dropped.
 
 **Control identity**
 
@@ -359,6 +371,13 @@ Scoped keys:
 - `zone:{threatId}::{fingerprint}` — consolidated across zones
 
 Removing a component prunes every `node:{componentId}:` key.
+
+A control key holds a fingerprint of the wording it was minted from, so a
+catalogue that rewords a control leaves the answer with nothing to read it.
+Opening a model prunes every answer whose threat is still in the catalogue and
+whose fingerprint no wording of that threat gives, and the count pruned is one
+of the drift diagnostics. An answer whose threat has left the catalogue is
+kept, because that is catalogue drift and a downgrade must not destroy it.
 
 **Other**
 
