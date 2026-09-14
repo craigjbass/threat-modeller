@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import ThreatModelKit
 
@@ -78,21 +79,55 @@ struct ThreatModelCommands: Commands {
                 .disabled(session?.canRedo != true)
         }
 
+        // Replacing this group takes the standard Cut, Copy and Paste away
+        // from every text field in the application, so these items carry both:
+        // what holds the focus decides what they act on. A text field edits its
+        // text; anything else acts on what the canvas has selected. Two items
+        // sharing one shortcut would give the user whichever the menu listed
+        // first, so there is one item per shortcut and it routes.
         CommandGroup(replacing: .pasteboard) {
-            Button("Cut") { withSelection { session?.cutSelection(componentIds: $0, zoneIds: $1) } }
-                .keyboardShortcut("x", modifiers: .command)
-                .disabled(hasSelection == false)
+            Button("Cut") {
+                switch PasteboardRouting.target(isEditingText: PasteboardRouting.isEditingText) {
+                case .textField:
+                    PasteboardRouting.sendToTextField(#selector(NSText.cut(_:)))
+                case .canvas:
+                    withSelection { session?.cutSelection(componentIds: $0, zoneIds: $1) }
+                }
+            }
+            .keyboardShortcut("x", modifiers: .command)
 
-            Button("Copy") { withSelection { session?.copySelection(componentIds: $0, zoneIds: $1) } }
-                .keyboardShortcut("c", modifiers: .command)
-                .disabled(hasSelection == false)
+            Button("Copy") {
+                switch PasteboardRouting.target(isEditingText: PasteboardRouting.isEditingText) {
+                case .textField:
+                    PasteboardRouting.sendToTextField(#selector(NSText.copy(_:)))
+                case .canvas:
+                    withSelection { session?.copySelection(componentIds: $0, zoneIds: $1) }
+                }
+            }
+            .keyboardShortcut("c", modifiers: .command)
 
             Button("Paste") {
-                guard let session, let canvas else { return }
-                let pasted = session.paste()
-                canvas.selectAll(componentIds: pasted.componentIds, zoneIds: pasted.zoneIds)
+                switch PasteboardRouting.target(isEditingText: PasteboardRouting.isEditingText) {
+                case .textField:
+                    PasteboardRouting.sendToTextField(#selector(NSText.paste(_:)))
+                case .canvas:
+                    guard let session, let canvas else { return }
+                    let pasted = session.paste()
+                    canvas.selectAll(componentIds: pasted.componentIds, zoneIds: pasted.zoneIds)
+                }
             }
             .keyboardShortcut("v", modifiers: .command)
+
+            Button("Select All") {
+                switch PasteboardRouting.target(isEditingText: PasteboardRouting.isEditingText) {
+                case .textField:
+                    PasteboardRouting.sendToTextField(#selector(NSText.selectAll(_:)))
+                case .canvas:
+                    guard let session, let canvas else { return }
+                    canvas.selectAll(componentIds: session.canvas.components.map(\.id), zoneIds: [])
+                }
+            }
+            .keyboardShortcut("a", modifiers: .command)
 
             Button("Duplicate") {
                 guard let session, let canvas else { return }
@@ -122,13 +157,6 @@ struct ThreatModelCommands: Commands {
                 .keyboardShortcut("r", modifiers: [.command, .shift])
                 .disabled(session?.rowsOutOfOrder ?? 0 == 0)
 
-            Divider()
-
-            Button("Select All") {
-                guard let session, let canvas else { return }
-                canvas.selectAll(componentIds: session.canvas.components.map(\.id), zoneIds: [])
-            }
-            .keyboardShortcut("a", modifiers: .command)
         }
     }
 

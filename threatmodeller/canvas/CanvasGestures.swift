@@ -97,7 +97,9 @@ struct CanvasGestures {
             }
     }
 
-    private func commitDraftZone() {
+    /// Ends a zone drag. Internal so a test can walk the drag without
+    /// SwiftUI's gesture plumbing.
+    func commitDraftZone() {
         let rect = canvas.zoneDraftRect
         canvas.stopDrawingZone()
         guard let rect else { return }

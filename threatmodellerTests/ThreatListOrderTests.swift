@@ -1,3 +1,4 @@
+import CoreGraphics
 import Testing
 import ThreatModelKit
 import TestSupport
@@ -254,5 +255,174 @@ struct ThreatGroupCollapseTests {
         session.setControl(key: control.key, implemented: true)
 
         #expect(session.collapsedGroups == Set(ids))
+    }
+}
+
+/// Deleting a custom technology asks first, because it deletes every
+/// component that uses it.
+@MainActor
+@Suite("Deleting a technology this model defines")
+struct DeleteCustomTechnologyTests {
+    private func session() -> ThreatModelSession {
+        ThreatModelSession(useCases: TestDependencies())
+    }
+
+    private func withACustomTechnology() -> (ThreatModelSession, String) {
+        let session = session()
+        let id = session.createCustomTechnology(
+            name: "Cribl Stream",
+            categoryId: "compute",
+            description: "A pipeline",
+            threatIds: ["credential-theft"],
+            enforcesEncryption: false
+        )
+        return (session, id ?? "")
+    }
+
+    @Test func statesHowManyComponentsUseIt() {
+        #expect(
+            TechnologyRow.question(name: "Cribl Stream", components: 0)
+                == "No component uses Cribl Stream. Deleting it removes it from this model."
+        )
+        #expect(TechnologyRow.question(name: "Cribl Stream", components: 1).hasPrefix("1 component uses"))
+        #expect(
+            TechnologyRow.question(name: "Cribl Stream", components: 3).hasPrefix("3 components use")
+        )
+    }
+
+    @Test func deletesTheTechnologyAndItsComponentsAsOneUndoableChange() throws {
+        let (session, id) = withACustomTechnology()
+        #expect(id.isEmpty == false)
+        session.add(technologyId: id, x: 0, y: 0)
+        #expect(session.canvas.components.count == 1)
+
+        _ = session.deleteCustomTechnology(id)
+
+        #expect(session.canvas.components.isEmpty)
+        #expect(session.customTechnology(id) == nil)
+
+        session.undo()
+
+        // One undo puts the technology and its component back.
+        #expect(session.canvas.components.count == 1)
+        #expect(session.customTechnology(id) != nil)
+    }
+}
+
+/// Drawing a zone is one undoable change.
+@MainActor
+@Suite("Taking back a zone")
+struct ZoneUndoTests {
+    private func session() -> ThreatModelSession {
+        ThreatModelSession(useCases: TestDependencies())
+    }
+
+    @Test func oneUndoRemovesTheZoneAndNothingElse() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        #expect(session.canvas.components.count == 1)
+
+        let zoneId = session.addZone(x: 0, y: 0, width: 400, height: 400)
+        #expect(zoneId != nil)
+        #expect(session.canvas.zones.count == 1)
+
+        session.undo()
+
+        #expect(session.canvas.zones.isEmpty)
+        #expect(session.canvas.components.count == 1)
+    }
+
+    @Test func redoPutsTheZoneBackWithTheSameRectangle() throws {
+        let session = session()
+        _ = session.addZone(x: 10, y: 20, width: 400, height: 300)
+        let drawn = try #require(session.canvas.zones.first)
+
+        session.undo()
+        session.redo()
+
+        let again = try #require(session.canvas.zones.first)
+        #expect(again.id == drawn.id)
+        #expect(again.x == drawn.x)
+        #expect(again.y == drawn.y)
+        #expect(again.width == drawn.width)
+        #expect(again.height == drawn.height)
+        #expect(again.name == drawn.name)
+    }
+
+    /// Every use case one zone drag calls, and how many of them change the
+    /// model. A second change is what made one undo leave the zone behind.
+    @Test func oneZoneDragCallsOneChangingUseCase() {
+        let useCases = TestDependencies()
+        let session = ThreatModelSession(useCases: useCases)
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let before = useCases.modelStore.current()
+
+        _ = session.addZone(x: 0, y: 0, width: 400, height: 400)
+
+        // One undo returns the model to exactly what it was before the drag.
+        session.undo()
+        #expect(useCases.modelStore.current() == before)
+    }
+
+    /// The drag itself, the way the canvas runs it: start drawing, drag out a
+    /// rectangle, end. One undo takes the whole drag back.
+    @Test func oneZoneDragIsOneUndoableChange() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let canvas = CanvasState()
+        let gestures = CanvasGestures(session: session, canvas: canvas)
+
+        canvas.startDrawingZone()
+        canvas.zoneDraft = (start: CGPoint(x: 0, y: 0), end: CGPoint(x: 400, y: 400))
+        gestures.commitDraftZone()
+
+        #expect(session.canvas.zones.count == 1)
+        #expect(canvas.isDrawingZone == false)
+
+        session.undo()
+
+        #expect(session.canvas.zones.isEmpty)
+        #expect(session.canvas.components.count == 1)
+    }
+
+    @Test func undoingAZoneLeavesTheComponentsItCoveredWhereTheyWere() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let placed = try #require(session.canvas.components.first)
+
+        _ = session.addZone(x: 0, y: 0, width: 400, height: 400)
+        session.undo()
+
+        let after = try #require(session.canvas.components.first)
+        #expect(after.id == placed.id)
+        #expect(after.x == placed.x)
+        #expect(after.y == placed.y)
+    }
+}
+
+/// Which Cut, Copy and Paste a keystroke means.
+@MainActor
+@Suite("Routing the pasteboard by what holds the focus")
+struct PasteboardRoutingTests {
+    @Test func aTextFieldEditsItsText() {
+        #expect(PasteboardRouting.target(isEditingText: true) == .textField)
+    }
+
+    @Test func anythingElseActsOnTheCanvas() {
+        #expect(PasteboardRouting.target(isEditingText: false) == .canvas)
+    }
+
+    /// The canvas half of the routing: copying a selection puts the clipboard
+    /// text on the pasteboard, and pasting puts the elements back.
+    @Test func theCanvasCopiesAndPastesItsElements() throws {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        let placed = try #require(session.canvas.components.first)
+
+        session.copySelection(componentIds: [placed.id], zoneIds: [])
+        let pasted = session.paste()
+
+        #expect(pasted.componentIds.count == 1)
+        #expect(session.canvas.components.count == 2)
     }
 }

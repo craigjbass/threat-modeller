@@ -30,15 +30,23 @@ struct PaletteView: View {
             }
         }
         .navigationTitle("Technologies")
-        .safeAreaInset(edge: .bottom) {
-            Button {
-                editing = EditedTechnology(value: nil)
-            } label: {
-                Label("New Technology\u{2026}", systemImage: "plus")
-                    .frame(maxWidth: .infinity)
+        // A `safeAreaInset` draws over the scrolled content and paints
+        // nothing behind itself, so the rows have to scroll under a bar rather
+        // than under a bare button. The selection panels at the bottom of the
+        // canvas do the same.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                Divider()
+                Button {
+                    editing = EditedTechnology(value: nil)
+                } label: {
+                    Label("New Technology\u{2026}", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(8)
+                .accessibilityIdentifier("new-technology")
             }
-            .padding(8)
-            .accessibilityIdentifier("new-technology")
+            .background(.bar)
         }
         .sheet(item: $editing) { technologyId in
             CustomTechnologyEditor(session: session, technologyId: technologyId.value)
@@ -104,7 +112,7 @@ private struct CategoryDisclosure: View {
 
 /// A technology row. Drag it onto the canvas to place it where it is dropped,
 /// or double-click it to place it near the top left of the canvas.
-private struct TechnologyRow: View {
+struct TechnologyRow: View {
     let technology: ListedTechnology
     let session: ThreatModelSession
     let canvas: CanvasState
@@ -112,6 +120,10 @@ private struct TechnologyRow: View {
     /// catalogue is a library, and this application does not edit it.
     let isDefinedByThisModel: Bool
     let edit: (String) -> Void
+
+    /// True while the question is on screen. Deleting a technology deletes
+    /// every component that uses it, so the question is asked first.
+    @State private var isAsking = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -135,8 +147,38 @@ private struct TechnologyRow: View {
         .contextMenu {
             if isDefinedByThisModel {
                 Button("Edit\u{2026}") { edit(technology.id) }
-                Button("Delete", role: .destructive) { delete() }
+                Button("Delete\u{2026}", role: .destructive) { isAsking = true }
             }
+        }
+        .confirmationDialog(
+            "Delete \(technology.name)?",
+            isPresented: $isAsking,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { delete() }
+            Button("Cancel", role: .cancel) { isAsking = false }
+        } message: {
+            Text(Self.question(name: technology.name, components: componentsUsingIt))
+        }
+    }
+
+    /// How many components on the diagram use this technology.
+    private var componentsUsingIt: Int {
+        session.canvas.components.filter { $0.technologyId == technology.id }.count
+    }
+
+    /// What the question says. A technology nothing uses is still asked about,
+    /// because deleting is a change to the file either way.
+    static func question(name: String, components: Int) -> String {
+        switch components {
+        case 0:
+            "No component uses \(name). Deleting it removes it from this model."
+        case 1:
+            "1 component uses \(name). Deleting it removes that component and every "
+                + "link that touches it. One undo puts them back."
+        default:
+            "\(components) components use \(name). Deleting it removes those components "
+                + "and every link that touches them. One undo puts them back."
         }
     }
 
