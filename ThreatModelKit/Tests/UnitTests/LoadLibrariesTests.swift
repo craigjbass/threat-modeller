@@ -151,4 +151,80 @@ struct LoadLibrariesTests {
             return
         }
     }
+
+    // A library states the catalogue tag it was written against. The `.arch`
+    // drift banner does this job for a system; a library needs the same.
+
+    @Test func warnsWhenALibrarysCatalogueTagIsNotTheTagInUse() throws {
+        let load = aProject([
+            "/project/threatmodel/payments.arch": "system \"Payments\" { }",
+            "/project/threatmodel/library/acme.lib": """
+            library "acme" {
+              catalogue = "v0.9.0"
+
+              technology "cribl-stream" {
+                name     = "Cribl Stream"
+                category = "compute"
+              }
+            }
+            """
+        ])
+
+        guard case .loaded(_, let warnings) = load.execute(
+            LoadLibrariesRequest(root: "/project")
+        ) else {
+            Issue.record("the libraries did not load")
+            return
+        }
+
+        #expect(warnings.map(\.severity) == [.warning])
+        #expect(
+            warnings.map(\.message) == [
+                "the library \"acme\" was written against catalogue v0.9.0, "
+                    + "and the catalogue in use is v0.0.0"
+            ]
+        )
+    }
+
+    @Test func warnsAboutNothingWhenTheTagsMatch() throws {
+        let load = aProject([
+            "/project/threatmodel/payments.arch": "system \"Payments\" { }",
+            "/project/threatmodel/library/acme.lib": """
+            library "acme" {
+              catalogue = "v0.0.0"
+
+              technology "cribl-stream" {
+                name     = "Cribl Stream"
+                category = "compute"
+              }
+            }
+            """
+        ])
+
+        guard case .loaded(_, let warnings) = load.execute(
+            LoadLibrariesRequest(root: "/project")
+        ) else {
+            Issue.record("the libraries did not load")
+            return
+        }
+
+        #expect(warnings.isEmpty)
+    }
+
+    @Test func warnsAboutNothingWhenTheLibraryStatesNoTag() throws {
+        let load = aProject([
+            "/project/threatmodel/payments.arch": "system \"Payments\" { }",
+            "/project/threatmodel/library/acme.lib": acme
+        ])
+
+        guard case .loaded(_, let warnings) = load.execute(
+            LoadLibrariesRequest(root: "/project")
+        ) else {
+            Issue.record("the libraries did not load")
+            return
+        }
+
+        #expect(warnings.isEmpty)
+    }
+
 }

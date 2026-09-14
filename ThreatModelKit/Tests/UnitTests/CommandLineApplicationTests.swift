@@ -41,6 +41,38 @@ struct CommandLineApplicationTests {
 
     """
 
+    // MARK: a library written against another catalogue tag
+
+    @Test func namesALibraryWrittenAgainstAnotherCatalogueTagAndStillPasses() {
+        // A system with no component raises no threat, so this run fails for
+        // the tag alone or for nothing at all.
+        project.put("system \"Payments\" { }\n", at: "/work/threatmodel/payments.arch")
+        project.put(
+            """
+            library "acme" {
+              catalogue = "v0.9.0"
+
+              technology "cribl-stream" {
+                name     = "Cribl Stream"
+                category = "compute"
+              }
+            }
+            """,
+            at: "/work/threatmodel/library/acme.lib"
+        )
+
+        let result = run("check", "/work")
+
+        // A warning is not a failure.
+        #expect(result.code == 0)
+        #expect(
+            result.lines.contains(
+                "threatmodeller: the library \"acme\" was written against catalogue v0.9.0, "
+                    + "and the catalogue in use is v0.0.0"
+            )
+        )
+    }
+
     // MARK: a picture of each threat that matters
 
     @Test func writesAPictureOfEachTopResidualThreat() throws {

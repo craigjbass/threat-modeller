@@ -78,6 +78,22 @@ public struct LoadLibraries: LoadLibrariesUseCase {
                 )
             }
 
+            // A library states the catalogue tag it was written against. A
+            // library written against another tag may name a threat this
+            // catalogue no longer holds, so the reader is told which tag it
+            // states and which tag is in use.
+            if let stated = source.catalogueTag, stated != catalogue.version().tag {
+                warnings.append(
+                    Diagnostic(
+                        severity: .warning,
+                        line: 1,
+                        column: 1,
+                        message: "the library \"\(source.label)\" was written against catalogue "
+                            + "\(stated), and the catalogue in use is \(catalogue.version().tag)"
+                    )
+                )
+            }
+
             let built = Library.build(from: source, taxonomy: taxonomy)
             guard let library = built.library else {
                 return .refused(
