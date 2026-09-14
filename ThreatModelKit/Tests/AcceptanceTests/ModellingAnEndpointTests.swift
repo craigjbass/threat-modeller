@@ -114,12 +114,13 @@ struct ModellingAnEndpointTests {
             catalogue: CatalogueFixture.catalogue(),
             architectureSources: HclArchitectureSource(),
             controlsSources: HclControlsSource(),
+            attackTreeSources: HclAttackTreeSource(),
             layout: LayOutModel()
         ).execute(
             CompileControlsRequest(architectureText: architecture, controlsText: controls)
         )
 
-        guard case .compiled(let text, _, _, let stale, _) = response else {
+        guard case .compiled(let text, _, _, let stale, _, _) = response else {
             Issue.record("the compile refused the files: \(response)")
             return
         }

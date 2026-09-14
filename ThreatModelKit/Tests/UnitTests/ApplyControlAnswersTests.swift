@@ -19,7 +19,7 @@ struct ApplyControlAnswersTests {
     """
 
     private func compiled(_ existing: String? = nil) -> String {
-        guard case .compiled(let text, _, _, _, _) = app.compileControls().execute(
+        guard case .compiled(let text, _, _, _, _, _) = app.compileControls().execute(
             CompileControlsRequest(architectureText: payments, controlsText: existing)
         ) else {
             Issue.record("the controls did not compile")
@@ -372,7 +372,7 @@ struct ApplyControlAnswersTests {
           component "cache" { technology = "aws-rds" }
         }
         """
-        guard case .compiled(let text, _, _, _, _) = app.compileControls().execute(
+        guard case .compiled(let text, _, _, _, _, _) = app.compileControls().execute(
             CompileControlsRequest(architectureText: bigger)
         ) else {
             Issue.record("the controls did not compile")

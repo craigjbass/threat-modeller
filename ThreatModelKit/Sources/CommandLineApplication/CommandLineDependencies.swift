@@ -10,6 +10,7 @@ struct CommandLineDependencies {
     let catalogue: TechnologyCatalogue
     let architectureSources: ArchitectureSourceGateway
     let controlsSources: ControlsSourceGateway
+    let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     private let models: ThreatModelGateway = InMemoryThreatModelGateway()
 
     func layOutModel() -> LayOutModelUseCase { LayOutModel() }
@@ -28,6 +29,7 @@ struct CommandLineDependencies {
             catalogue: catalogue,
             architectureSources: architectureSources,
             controlsSources: controlsSources,
+            attackTreeSources: attackTreeSources,
             layout: layOutModel()
         )
     }

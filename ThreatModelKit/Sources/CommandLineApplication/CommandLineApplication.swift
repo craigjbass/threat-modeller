@@ -196,7 +196,7 @@ public struct CommandLineApplication {
             let response = useCases.compileControls().execute(
                 CompileControlsRequest(architectureText: architectureText, controlsText: existing)
             )
-            guard case .compiled(let text, let answered, let unanswered, let stale, let warnings) = response else {
+            guard case .compiled(let text, let answered, let unanswered, let stale, _, let warnings) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
                     output(diagnostic.described(in: system.architecturePath))

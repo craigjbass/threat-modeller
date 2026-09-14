@@ -65,7 +65,7 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             )
         )
 
-        guard case .compiled(let text, _, _, _, let compileWarnings) = compiled else {
+        guard case .compiled(let text, _, _, _, _, let compileWarnings) = compiled else {
             guard case .refused(let diagnostics) = compiled else {
                 return .refused(diagnostics: [])
             }

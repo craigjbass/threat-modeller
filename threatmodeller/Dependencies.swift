@@ -20,6 +20,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let controlsSources: ControlsSourceGateway = HclControlsSource()
     private let librarySources: LibrarySourceGateway = HclLibrarySource()
+    private let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     /// The one place this application runs `git`.
     private let libraryFetcher: LibraryFetching = GitLibraryFetcher()
     private let samples: SampleModelGateway = BundledSampleModels()
@@ -170,6 +171,7 @@ nonisolated final class Dependencies: UseCaseFactory {
             catalogue: catalogue,
             architectureSources: architectureSources,
             controlsSources: controlsSources,
+            attackTreeSources: attackTreeSources,
             layout: layOutModel()
         )
     }

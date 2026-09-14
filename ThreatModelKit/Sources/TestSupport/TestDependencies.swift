@@ -25,6 +25,7 @@ public final class TestDependencies: UseCaseFactory {
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let controlsSources: ControlsSourceGateway = HclControlsSource()
     private let librarySources: LibrarySourceGateway = HclLibrarySource()
+    private let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     /// The fetcher this root wires, so a test states what a repository holds
     /// and no test runs `git`.
     public let libraryFetcher = FakeLibraryFetcher()
@@ -169,6 +170,7 @@ public final class TestDependencies: UseCaseFactory {
             catalogue: catalogue,
             architectureSources: architectureSources,
             controlsSources: controlsSources,
+            attackTreeSources: attackTreeSources,
             layout: layOutModel()
         )
     }

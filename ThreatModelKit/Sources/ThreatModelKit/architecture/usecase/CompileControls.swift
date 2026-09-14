@@ -6,15 +6,29 @@ public struct CompileControlsRequest: Equatable, Sendable {
     public let architectureText: String
     /// The answers as they are now, or nil the first time.
     public let controlsText: String?
+    /// The trees a person wrote, or nil when the project holds no such file.
+    public let attackTreeText: String?
 
-    public init(architectureText: String, controlsText: String? = nil) {
+    public init(
+        architectureText: String,
+        controlsText: String? = nil,
+        attackTreeText: String? = nil
+    ) {
         self.architectureText = architectureText
         self.controlsText = controlsText
+        self.attackTreeText = attackTreeText
     }
 }
 
 public enum CompileControlsResponse: Equatable, Sendable {
-    case compiled(text: String, answered: Int, unanswered: Int, stale: Int, warnings: [Diagnostic])
+    case compiled(
+        text: String,
+        answered: Int,
+        unanswered: Int,
+        stale: Int,
+        staleTrees: Int,
+        warnings: [Diagnostic]
+    )
     case refused(diagnostics: [Diagnostic])
 }
 
@@ -28,17 +42,20 @@ public struct CompileControls: CompileControlsUseCase {
     private let catalogue: TechnologyCatalogue
     private let architectureSources: ArchitectureSourceGateway
     private let controlsSources: ControlsSourceGateway
+    private let attackTreeSources: AttackTreeSourceGateway
     private let layout: LayOutModelUseCase
 
     public init(
         catalogue: TechnologyCatalogue,
         architectureSources: ArchitectureSourceGateway,
         controlsSources: ControlsSourceGateway,
+        attackTreeSources: AttackTreeSourceGateway,
         layout: LayOutModelUseCase
     ) {
         self.catalogue = catalogue
         self.architectureSources = architectureSources
         self.controlsSources = controlsSources
+        self.attackTreeSources = attackTreeSources
         self.layout = layout
     }
 
@@ -86,8 +103,22 @@ public struct CompileControls: CompileControlsUseCase {
             }
         }
 
+        var trees: [SourceAttackTree] = []
+        if let attackTreeText = request.attackTreeText, attackTreeText.isEmpty == false {
+            let read = attackTreeSources.read(attackTreeText)
+            guard let source = read.source, read.hasErrors == false else {
+                return .refused(diagnostics: read.diagnostics)
+            }
+            trees = source.trees
+        }
+
         let model = store.current()
-        let resolved = ThreatResolver(model: model, catalogue: catalogue).resolve()
+        // Stage 8 runs over the whole resolved set, because whether a step is
+        // open depends on another threat's answers.
+        let resolvedByStages = ThreatResolver(model: model, catalogue: catalogue).resolve()
+        let bound = AttackTreeBinding.bind(trees: trees, to: resolvedByStages)
+        let staged = AttackTreeScoring.apply(trees: bound, to: resolvedByStages)
+        let resolved = staged.threats
 
         var answers: [SourceThreatAnswer] = []
         var answeredKeys: Set<String> = []
@@ -150,18 +181,41 @@ public struct CompileControls: CompileControlsUseCase {
             stale += 1
         }
 
+        // A tree the `.attacktree` file no longer states writes no stanza: a
+        // person owns that file, and deleting a tree there loses nothing.
+        let treeAnswers = staged.trees.map { tree in
+            SourceTreeAnswer(
+                treeId: tree.id,
+                goalKey: tree.goal.value,
+                chain: tree.chainPercentage,
+                raisesRiskBy: tree.raisesRiskBy,
+                score: tree.score,
+                scoreBefore: tree.scoreBefore,
+                steps: tree.steps.map { step in
+                    SourceTreeStepAnswer(
+                        key: step.key.value,
+                        state: step.state.rawValue,
+                        closedBy: step.closedBy
+                    )
+                },
+                isStale: tree.isStale
+            )
+        }
+
         return .compiled(
             text: controlsSources.write(
                 ControlsSource(
                     systemName: model.name,
                     catalogueTag: model.catalogueVersion?.tag ?? catalogue.version().tag,
                     riskTolerance: model.effectiveRiskTolerance.rawValue,
-                    answers: answers
+                    answers: answers,
+                    trees: treeAnswers
                 )
             ),
             answered: answered,
             unanswered: unanswered,
             stale: stale,
+            staleTrees: treeAnswers.filter(\.isStale).count,
             warnings: applyWarnings
         )
     }

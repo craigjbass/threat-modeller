@@ -43,7 +43,7 @@ struct CompileControlsTests {
     }
 
     private func text(of response: CompileControlsResponse) -> String {
-        guard case .compiled(let text, _, _, _, _) = response else {
+        guard case .compiled(let text, _, _, _, _, _) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return ""
         }
@@ -53,7 +53,7 @@ struct CompileControlsTests {
     @Test func writesEveryThreatWithEveryControlUnanswered() throws {
         let response = compile(payments)
 
-        guard case .compiled(let text, let answered, let unanswered, let stale, _) = response else {
+        guard case .compiled(let text, let answered, let unanswered, let stale, _, _) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return
         }
@@ -122,7 +122,7 @@ struct CompileControlsTests {
 
         let response = compile(payments, answered)
 
-        guard case .compiled(let text, _, _, let stale, _) = response else {
+        guard case .compiled(let text, _, _, let stale, _, _) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return
         }
@@ -238,7 +238,7 @@ struct CompileControlsTests {
 
         let response = compile(payments, existing)
 
-        guard case .compiled(_, _, _, _, let warnings) = response else {
+        guard case .compiled(_, _, _, _, _, let warnings) = response else {
             Issue.record("expected the controls to compile, got \(response)")
             return
         }
@@ -334,4 +334,142 @@ struct CompileControlsTests {
             )
         )
     }
+
+    // The trees a person wrote, bound against the model and written back.
+
+    private let twoTier = """
+    system "P" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      component "db" {
+        technology = "aws-rds"
+        data       = "restricted"
+      }
+
+      flow api -> db
+    }
+    """
+
+    private func compile(
+        architecture: String,
+        controls: String? = nil,
+        trees: String? = nil
+    ) -> CompileControlsResponse {
+        app.compileControls().execute(
+            CompileControlsRequest(
+                architectureText: architecture,
+                controlsText: controls,
+                attackTreeText: trees
+            )
+        )
+    }
+
+    @Test func writesATreeStanzaForABoundTree() {
+        let response = compile(architecture: twoTier, trees: """
+        attack_trees for "P" {
+          tree "t" {
+            raises_risk_by = 40
+
+            goal "misconfiguration" on component "db"
+            step "credential-theft" on component "api"
+          }
+        }
+        """)
+
+        guard case .compiled(let text, _, _, _, let staleTrees, _) = response else {
+            Issue.record("the compile refused: \(response)")
+            return
+        }
+        #expect(text.contains("tree \"t\" {"))
+        #expect(text.contains("step \"credential-theft@component:api\" {"))
+        #expect(text.contains("goal           = \"misconfiguration@component:db\""))
+        #expect(text.contains("raises_risk_by = 40"))
+        #expect(staleTrees == 0)
+    }
+
+    @Test func movesATreeIntoStaleWhenAStepNoLongerBinds() {
+        let response = compile(architecture: twoTier, trees: """
+        attack_trees for "P" {
+          tree "t" {
+            goal "misconfiguration" on component "db"
+            step "credential-theft" on component "gone"
+          }
+        }
+        """)
+
+        guard case .compiled(let text, _, _, _, let staleTrees, _) = response else {
+            Issue.record("the compile refused: \(response)")
+            return
+        }
+        #expect(text.contains("stale tree \"t\" {"))
+        #expect(staleTrees == 1)
+    }
+
+    @Test func deletesAStanzaForATreeThePersonDeleted() {
+        let existing = """
+        controls for "P" {
+          tree "gone" {
+            goal = "g@component:db"
+
+            step "a@component:api" {
+              state = "open"
+            }
+          }
+        }
+        """
+
+        let response = compile(architecture: twoTier, controls: existing)
+
+        guard case .compiled(let text, _, _, _, let staleTrees, _) = response else {
+            Issue.record("the compile refused: \(response)")
+            return
+        }
+        #expect(text.contains("tree \"gone\"") == false)
+        #expect(staleTrees == 0)
+    }
+
+    @Test func writesTheSameBytesTwiceForOneProject() {
+        let trees = """
+        attack_trees for "P" {
+          tree "t" {
+            raises_risk_by = 40
+
+            goal "misconfiguration" on component "db"
+            step "credential-theft" on component "api"
+          }
+        }
+        """
+
+        guard case .compiled(let first, _, _, _, _, _) = compile(
+            architecture: twoTier,
+            trees: trees
+        ) else {
+            Issue.record("the first compile refused")
+            return
+        }
+        guard case .compiled(let second, _, _, _, _, _) = compile(
+            architecture: twoTier,
+            controls: first,
+            trees: trees
+        ) else {
+            Issue.record("the second compile refused")
+            return
+        }
+
+        #expect(second == first)
+    }
+
+    @Test func refusesATreeFileThatDoesNotParse() {
+        let response = compile(architecture: twoTier, trees: "attack_trees for \"P\" { colour }")
+
+        guard case .refused(let diagnostics) = response else {
+            Issue.record("expected the tree file to be refused")
+            return
+        }
+        #expect(diagnostics.isEmpty == false)
+    }
+
 }

@@ -105,9 +105,10 @@ struct LikelihoodEndToEndTests {
             catalogue: merged,
             architectureSources: architectureSources,
             controlsSources: controlsSources,
+            attackTreeSources: HclAttackTreeSource(),
             layout: LayOutModel()
         )
-        guard case .compiled(let stub, _, let firstUnanswered, _, _) = compiles.execute(
+        guard case .compiled(let stub, _, let firstUnanswered, _, _, _) = compiles.execute(
             CompileControlsRequest(architectureText: architectureText)
         ) else {
             Issue.record("the first compile did not write a stub")
