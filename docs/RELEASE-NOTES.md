@@ -6,6 +6,23 @@ it.
 
 ## Unreleased
 
+### An accepted risk states who carries it
+
+A `.governance` file beside each system's `.arch` and `.controls` files states
+who carries each accepted risk, when they took it and when they read it again,
+and who does each recommendation and each action.
+
+WARNING: a project that accepts a risk today and holds no `.governance` file
+fails `threatmodeller check` the first time it runs after this change. The fix
+is two steps:
+
+1. Run `threatmodeller compile`, which writes the file and a stanza for every
+   accepted control.
+2. Fill in `owner` and `review_by` in each stanza, and commit the file.
+
+No score moves. An accepted risk still counts at its full score, which is what
+accepting a risk always did.
+
 ### Two pathway mitigations answering one threat now compound
 
 Before this change, two mitigations answering one threat gave the **stronger**

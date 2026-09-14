@@ -11,13 +11,25 @@ public struct ProjectSystem: Equatable, Sendable {
     /// The attack trees a person wrote for this system. The file may not
     /// exist: a system that states no tree holds no such file.
     public let attackTreePath: String
+    /// Who carries each accepted risk and who does each piece of planned work.
+    /// The file may not exist: `compile` writes it only when the system
+    /// accepts a control, holds a recommendation or declares an action.
+    public let governancePath: String
 
-    public init(name: String, architecturePath: String, controlsPath: String, reportPath: String, attackTreePath: String) {
+    public init(
+        name: String,
+        architecturePath: String,
+        controlsPath: String,
+        reportPath: String,
+        attackTreePath: String,
+        governancePath: String
+    ) {
         self.name = name
         self.architecturePath = architecturePath
         self.controlsPath = controlsPath
         self.reportPath = reportPath
         self.attackTreePath = attackTreePath
+        self.governancePath = governancePath
     }
 }
 

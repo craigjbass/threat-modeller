@@ -78,6 +78,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             pictures: request.controlPictures
         )
         lines += MarkdownRecommendations.lines(report.recommendations)
+        lines += MarkdownAcceptedRisks.lines(report.acceptedRisks)
         lines += MarkdownAssumptions.lines(
             assumptions: report.assumptions,
             assumedMitigations: report.assumedMitigations

@@ -6,7 +6,8 @@
 public enum RecommendationsReport {
     public static func build(
         threats: [ReportThreat],
-        recommendations: [ThreatKey: [Recommendation]]
+        recommendations: [ThreatKey: [Recommendation]],
+        governance: [ThreatKey: [PlannedWork]] = [:]
     ) -> [ReportRecommendation] {
         var built: [ReportRecommendation] = []
 
@@ -22,7 +23,10 @@ public enum RecommendationsReport {
                         riskScore: threat.riskScore,
                         sources: recommendation.sources,
                         threatId: threat.threatId,
-                        sourceId: threat.sourceId
+                        sourceId: threat.sourceId,
+                        governance: governance[key]?
+                            .first { $0.label == recommendation.text }?
+                            .says
                     )
                 )
             }

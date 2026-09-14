@@ -7,6 +7,9 @@ public struct CheckControlAnswersRequest: Equatable, Sendable {
     public let controlsText: String?
     /// The trees a person wrote, or nil when the project holds no such file.
     public let attackTreeText: String?
+    /// Who carries each accepted risk, or nil when the project holds no such
+    /// file.
+    public let governanceText: String?
     /// A risk level that overrides what the architecture file states, or nil.
     public let tolerance: String?
 
@@ -14,11 +17,13 @@ public struct CheckControlAnswersRequest: Equatable, Sendable {
         architectureText: String,
         controlsText: String? = nil,
         attackTreeText: String? = nil,
+        governanceText: String? = nil,
         tolerance: String? = nil
     ) {
         self.architectureText = architectureText
         self.controlsText = controlsText
         self.attackTreeText = attackTreeText
+        self.governanceText = governanceText
         self.tolerance = tolerance
     }
 }
@@ -46,16 +51,24 @@ public enum CheckControlAnswersResponse: Equatable, Sendable {
         unanswered: [UnansweredThreat],
         stale: [String],
         staleTrees: [String],
+        governance: [String],
         diagnostics: [Diagnostic],
         tolerance: String
     )
     case refused(diagnostics: [Diagnostic])
 
     public var isClean: Bool {
-        guard case .checked(let unanswered, let stale, let staleTrees, _, _) = self else {
+        guard case .checked(
+            let unanswered,
+            let stale,
+            let staleTrees,
+            let governance,
+            _,
+            _
+        ) = self else {
             return false
         }
-        return unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty
+        return unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty && governance.isEmpty
     }
 }
 
@@ -65,10 +78,16 @@ public enum CheckControlAnswersResponse: Equatable, Sendable {
 public struct CheckControlAnswers: CheckControlAnswersUseCase {
     private let compiles: CompileControlsUseCase
     private let sources: ControlsSourceGateway
+    private let governance: CheckGovernanceUseCase?
 
-    public init(compiles: CompileControlsUseCase, sources: ControlsSourceGateway) {
+    public init(
+        compiles: CompileControlsUseCase,
+        sources: ControlsSourceGateway,
+        governance: CheckGovernanceUseCase? = nil
+    ) {
         self.compiles = compiles
         self.sources = sources
+        self.governance = governance
     }
 
     public func execute(_ request: CheckControlAnswersRequest) -> CheckControlAnswersResponse {
@@ -124,10 +143,30 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             .filter(\.isStale)
             .map { StaleTree(treeId: $0.treeId, stepCount: $0.steps.count).described }
 
+        // An accepted risk with no owner and no review date is not a
+        // decision, so the same run that says what has no answer says what has
+        // no owner.
+        var governanceFailures: [String] = []
+        if let governance {
+            let checked = governance.execute(
+                CheckGovernanceRequest(
+                    controlsText: text,
+                    governanceText: request.governanceText
+                )
+            )
+            switch checked {
+            case .checked(let failures):
+                governanceFailures = failures
+            case .refused(let diagnostics):
+                return .refused(diagnostics: diagnostics)
+            }
+        }
+
         return .checked(
             unanswered: unanswered,
             stale: stale,
             staleTrees: staleTrees,
+            governance: governanceFailures,
             diagnostics: read.warnings + compileWarnings,
             tolerance: tolerance.rawValue
         )

@@ -65,6 +65,13 @@ public struct ThreatModel: Equatable, Sendable {
     /// Technologies this model defines for itself. Spec section 8: they travel
     /// in the document.
     public var customTechnologies: [CustomTechnology]
+    /// Who carries each accepted risk, keyed the way a compensating control
+    /// is. Written by the governance file; it lowers no score.
+    public var acceptedRisks: [ThreatKey: [RiskAcceptance]]
+    /// Who does each recommendation, keyed the same way.
+    public var plannedWork: [ThreatKey: [PlannedWork]]
+    /// Who does each action the architecture declares, by the action's label.
+    public var actionWork: [String: PlannedWork]
     /// The threat actors this system faces, in the order the `.arch` file
     /// states them. A model that faces nobody scores by the catalogue alone.
     public var facedActorIds: [String]
@@ -97,6 +104,9 @@ public struct ThreatModel: Equatable, Sendable {
         riskTolerance: RiskLevel? = nil,
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
+        acceptedRisks: [ThreatKey: [RiskAcceptance]] = [:],
+        plannedWork: [ThreatKey: [PlannedWork]] = [:],
+        actionWork: [String: PlannedWork] = [:],
         facedActorIds: [String] = [],
         localActors: [ThreatActor] = [],
         createdAt: Date = Date(timeIntervalSince1970: 0),
@@ -124,6 +134,9 @@ public struct ThreatModel: Equatable, Sendable {
         }
         self.pathwayMitigations = pathwayMitigations
         self.customTechnologies = customTechnologies
+        self.acceptedRisks = acceptedRisks
+        self.plannedWork = plannedWork
+        self.actionWork = actionWork
         self.facedActorIds = facedActorIds
         self.localActors = localActors
         self.createdAt = createdAt

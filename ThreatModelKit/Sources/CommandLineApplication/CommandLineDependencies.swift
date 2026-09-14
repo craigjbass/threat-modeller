@@ -11,6 +11,9 @@ struct CommandLineDependencies {
     let architectureSources: ArchitectureSourceGateway
     let controlsSources: ControlsSourceGateway
     let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
+    let governanceSources: GovernanceSourceGateway = HclGovernanceSource()
+    /// The day a review date is measured against.
+    let clock: Clock = SystemClock()
     private let models: ThreatModelGateway = InMemoryThreatModelGateway()
 
     func layOutModel() -> LayOutModelUseCase { LayOutModel() }
@@ -35,8 +38,28 @@ struct CommandLineDependencies {
         )
     }
 
+    func compileGovernance() -> CompileGovernanceUseCase {
+        CompileGovernance(controlsSources: controlsSources, governanceSources: governanceSources)
+    }
+
+    func applyGovernance() -> ApplyGovernanceUseCase {
+        ApplyGovernance(models: models, sources: governanceSources)
+    }
+
+    func checkGovernance() -> CheckGovernanceUseCase {
+        CheckGovernance(
+            controlsSources: controlsSources,
+            governanceSources: governanceSources,
+            clock: clock
+        )
+    }
+
     func checkControlAnswers() -> CheckControlAnswersUseCase {
-        CheckControlAnswers(compiles: compileControls(), sources: controlsSources)
+        CheckControlAnswers(
+            compiles: compileControls(),
+            sources: controlsSources,
+            governance: checkGovernance()
+        )
     }
 
     func applyControlAnswers() -> ApplyControlAnswersUseCase {
@@ -44,7 +67,7 @@ struct CommandLineDependencies {
     }
 
     func buildThreatModelReport() -> BuildThreatModelReportUseCase {
-        BuildThreatModelReport(models: models, catalogue: catalogue)
+        BuildThreatModelReport(models: models, catalogue: catalogue, clock: clock)
     }
 
     func viewThreatModel() -> ViewThreatModelUseCase {

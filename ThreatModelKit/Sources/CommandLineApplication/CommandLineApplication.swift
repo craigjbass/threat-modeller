@@ -233,6 +233,30 @@ public struct CommandLineApplication {
         return try? projects.read(path: system.attackTreePath)
     }
 
+    /// The labels the architecture's actions carry, in the order the file
+    /// declares them. The governance file governs each one.
+    static func actionLabels(
+        of architectureText: String,
+        useCases: CommandLineDependencies
+    ) -> [String] {
+        let read = useCases.architectureSources.read(architectureText)
+        guard let source = read.source else { return [] }
+
+        var labels: [String] = []
+        for edge in source.mitigates {
+            guard let label = edge.action?.label, labels.contains(label) == false else { continue }
+            labels.append(label)
+        }
+        return labels
+    }
+
+    /// Who carries each accepted risk, or nil when the project holds no such
+    /// file.
+    private func governanceText(of system: ProjectSystem) -> String? {
+        guard projects.exists(path: system.governancePath) else { return nil }
+        return try? projects.read(path: system.governancePath)
+    }
+
     /// Rewrites one system's `.attacktree` file in the canonical shape.
     ///
     /// False means the file could not be written. A file that does not parse
@@ -314,6 +338,39 @@ public struct CommandLineApplication {
             for warning in warnings {
                 output(Self.said(warning, in: system.controlsPath, as: machineOutput))
             }
+
+            // The governance file is written from the answers this compile
+            // just wrote, so the two can never disagree about what is
+            // accepted.
+            let governed = useCases.compileGovernance().execute(
+                CompileGovernanceRequest(
+                    controlsText: text,
+                    governanceText: governanceText(of: system),
+                    actionLabels: Self.actionLabels(of: architectureText, useCases: useCases)
+                )
+            )
+            switch governed {
+            case .compiled(let governanceFile, let governedCount, let staleGovernance):
+                if let governanceFile {
+                    do {
+                        try projects.write(governanceFile, to: system.governancePath)
+                    } catch {
+                        output("threatmodeller: \(Self.described(error))")
+                        return .fileFault
+                    }
+                    if isQuiet == false {
+                        output(
+                            "\(system.governancePath): \(governedCount) governed,"
+                                + " \(staleGovernance) stale"
+                        )
+                    }
+                }
+            case .refused(let diagnostics):
+                for diagnostic in diagnostics {
+                    output(Self.said(diagnostic, in: system.governancePath, as: machineOutput))
+                }
+                return .didNotParse
+            }
             if isQuiet == false {
                 output(
                     "\(system.controlsPath): \(answered) answered,"
@@ -358,6 +415,7 @@ public struct CommandLineApplication {
                     architectureText: architectureText,
                     controlsText: existing,
                     attackTreeText: treeText(of: system),
+                    governanceText: governanceText(of: system),
                     tolerance: tolerance
                 )
             )
@@ -365,6 +423,7 @@ public struct CommandLineApplication {
                 let unanswered,
                 let stale,
                 let staleTrees,
+                let governanceFailures,
                 let diagnostics,
                 let usedTolerance
             ) = response else {
@@ -405,8 +464,12 @@ public struct CommandLineApplication {
                 for described in staleTrees {
                     output("\(system.controlsPath): \(described)")
                 }
+                for described in governanceFailures {
+                    output("\(system.governancePath): \(described)")
+                }
                 output("\(system.name): checked against a \(usedTolerance) risk tolerance")
-                if unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty {
+                if unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty
+                    && governanceFailures.isEmpty {
                     output("\(system.name): every threat is answered")
                 }
             case .github:
@@ -446,6 +509,17 @@ public struct CommandLineApplication {
                         )
                     )
                 }
+                for described in governanceFailures {
+                    output(
+                        GitHubOutput.line(
+                            severity: .error,
+                            file: system.governancePath,
+                            line: 1,
+                            column: 1,
+                            message: described
+                        )
+                    )
+                }
             case .json:
                 break
             }
@@ -474,11 +548,13 @@ public struct CommandLineApplication {
                         )
                     },
                     stale: stale,
-                    staleTrees: staleTrees
+                    staleTrees: staleTrees,
+                    governance: governanceFailures
                 )
             )
 
-            if unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty {
+            if unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty
+                && governanceFailures.isEmpty {
                 return .success
             }
             return .unanswered

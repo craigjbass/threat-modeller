@@ -25,6 +25,7 @@ public final class TestDependencies: UseCaseFactory {
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let controlsSources: ControlsSourceGateway = HclControlsSource()
     private let librarySources: LibrarySourceGateway = HclLibrarySource()
+    private let governanceSources: GovernanceSourceGateway = HclGovernanceSource()
     private let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     /// The fetcher this root wires, so a test states what a repository holds
     /// and no test runs `git`.
@@ -93,7 +94,7 @@ public final class TestDependencies: UseCaseFactory {
     }
 
     public func buildThreatModelReport() -> BuildThreatModelReportUseCase {
-        BuildThreatModelReport(models: models, catalogue: catalogue)
+        BuildThreatModelReport(models: models, catalogue: catalogue, clock: clock)
     }
 
     public func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
@@ -180,8 +181,31 @@ public final class TestDependencies: UseCaseFactory {
         ApplyControlAnswers(models: models, catalogue: catalogue, sources: controlsSources)
     }
 
+    public func compileGovernance() -> CompileGovernanceUseCase {
+        CompileGovernance(
+            controlsSources: controlsSources,
+            governanceSources: governanceSources
+        )
+    }
+
+    public func applyGovernance() -> ApplyGovernanceUseCase {
+        ApplyGovernance(models: models, sources: governanceSources)
+    }
+
+    public func checkGovernance() -> CheckGovernanceUseCase {
+        CheckGovernance(
+            controlsSources: controlsSources,
+            governanceSources: governanceSources,
+            clock: clock
+        )
+    }
+
     public func checkControlAnswers() -> CheckControlAnswersUseCase {
-        CheckControlAnswers(compiles: compileControls(), sources: controlsSources)
+        CheckControlAnswers(
+            compiles: compileControls(),
+            sources: controlsSources,
+            governance: checkGovernance()
+        )
     }
 
     public func initialiseProject() -> InitialiseProjectUseCase {
@@ -237,7 +261,8 @@ public final class TestDependencies: UseCaseFactory {
         OpenSystem(
             projects: projects,
             imports: importArchitecture(),
-            applies: applyControlAnswers()
+            applies: applyControlAnswers(),
+            governance: applyGovernance()
         )
     }
 

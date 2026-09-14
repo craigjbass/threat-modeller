@@ -21,10 +21,18 @@ public struct BuildThreatModelReportResponse: Equatable, Sendable {
 public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
+    /// The day a review date is measured against. No report reads the wall
+    /// clock on its own.
+    private let clock: Clock
 
-    public init(models: ThreatModelGateway, catalogue: TechnologyCatalogue) {
+    public init(
+        models: ThreatModelGateway,
+        catalogue: TechnologyCatalogue,
+        clock: Clock = SystemClock()
+    ) {
         self.models = models
         self.catalogue = catalogue
+        self.clock = clock
     }
 
     public func execute(_ request: BuildThreatModelReportRequest) -> BuildThreatModelReportResponse {
@@ -141,8 +149,38 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
 
         let recommendations = RecommendationsReport.build(
             threats: threats,
-            recommendations: model.recommendations
+            recommendations: model.recommendations,
+            governance: model.plannedWork
         )
+
+        // A row for every accepted control, governed or not, so a reader sees
+        // the ungoverned ones as a row of dashes rather than not at all.
+        let today = CheckGovernance.today(clock.now())
+        var acceptedRisks: [ReportAcceptedRisk] = []
+        for threat in threats {
+            let key = ThreatKey(threatId: threat.threatId, sourceId: threat.sourceId)
+            for control in threat.controls where control.statusLabel == ControlStatus.accepted.label {
+                let governed = model.acceptedRisks[key]?.first { $0.control == control.description }
+                acceptedRisks.append(
+                    ReportAcceptedRisk(
+                        threatName: threat.name,
+                        sourceName: threat.sourceName,
+                        riskScore: threat.riskScore,
+                        control: control.description,
+                        owner: governed?.owner ?? "",
+                        acceptedOn: governed?.acceptedOn?.description,
+                        reviewBy: governed?.reviewBy?.description,
+                        rationale: governed?.rationale ?? "",
+                        isOverdue: governed?.isOverdue(on: today) ?? false
+                    )
+                )
+            }
+        }
+        acceptedRisks.sort { left, right in
+            if left.riskScore != right.riskScore { return left.riskScore > right.riskScore }
+            if left.threatName != right.threatName { return left.threatName < right.threatName }
+            return left.control < right.control
+        }
 
         // Computed once so the verdict sentence and the Findings section
         // can never disagree about which threats sit above tolerance.
@@ -157,6 +195,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 note: $0.action.note,
                 blockedBy: $0.action.blockedBy,
                 sources: $0.action.sources,
+                governance: model.actionWork[$0.action.label]?.says,
                 removes: $0.removes,
                 totalResidual: $0.totalResidual,
                 threatsMoved: $0.threatsMoved,
@@ -220,7 +259,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     recommendations: recommendations,
                     tolerance: tolerance,
                     findings: findingsCut,
-                    actions: actions
+                    actions: actions,
+                    acceptedRisks: acceptedRisks
                 ),
                 methodology: ReportMethodology.build(zones: zones, tolerance: tolerance),
                 actions: actions,
@@ -228,6 +268,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     faced: ThreatActorLookup(model: model, catalogue: catalogue).faced(),
                     threats: assessment.threats
                 ),
+                acceptedRisks: acceptedRisks,
                 attackTrees: assessment.attackTrees,
                 attackPathCount: attack.paths.count + attack.notListed.count + attack.beyond
             )

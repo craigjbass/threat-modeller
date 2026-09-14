@@ -131,13 +131,67 @@ struct AnsweringThreatsInSourceTests {
             )
         )
 
+        // Accepting a risk answers the threat and does not govern it. The
+        // check now asks who carries each accepted risk and when they read it
+        // again, so accepting everything and governing nothing fails.
         #expect(
             app.checkControlAnswers().execute(
                 CheckControlAnswersRequest(
                     architectureText: payments,
                     controlsText: everythingAccepted
                 )
+            ).isClean == false
+        )
+
+        let governance = try #require(
+            governanceText(for: everythingAccepted)
+        )
+        #expect(
+            app.checkControlAnswers().execute(
+                CheckControlAnswersRequest(
+                    architectureText: payments,
+                    controlsText: everythingAccepted,
+                    governanceText: governance
+                )
             ).isClean
+        )
+    }
+
+    /// The governance file the compile writes, with an owner and a review date
+    /// still to come filled into every stanza.
+    private func governanceText(for controlsText: String) -> String? {
+        guard case .compiled(let text, _, _) = app.compileGovernance().execute(
+            CompileGovernanceRequest(controlsText: controlsText)
+        ), let text else {
+            Issue.record("expected the governance to compile")
+            return nil
+        }
+        guard let source = HclGovernanceSource().read(text).source else {
+            Issue.record("expected the governance to parse")
+            return nil
+        }
+
+        return HclGovernanceSource().write(
+            GovernanceSource(
+                systemName: source.systemName,
+                threats: source.threats.map { threat in
+                    SourceGovernedThreat(
+                        threatId: threat.threatId,
+                        sourceKind: threat.sourceKind,
+                        sourceId: threat.sourceId,
+                        accepted: threat.accepted.map {
+                            SourceAcceptedRisk(
+                                control: $0.control,
+                                owner: "Head of Platform",
+                                acceptedOn: "1970-01-02",
+                                reviewBy: "2099-01-01"
+                            )
+                        },
+                        work: threat.work
+                    )
+                },
+                actions: source.actions
+            )
         )
     }
 

@@ -45,6 +45,9 @@ public struct Report: Equatable, Sendable {
     /// The adversaries this assessment is written against, in the order the
     /// model faces them. Empty for a model that faces nobody.
     public let threatActors: [ReportThreatActor]
+    /// The risks the organisation decided to carry, worst first. Empty for a
+    /// model that accepts nothing.
+    public let acceptedRisks: [ReportAcceptedRisk]
     /// The trees a person wrote, bound and scored. Empty for a model that
     /// states no tree.
     public let attackTrees: [BoundAttackTree]
@@ -74,6 +77,7 @@ public struct Report: Equatable, Sendable {
         methodology: ReportMethodology = ReportMethodology(),
         actions: [ReportAction] = [],
         threatActors: [ReportThreatActor] = [],
+        acceptedRisks: [ReportAcceptedRisk] = [],
         attackTrees: [BoundAttackTree] = [],
         attackPathCount: Int = 0
     ) {
@@ -99,6 +103,7 @@ public struct Report: Equatable, Sendable {
         self.methodology = methodology
         self.actions = actions
         self.threatActors = threatActors
+        self.acceptedRisks = acceptedRisks
         self.attackTrees = attackTrees
         self.attackPathCount = attackPathCount
     }
@@ -180,6 +185,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     /// named among the actions. The summary states that rather than leaving
     /// the reader to notice it.
     public let topRisksWithNoAction: Set<String>
+    /// How many accepted risks are past the date their owner set to read them
+    /// again. A risk nobody has read again is a decision nobody has checked.
+    public let acceptedRisksOverdue: Int
 
     public init(
         verdict: String = "",
@@ -189,7 +197,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         unansweredCount: Int = 0,
         totalThreats: Int = 0,
         topLeverageActions: [ReportAction] = [],
-        topRisksWithNoAction: Set<String> = []
+        topRisksWithNoAction: Set<String> = [],
+        acceptedRisksOverdue: Int = 0
     ) {
         self.verdict = verdict
         self.toleranceLabel = toleranceLabel
@@ -199,6 +208,7 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         self.unansweredCount = unansweredCount
         self.totalThreats = totalThreats
         self.topRisksWithNoAction = topRisksWithNoAction
+        self.acceptedRisksOverdue = acceptedRisksOverdue
     }
 
     /// How many of each the summary names.
@@ -212,7 +222,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         recommendations: [ReportRecommendation],
         tolerance: RiskLevel,
         findings: ReportFindingsCut,
-        actions: [ReportAction] = []
+        actions: [ReportAction] = [],
+        acceptedRisks: [ReportAcceptedRisk] = []
     ) -> ReportExecutiveSummary {
         let above = findings.above.count + findings.notShown
         let word = tolerance.label.lowercased()
@@ -256,7 +267,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
                 topRisks
                     .map { ReportRecommendation.key(threatId: $0.threatId, sourceId: $0.sourceId) }
                     .filter { answered.contains($0) == false }
-            )
+            ),
+            acceptedRisksOverdue: acceptedRisks.filter(\.isOverdue).count
         )
     }
 
@@ -676,6 +688,9 @@ public struct ReportAction: Equatable, Sendable {
     public let note: String?
     public let blockedBy: String?
     public let sources: [String]
+    /// Who does it, how big it is, by when and where it stands, or nil when
+    /// the governance file states nothing about it.
+    public let governance: String?
     public let removes: Int
     public let totalResidual: Int
     public let threatsMoved: Int
@@ -688,6 +703,7 @@ public struct ReportAction: Equatable, Sendable {
         note: String? = nil,
         blockedBy: String? = nil,
         sources: [String] = [],
+        governance: String? = nil,
         removes: Int = 0,
         totalResidual: Int = 0,
         threatsMoved: Int = 0,
@@ -699,6 +715,7 @@ public struct ReportAction: Equatable, Sendable {
         self.note = note
         self.blockedBy = blockedBy
         self.sources = sources
+        self.governance = governance
         self.removes = removes
         self.totalResidual = totalResidual
         self.threatsMoved = threatsMoved

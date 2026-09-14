@@ -33,7 +33,14 @@ public struct ReadProjectFingerprint: ReadProjectFingerprintUseCase {
             var fingerprint: [String: Int] = [:]
 
             for system in layout.systems {
-                for path in [system.architecturePath, system.controlsPath] {
+                // Every file a system is read from, so a change to any of
+                // them is a change to the system.
+                for path in [
+                    system.architecturePath,
+                    system.controlsPath,
+                    system.attackTreePath,
+                    system.governancePath
+                ] {
                     guard projects.exists(path: path) else { continue }
                     fingerprint[path] = try projects.read(path: path).hashValue
                 }

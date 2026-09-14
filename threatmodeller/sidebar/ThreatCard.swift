@@ -44,7 +44,10 @@ struct ThreatCard: View {
                 if threat.controls.isEmpty == false {
                     Divider()
                     ForEach(threat.controls, id: \.key) { control in
-                        controlRow(control)
+                        VStack(alignment: .leading, spacing: 2) {
+                            controlRow(control)
+                            governance(control)
+                        }
                     }
                 }
 
@@ -59,6 +62,30 @@ struct ThreatCard: View {
             RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25), lineWidth: 1)
         )
         .accessibilityIdentifier("threat-card-\(threat.threatId)#\(threat.source.id)")
+    }
+
+    /// Who carries an accepted risk, and when they read it again. Read only:
+    /// the governance file states both, and a person edits that file.
+    @ViewBuilder
+    private func governance(_ control: AssessedControl) -> some View {
+        if control.acceptedBy != nil || control.reviewBy != nil {
+            HStack(spacing: 4) {
+                if let owner = control.acceptedBy {
+                    Text("Accepted by \(owner)")
+                }
+                if let reviewBy = control.reviewBy {
+                    Text(
+                        control.isReviewOverdue
+                            ? "· review was due \(reviewBy)"
+                            : "· review by \(reviewBy)"
+                    )
+                    .foregroundStyle(control.isReviewOverdue ? Color.red : Color.secondary)
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("governance-\(control.key)")
+        }
     }
 
     /// A control carries a status, not a tick: a person may say a control is

@@ -26,15 +26,18 @@ public struct OpenSystem: OpenSystemUseCase {
     private let projects: ProjectSourceGateway
     private let imports: ImportArchitectureUseCase
     private let applies: ApplyControlAnswersUseCase
+    private let governance: ApplyGovernanceUseCase?
 
     public init(
         projects: ProjectSourceGateway,
         imports: ImportArchitectureUseCase,
-        applies: ApplyControlAnswersUseCase
+        applies: ApplyControlAnswersUseCase,
+        governance: ApplyGovernanceUseCase? = nil
     ) {
         self.projects = projects
         self.imports = imports
         self.applies = applies
+        self.governance = governance
     }
 
     public func execute(_ request: OpenSystemRequest) -> OpenSystemResponse {
@@ -77,6 +80,21 @@ public struct OpenSystem: OpenSystemUseCase {
                 case .refused(let diagnostics):
                     return .refused(
                         fileName: fileName(of: system.controlsPath),
+                        diagnostics: diagnostics
+                    )
+                }
+            }
+            // Who carries each accepted risk is part of the system too. The
+            // report and the threat card both read it; it moves no score.
+            if let governance,
+               projects.exists(path: system.governancePath),
+               let governanceText = try? projects.read(path: system.governancePath) {
+                switch governance.execute(ApplyGovernanceRequest(text: governanceText)) {
+                case .applied:
+                    break
+                case .refused(let diagnostics):
+                    return .refused(
+                        fileName: fileName(of: system.governancePath),
                         diagnostics: diagnostics
                     )
                 }

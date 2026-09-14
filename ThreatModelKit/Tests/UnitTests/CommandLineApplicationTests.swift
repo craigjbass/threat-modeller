@@ -389,7 +389,7 @@ struct CommandLineApplicationTests {
         _ = run("compile", "/work")
         let compiled = try #require(project.text(at: "/work/threatmodel/payments.controls"))
         project.put(
-            compiled.replacingOccurrences(of: "\"not_implemented\"", with: "\"accepted\""),
+            compiled.replacingOccurrences(of: "\"not_implemented\"", with: "\"implemented\""),
             at: "/work/threatmodel/payments.controls"
         )
 
@@ -397,6 +397,48 @@ struct CommandLineApplicationTests {
 
         #expect(result.code == 0)
         #expect(result.lines.contains { $0.contains("every threat is answered") })
+    }
+
+    // MARK: the governance file
+
+    @Test func compileWritesAGovernanceFileForAnAcceptedRisk() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        _ = run("compile", "/work")
+        let compiled = try #require(project.text(at: "/work/threatmodel/payments.controls"))
+        project.put(
+            compiled.replacingOccurrences(of: "\"not_implemented\"", with: "\"accepted\""),
+            at: "/work/threatmodel/payments.controls"
+        )
+
+        #expect(run("compile", "/work").code == 0)
+
+        let governance = try #require(project.text(at: "/work/threatmodel/payments.governance"))
+        #expect(governance.hasPrefix("governance for \"Payments\" {"))
+        #expect(governance.contains("accepted \""))
+    }
+
+    @Test func writesNoGovernanceFileForASystemThatGovernsNothing() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        #expect(run("compile", "/work").code == 0)
+
+        #expect(project.text(at: "/work/threatmodel/payments.governance") == nil)
+    }
+
+    @Test func checkFailsForAnAcceptedRiskWithNoOwner() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        _ = run("compile", "/work")
+        let compiled = try #require(project.text(at: "/work/threatmodel/payments.controls"))
+        project.put(
+            compiled.replacingOccurrences(of: "\"not_implemented\"", with: "\"accepted\""),
+            at: "/work/threatmodel/payments.controls"
+        )
+        _ = run("compile", "/work")
+
+        let result = run("check", "/work")
+
+        #expect(result.code == 1)
+        #expect(result.lines.contains { $0.contains("is accepted by nobody") })
     }
 
     @Test func theToleranceFlagOverridesTheFilesTolerance() throws {

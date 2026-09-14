@@ -20,6 +20,9 @@ public enum MarkdownRecommendations {
             if let note = recommendation.note {
                 lines.append("  - \(note)")
             }
+            if let governance = recommendation.governance {
+                lines.append("  - \(governance)")
+            }
             lines += Markdown.sourceLines(recommendation.sources)
         }
         lines.append("")

@@ -44,6 +44,9 @@ public protocol UseCaseFactory: Sendable {
     func compileControls() -> CompileControlsUseCase
     func applyControlAnswers() -> ApplyControlAnswersUseCase
     func checkControlAnswers() -> CheckControlAnswersUseCase
+    func compileGovernance() -> CompileGovernanceUseCase
+    func applyGovernance() -> ApplyGovernanceUseCase
+    func checkGovernance() -> CheckGovernanceUseCase
     func openProject() -> OpenProjectUseCase
     func readProjectFingerprint() -> ReadProjectFingerprintUseCase
     func initialiseProject() -> InitialiseProjectUseCase

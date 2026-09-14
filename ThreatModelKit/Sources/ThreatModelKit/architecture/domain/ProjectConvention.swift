@@ -9,6 +9,7 @@ public enum ProjectConvention {
     public static let controlsExtension = "controls"
     public static let reportExtension = "md"
     public static let attackTreeExtension = "attacktree"
+    public static let governanceExtension = "governance"
     /// The directory a project's shared libraries sit in.
     public static let libraryDirectory = "library"
     public static let libraryExtension = "lib"
@@ -24,7 +25,8 @@ public enum ProjectConvention {
                     architecturePath: path(directory, "\(name).\(architectureExtension)"),
                     controlsPath: path(directory, "\(name).\(controlsExtension)"),
                     reportPath: path(directory, "\(name).\(reportExtension)"),
-                    attackTreePath: path(directory, "\(name).\(attackTreeExtension)")
+                    attackTreePath: path(directory, "\(name).\(attackTreeExtension)"),
+                    governancePath: path(directory, "\(name).\(governanceExtension)")
                 )
             }
             .sorted { $0.name < $1.name }
@@ -76,6 +78,7 @@ public enum ProjectConvention {
         guard fileExtension == architectureExtension
             || fileExtension == controlsExtension
             || fileExtension == attackTreeExtension
+            || fileExtension == governanceExtension
         else {
             return nil
         }

@@ -31,12 +31,17 @@ public enum MarkdownLeverage {
         }
         lines.append("")
 
-        let annotated = actions.filter { $0.note != nil || $0.sources.isEmpty == false }
+        let annotated = actions.filter {
+            $0.note != nil || $0.sources.isEmpty == false || $0.governance != nil
+        }
         if annotated.isEmpty == false {
             for action in annotated {
                 lines.append("- \(action.text)")
                 if let note = action.note {
                     lines.append("  - \(note)")
+                }
+                if let governance = action.governance {
+                    lines.append("  - \(governance)")
                 }
                 lines += Markdown.sourceLines(action.sources)
             }

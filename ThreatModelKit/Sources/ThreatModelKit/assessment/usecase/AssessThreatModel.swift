@@ -86,6 +86,13 @@ public struct AssessedControl: Hashable, Sendable {
     /// The key `RecordControlImplemented` takes. Minted by the core.
     public let key: String
     public let isImplemented: Bool
+    /// Who carries this accepted risk, or nil when the control is not
+    /// accepted or the governance file names nobody.
+    public let acceptedBy: String?
+    /// When they read it again, written `YYYY-MM-DD`, or nil.
+    public let reviewBy: String?
+    /// True when that date has passed.
+    public let isReviewOverdue: Bool
 
     public init(
         description: String,
@@ -93,12 +100,18 @@ public struct AssessedControl: Hashable, Sendable {
         key: String,
         isImplemented: Bool,
         statusId: String? = nil,
-        statusLabel: String? = nil
+        statusLabel: String? = nil,
+        acceptedBy: String? = nil,
+        reviewBy: String? = nil,
+        isReviewOverdue: Bool = false
     ) {
         self.description = description
         self.isTechnologySpecific = isTechnologySpecific
         self.key = key
         self.isImplemented = isImplemented
+        self.acceptedBy = acceptedBy
+        self.reviewBy = reviewBy
+        self.isReviewOverdue = isReviewOverdue
         let status = statusId.flatMap(ControlStatus.init(rawValue:))
             ?? (isImplemented ? ControlStatus.implemented : .notImplemented)
         self.statusId = status.rawValue
@@ -292,15 +305,23 @@ public struct AssessedThreat: Hashable, Sendable {
 public struct AssessThreatModel: AssessThreatModelUseCase {
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
+    /// The day a review date is measured against.
+    private let clock: Clock
 
-    public init(models: ThreatModelGateway, catalogue: TechnologyCatalogue) {
+    public init(
+        models: ThreatModelGateway,
+        catalogue: TechnologyCatalogue,
+        clock: Clock = SystemClock()
+    ) {
         self.models = models
         self.catalogue = catalogue
+        self.clock = clock
     }
 
     public func execute(_ request: AssessThreatModelRequest) -> AssessThreatModelResponse {
         let model = models.current()
         let taxonomy = catalogue.taxonomy()
+        let today = CheckGovernance.today(clock.now())
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         let resolvedByStages = ThreatResolver(model: model, catalogue: catalogue).resolve()
         let bound = AttackTreeBinding.bind(trees: model.attackTrees, to: resolvedByStages)
@@ -332,13 +353,27 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     mitreTechniques: threat.threat.mitreTechniques.map {
                         AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
                     },
-                    controls: threat.controls.map {
-                        AssessedControl(
-                            description: $0.description,
-                            isTechnologySpecific: $0.isTechnologySpecific,
-                            key: $0.key.value,
-                            isImplemented: $0.isImplemented,
-                            statusId: $0.status.rawValue
+                    controls: threat.controls.map { control in
+                        // An accepted control states who carries the risk and
+                        // when they read it again. The governance file writes
+                        // both; this only carries them to the reader.
+                        let accepted = control.status == .accepted
+                            ? model.acceptedRisks[
+                                ThreatKey(
+                                    threatId: threat.threat.id.value,
+                                    sourceId: threat.source.id
+                                )
+                            ]?.first { $0.control == control.description }
+                            : nil
+                        return AssessedControl(
+                            description: control.description,
+                            isTechnologySpecific: control.isTechnologySpecific,
+                            key: control.key.value,
+                            isImplemented: control.isImplemented,
+                            statusId: control.status.rawValue,
+                            acceptedBy: accepted?.owner.isEmpty == false ? accepted?.owner : nil,
+                            reviewBy: accepted?.reviewBy?.description,
+                            isReviewOverdue: accepted?.isOverdue(on: today) ?? false
                         )
                     },
                     source: Self.source(threat.source),

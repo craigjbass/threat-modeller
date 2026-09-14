@@ -20,6 +20,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let architectureSources: ArchitectureSourceGateway = HclArchitectureSource()
     private let controlsSources: ControlsSourceGateway = HclControlsSource()
     private let librarySources: LibrarySourceGateway = HclLibrarySource()
+    private let governanceSources: GovernanceSourceGateway = HclGovernanceSource()
     private let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     /// The one place this application runs `git`.
     private let libraryFetcher: LibraryFetching = GitLibraryFetcher()
@@ -85,7 +86,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func buildThreatModelReport() -> BuildThreatModelReportUseCase {
-        BuildThreatModelReport(models: models, catalogue: catalogue)
+        BuildThreatModelReport(models: models, catalogue: catalogue, clock: clock)
     }
 
     func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
@@ -181,8 +182,31 @@ nonisolated final class Dependencies: UseCaseFactory {
         ApplyControlAnswers(models: models, catalogue: catalogue, sources: controlsSources)
     }
 
+    func compileGovernance() -> CompileGovernanceUseCase {
+        CompileGovernance(
+            controlsSources: controlsSources,
+            governanceSources: governanceSources
+        )
+    }
+
+    func applyGovernance() -> ApplyGovernanceUseCase {
+        ApplyGovernance(models: models, sources: governanceSources)
+    }
+
+    func checkGovernance() -> CheckGovernanceUseCase {
+        CheckGovernance(
+            controlsSources: controlsSources,
+            governanceSources: governanceSources,
+            clock: clock
+        )
+    }
+
     func checkControlAnswers() -> CheckControlAnswersUseCase {
-        CheckControlAnswers(compiles: compileControls(), sources: controlsSources)
+        CheckControlAnswers(
+            compiles: compileControls(),
+            sources: controlsSources,
+            governance: checkGovernance()
+        )
     }
 
     func initialiseProject() -> InitialiseProjectUseCase {
@@ -206,7 +230,8 @@ nonisolated final class Dependencies: UseCaseFactory {
         OpenSystem(
             projects: projects,
             imports: importArchitecture(),
-            applies: applyControlAnswers()
+            applies: applyControlAnswers(),
+            governance: applyGovernance()
         )
     }
 

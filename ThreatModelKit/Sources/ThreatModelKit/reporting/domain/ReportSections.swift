@@ -1,4 +1,44 @@
 /// One thing the assessment recommends, and where it came from.
+/// One risk the organisation decided to carry.
+///
+/// A row is written for every accepted control, governed or not, so a reader
+/// sees the ungoverned ones as a row of dashes rather than not at all.
+public struct ReportAcceptedRisk: Equatable, Sendable {
+    public let threatName: String
+    public let sourceName: String
+    public let riskScore: Int
+    public let control: String
+    public let owner: String
+    /// A date written `YYYY-MM-DD`, or nil when the file states none.
+    public let acceptedOn: String?
+    public let reviewBy: String?
+    public let rationale: String
+    /// True when the review date has passed.
+    public let isOverdue: Bool
+
+    public init(
+        threatName: String,
+        sourceName: String,
+        riskScore: Int,
+        control: String,
+        owner: String = "",
+        acceptedOn: String? = nil,
+        reviewBy: String? = nil,
+        rationale: String = "",
+        isOverdue: Bool = false
+    ) {
+        self.threatName = threatName
+        self.sourceName = sourceName
+        self.riskScore = riskScore
+        self.control = control
+        self.owner = owner
+        self.acceptedOn = acceptedOn
+        self.reviewBy = reviewBy
+        self.rationale = rationale
+        self.isOverdue = isOverdue
+    }
+}
+
 public struct ReportRecommendation: Equatable, Sendable {
     public let text: String
     public let note: String?
@@ -11,6 +51,9 @@ public struct ReportRecommendation: Equatable, Sendable {
     /// anything matching a recommendation to a threat matches on these.
     public let threatId: String
     public let sourceId: String
+    /// Who does it, how big it is, by when and where it stands, or nil when
+    /// the governance file states nothing about it.
+    public let governance: String?
 
     public init(
         text: String,
@@ -20,7 +63,8 @@ public struct ReportRecommendation: Equatable, Sendable {
         riskScore: Int,
         sources: [String] = [],
         threatId: String = "",
-        sourceId: String = ""
+        sourceId: String = "",
+        governance: String? = nil
     ) {
         self.text = text
         self.note = note
@@ -30,6 +74,7 @@ public struct ReportRecommendation: Equatable, Sendable {
         self.sources = sources
         self.threatId = threatId
         self.sourceId = sourceId
+        self.governance = governance
     }
 
     /// Identifies the threat a recommendation answers, the way a report keys

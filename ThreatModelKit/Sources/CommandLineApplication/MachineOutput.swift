@@ -106,6 +106,9 @@ public struct CheckedSystemJSON: Codable, Equatable, Sendable {
     public let unanswered: [UnansweredJSON]
     public let stale: [String]
     public let staleTrees: [String]
+    /// What an accepted risk has not stated: no entry, no owner, no review
+    /// date, or a review date that has passed.
+    public let governance: [String]
 }
 
 /// Everything one `check` run found.

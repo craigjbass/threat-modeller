@@ -112,7 +112,7 @@ struct CheckToleranceTests {
         }
         """)
 
-        guard case .checked(_, _, let staleTrees, _, _) = response else {
+        guard case .checked(_, _, let staleTrees, _, _, _) = response else {
             Issue.record("the check refused: \(response)")
             return
         }
@@ -130,7 +130,7 @@ struct CheckToleranceTests {
         }
         """)
 
-        guard case .checked(_, _, let staleTrees, _, _) = response else {
+        guard case .checked(_, _, let staleTrees, _, _, _) = response else {
             Issue.record("the check refused: \(response)")
             return
         }
@@ -138,7 +138,7 @@ struct CheckToleranceTests {
     }
 
     @Test func passesForASystemWithNoTreeFile() {
-        guard case .checked(_, _, let staleTrees, _, _) = check(trees: nil) else {
+        guard case .checked(_, _, let staleTrees, _, _, _) = check(trees: nil) else {
             Issue.record("the check refused")
             return
         }

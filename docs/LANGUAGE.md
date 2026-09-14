@@ -1,15 +1,16 @@
 # The language of Craig's Threat Modeller
 
-A reference for the four source languages this application reads: the
+A reference for the five source languages this application reads: the
 architecture language, written in a `.arch` file; the controls language, written
-in a `.controls` file; the library language, written in a `.lib` file; and the
-attack tree language, written in a `.attacktree` file.
+in a `.controls` file; the library language, written in a `.lib` file; the
+attack tree language, written in a `.attacktree` file; and the governance
+language, written in a `.governance` file.
 
-The four languages share one lexical structure and one block syntax. They
+The five languages share one lexical structure and one block syntax. They
 differ only in their keywords and in what a block means. Sections 2 and 3 hold
 what is common. Section 4 holds the architecture language, section 5 the
-controls language, section 6 the library language, and section 7 the attack
-tree language.
+controls language, section 6 the library language, section 7 the attack tree
+language, and section 8 the governance language.
 
 ## Contents
 
@@ -20,11 +21,12 @@ tree language.
 5. [The controls language](#5-the-controls-language)
 6. [The library language](#6-the-library-language)
 7. [The attack tree language](#7-the-attack-tree-language)
-8. [Diagnostics](#8-diagnostics)
-9. [Canonical form](#9-canonical-form)
-10. [A worked example](#10-a-worked-example)
-11. [The grammar in full](#11-the-grammar-in-full)
-12. [Where the code is](#12-where-the-code-is)
+8. [The governance language](#8-the-governance-language)
+9. [Diagnostics](#9-diagnostics)
+10. [Canonical form](#10-canonical-form)
+11. [A worked example](#11-a-worked-example)
+12. [The grammar in full](#12-the-grammar-in-full)
+13. [Where the code is](#13-where-the-code-is)
 
 ## 1. Notation
 
@@ -121,6 +123,11 @@ The controls language reads these keywords: `controls`, `for`, `catalogue`,
 `tolerance`, `stale`, `threat`, `on`, `severity`, `score`, `likelihood`,
 `tier`, `prior`, `rationale`, `sources`, `severity_override`, `control`,
 `status`, `note`, `compensating`, `reduces_risk_by`, `recommendation`.
+
+The governance language reads these keywords: `governance`, `for`, `threat`,
+`on`, `stale`, `accepted`, `work`, `action`, `owner`, `accepted_on`,
+`review_by`, `due_by`, `rationale`, `acceptance`, `note`, `effort`, `status`,
+`sources`.
 
 The library language reads these keywords: `library`, `name`, `catalogue`,
 `technology`, `category`, `description`, `threats`, `encrypts`, `threat`,
@@ -1606,9 +1613,163 @@ Errors, which stop the read and produce no source:
 | `raises_risk_by` outside 0 to 100 | `raises_risk_by is <n>; it runs from 0 to 100` |
 | an entry the grammar does not hold | `a tree holds name, description, raises_risk_by, goal, all_of, any_of and step, not "<word>"` |
 
-## 8. Diagnostics
+## 8. The governance language
 
-### 8.1 The shape
+A `.governance` file sits beside the `.arch` and `.controls` files of one
+system and takes the same stem. `threatmodeller compile` writes it; a person
+fills it in and commits it. A system that accepts no control, holds no
+recommendation and declares no action gets no file: nothing writes an empty
+one.
+
+A `.controls` file lets a person write `status = "accepted"` and move on. That
+records that somebody accepted the risk, and nobody's name, no date and no date
+to read it again. An accepted risk with no owner and no review date is not a
+decision; it is a threat somebody stopped reading. This file is where the
+decision lives.
+
+### 8.1 Grammar
+
+```
+GovernanceFile  = GovernanceBlock ;
+
+GovernanceBlock = "governance" "for" String "{" { GovernanceEntry } "}" ;
+GovernanceEntry = GovernedThreatBlock | ActionBlock ;
+
+GovernedThreatBlock = [ "stale" ] "threat" String "on" SourceKind String
+                      "{" { GovernedThreatEntry } "}" ;
+GovernedThreatEntry = AcceptedBlock | WorkBlock ;
+
+AcceptedBlock = [ "stale" ] "accepted" String "{" { AcceptedAttr } "}" ;
+AcceptedAttr  = "owner"       "=" String
+              | "accepted_on" "=" String
+              | "review_by"   "=" String
+              | "rationale"   "=" String
+              | "sources"     "=" StringList ;
+
+WorkBlock   = [ "stale" ] "work" String "{" { WorkAttr } "}" ;
+ActionBlock = [ "stale" ] "action" String "{" { WorkAttr } "}" ;
+WorkAttr    = "owner"      "=" String
+            | "effort"     "=" String
+            | "due_by"     "=" String
+            | "status"     "=" String
+            | "acceptance" "=" String
+            | "note"       "=" String
+            | "sources"    "=" StringList ;
+```
+
+A file holds exactly one `governance for` block. Text after its closing brace
+is not read. A file that does not start with `governance` is the error
+`expected governance, not "<word>"`, and a block missing `for` is the error
+`expected for, not "<word>"`.
+
+### 8.2 The blocks and the attributes
+
+| Block | Label | Keyed by |
+| --- | --- | --- |
+| `threat` | the threat id, then what raised it | `<threat id>@<kind>:<source id>`, the key section 5.10 gives |
+| `accepted` | the control's description | the threat key and the description |
+| `work` | the recommendation's text | the threat key and the text |
+| `action` | the action's label | the label, which the `.arch` file declares |
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `owner` | string | any | empty |
+| `accepted_on` | string | a date, `YYYY-MM-DD` | none |
+| `review_by` | string | a date, `YYYY-MM-DD` | none |
+| `due_by` | string | a date, `YYYY-MM-DD` | none |
+| `rationale` | string | any | empty |
+| `acceptance` | string | any | empty |
+| `note` | string | any | empty |
+| `effort` | string | `small`, `medium`, `large` | none |
+| `status` | string | `planned`, `in_progress`, `done`, `dropped` | `planned` |
+| `sources` | list of strings | any | empty |
+
+```hcl
+governance for "Payments" {
+  threat "credential-theft" on component "api" {
+    accepted "Enforce MFA on all administrative access" {
+      owner       = "Head of Platform"
+      accepted_on = "2026-09-01"
+      review_by   = "2027-03-01"
+      rationale   = "The MFA rollout waits on the SSO migration."
+      sources     = ["https://example.com/risk-register/RSK-412"]
+    }
+
+    work "Protect the managed preferences plist" {
+      owner      = "Platform team"
+      effort     = "medium"
+      due_by     = "2026-11-30"
+      acceptance = "The plist is writable only by the MDM daemon."
+    }
+  }
+
+  action "reenable-devtool-rules" {
+    owner      = "Endpoint team"
+    effort     = "small"
+    due_by     = "2026-10-15"
+    status     = "in_progress"
+    acceptance = "The read rules are on, and the audit log shows no bypass."
+  }
+}
+```
+
+A date is a calendar date written `YYYY-MM-DD`. Nothing in this file moves a
+score: an accepted risk still counts at its full score.
+
+### 8.3 `stale`
+
+`stale` marks a stanza whose control is no longer accepted, whose
+recommendation or action is gone, or whose threat the architecture no longer
+raises. The rule is the rule section 5.4 gives: nothing deletes a stale block,
+the application applies nothing it holds, and a person deletes it.
+
+A stale stanza fails no check. The `.controls` file already fails the build for
+a stale answer, and failing twice for one cause tells a person nothing new.
+
+### 8.4 What the compile writes
+
+| Case | Result |
+| --- | --- |
+| a control is `accepted` and the file governs it | the stanza is kept whole |
+| a control is `accepted` and the file does not govern it | a stanza appears with every field empty |
+| a recommendation exists and the file does not govern it | a `work` stanza appears with every field empty |
+| an `.arch` action exists and the file does not govern it | an `action` stanza appears with every field empty |
+| a control is no longer `accepted` | the stanza is marked `stale` |
+| a recommendation or an action is gone | the stanza is marked `stale` |
+| a threat is no longer raised | its whole block is marked `stale` |
+
+Two compiles of one project write the same bytes.
+
+### 8.5 What the check fails
+
+`threatmodeller check` exits 1 for each of these, which is the code an
+unanswered threat already exits:
+
+| Failure | Printed |
+| --- | --- |
+| a control is `accepted` and no stanza governs it | `<key> is accepted and has no governance entry; run threatmodeller compile` |
+| an `accepted` stanza has no `owner` | `<key> is accepted by nobody; the accepted risk needs an owner` |
+| an `accepted` stanza has no `review_by` | `<key> is accepted with no review date` |
+| an `accepted` stanza's `review_by` has passed | `<key> was accepted for review by <date>, which has passed` |
+
+A `work` stanza and an `action` stanza fail nothing. Planned work with no owner
+is a gap in a plan; an accepted risk with no owner is a decision nobody made.
+The report prints both.
+
+### 8.6 What the parser refuses
+
+| Check | Message |
+| --- | --- |
+| a date that is not `YYYY-MM-DD` | `<attribute> is "<raw>"; a date is written YYYY-MM-DD` |
+| a date that is not a calendar date | `<attribute> is "<raw>", which is not a date` |
+| an `effort` outside the three | `effort is "<raw>"; this application holds "small", "medium", "large"` |
+| a `status` outside the four | `status is "<raw>"; this application holds "planned", "in_progress", "done", "dropped"` |
+| a threat block with no `on` | `a threat says what raised it: on component, on zone or on flow` |
+| two blocks with one key | `<key> is governed twice` |
+
+## 9. Diagnostics
+
+### 9.1 The shape
 
 A diagnostic carries a severity, a line, a column and a message, and prints as:
 
@@ -1618,7 +1779,7 @@ threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0
 
 An editor and a build log both read that shape.
 
-### 8.2 The severities
+### 9.2 The severities
 
 | Severity | Effect |
 | --- | --- |
@@ -1627,7 +1788,7 @@ An editor and a build log both read that shape.
 
 One error anywhere in a file stops the whole file. Warnings alone do not.
 
-### 8.3 Recovery
+### 9.3 Recovery
 
 Neither the lexer nor the parser stops at the first fault, so a file with four
 faults reports four rather than one.
@@ -1639,10 +1800,10 @@ faults reports four rather than one.
 | a missing required attribute | records one diagnostic and drops the block |
 | an unknown character | records one diagnostic and skips that one character |
 
-### 8.4 What each block holds
+### 9.4 What each block holds
 
 An entry that is not one of a block's own attributes or nested blocks is the
-message below. The parser then does what section 8.3 states for "an unknown
+message below. The parser then does what section 9.3 states for "an unknown
 entry" or "an unknown attribute".
 
 | Language | Block | Message |
@@ -1666,13 +1827,17 @@ entry" or "an unknown attribute".
 | controls | `tree` | `a tree holds goal, chain, raises_risk_by, score, score_before and step, not "<word>"` |
 | controls | `step` (in a `tree`) | `a step holds state and by, not "<word>"` |
 | attack tree | `tree` | `a tree holds name, description, raises_risk_by, goal, all_of, any_of and step, not "<word>"` |
+| governance | `governance for` | `a governance file holds threat, action, stale threat and stale action, not "<word>"` |
+| governance | `threat` | `a governed threat holds accepted, work, stale accepted and stale work, not "<word>"` |
+| governance | `accepted` | `an accepted risk holds owner, accepted_on, review_by, rationale and sources, not "<word>"` |
+| governance | `work` and `action` | `planned work holds owner, effort, due_by, status, acceptance, note and sources, not "<word>"` |
 | library | `library` | `a library holds name, catalogue, technology, threat, mitigation and threat_actor, not "<word>"` |
 | library | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | library | `threat` | `a threat holds name, description, severity, stride, connection, zone, zone_context, mitre, control, applies_to, boundary, runs_as, pathway and likelihood, not "<word>"` |
 | library | `mitre` | `a mitre technique holds name and tactic, not "<word>"` |
 | library | `mitigation` | `a mitigation holds name, description, mitigates, provided_by, reduces_risk_by and mode, not "<word>"` |
 
-## 9. Canonical form
+## 10. Canonical form
 
 The writer emits one shape, so a rewrite of an unchanged source produces no
 diff. `threatmodeller format` rewrites every `.arch` file in this shape.
@@ -1703,7 +1868,7 @@ writes `severity` and `score`, then the `likelihood` block, then the controls
 sorted by description, then the `severity_override` block, then the
 compensating controls, then the recommendations.
 
-## 10. A worked example
+## 11. A worked example
 
 `threatmodel/payments.arch`:
 
@@ -1781,7 +1946,7 @@ controls for "Payments" {
 `threatmodeller check` exits 1 while `t-mitm` and `t-lateral-movement` hold no
 answer. `threatmodeller report` writes `threatmodel/payments.md`.
 
-## 11. The grammar in full
+## 12. The grammar in full
 
 ```
 (* common *)
@@ -1989,9 +2154,37 @@ NodeEntry = StepBlock | NodeBlock ;
 
 StepBlock = "step" String "on" SourceKind String [ "{" { StepEntry } "}" ] ;
 StepEntry = "note" "=" String ;
+
+(* the governance language *)
+
+GovernanceFile = GovernanceBlock ;
+
+GovernanceBlock = "governance" "for" String "{" { GovernanceEntry } "}" ;
+GovernanceEntry = GovernedThreatBlock | ActionBlock ;
+
+GovernedThreatBlock = [ "stale" ] "threat" String "on" SourceKind String
+                      "{" { GovernedThreatEntry } "}" ;
+GovernedThreatEntry = AcceptedBlock | WorkBlock ;
+
+AcceptedBlock = [ "stale" ] "accepted" String "{" { AcceptedAttr } "}" ;
+AcceptedAttr  = "owner"       "=" String
+              | "accepted_on" "=" String
+              | "review_by"   "=" String
+              | "rationale"   "=" String
+              | "sources"     "=" StringList ;
+
+WorkBlock   = [ "stale" ] "work" String "{" { WorkAttr } "}" ;
+ActionBlock = [ "stale" ] "action" String "{" { WorkAttr } "}" ;
+WorkAttr    = "owner"      "=" String
+            | "effort"     "=" String
+            | "due_by"     "=" String
+            | "status"     "=" String
+            | "acceptance" "=" String
+            | "note"       "=" String
+            | "sources"    "=" StringList ;
 ```
 
-## 12. Where the code is
+## 13. Where the code is
 
 | File | What it holds |
 | --- | --- |
@@ -2005,9 +2198,11 @@ StepEntry = "note" "=" String ;
 | [`LibraryWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/LibraryWriter.swift) | the canonical form of a `.lib` file |
 | [`AttackTreeParser.swift`](../ThreatModelKit/Sources/ArchitectureDSL/AttackTreeParser.swift) | section 7 |
 | [`AttackTreeWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/AttackTreeWriter.swift) | the canonical form of a `.attacktree` file |
+| [`GovernanceParser.swift`](../ThreatModelKit/Sources/ArchitectureDSL/GovernanceParser.swift) | section 8 |
+| [`GovernanceWriter.swift`](../ThreatModelKit/Sources/ArchitectureDSL/GovernanceWriter.swift) | the canonical form of a `.governance` file |
 | [`Library.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/Library.swift) | the prefix rule of section 6.4, and the taxonomy check |
 | [`MergedCatalogue.swift`](../ThreatModelKit/Sources/ThreatModelKit/catalogue/domain/MergedCatalogue.swift) | how a library and the vendored catalogue read as one |
-| [`Diagnostic.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/Diagnostic.swift) | section 8 |
+| [`Diagnostic.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/Diagnostic.swift) | section 9 |
 | [`ControlsSource.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ControlsSource.swift) | the value tree, and the threat key of section 5.10 |
 | [`ProjectConvention.swift`](../ThreatModelKit/Sources/ThreatModelKit/architecture/domain/ProjectConvention.swift) | how a `.arch` file pairs with its `.controls` and its `.md` |
 

@@ -3,14 +3,15 @@
 A macOS application and a command line executable that build a threat model from
 text files a team commits to git.
 
-A project holds three source files for each system, and the application writes
-a fourth:
+A project holds four source files for each system, and the application writes
+a fifth:
 
 | File | Who writes it | What it holds |
 | --- | --- | --- |
 | `<name>.arch` | a person | the architecture: technologies, zones, components and flows |
 | `<name>.controls` | the compiler writes it, then a person fills it in | the answer for every threat the architecture raises |
 | `<name>.attacktree` | a person | the routes through several components, and what each route raises |
+| `<name>.governance` | the compiler writes it, then a person fills it in | who carries each accepted risk, and who does each piece of planned work |
 | `<name>.md` | the compiler | the report |
 | `library/<name>.lib` | a team, and shared with other teams | technologies, threats and controls every system in the project reads |
 
@@ -18,7 +19,7 @@ The application draws the same files on a canvas. The executable reads them in
 continuous integration, so a pull request that adds a database and answers
 nothing fails the build.
 
-**Read [the language guide](docs/LANGUAGE.md) for the syntax of all four source
+**Read [the language guide](docs/LANGUAGE.md) for the syntax of all five source
 files:** the lexical rules, the grammar, every block and attribute, the
 diagnostics and the canonical form.
 
@@ -408,6 +409,31 @@ likelihood findings" above); `<level>` is `low`, `medium`, `high` or
 `-f` or `--force` removes a library a system still names. `--format <name>`
 picks the shape `check`, `compile` and `format` write; see below.
 
+### Governance: who carries an accepted risk
+
+A `.controls` file lets a person write `status = "accepted"` and move on. That
+records that somebody accepted the risk, and nobody's name and no date. The
+`.governance` file beside it is where the decision lives: who carries the risk,
+when they took it, and when they read it again. It also states who does each
+recommendation and each action, how big the work is and when it is due.
+
+`threatmodeller compile` writes the file and every stanza in it. A person fills
+in the fields and commits it. `threatmodeller check` exits 1 for an accepted
+risk with no governance entry, with no owner, with no review date, or with a
+review date that has passed. Planned work fails nothing: a plan with no owner
+is a gap in a plan, and the report prints it.
+
+WARNING: a project that accepts a risk today and holds no `.governance` file
+fails `check` the first time it runs after this change. The fix is two steps:
+
+1. Run `threatmodeller compile`, which writes the file and a stanza for every
+   accepted control.
+2. Fill in `owner` and `review_by` in each stanza, and commit the file.
+
+The report writes `## Accepted risks` after `## Recommendations`, one row per
+accepted control, governed or not, and the executive summary states how many
+are past their review date.
+
 ### What check writes, and for whom
 
 `--format <plain|github|json>` says which shape `check`, `compile` and `format`
@@ -562,7 +588,7 @@ and undo takes it back.
 ## More documentation
 
 - [The language guide](docs/LANGUAGE.md) — the syntax and the semantics of
-  `.arch`, `.controls`, `.lib` and `.attacktree`.
+  `.arch`, `.controls`, `.lib`, `.attacktree` and `.governance`.
 - [The shared element library design](docs/superpowers/specs/2026-09-09-shared-element-library-design.md) —
   why a library is shaped this way, and how it is vendored.
 - [The code-first design](docs/superpowers/specs/2026-09-08-code-first-dsl-design.md) —

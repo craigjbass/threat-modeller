@@ -40,6 +40,15 @@ public enum MarkdownExecutiveSummary {
             lines.append("")
         }
 
+        if summary.acceptedRisksOverdue > 0 {
+            lines.append(
+                summary.acceptedRisksOverdue == 1
+                    ? "1 accepted risk is past its review date."
+                    : "\(summary.acceptedRisksOverdue) accepted risks are past their review date."
+            )
+            lines.append("")
+        }
+
         if summary.topLeverageActions.isEmpty == false {
             lines.append("**Do first**")
             lines.append("")

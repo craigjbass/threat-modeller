@@ -121,7 +121,7 @@ struct LikelihoodEndToEndTests {
 
         // Step 2: check exits 1 without a likelihood finding.
         let checks = CheckControlAnswers(compiles: compiles, sources: controlsSources)
-        guard case .checked(let unanswered, _, _, _, let usedTolerance) = checks.execute(
+        guard case .checked(let unanswered, _, _, _, _, let usedTolerance) = checks.execute(
             CheckControlAnswersRequest(architectureText: architectureText, controlsText: stub)
         ) else {
             Issue.record("the first check refused the files")
@@ -148,7 +148,7 @@ struct LikelihoodEndToEndTests {
         #expect(answered != stub, "the score line was not where the test expected it")
 
         // Step 3: check passes once the finding sits inside the tolerance.
-        guard case .checked(let none, _, _, _, _) = checks.execute(
+        guard case .checked(let none, _, _, _, _, _) = checks.execute(
             CheckControlAnswersRequest(architectureText: architectureText, controlsText: answered)
         ) else {
             Issue.record("the second check refused the files")
@@ -159,7 +159,7 @@ struct LikelihoodEndToEndTests {
 
         // The block's removal is still unanswered, so a build without it
         // still fails.
-        guard case .checked(let stillUnanswered, _, _, _, _) = checks.execute(
+        guard case .checked(let stillUnanswered, _, _, _, _, _) = checks.execute(
             CheckControlAnswersRequest(architectureText: architectureText, controlsText: stub)
         ) else {
             Issue.record("the third check refused the files")
