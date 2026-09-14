@@ -33,4 +33,14 @@ struct AttackTreeSourceTests {
 
         #expect(tree.steps.map(\.target.threatId) == ["ssrf-attack", "credential-theft"])
     }
+
+    @Test func aTreeNamesItselfByIdWhenItStatesNoName() {
+        #expect(SourceAttackTree(
+            id: "t",
+            goal: SourceTreeTarget(threatId: "g", sourceKind: "component", sourceId: "db"),
+            root: .step(SourceTreeStep(target: SourceTreeTarget(
+                threatId: "s", sourceKind: "component", sourceId: "c"
+            )))
+        ).displayName == "t")
+    }
 }
