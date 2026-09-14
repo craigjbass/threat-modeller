@@ -1,7 +1,7 @@
 # Attack trees as a fourth source file — design
 
 Date: 2026-09-14
-Status: draft
+Status: approved for planning
 
 ## 1. Why
 
