@@ -26,10 +26,12 @@ public enum DuplicateSelectionResponse: Equatable, Sendable {
 public struct DuplicateSelection: DuplicateSelectionUseCase {
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
+    private let catalogue: TechnologyCatalogue
 
-    public init(models: ThreatModelGateway, ids: IdentityGenerator) {
+    public init(models: ThreatModelGateway, ids: IdentityGenerator, catalogue: TechnologyCatalogue) {
         self.models = models
         self.ids = ids
+        self.catalogue = catalogue
     }
 
     public func execute(_ request: DuplicateSelectionRequest) -> DuplicateSelectionResponse {
@@ -50,6 +52,10 @@ public struct DuplicateSelection: DuplicateSelectionUseCase {
             model.components.append(contentsOf: placed.components)
             model.connections.append(contentsOf: placed.connections)
             model.zones.append(contentsOf: placed.zones)
+            // The duplicate is the same element beside the original, so it
+            // carries the same answers. One document, one catalogue, so
+            // nothing is ever dropped here.
+            SelectionAnswerMerge.merge(placed, into: &model, catalogue: catalogue)
 
             return .duplicated(
                 componentIds: placed.components.map(\.id.value),

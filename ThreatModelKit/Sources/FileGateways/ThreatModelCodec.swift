@@ -295,7 +295,30 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 formatVersion: Self.formatVersion,
                 components: selection.components.map(Self.json(from:)),
                 connections: selection.connections.map(Self.json(from:)),
-                zones: selection.zones.map(Self.json(from:))
+                zones: selection.zones.map(Self.json(from:)),
+                controlStatuses: Dictionary(
+                    uniqueKeysWithValues: selection.controlStatuses.map {
+                        ($0.key.value, $0.value.rawValue)
+                    }
+                ),
+                severityOverrides: Dictionary(
+                    uniqueKeysWithValues: selection.severityOverrides.map {
+                        ($0.key.value, $0.value)
+                    }
+                ),
+                likelihoodFindings: Dictionary(
+                    uniqueKeysWithValues: selection.likelihoodFindings.map { key, finding in
+                        (
+                            key.value,
+                            LikelihoodFindingJSON(
+                                label: finding.label,
+                                likelihood: finding.likelihood.id,
+                                rationale: finding.rationale,
+                                sources: finding.sources
+                            )
+                        )
+                    }
+                )
             )
         )
         return String(decoding: data, as: UTF8.self)
@@ -314,7 +337,34 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
         return SelectionSnippet(
             components: try snippet.components.map(Self.component(from:)),
             connections: try snippet.connections.map(Self.connection(from:)),
-            zones: try snippet.zones.map(Self.zone(from:))
+            zones: try snippet.zones.map(Self.zone(from:)),
+            controlStatuses: Dictionary(
+                uniqueKeysWithValues: (snippet.controlStatuses ?? [:]).compactMap { key, raw in
+                    ControlStatus(rawValue: raw).map { (ControlKey(key), $0) }
+                }
+            ),
+            severityOverrides: Dictionary(
+                uniqueKeysWithValues: (snippet.severityOverrides ?? [:]).map {
+                    (SeverityOverrideKey($0.key), $0.value)
+                }
+            ),
+            likelihoodFindings: Dictionary(
+                uniqueKeysWithValues: try (snippet.likelihoodFindings ?? [:]).map { key, json in
+                    (
+                        ThreatKey(key),
+                        LikelihoodFinding(
+                            label: json.label,
+                            likelihood: try Self.value(
+                                Self.likelihood(from: json.likelihood),
+                                field: "likelihood",
+                                raw: json.likelihood
+                            ),
+                            rationale: json.rationale,
+                            sources: json.sources ?? []
+                        )
+                    )
+                }
+            )
         )
     }
 

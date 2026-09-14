@@ -94,7 +94,7 @@ struct TakingItBackTests {
         }
         #expect(componentCount == 2)
 
-        guard case .pasted(let componentIds, _) = app.pasteSelection().execute(
+        guard case .pasted(let componentIds, _, _) = app.pasteSelection().execute(
             PasteSelectionRequest(
                 payload: payload,
                 offsetX: PasteSelection.defaultOffset,
@@ -132,7 +132,7 @@ struct TakingItBackTests {
         _ = app.createThreatModel().execute(CreateThreatModelRequest(name: "Reporting"))
         #expect(canvas().components.isEmpty)
 
-        guard case .pasted(let componentIds, _) = app.pasteSelection().execute(
+        guard case .pasted(let componentIds, _, _) = app.pasteSelection().execute(
             PasteSelectionRequest(payload: payload, offsetX: 0, offsetY: 0)
         ) else {
             Issue.record("Expected the selection to be pasted")

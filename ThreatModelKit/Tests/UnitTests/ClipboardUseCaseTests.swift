@@ -38,7 +38,7 @@ struct ClipboardUseCaseTests {
     }
 
     private func paste(_ payload: String) -> PasteSelectionResponse {
-        PasteSelection(models: models, ids: ids, files: codec).execute(
+        PasteSelection(models: models, ids: ids, files: codec, catalogue: catalogue).execute(
             PasteSelectionRequest(
                 payload: payload,
                 offsetX: PasteSelection.defaultOffset,
@@ -90,7 +90,7 @@ struct ClipboardUseCaseTests {
         let seeded = seed()
         let text = payload(copy(components: [seeded.web]))
 
-        guard case .pasted(let componentIds, _) = paste(text) else {
+        guard case .pasted(let componentIds, _, _) = paste(text) else {
             Issue.record("Expected the selection to be pasted")
             return
         }
@@ -114,7 +114,7 @@ struct ClipboardUseCaseTests {
         let seeded = seed()
         let text = payload(copy(components: [seeded.web, seeded.database]))
 
-        guard case .pasted(let componentIds, _) = paste(text) else {
+        guard case .pasted(let componentIds, _, _) = paste(text) else {
             Issue.record("Expected the selection to be pasted")
             return
         }
@@ -131,7 +131,7 @@ struct ClipboardUseCaseTests {
         let seeded = seed()
         let text = payload(copy(components: [], zones: [seeded.zone]))
 
-        guard case .pasted(_, let zoneIds) = paste(text) else {
+        guard case .pasted(_, let zoneIds, _) = paste(text) else {
             Issue.record("Expected the selection to be pasted")
             return
         }
@@ -179,7 +179,8 @@ struct ClipboardUseCaseTests {
 
         guard case .duplicated(let componentIds, _) = DuplicateSelection(
             models: models,
-            ids: ids
+            ids: ids,
+            catalogue: catalogue
         ).execute(
             DuplicateSelectionRequest(
                 componentIds: [seeded.web],
@@ -200,7 +201,7 @@ struct ClipboardUseCaseTests {
     @Test func duplicatesNothingWhenNothingIsSelected() {
         _ = seed()
 
-        #expect(DuplicateSelection(models: models, ids: ids).execute(
+        #expect(DuplicateSelection(models: models, ids: ids, catalogue: catalogue).execute(
             DuplicateSelectionRequest(componentIds: [], zoneIds: [], offsetX: 0, offsetY: 0)
         ) == .nothingSelected)
     }

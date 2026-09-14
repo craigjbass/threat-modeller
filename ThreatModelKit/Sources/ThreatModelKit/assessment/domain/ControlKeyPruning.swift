@@ -22,11 +22,14 @@ public enum ControlKeyPruning {
         }
     }
 
-    /// The model's control answers, with every unreachable answer dropped.
-    public static func prune(
-        _ model: ThreatModel,
+    /// Every fingerprint the catalogue words, by the threat it belongs to.
+    ///
+    /// Shared with pasting, so a paste drops exactly what an open would
+    /// prune.
+    public static func wordings(
+        of model: ThreatModel,
         catalogue: TechnologyCatalogue
-    ) -> Result {
+    ) -> [ThreatId: Set<String>] {
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         var fingerprintsByThreat: [ThreatId: Set<String>] = [:]
 
@@ -51,20 +54,34 @@ public enum ControlKeyPruning {
             }
         }
 
+        return fingerprintsByThreat
+    }
+
+    /// True when a wording the catalogue holds still fingerprints to this key.
+    ///
+    /// A key of no known shape, and a key whose threat has left the catalogue,
+    /// both count as reachable: the first is not ours to read, and the second
+    /// is catalogue drift.
+    public static func isReachable(
+        _ key: ControlKey,
+        wordings: [ThreatId: Set<String>]
+    ) -> Bool {
+        guard let read = ControlIdentity.read(key) else { return true }
+        guard let known = wordings[read.threatId] else { return true }
+        return known.contains(read.fingerprint)
+    }
+
+    /// The model's control answers, with every unreachable answer dropped.
+    public static func prune(
+        _ model: ThreatModel,
+        catalogue: TechnologyCatalogue
+    ) -> Result {
+        let known = wordings(of: model, catalogue: catalogue)
+
         var kept: [ControlKey: ControlStatus] = [:]
         var pruned: [ControlKey] = []
         for (key, status) in model.controlStatuses {
-            guard let read = ControlIdentity.read(key) else {
-                kept[key] = status
-                continue
-            }
-            guard let known = fingerprintsByThreat[read.threatId] else {
-                // The threat itself has left the catalogue: drift, not a
-                // reworded control.
-                kept[key] = status
-                continue
-            }
-            if known.contains(read.fingerprint) {
+            if isReachable(key, wordings: known) {
                 kept[key] = status
             } else {
                 pruned.append(key)

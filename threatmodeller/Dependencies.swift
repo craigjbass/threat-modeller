@@ -52,11 +52,11 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func pasteSelection() -> PasteSelectionUseCase {
-        PasteSelection(models: models, ids: ids, files: files)
+        PasteSelection(models: models, ids: ids, files: files, catalogue: catalogue)
     }
 
     func duplicateSelection() -> DuplicateSelectionUseCase {
-        DuplicateSelection(models: models, ids: ids)
+        DuplicateSelection(models: models, ids: ids, catalogue: catalogue)
     }
 
     func undoLastChange() -> UndoLastChangeUseCase {

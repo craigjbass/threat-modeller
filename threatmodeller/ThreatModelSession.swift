@@ -391,8 +391,14 @@ final class ThreatModelSession {
                 offsetY: PasteSelection.defaultOffset
             )
         ) {
-        case .pasted(let componentIds, let zoneIds):
-            errorMessage = nil
+        case .pasted(let componentIds, let zoneIds, let droppedControls):
+            // The clipboard crosses documents, and a document names its own
+            // catalogue, so a paste can carry a control answer this catalogue
+            // words no control for.
+            errorMessage = droppedControls.isEmpty
+                ? nil
+                : "\(droppedControls.count) control answers were dropped: "
+                    + "this model's catalogue holds no such control."
             return (componentIds, zoneIds)
         case .nothingToPaste:
             errorMessage = nil

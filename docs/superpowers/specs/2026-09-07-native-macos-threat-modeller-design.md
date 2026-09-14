@@ -381,6 +381,16 @@ Scoped keys:
 
 Removing a component prunes every `node:{componentId}:` key.
 
+**What a copy carries.** A copy carries every field of every element it holds,
+and the user's answers about them: the control statuses, the severity overrides
+and the likelihood findings. A key scoped to a copied component travels; so do
+the keys consolidated across every link and every zone, when the copy holds a
+link or a zone. A paste mints fresh identifiers and reads every answer onto
+them. An answer the model already holds for the same key stands. A control this
+catalogue words no control for is dropped, and the paste names it, because the
+clipboard crosses documents and a document names its own catalogue. A paste is
+one undoable change.
+
 A control key holds a fingerprint of the wording it was minted from, so a
 catalogue that rewords a control leaves the answer with nothing to read it.
 Opening a model prunes every answer whose threat is still in the catalogue and

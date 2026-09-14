@@ -59,14 +59,69 @@ public struct CopySelection: CopySelectionUseCase {
         zoneIds: [String]
     ) -> SelectionSnippet {
         let components = Set(componentIds.map(ComponentId.init))
-        let zones = Set(zoneIds.map(ZoneId.init))
+        let zoneSet = Set(zoneIds.map(ZoneId.init))
+
+        let copiedComponents = model.components.filter { components.contains($0.id) }
+        let copiedConnections = model.connections.filter {
+            components.contains($0.source) && components.contains($0.target)
+        }
+        let copiedZones = model.zones.filter { zoneSet.contains($0.id) }
+
+        // The scopes whose answers travel: one per copied component, plus the
+        // consolidated link scope and zone scope when a link or a zone is
+        // copied. Spec section 5.3 consolidates those two across the model, so
+        // a copy that holds one carries the answers that score it.
+        let answers = SelectionAnswers(
+            componentIds: components,
+            carriesConnections: copiedConnections.isEmpty == false,
+            carriesZones: copiedZones.isEmpty == false,
+            connectionIds: Set(copiedConnections.map(\.id)),
+            zoneIds: zoneSet
+        )
 
         return SelectionSnippet(
-            components: model.components.filter { components.contains($0.id) },
-            connections: model.connections.filter {
-                components.contains($0.source) && components.contains($0.target)
-            },
-            zones: model.zones.filter { zones.contains($0.id) }
+            components: copiedComponents,
+            connections: copiedConnections,
+            zones: copiedZones,
+            controlStatuses: model.controlStatuses.filter { answers.carries(control: $0.key) },
+            severityOverrides: model.severityOverrides.filter { answers.carries(override: $0.key) },
+            likelihoodFindings: model.likelihoodFindings.filter { answers.carries(finding: $0.key) }
         )
+    }
+}
+
+/// Which of a model's answers belong to a copied selection.
+struct SelectionAnswers {
+    let componentIds: Set<ComponentId>
+    let carriesConnections: Bool
+    let carriesZones: Bool
+    let connectionIds: Set<ConnectionId>
+    let zoneIds: Set<ZoneId>
+
+    func carries(control key: ControlKey) -> Bool {
+        if componentIds.contains(where: { key.value.hasPrefix(ControlIdentity.componentPrefix($0)) }) {
+            return true
+        }
+        if carriesConnections && key.value.hasPrefix("connection:") { return true }
+        if carriesZones && key.value.hasPrefix("zone:") { return true }
+        return false
+    }
+
+    func carries(override key: SeverityOverrideKey) -> Bool {
+        if componentIds.contains(where: {
+            key.value.hasPrefix(SeverityOverrideKey.componentPrefix($0))
+        }) {
+            return true
+        }
+        if carriesConnections && key.value.hasPrefix("connection::") { return true }
+        if carriesZones && key.value.hasPrefix("zone::") { return true }
+        return false
+    }
+
+    func carries(finding key: ThreatKey) -> Bool {
+        let sources = componentIds.map { "@component:\($0.value)" }
+            + connectionIds.map { "@connection:\($0.value)" }
+            + zoneIds.map { "@zone:\($0.value)" }
+        return sources.contains { key.value.hasSuffix($0) }
     }
 }

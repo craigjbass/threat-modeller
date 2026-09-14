@@ -158,4 +158,11 @@ struct SelectionJSON: Codable {
     let components: [ComponentJSON]
     let connections: [ConnectionJSON]
     let zones: [ZoneJSON]
+    /// The user's answers about what the selection holds. Absent from
+    /// clipboard text an earlier build wrote, and a paste of that text puts
+    /// the elements back with no answers, the way it always did. The document
+    /// format is unchanged, so the format version does not move.
+    let controlStatuses: [String: String]?
+    let severityOverrides: [String: String]?
+    let likelihoodFindings: [String: LikelihoodFindingJSON]?
 }
