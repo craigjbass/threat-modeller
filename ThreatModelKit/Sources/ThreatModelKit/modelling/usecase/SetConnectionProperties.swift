@@ -36,7 +36,7 @@ public struct SetConnectionProperties: SetConnectionPropertiesUseCase {
     public func execute(_ request: SetConnectionPropertiesRequest) -> SetConnectionPropertiesResponse {
         let id = ConnectionId(request.connectionId)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setConnectionProperties) { model in
             guard let index = model.connections.firstIndex(where: { $0.id == id }) else {
                 return .unknownConnection
             }

@@ -28,7 +28,7 @@ public struct RenameThreatModel: RenameThreatModelUseCase {
         guard name.isEmpty == false else { return .emptyName }
 
         let now = clock.now()
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.renameThreatModel) { model in
             model.name = name
             model.updatedAt = now
             return .renamed

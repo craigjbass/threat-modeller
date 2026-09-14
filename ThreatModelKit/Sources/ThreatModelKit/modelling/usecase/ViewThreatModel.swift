@@ -204,6 +204,10 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     /// can dim itself from the same read that draws the canvas.
     public let canUndo: Bool
     public let canRedo: Bool
+    /// What Undo would take back, and what Redo would put back, so the Edit
+    /// menu reads `Undo Move`. Nil when there is nothing.
+    public let undoLabel: String?
+    public let redoLabel: String?
 
     public init(
         name: String,
@@ -213,7 +217,9 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         assumptions: [ViewedAssumption] = [],
         mitigations: [ViewedMitigation] = [],
         canUndo: Bool = false,
-        canRedo: Bool = false
+        canRedo: Bool = false,
+        undoLabel: String? = nil,
+        redoLabel: String? = nil
     ) {
         self.name = name
         self.assumptions = assumptions
@@ -223,6 +229,8 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         self.zones = zones
         self.canUndo = canUndo
         self.canRedo = canRedo
+        self.undoLabel = undoLabel
+        self.redoLabel = redoLabel
     }
 }
 
@@ -308,7 +316,9 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                 )
             },
             canUndo: models.canUndo,
-            canRedo: models.canRedo
+            canRedo: models.canRedo,
+            undoLabel: models.undoLabel,
+            redoLabel: models.redoLabel
         )
     }
 }

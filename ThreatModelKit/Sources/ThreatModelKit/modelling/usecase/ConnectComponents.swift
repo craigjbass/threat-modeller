@@ -40,7 +40,7 @@ public struct ConnectComponents: ConnectComponentsUseCase {
         let source = ComponentId(request.sourceComponentId)
         let target = ComponentId(request.targetComponentId)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.connectComponents) { model in
             guard model.component(source) != nil else {
                 return .unknownComponent(componentId: source.value)
             }

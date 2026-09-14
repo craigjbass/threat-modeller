@@ -74,7 +74,7 @@ public struct PasteSelection: PasteSelectionUseCase {
             ids: ids
         )
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.paste) { model in
             model.components.append(contentsOf: placed.components)
             model.connections.append(contentsOf: placed.connections)
             model.zones.append(contentsOf: placed.zones)

@@ -31,7 +31,7 @@ public struct RemoveComponents: RemoveComponentsUseCase {
     }
 
     public func execute(_ request: RemoveComponentsRequest) -> RemoveComponentsResponse {
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.removeComponents) { model in
             var doomed: Set<ComponentId> = []
 
             for raw in request.componentIds {

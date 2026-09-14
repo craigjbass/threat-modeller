@@ -50,7 +50,7 @@ public struct SetAssumption: SetAssumptionUseCase {
         guard label.isEmpty == false else { return .noLabel }
         guard text.isEmpty == false else { return .noText }
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setAssumption) { model in
             let written = SystemAssumption(
                 label: label,
                 text: text,
@@ -104,7 +104,7 @@ public struct RemoveAssumption: RemoveAssumptionUseCase {
     public func execute(_ request: RemoveAssumptionRequest) -> RemoveAssumptionResponse {
         let label = request.label.trimmingWhitespace()
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setAssumption) { model in
             guard let found = model.assumptions.firstIndex(where: { $0.label == label }) else {
                 return .noSuchAssumption
             }

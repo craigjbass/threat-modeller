@@ -26,7 +26,7 @@ public struct AdoptCatalogueVersion: AdoptCatalogueVersionUseCase {
     }
 
     public func execute(_ request: AdoptCatalogueVersionRequest) -> AdoptCatalogueVersionResponse {
-        models.mutate { model in
+        models.mutate(label: ChangeLabel.adoptCatalogue) { model in
             model.catalogueVersion = catalogue.version()
             return .adopted(tag: catalogue.version().tag)
         }

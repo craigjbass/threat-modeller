@@ -40,7 +40,7 @@ public struct ResizeZone: ResizeZoneUseCase {
     public func execute(_ request: ResizeZoneRequest) -> ResizeZoneResponse {
         let id = ZoneId(request.zoneId)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.resizeZone) { model in
             guard let index = model.zones.firstIndex(where: { $0.id == id }) else {
                 return .unknownZone
             }

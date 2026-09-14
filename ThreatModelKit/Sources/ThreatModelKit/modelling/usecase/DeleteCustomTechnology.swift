@@ -28,7 +28,7 @@ public struct DeleteCustomTechnology: DeleteCustomTechnologyUseCase {
     public func execute(_ request: DeleteCustomTechnologyRequest) -> DeleteCustomTechnologyResponse {
         let id = TechnologyId(request.technologyId)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.deleteCustomTechnology) { model in
             guard model.customTechnologies.contains(where: { $0.id == id }) else {
                 return .unknownTechnology
             }

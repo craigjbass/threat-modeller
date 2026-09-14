@@ -43,7 +43,7 @@ public struct MoveComponents: MoveComponentsUseCase {
     }
 
     public func execute(_ request: MoveComponentsRequest) -> MoveComponentsResponse {
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.moveComponents) { model in
             var positions: [ComponentId: Point] = [:]
 
             for move in request.moves {

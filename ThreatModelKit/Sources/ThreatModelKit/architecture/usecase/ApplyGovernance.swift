@@ -56,7 +56,7 @@ public struct ApplyGovernance: ApplyGovernanceUseCase {
             actions[action.label] = Self.work(action)
         }
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.applyAnswers) { model in
             model.acceptedRisks = accepted
             model.plannedWork = work
             model.actionWork = actions

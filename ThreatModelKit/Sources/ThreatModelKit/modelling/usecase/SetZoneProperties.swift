@@ -57,7 +57,7 @@ public struct SetZoneProperties: SetZonePropertiesUseCase {
     public func execute(_ request: SetZonePropertiesRequest) -> SetZonePropertiesResponse {
         let id = ZoneId(request.zoneId)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setZoneProperties) { model in
             guard let index = model.zones.firstIndex(where: { $0.id == id }) else {
                 return .unknownZone
             }

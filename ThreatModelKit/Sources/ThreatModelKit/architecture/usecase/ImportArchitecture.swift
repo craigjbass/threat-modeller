@@ -261,7 +261,7 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
         warnings += Self.actorWarnings(model: model, catalogue: catalogue, faced: actors.faced())
 
         let imported = model
-        return models.mutate { current in
+        return models.mutate(label: ChangeLabel.importArchitecture) { current in
             current = imported
             return .imported(
                 name: imported.name,

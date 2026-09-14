@@ -35,13 +35,13 @@ struct TakingItBackTests {
         #expect(canvas().canUndo)
 
         #expect(app.undoLastChange().execute(UndoLastChangeRequest())
-                == .undone(canUndoMore: false))
+                == .undone(canUndoMore: false, label: ChangeLabel.addComponent))
 
         #expect(canvas().components.isEmpty)
         #expect(threats().isEmpty)
         #expect(canvas().canRedo)
 
-        #expect(app.redoChange().execute(RedoChangeRequest()) == .redone(canRedoMore: false))
+        #expect(app.redoChange().execute(RedoChangeRequest()) == .redone(canRedoMore: false, label: ChangeLabel.addComponent))
         #expect(canvas().components.map(\.id) == [web])
         #expect(threats().isEmpty == false)
     }

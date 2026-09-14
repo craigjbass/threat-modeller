@@ -57,6 +57,34 @@ struct CanvasGestures {
         }
     }
 
+    /// A double-click on a flow edits its label where the flow is.
+    var backgroundDoubleTap: some Gesture {
+        SpatialTapGesture(count: 2, coordinateSpace: .named("canvas")).onEnded { value in
+            let point = canvas.transform.modelPoint(value.location)
+            guard let connectionId = flows.connection(
+                under: point,
+                within: ConnectionPath.hitTolerance / canvas.transform.zoom
+            ) else { return }
+
+            canvas.select(connectionId: connectionId, addingToSelection: false)
+            canvas.startEditingName(.connection(connectionId))
+        }
+    }
+
+    /// Where a flow's label sits, so the field opens on the flow rather than
+    /// at the pointer.
+    func calloutRect(of connectionId: String) -> CGRect? {
+        let geometry = flows
+        if let callout = geometry.callouts.first(where: { $0.connectionId == connectionId }) {
+            return CGRect(callout.rect)
+        }
+        // A flow with no label yet has no callout, so the field opens at the
+        // middle of the curve.
+        guard let curve = geometry.curves[connectionId] else { return nil }
+        let middle = curve.point(at: 0.5)
+        return CGRect(x: middle.x - 90, y: middle.y - 12, width: 180, height: 24)
+    }
+
     var backgroundDrag: some Gesture {
         // Command-drag pans; a plain drag draws the marquee. A drag reports the
         // translation from where it started, so the pan applies the step since
@@ -215,6 +243,52 @@ struct CanvasGestures {
     /// getting somewhere.
     static let nudgeStep = 10.0
     static let fineNudgeStep = 1.0
+
+    // MARK: names edited in place
+
+    /// Writes a node's new name, as one change. An empty name clears the
+    /// custom name, which puts the technology's own name back.
+    func renameComponent(_ componentId: String, to name: String) {
+        canvas.stopEditingName()
+        guard let component = session.canvas.components.first(where: { $0.id == componentId }) else {
+            return
+        }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed != (component.customName ?? "") else { return }
+
+        session.setComponentProperties(
+            componentId: componentId,
+            name: trimmed.isEmpty ? nil : trimmed,
+            sensitivityId: component.sensitivityId,
+            threatsDisabled: component.threatsDisabled,
+            runsAsId: component.runsAsId,
+            shapeId: nil
+        )
+    }
+
+    func renameZone(_ zoneId: String, to name: String) {
+        canvas.stopEditingName()
+        guard let zone = session.canvas.zones.first(where: { $0.id == zoneId }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed != (zone.customName ?? "") else { return }
+
+        session.setZoneProperties(
+            zoneId: zoneId,
+            name: trimmed.isEmpty ? nil : trimmed,
+            networkZoneId: zone.networkZoneId,
+            networkTypeId: zone.networkTypeId,
+            riskReductionEnabled: zone.riskReductionEnabled,
+            riskReductionPercent: zone.riskReductionPercent,
+            boundaryId: zone.boundaryId
+        )
+    }
+
+    /// Writes a flow's label, which is the description the connection panel
+    /// edits: one field, one value.
+    func labelConnection(_ connectionId: String, to label: String) {
+        canvas.stopEditingName()
+        session.labelConnection(connectionId: connectionId, label: label)
+    }
 
     func nudge(dx: Double, dy: Double) {
         let moves = session.canvas.components

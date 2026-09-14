@@ -7,9 +7,10 @@ public struct UndoLastChangeRequest: Equatable, Sendable {
 }
 
 public enum UndoLastChangeResponse: Equatable, Sendable {
-    /// Says whether there is more to take back, so a menu item can dim itself
-    /// without asking a second question.
-    case undone(canUndoMore: Bool)
+    /// Names the change taken back, and says whether there is more to take
+    /// back, so a menu item can read `Undo Move` and dim itself without
+    /// asking a second question.
+    case undone(canUndoMore: Bool, label: String = ChangeLabel.unnamed)
     case nothingToUndo
 }
 
@@ -22,7 +23,7 @@ public struct UndoLastChange: UndoLastChangeUseCase {
     }
 
     public func execute(_ request: UndoLastChangeRequest) -> UndoLastChangeResponse {
-        guard models.undo() else { return .nothingToUndo }
-        return .undone(canUndoMore: models.canUndo)
+        guard let label = models.undo() else { return .nothingToUndo }
+        return .undone(canUndoMore: models.canUndo, label: label)
     }
 }

@@ -26,7 +26,7 @@ public struct RemoveConnection: RemoveConnectionUseCase {
     public func execute(_ request: RemoveConnectionRequest) -> RemoveConnectionResponse {
         let id = ConnectionId(request.connectionId)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.removeConnection) { model in
             guard model.connections.contains(where: { $0.id == id }) else {
                 return .unknownConnection
             }

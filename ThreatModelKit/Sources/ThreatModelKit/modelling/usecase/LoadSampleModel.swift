@@ -42,7 +42,7 @@ public struct LoadSampleModel: LoadSampleModelUseCase {
             return .unreadable(reason: String(describing: error))
         }
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.save) { model in
             model = loaded
             return .loaded(name: loaded.name)
         }

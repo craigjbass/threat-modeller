@@ -420,6 +420,48 @@ struct ViewRenderTests {
         #expect(session.rowsOutOfOrder == 0)
     }
 
+    /// A node and a zone mid-edit: the field replaces the name where the name
+    /// was, on the element itself.
+    @Test func drawsANodeAndAZoneMidEdit() async throws {
+        let session = aModel()
+        let component = try #require(session.canvas.components.first)
+        let zone = try #require(session.canvas.zones.first)
+
+        expectDrawn(
+            ComponentNodeView(
+                component: component,
+                risk: nil,
+                isSelected: true,
+                onSelect: { _ in },
+                onDragChanged: { _ in },
+                onDragEnded: { _ in },
+                onAnchorDragChanged: { _ in },
+                onAnchorDragEnded: { _ in },
+                zoneName: nil,
+                isEditingName: true
+            ),
+            width: 240,
+            height: 160,
+            "a node mid-edit"
+        )
+
+        expectDrawn(
+            ZoneView(
+                zone: zone,
+                risk: nil,
+                size: CGSize(width: 400, height: 300),
+                isSelected: true,
+                onSelect: {},
+                onDragChanged: { _, _ in },
+                onDragEnded: { _, _ in },
+                isEditingName: true
+            ),
+            width: 420,
+            height: 320,
+            "a zone mid-edit"
+        )
+    }
+
     @Test func drawsTheNodePanel() async throws {
         let session = aModel()
         let component = try #require(session.canvas.components.first)

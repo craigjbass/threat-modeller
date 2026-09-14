@@ -170,7 +170,7 @@ struct ClipboardUseCaseTests {
         #expect(models.current().components.count == 4)
 
         #expect(UndoLastChange(models: models).execute(UndoLastChangeRequest())
-                == .undone(canUndoMore: true))
+                == .undone(canUndoMore: true, label: ChangeLabel.paste))
         #expect(models.current() == before)
     }
 

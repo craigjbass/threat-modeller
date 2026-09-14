@@ -49,7 +49,7 @@ public struct AddZone: AddZoneUseCase {
             rect: Rect(x: request.x, y: request.y, width: request.width, height: request.height)
         )
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.addZone) { model in
             model.zones.append(zone)
             return .added(zoneId: zone.id.value)
         }

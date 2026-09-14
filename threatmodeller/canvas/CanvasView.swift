@@ -38,12 +38,17 @@ struct CanvasView: View {
                     // canvas: an identifier on a container overwrites the
                     // identifier of every element inside it.
                     .accessibilityIdentifier("canvas")
+                    // The double-click is read first: a single tap selects,
+                    // and a double-click on a flow edits its label.
+                    .gesture(gestures.backgroundDoubleTap)
                     .gesture(gestures.backgroundTap)
                     .gesture(gestures.backgroundDrag)
 
                 content
                     .scaleEffect(canvas.transform.zoom, anchor: .topLeading)
                     .offset(x: canvas.transform.pan.width, y: canvas.transform.pan.height)
+
+                flowLabelField
 
                 canvasToolbar
             }
@@ -120,7 +125,11 @@ struct CanvasView: View {
                     isSelected: canvas.isSelected(zoneId: zone.id),
                     onSelect: { canvas.select(zoneId: zone.id) },
                     onDragChanged: { gestures.zoneDragChanged(zone.id, handle: $0, translation: $1) },
-                    onDragEnded: { gestures.zoneDragEnded(zone.id, handle: $0, translation: $1) }
+                    onDragEnded: { gestures.zoneDragEnded(zone.id, handle: $0, translation: $1) },
+                    isEditingName: canvas.isEditingName(.zone(zone.id)),
+                    onStartEditingName: { canvas.startEditingName(.zone(zone.id)) },
+                    onCommitName: { gestures.renameZone(zone.id, to: $0) },
+                    onCancelName: { canvas.stopEditingName() }
                 )
                 .position(x: rect.midX, y: rect.midY)
             }
@@ -165,7 +174,11 @@ struct CanvasView: View {
                     onDragEnded: { gestures.nodeDragEnded($0) },
                     onAnchorDragChanged: { gestures.anchorDragChanged(component.id, $0) },
                     onAnchorDragEnded: { gestures.anchorDragEnded(component.id, $0) },
-                    zoneName: session.canvas.zones.first { $0.id == component.zoneId }?.name
+                    zoneName: session.canvas.zones.first { $0.id == component.zoneId }?.name,
+                    isEditingName: canvas.isEditingName(.component(component.id)),
+                    onStartEditingName: { canvas.startEditingName(.component(component.id)) },
+                    onCommitName: { gestures.renameComponent(component.id, to: $0) },
+                    onCancelName: { canvas.stopEditingName() }
                 )
                 .position(x: componentBox.centre.x, y: componentBox.centre.y)
             }
@@ -178,6 +191,27 @@ struct CanvasView: View {
                     .position(x: rect.midX, y: rect.midY)
                     .allowsHitTesting(false)
             }
+        }
+    }
+
+    /// The field that edits a flow's label, drawn where the flow's label sits.
+    @ViewBuilder
+    private var flowLabelField: some View {
+        if case .connection(let connectionId) = canvas.editingName,
+           let rect = gestures.calloutRect(of: connectionId) {
+            let connection = session.canvas.connections.first { $0.id == connectionId }
+            InlineNameField(
+                text: connection?.description ?? "",
+                width: max(160, rect.width),
+                identifier: "flow-label-field-\(connectionId)",
+                commit: { gestures.labelConnection(connectionId, to: $0) },
+                cancel: { canvas.stopEditingName() }
+            )
+            .scaleEffect(canvas.transform.zoom, anchor: .topLeading)
+            .position(
+                x: (rect.midX * canvas.transform.zoom) + canvas.transform.pan.width,
+                y: (rect.midY * canvas.transform.zoom) + canvas.transform.pan.height
+            )
         }
     }
 

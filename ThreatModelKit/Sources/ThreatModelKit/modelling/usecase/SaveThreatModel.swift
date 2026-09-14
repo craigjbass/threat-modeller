@@ -39,7 +39,7 @@ public struct SaveThreatModel: SaveThreatModelUseCase {
         let now = clock.now()
         let version = catalogue.version()
 
-        let stamped = models.mutate { model -> ThreatModel in
+        let stamped = models.mutate(label: ChangeLabel.save) { model -> ThreatModel in
             model.updatedAt = now
             model.catalogueVersion = version
             return model

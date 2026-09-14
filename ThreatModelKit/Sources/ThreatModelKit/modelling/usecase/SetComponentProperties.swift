@@ -68,7 +68,7 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
         }
         let name = request.name?.trimmingWhitespace() ?? ""
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setComponentProperties) { model in
             guard let index = model.components.firstIndex(where: { $0.id == componentId }) else {
                 return .unknownComponent
             }

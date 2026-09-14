@@ -31,6 +31,12 @@ struct ConnectionPanel: View {
                 .frame(width: 280)
                 .accessibilityIdentifier("connection-description")
 
+            // The direction decides which threats the flow raises, so it is
+            // changed here rather than by deleting the flow and drawing it
+            // again, which loses the kind and the description.
+            Button("Reverse Direction") { session.reverseConnection(connection.id) }
+                .accessibilityIdentifier("reverse-connection")
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, CanvasView.windowEdgeMargin)

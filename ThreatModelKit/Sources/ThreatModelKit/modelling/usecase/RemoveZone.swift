@@ -30,7 +30,7 @@ public struct RemoveZone: RemoveZoneUseCase {
     public func execute(_ request: RemoveZoneRequest) -> RemoveZoneResponse {
         let id = ZoneId(request.zoneId)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.removeZone) { model in
             guard model.zones.contains(where: { $0.id == id }) else {
                 return .unknownZone
             }

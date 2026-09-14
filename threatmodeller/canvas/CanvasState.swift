@@ -18,6 +18,8 @@ final class CanvasState {
 
     /// True while the next background drag draws a zone rather than a marquee.
     private(set) var isDrawingZone = false
+    /// Which element's name is being edited in place, or nil.
+    private(set) var editingName: NameEdit?
 
     /// The two corners of the zone being drawn, in model coordinates.
     var zoneDraft: (start: CGPoint, end: CGPoint)?
@@ -121,6 +123,28 @@ final class CanvasState {
         selectedComponentIds = Set(componentIds)
         selectedZoneIds = Set(zoneIds)
         selectedConnectionIds = []
+    }
+
+    /// Which element's name is being edited in place, or nil.
+    ///
+    /// One at a time: a second double-click moves the edit rather than opening
+    /// two fields.
+    enum NameEdit: Equatable {
+        case component(String)
+        case zone(String)
+        case connection(String)
+    }
+
+    func isEditingName(_ edit: NameEdit) -> Bool {
+        editingName == edit
+    }
+
+    func startEditingName(_ edit: NameEdit) {
+        editingName = edit
+    }
+
+    func stopEditingName() {
+        editingName = nil
     }
 
     func startDrawingZone() {

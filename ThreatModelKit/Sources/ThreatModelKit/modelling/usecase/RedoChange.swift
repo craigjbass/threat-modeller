@@ -7,7 +7,8 @@ public struct RedoChangeRequest: Equatable, Sendable {
 }
 
 public enum RedoChangeResponse: Equatable, Sendable {
-    case redone(canRedoMore: Bool)
+    /// Names the change put back, so a menu item can read `Redo Move`.
+    case redone(canRedoMore: Bool, label: String = ChangeLabel.unnamed)
     case nothingToRedo
 }
 
@@ -20,7 +21,7 @@ public struct RedoChange: RedoChangeUseCase {
     }
 
     public func execute(_ request: RedoChangeRequest) -> RedoChangeResponse {
-        guard models.redo() else { return .nothingToRedo }
-        return .redone(canRedoMore: models.canRedo)
+        guard let label = models.redo() else { return .nothingToRedo }
+        return .redone(canRedoMore: models.canRedo, label: label)
     }
 }

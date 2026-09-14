@@ -53,7 +53,7 @@ public struct ConfigurePathwayMitigations: ConfigurePathwayMitigationsUseCase {
     ) -> ConfigurePathwayMitigationsResponse {
         let known = catalogue.pathwayMitigations()
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.configurePathwayMitigations) { model in
             if let rawId = request.mitigationId {
                 let id = PathwayMitigationId(rawId)
                 guard known.contains(where: { $0.id == id }) else {

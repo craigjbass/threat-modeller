@@ -426,3 +426,137 @@ struct PasteboardRoutingTests {
         #expect(session.canvas.components.count == 2)
     }
 }
+
+/// The Edit menu names the change Undo would take back.
+@MainActor
+@Suite("What the Edit menu calls Undo")
+struct UndoTitleTests {
+    private func session() -> ThreatModelSession {
+        ThreatModelSession(useCases: TestDependencies())
+    }
+
+    @Test func readsUndoAloneWhenTheHistoryIsEmpty() {
+        let session = session()
+
+        #expect(session.undoTitle == "Undo")
+        #expect(session.redoTitle == "Redo")
+    }
+
+    @Test func namesTheChangeAfterAMove() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        #expect(session.undoTitle == "Undo Add Component")
+
+        let placed = try #require(session.canvas.components.first)
+        session.move([ComponentMove(componentId: placed.id, x: 80, y: 80)])
+
+        #expect(session.undoTitle == "Undo Move")
+    }
+
+    @Test func namesTheChangeAfterAnUndoAndAfterARedo() {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+
+        session.undo()
+        #expect(session.undoTitle == "Undo")
+        #expect(session.redoTitle == "Redo Add Component")
+
+        session.redo()
+        #expect(session.undoTitle == "Undo Add Component")
+        #expect(session.redoTitle == "Redo")
+    }
+}
+
+/// Renaming an element on the canvas, in place.
+@MainActor
+@Suite("Renaming on the canvas")
+struct InlineRenameTests {
+    private func session() -> ThreatModelSession {
+        ThreatModelSession(useCases: TestDependencies())
+    }
+
+    @Test func renamesANodeAsOneChange() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        let canvas = CanvasState()
+        let gestures = CanvasGestures(session: session, canvas: canvas)
+        let placed = try #require(session.canvas.components.first)
+
+        canvas.startEditingName(.component(placed.id))
+        #expect(canvas.isEditingName(.component(placed.id)))
+
+        gestures.renameComponent(placed.id, to: "  Web tier  ")
+
+        #expect(canvas.editingName == nil)
+        #expect(try #require(session.canvas.components.first).name == "Web tier")
+
+        session.undo()
+        #expect(try #require(session.canvas.components.first).name != "Web tier")
+    }
+
+    @Test func renamesAZoneAsOneChange() throws {
+        let session = session()
+        _ = session.addZone(x: 0, y: 0, width: 400, height: 400)
+        let canvas = CanvasState()
+        let gestures = CanvasGestures(session: session, canvas: canvas)
+        let drawn = try #require(session.canvas.zones.first)
+
+        gestures.renameZone(drawn.id, to: "Payments VPC")
+
+        #expect(try #require(session.canvas.zones.first).name == "Payments VPC")
+        #expect(canvas.editingName == nil)
+
+        session.undo()
+        #expect(try #require(session.canvas.zones.first).name != "Payments VPC")
+    }
+
+    @Test func labelsAFlowAsOneChange() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 400, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
+        let flow = try #require(session.canvas.connections.first)
+        let canvas = CanvasState()
+        let gestures = CanvasGestures(session: session, canvas: canvas)
+
+        canvas.startEditingName(.connection(flow.id))
+        gestures.labelConnection(flow.id, to: "the card number")
+
+        // One field, one value: the label is the description the panel edits.
+        #expect(try #require(session.canvas.connections.first).description == "the card number")
+        #expect(canvas.editingName == nil)
+
+        session.undo()
+        #expect(try #require(session.canvas.connections.first).description == nil)
+    }
+
+    @Test func changesNothingWhenTheNameIsUnchanged() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        let canvas = CanvasState()
+        let gestures = CanvasGestures(session: session, canvas: canvas)
+        let placed = try #require(session.canvas.components.first)
+        let revision = session.revision
+
+        gestures.renameComponent(placed.id, to: placed.customName ?? "")
+
+        #expect(session.revision == revision)
+        #expect(canvas.editingName == nil)
+    }
+
+    @Test func reversesAFlowFromTheSession() throws {
+        let session = session()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 400, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
+        let flow = try #require(session.canvas.connections.first)
+
+        session.reverseConnection(flow.id)
+
+        let reversed = try #require(session.canvas.connections.first)
+        #expect(reversed.sourceComponentId == flow.targetComponentId)
+        #expect(reversed.targetComponentId == flow.sourceComponentId)
+    }
+}

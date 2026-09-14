@@ -50,7 +50,7 @@ public struct AddComponent: AddComponentUseCase {
             sensitivity: sensitivity
         )
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.addComponent) { model in
             model.components.append(component)
             return .added(componentId: component.id.value)
         }

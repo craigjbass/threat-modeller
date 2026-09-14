@@ -34,7 +34,7 @@ public struct ApplyPolicy: ApplyPolicyUseCase {
             return .refused(diagnostics: read.diagnostics)
         }
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.applyAnswers) { model in
             model.policy = policy
             return .applied(rules: policy.inForce.count)
         }

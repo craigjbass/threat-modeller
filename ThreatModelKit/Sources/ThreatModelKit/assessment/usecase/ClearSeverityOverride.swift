@@ -26,7 +26,7 @@ public struct ClearSeverityOverride: ClearSeverityOverrideUseCase {
     public func execute(_ request: ClearSeverityOverrideRequest) -> ClearSeverityOverrideResponse {
         let key = SeverityOverrideKey(request.overrideKey)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.clearSeverityOverride) { model in
             guard model.severityOverrides[key] != nil else { return .noOverride }
 
             model.severityOverrides[key] = nil

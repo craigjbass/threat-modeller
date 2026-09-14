@@ -254,6 +254,37 @@ final class ThreatModelSession {
 
     /// Writes what the flow panel shows. One call for the kind and the
     /// description.
+    /// Writes a flow's label, and nothing else. The canvas edits this one
+    /// field, so editing a label cannot change the flow's kind by accident.
+    func labelConnection(connectionId: String, label: String) {
+        switch useCases.labelConnection().execute(
+            LabelConnectionRequest(connectionId: connectionId, label: label)
+        ) {
+        case .labelled:
+            errorMessage = nil
+        case .unknownConnection:
+            errorMessage = "That flow is no longer on the model."
+        }
+
+        refresh()
+    }
+
+    /// Turns a flow round, keeping its kind and its label.
+    func reverseConnection(_ connectionId: String) {
+        switch useCases.reverseConnection().execute(
+            ReverseConnectionRequest(connectionId: connectionId)
+        ) {
+        case .reversed:
+            errorMessage = nil
+        case .unknownConnection:
+            errorMessage = "That flow is no longer on the model."
+        case .alreadyConnected:
+            errorMessage = "This model already holds a flow the other way round."
+        }
+
+        refresh()
+    }
+
     func setConnectionProperties(connectionId: String, kind: String, description: String?) {
         switch useCases.setConnectionProperties().execute(
             SetConnectionPropertiesRequest(connectionId: connectionId, kind: kind, description: description)
@@ -362,6 +393,11 @@ final class ThreatModelSession {
 
     var canUndo: Bool { canvas.canUndo }
     var canRedo: Bool { canvas.canRedo }
+
+    /// What the Edit menu reads. A person who presses Undo should know what
+    /// will be taken back.
+    var undoTitle: String { canvas.undoLabel.map { "Undo \($0)" } ?? "Undo" }
+    var redoTitle: String { canvas.redoLabel.map { "Redo \($0)" } ?? "Redo" }
 
     func undo() {
         // Nothing to take back is not worth a message: the menu item is

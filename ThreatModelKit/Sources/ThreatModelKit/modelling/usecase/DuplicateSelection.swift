@@ -35,7 +35,7 @@ public struct DuplicateSelection: DuplicateSelectionUseCase {
     }
 
     public func execute(_ request: DuplicateSelectionRequest) -> DuplicateSelectionResponse {
-        models.mutate { model in
+        models.mutate(label: ChangeLabel.duplicate) { model in
             let snippet = CopySelection.snippet(
                 of: model,
                 componentIds: request.componentIds,

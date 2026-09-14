@@ -51,7 +51,7 @@ public struct SetCompensatingControl: SetCompensatingControlUseCase {
         let label = request.label.trimmingWhitespace()
 
         guard label.isEmpty == false else {
-            return models.mutate { model in
+            return models.mutate(label: ChangeLabel.setCompensatingControl) { model in
                 model.compensatingControls[key] = nil
                 return .removed
             }
@@ -62,7 +62,7 @@ public struct SetCompensatingControl: SetCompensatingControlUseCase {
         let rationale = request.rationale.trimmingWhitespace()
         guard rationale.isEmpty == false else { return .noRationale }
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setCompensatingControl) { model in
             model.compensatingControls[key] = [
                 CompensatingControl(
                     label: label,

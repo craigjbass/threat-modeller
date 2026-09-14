@@ -18,15 +18,70 @@ public protocol ThreatModelGateway: AnyObject, Sendable {
     func save(_ model: ThreatModel)
     /// Read, change and write without a gap. Returns whatever the change
     /// returns, so a use case can decide its response inside the same step.
-    func mutate<T>(_ change: (inout ThreatModel) -> T) -> T
-    /// Takes the model back one change. Returns false when there is nothing to
-    /// take back.
-    func undo() -> Bool
-    /// Puts back a change that was taken back. Returns false when there is
-    /// nothing to put back.
-    func redo() -> Bool
+    ///
+    /// `label` names the change for the Edit menu: a person who presses Undo
+    /// should know what will be taken back.
+    func mutate<T>(label: String, _ change: (inout ThreatModel) -> T) -> T
+    /// Takes the model back one change, and names it. Nil means there was
+    /// nothing to take back.
+    func undo() -> String?
+    /// Puts back a change that was taken back, and names it.
+    func redo() -> String?
     var canUndo: Bool { get }
     var canRedo: Bool { get }
+    /// What Undo would take back, and what Redo would put back. Nil when
+    /// there is nothing.
+    var undoLabel: String? { get }
+    var redoLabel: String? { get }
+}
+
+public extension ThreatModelGateway {
+    /// A change nobody has named yet. Every write use case names its own; this
+    /// keeps a caller that does not care building.
+    func mutate<T>(_ change: (inout ThreatModel) -> T) -> T {
+        mutate(label: ChangeLabel.unnamed, change)
+    }
+}
+
+/// What the Edit menu calls each change.
+///
+/// One label per write use case, so `Undo Move` and `Undo Tick Control` read
+/// as what a person just did.
+public enum ChangeLabel {
+    public static let unnamed = "Change"
+    public static let addComponent = "Add Component"
+    public static let moveComponents = "Move"
+    public static let removeComponents = "Delete"
+    public static let connectComponents = "Connect"
+    public static let removeConnection = "Delete Flow"
+    public static let setConnectionProperties = "Edit Flow"
+    public static let reverseConnection = "Reverse Flow"
+    public static let labelConnection = "Label Flow"
+    public static let addZone = "Draw Zone"
+    public static let resizeZone = "Resize Zone"
+    public static let removeZone = "Delete Zone"
+    public static let setZoneProperties = "Edit Zone"
+    public static let setComponentProperties = "Edit Component"
+    public static let paste = "Paste"
+    public static let duplicate = "Duplicate"
+    public static let recordControl = "Tick Control"
+    public static let setControlStatus = "Set Control Status"
+    public static let overrideSeverity = "Set Severity"
+    public static let clearSeverityOverride = "Clear Severity"
+    public static let setCompensatingControl = "Set Compensating Control"
+    public static let setLikelihoodFinding = "Set Likelihood"
+    public static let configurePathwayMitigations = "Set Pathway Mitigations"
+    public static let setMitigatesEdge = "Set Mitigates Edge"
+    public static let setAssumption = "Set Assumption"
+    public static let removeAssumption = "Remove Assumption"
+    public static let createCustomTechnology = "New Technology"
+    public static let editCustomTechnology = "Edit Technology"
+    public static let deleteCustomTechnology = "Delete Technology"
+    public static let renameThreatModel = "Rename"
+    public static let importArchitecture = "Import Architecture"
+    public static let applyAnswers = "Apply Answers"
+    public static let adoptCatalogue = "Take Catalogue"
+    public static let save = "Save"
 }
 
 /// The model store for one open document. A document seeds it on open and
@@ -41,10 +96,17 @@ public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Se
     /// session, shallow enough that a long session does not grow without end.
     public static let historyLimit = 100
 
+    /// One step of the history: the model before a change, and what the
+    /// change was called.
+    private struct Step {
+        let model: ThreatModel
+        let label: String
+    }
+
     private let lock = NSLock()
     private var model: ThreatModel
-    private var past: [ThreatModel] = []
-    private var future: [ThreatModel] = []
+    private var past: [Step] = []
+    private var future: [Step] = []
 
     public init(_ model: ThreatModel = ThreatModel()) {
         self.model = model
@@ -66,7 +128,7 @@ public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Se
         future = []
     }
 
-    public func mutate<T>(_ change: (inout ThreatModel) -> T) -> T {
+    public func mutate<T>(label: String, _ change: (inout ThreatModel) -> T) -> T {
         lock.lock()
         defer { lock.unlock() }
 
@@ -74,7 +136,7 @@ public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Se
         let result = change(&model)
 
         if model != before {
-            past.append(before)
+            past.append(Step(model: before, label: label))
             if past.count > Self.historyLimit { past.removeFirst() }
             // The user has taken a different branch. Offering to redo the
             // abandoned one would be a lie.
@@ -84,22 +146,34 @@ public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Se
         return result
     }
 
-    public func undo() -> Bool {
+    public func undo() -> String? {
         lock.lock()
         defer { lock.unlock() }
-        guard let previous = past.popLast() else { return false }
-        future.append(model)
-        model = previous
-        return true
+        guard let previous = past.popLast() else { return nil }
+        future.append(Step(model: model, label: previous.label))
+        model = previous.model
+        return previous.label
     }
 
-    public func redo() -> Bool {
+    public func redo() -> String? {
         lock.lock()
         defer { lock.unlock() }
-        guard let next = future.popLast() else { return false }
-        past.append(model)
-        model = next
-        return true
+        guard let next = future.popLast() else { return nil }
+        past.append(Step(model: model, label: next.label))
+        model = next.model
+        return next.label
+    }
+
+    public var undoLabel: String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return past.last?.label
+    }
+
+    public var redoLabel: String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return future.last?.label
     }
 
     public var canUndo: Bool {

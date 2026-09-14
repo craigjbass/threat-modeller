@@ -371,6 +371,14 @@ public final class TestDependencies: UseCaseFactory {
         RemoveConnection(models: models)
     }
 
+    public func labelConnection() -> LabelConnectionUseCase {
+        LabelConnection(models: models)
+    }
+
+    public func reverseConnection() -> ReverseConnectionUseCase {
+        ReverseConnection(models: models)
+    }
+
     public func setConnectionProperties() -> SetConnectionPropertiesUseCase {
         SetConnectionProperties(models: models)
     }

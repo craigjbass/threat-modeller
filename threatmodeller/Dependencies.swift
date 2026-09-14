@@ -372,6 +372,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveConnection(models: models)
     }
 
+    func labelConnection() -> LabelConnectionUseCase {
+        LabelConnection(models: models)
+    }
+
+    func reverseConnection() -> ReverseConnectionUseCase {
+        ReverseConnection(models: models)
+    }
+
     func setConnectionProperties() -> SetConnectionPropertiesUseCase {
         SetConnectionProperties(models: models)
     }

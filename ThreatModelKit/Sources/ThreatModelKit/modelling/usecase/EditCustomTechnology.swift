@@ -51,7 +51,7 @@ public struct EditCustomTechnology: EditCustomTechnologyUseCase {
         let category = CategoryId(request.categoryId)
         let knowsCategory = catalogue.taxonomy().category(id: category) != nil
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.editCustomTechnology) { model in
             guard let index = model.customTechnologies.firstIndex(where: { $0.id == id }) else {
                 return .unknownTechnology
             }

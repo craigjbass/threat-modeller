@@ -134,7 +134,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         let count = applied
         let readWarnings = warnings
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.applyAnswers) { model in
             model.controlStatuses = readStatuses
             model.controlProofs = readProofs
             model.compensatingControls = readCompensating

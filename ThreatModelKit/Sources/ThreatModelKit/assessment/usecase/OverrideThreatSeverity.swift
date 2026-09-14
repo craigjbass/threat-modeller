@@ -39,7 +39,7 @@ public struct OverrideThreatSeverity: OverrideThreatSeverityUseCase {
             return .unknownSeverity
         }
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.overrideSeverity) { model in
             model.severityOverrides[SeverityOverrideKey(request.overrideKey)] = request.severityId
             return .overridden
         }

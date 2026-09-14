@@ -41,7 +41,7 @@ public struct SetControlStatus: SetControlStatusUseCase {
             return .unknownStatus
         }
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setControlStatus) { model in
             model.controlStatuses[ControlKey(request.controlKey)] = status
             return .recorded
         }

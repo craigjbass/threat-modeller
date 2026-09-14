@@ -99,7 +99,7 @@ public struct SetLikelihoodFinding: SetLikelihoodFindingUseCase {
             likelihood = measured
         }
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setLikelihoodFinding) { model in
             model.likelihoodFindings[ThreatKey(request.threatKey)] = LikelihoodFinding(
                 label: label,
                 likelihood: likelihood,
@@ -145,7 +145,7 @@ public struct RemoveLikelihoodFinding: RemoveLikelihoodFindingUseCase {
     public func execute(_ request: RemoveLikelihoodFindingRequest) -> RemoveLikelihoodFindingResponse {
         let key = ThreatKey(request.threatKey)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setLikelihoodFinding) { model in
             guard model.likelihoodFindings[key] != nil else { return .noSuchFinding }
             model.likelihoodFindings[key] = nil
             return .removed

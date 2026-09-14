@@ -70,6 +70,8 @@ public protocol UseCaseFactory: Sendable {
     func connectComponents() -> ConnectComponentsUseCase
     func removeConnection() -> RemoveConnectionUseCase
     func setConnectionProperties() -> SetConnectionPropertiesUseCase
+    func labelConnection() -> LabelConnectionUseCase
+    func reverseConnection() -> ReverseConnectionUseCase
     func addZone() -> AddZoneUseCase
     func resizeZone() -> ResizeZoneUseCase
     func setZoneProperties() -> SetZonePropertiesUseCase

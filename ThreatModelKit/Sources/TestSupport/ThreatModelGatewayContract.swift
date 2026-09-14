@@ -63,40 +63,50 @@ public func verifyThreatModelGatewayContract(_ make: () -> ThreatModelGateway) {
     let history = make()
     #expect(history.canUndo == false)
     #expect(history.canRedo == false)
-    #expect(history.undo() == false)
-    #expect(history.redo() == false)
+    #expect(history.undo() == nil)
+    #expect(history.redo() == nil)
 
-    history.mutate { $0.name = "one" }
-    history.mutate { $0.name = "two" }
+    history.mutate(label: "First") { $0.name = "one" }
+    history.mutate(label: "Second") { $0.name = "two" }
     #expect(history.canUndo)
+    // Every change names itself, so the Edit menu can read `Undo Second`.
+    #expect(history.undoLabel == "Second")
 
-    #expect(history.undo())
+    #expect(history.undo() != nil)
     #expect(history.current().name == "one")
     #expect(history.canRedo)
 
-    #expect(history.undo())
+    #expect(history.undo() != nil)
     #expect(history.current().name == "Untitled")
     #expect(history.canUndo == false)
 
-    #expect(history.redo())
+    #expect(history.redo() != nil)
     #expect(history.current().name == "one")
-    #expect(history.redo())
+    #expect(history.redo() != nil)
     #expect(history.current().name == "two")
     #expect(history.canRedo == false)
 
     // A change after an undo drops what was redoable: the user has taken a
     // different branch, and offering to redo the abandoned one would be a lie.
-    #expect(history.undo())
+    #expect(history.undo() != nil)
     history.mutate { $0.name = "three" }
     #expect(history.canRedo == false)
     #expect(history.current().name == "three")
+
+    // The label travels with the step, both ways.
+    let labelled = make()
+    labelled.mutate(label: "Move") { $0.name = "moved" }
+    #expect(labelled.undoLabel == "Move")
+    #expect(labelled.undo() == "Move")
+    #expect(labelled.redoLabel == "Move")
+    #expect(labelled.redo() == "Move")
 
     // A change that changes nothing is not a step to take back.
     let noChange = make()
     noChange.mutate { $0.name = "one" }
     noChange.mutate { _ in }
     noChange.mutate { model in model.name = model.name }
-    #expect(noChange.undo())
+    #expect(noChange.undo() != nil)
     #expect(noChange.current().name == "Untitled")
     #expect(noChange.canUndo == false)
 

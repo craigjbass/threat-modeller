@@ -70,11 +70,13 @@ struct ThreatModelCommands: Commands {
         }
 
         CommandGroup(replacing: .undoRedo) {
-            Button("Undo") { session?.undo() }
+            // The menu names the change, so a person knows what pressing it
+            // takes back. `Undo` alone when the history is empty.
+            Button(session?.undoTitle ?? "Undo") { session?.undo() }
                 .keyboardShortcut("z", modifiers: .command)
                 .disabled(session?.canUndo != true)
 
-            Button("Redo") { session?.redo() }
+            Button(session?.redoTitle ?? "Redo") { session?.redo() }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .disabled(session?.canRedo != true)
         }

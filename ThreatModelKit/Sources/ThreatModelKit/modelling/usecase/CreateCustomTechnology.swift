@@ -62,7 +62,7 @@ public struct CreateCustomTechnology: CreateCustomTechnologyUseCase {
             enforcesEncryption: request.enforcesEncryption
         )
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.createCustomTechnology) { model in
             model.customTechnologies.append(technology)
             return .created(technologyId: technology.id.value)
         }

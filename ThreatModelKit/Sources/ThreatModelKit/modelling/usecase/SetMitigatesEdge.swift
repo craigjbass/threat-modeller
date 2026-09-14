@@ -116,7 +116,7 @@ public struct SetMitigatesEdge: SetMitigatesEdgeUseCase {
             return .unknownStatus
         }
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setMitigatesEdge) { model in
             guard model.components.contains(where: { $0.id == source }),
                   model.components.contains(where: { $0.id == target }) else {
                 return .unknownComponent
@@ -190,7 +190,7 @@ public struct RemoveMitigatesEdge: RemoveMitigatesEdgeUseCase {
         let source = ComponentId(request.sourceComponentId)
         let target = ComponentId(request.targetComponentId)
 
-        return models.mutate { model in
+        return models.mutate(label: ChangeLabel.setMitigatesEdge) { model in
             guard let found = model.mitigatesEdges.firstIndex(
                 where: { $0.source == source && $0.target == target }
             ) else {

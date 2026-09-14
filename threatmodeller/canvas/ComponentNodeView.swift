@@ -23,6 +23,12 @@ struct ComponentNodeView: View {
     /// is the component's centre inside the zone below its header, which is
     /// invisible without this badge.
     let zoneName: String?
+    /// True while this node's name is being edited in place. A picture of the
+    /// canvas edits nothing, so it takes the defaults.
+    var isEditingName = false
+    var onStartEditingName: () -> Void = {}
+    var onCommitName: (String) -> Void = { _ in }
+    var onCancelName: () -> Void = {}
 
     @State private var isHovering = false
 
@@ -68,9 +74,14 @@ struct ComponentNodeView: View {
         // node. A user interface test queries this identifier.
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("node-\(component.technologyId)")
+        // A double-click anywhere on the node edits its name, so the target
+        // is the whole node rather than the two lines of text on it.
         .gesture(
-            SpatialTapGesture().modifiers(.shift).onEnded { _ in onSelect(true) }
-                .exclusively(before: SpatialTapGesture().onEnded { _ in onSelect(false) })
+            TapGesture(count: 2).onEnded { onStartEditingName() }
+                .exclusively(
+                    before: SpatialTapGesture().modifiers(.shift).onEnded { _ in onSelect(true) }
+                        .exclusively(before: SpatialTapGesture().onEnded { _ in onSelect(false) })
+                )
         )
         .gesture(
             DragGesture(minimumDistance: 3, coordinateSpace: .named("canvas"))
@@ -88,11 +99,21 @@ struct ComponentNodeView: View {
             ComponentShapePath.path(for: shape, in: footprint)
                 .stroke(outlineColour, style: outlineStyle)
 
-            Text(component.name)
-                .font(.headline)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .frame(width: footprint.width - 16)
+            if isEditingName {
+                InlineNameField(
+                    text: component.name,
+                    width: footprint.width - 16,
+                    identifier: "node-name-field-\(component.id)",
+                    commit: onCommitName,
+                    cancel: onCancelName
+                )
+            } else {
+                Text(component.name)
+                    .font(.headline)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(width: footprint.width - 16)
+            }
 
             if openCount > 0 { badge }
 

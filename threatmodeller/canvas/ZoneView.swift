@@ -25,6 +25,12 @@ struct ZoneView: View {
     let onSelect: () -> Void
     let onDragChanged: (_ handle: ZoneHandle?, _ translation: CGSize) -> Void
     let onDragEnded: (_ handle: ZoneHandle?, _ translation: CGSize) -> Void
+    /// True while this zone's name is being edited in place. A picture of the
+    /// canvas edits nothing, so it takes the defaults.
+    var isEditingName = false
+    var onStartEditingName: () -> Void = {}
+    var onCommitName: (String) -> Void = { _ in }
+    var onCancelName: () -> Void = {}
 
     /// The zone drawn at the view's own origin, so a grip's position inside
     /// this view does not depend on where the zone sits on the canvas.
@@ -71,7 +77,17 @@ struct ZoneView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text(zone.name)
+            if isEditingName {
+                InlineNameField(
+                    text: zone.name,
+                    width: min(240, max(120, size.width - 40)),
+                    identifier: "zone-name-field-\(zone.id)",
+                    commit: onCommitName,
+                    cancel: onCancelName
+                )
+                .layoutPriority(1)
+            } else {
+                Text(zone.name)
                 .font(.headline)
                 // A zone as narrow as the one component it holds cannot state
                 // a name of fifty characters on one line, so the name wraps
@@ -83,6 +99,8 @@ struct ZoneView: View {
                 // and the name is cut, which is the one thing in the band a
                 // reader needs.
                 .layoutPriority(1)
+                .onTapGesture(count: 2) { onStartEditingName() }
+            }
             if isPrivate && zone.riskReductionEnabled {
                 Text("\u{2212}\(zone.riskReductionPercent)%")
                     .font(.caption2)

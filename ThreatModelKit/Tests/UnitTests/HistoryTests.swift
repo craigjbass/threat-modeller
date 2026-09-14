@@ -30,10 +30,10 @@ struct HistoryTests {
         addComponent(x: 300)
         #expect(models.current().components.count == 2)
 
-        #expect(undo() == .undone(canUndoMore: true))
+        #expect(undo() == .undone(canUndoMore: true, label: ChangeLabel.addComponent))
         #expect(models.current().components.count == 1)
 
-        #expect(undo() == .undone(canUndoMore: false))
+        #expect(undo() == .undone(canUndoMore: false, label: ChangeLabel.addComponent))
         #expect(models.current().components.isEmpty)
 
         #expect(undo() == .nothingToUndo)
@@ -43,7 +43,7 @@ struct HistoryTests {
         addComponent()
         _ = undo()
 
-        #expect(redo() == .redone(canRedoMore: false))
+        #expect(redo() == .redone(canRedoMore: false, label: ChangeLabel.addComponent))
         #expect(models.current().components.count == 1)
         #expect(redo() == .nothingToRedo)
     }
@@ -82,7 +82,7 @@ struct HistoryTests {
 
         // One undo takes the model back to empty, because only one thing
         // actually happened.
-        #expect(undo() == .undone(canUndoMore: false))
+        #expect(undo() == .undone(canUndoMore: false, label: ChangeLabel.addComponent))
         #expect(models.current().components.isEmpty)
     }
 }
