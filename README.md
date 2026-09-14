@@ -405,7 +405,58 @@ reads the threat catalogue from that directory. `--tolerance <level>` sets the
 risk tolerance `check` uses for a likelihood finding (see "Risk tolerance and
 likelihood findings" above); `<level>` is `low`, `medium`, `high` or
 `critical`. `-q` or `--quiet` says nothing about a file that did not change.
-`-f` or `--force` removes a library a system still names.
+`-f` or `--force` removes a library a system still names. `--format <name>`
+picks the shape `check`, `compile` and `format` write; see below.
+
+### What check writes, and for whom
+
+`--format <plain|github|json>` says which shape `check`, `compile` and `format`
+write. It defaults to `plain`, which is the lines a person reads in a terminal.
+The exit codes are the same whichever shape is asked for.
+
+`--format github` writes GitHub Actions workflow commands, so a pull request
+shows the failure beside the line it names rather than a red check with no word
+on it:
+
+```
+::error file=threatmodel/payments.controls,line=14,col=1::dos-attack on component "api" (Low) has no answer
+::warning file=threatmodel/payments.controls,line=1,col=1::a severity_override names a severity the catalogue does not hold
+```
+
+An unanswered threat names the line of its `threat` stanza when the `.controls`
+file holds one, and line 1 when it does not.
+
+`--format json` writes one object, and nothing else, so any other tool reads
+one document:
+
+```json
+{
+  "messages" : [],
+  "systems" : [
+    {
+      "diagnostics" : [],
+      "name" : "payments",
+      "stale" : ["sql-injection@component:gone"],
+      "staleTrees" : [],
+      "tolerance" : "low",
+      "unanswered" : [
+        {
+          "file" : "threatmodel/payments.controls",
+          "line" : 14,
+          "riskLevel" : "Low",
+          "sourceId" : "api",
+          "sourceKind" : "component",
+          "threatId" : "dos-attack"
+        }
+      ]
+    }
+  ]
+}
+```
+
+`messages` holds what the run said about the project rather than about one
+system: a catalogue that would not load, a library warning, a directory that
+holds no `.arch` file.
 
 `<root>` is the project root, and defaults to the working directory.
 

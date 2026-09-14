@@ -57,6 +57,8 @@ public struct CommandLineApplication {
         var tolerance: String?
         var pictures: Set<DiagramFormat> = []
         var wantsHtml = false
+        var machineOutput = MachineOutput.plain
+        var unknownFormat: String?
 
         var flagless: [String] = []
         var index = 0
@@ -72,6 +74,14 @@ public struct CommandLineApplication {
             case "--tolerance":
                 index += 1
                 tolerance = index < words.count ? words[index] : nil
+            case "--format":
+                index += 1
+                let named = index < words.count ? words[index] : ""
+                if let format = MachineOutput.named(named) {
+                    machineOutput = format
+                } else {
+                    unknownFormat = named
+                }
             case "--svg":
                 pictures.insert(.svg)
             case "--png":
@@ -88,6 +98,14 @@ public struct CommandLineApplication {
         }
         words = flagless
 
+        if let unknownFormat {
+            output(
+                "threatmodeller: there is no format \"\(unknownFormat)\";"
+                    + " this application holds \(MachineOutput.names)"
+            )
+            return ExitCode.didNotParse.rawValue
+        }
+
         guard let verb = words.first else {
             output(Self.usage)
             return ExitCode.didNotParse.rawValue
@@ -103,11 +121,11 @@ public struct CommandLineApplication {
 
         switch verb {
         case "format":
-            return format(root: root, isQuiet: isQuiet, output: output)
+            return format(root: root, isQuiet: isQuiet, as: machineOutput, output: output)
         case "compile":
-            return compile(root: root, isQuiet: isQuiet, output: output)
+            return compile(root: root, isQuiet: isQuiet, as: machineOutput, output: output)
         case "check":
-            return check(root: root, tolerance: tolerance, output: output)
+            return check(root: root, tolerance: tolerance, as: machineOutput, output: output)
         case "library":
             return library(words: Array(words.dropFirst()), isForced: isForced, output: output)
         case "report":
@@ -133,7 +151,26 @@ public struct CommandLineApplication {
     }
 
     /// Rewrites every architecture file in the canonical shape.
-    private func format(root: String, isQuiet: Bool, output: (String) -> Void) -> Int32 {
+    /// One diagnostic, in the shape the format asks for.
+    ///
+    /// `json` is a whole-run format and `compile` and `format` write a line at
+    /// a time, so both write the plain line under it.
+    static func said(
+        _ diagnostic: Diagnostic,
+        in file: String,
+        as machineOutput: MachineOutput
+    ) -> String {
+        machineOutput == .github
+            ? GitHubOutput.line(diagnostic, in: file)
+            : diagnostic.described(in: file)
+    }
+
+    private func format(
+        root: String,
+        isQuiet: Bool,
+        as machineOutput: MachineOutput,
+        output: (String) -> Void
+    ) -> Int32 {
         let layout: ProjectLayout
         do {
             layout = try projects.discover(root: root)
@@ -232,7 +269,12 @@ public struct CommandLineApplication {
     }
 
     /// Writes or merges every system's answers.
-    private func compile(root: String, isQuiet: Bool, output: (String) -> Void) -> Int32 {
+    private func compile(
+        root: String,
+        isQuiet: Bool,
+        as machineOutput: MachineOutput,
+        output: (String) -> Void
+    ) -> Int32 {
         forEachSystem(root: root, output: output) { system, useCases in
             guard let architectureText = read(system.architecturePath, output) else {
                 return .fileFault
@@ -258,7 +300,7 @@ public struct CommandLineApplication {
             ) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
-                    output(diagnostic.described(in: system.architecturePath))
+                    output(Self.said(diagnostic, in: system.architecturePath, as: machineOutput))
                 }
                 return .didNotParse
             }
@@ -270,7 +312,7 @@ public struct CommandLineApplication {
                 return .fileFault
             }
             for warning in warnings {
-                output(warning.described(in: system.controlsPath))
+                output(Self.said(warning, in: system.controlsPath, as: machineOutput))
             }
             if isQuiet == false {
                 output(
@@ -284,9 +326,27 @@ public struct CommandLineApplication {
     }
 
     /// Says what a pull request has not answered.
-    private func check(root: String, tolerance: String?, output: (String) -> Void) -> Int32 {
-        forEachSystem(root: root, output: output) { system, useCases in
-            guard let architectureText = read(system.architecturePath, output) else {
+    ///
+    /// `plain` writes the lines a person reads. `github` writes the workflow
+    /// commands a pull request shows beside the line they name. `json` writes
+    /// one object at the end, so nothing else may write a plain line while it
+    /// runs.
+    private func check(
+        root: String,
+        tolerance: String?,
+        as machineOutput: MachineOutput,
+        output: (String) -> Void
+    ) -> Int32 {
+        var checked: [CheckedSystemJSON] = []
+        var messages: [String] = []
+        // `json` writes one object at the end, so nothing the run says on the
+        // way may reach the output before it.
+        func say(_ line: String) {
+            if machineOutput == .json { messages.append(line) } else { output(line) }
+        }
+
+        let code = forEachSystem(root: root, output: say) { system, useCases in
+            guard let architectureText = read(system.architecturePath, say) else {
                 return .fileFault
             }
             let existing = projects.exists(path: system.controlsPath)
@@ -310,30 +370,124 @@ public struct CommandLineApplication {
             ) = response else {
                 guard case .refused(let diagnostics) = response else { return .didNotParse }
                 for diagnostic in diagnostics {
-                    output(diagnostic.described(in: system.architecturePath))
+                    switch machineOutput {
+                    case .plain:
+                        output(diagnostic.described(in: system.architecturePath))
+                    case .github:
+                        output(GitHubOutput.line(diagnostic, in: system.architecturePath))
+                    case .json:
+                        messages.append(diagnostic.described(in: system.architecturePath))
+                    }
                 }
                 return .didNotParse
             }
 
-            for diagnostic in diagnostics {
-                output(diagnostic.described(in: system.controlsPath))
+            let unansweredLines = unanswered.map { threat in
+                ControlsStanzaLines.line(
+                    threatId: threat.threatId,
+                    sourceKind: threat.sourceKind,
+                    sourceId: threat.sourceId,
+                    in: existing
+                )
             }
-            for threat in unanswered {
-                output("\(system.controlsPath): \(threat.described)")
+
+            switch machineOutput {
+            case .plain:
+                for diagnostic in diagnostics {
+                    output(diagnostic.described(in: system.controlsPath))
+                }
+                for threat in unanswered {
+                    output("\(system.controlsPath): \(threat.described)")
+                }
+                for key in stale {
+                    output("\(system.controlsPath): \(key) is answered but no longer raised")
+                }
+                for described in staleTrees {
+                    output("\(system.controlsPath): \(described)")
+                }
+                output("\(system.name): checked against a \(usedTolerance) risk tolerance")
+                if unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty {
+                    output("\(system.name): every threat is answered")
+                }
+            case .github:
+                for diagnostic in diagnostics {
+                    output(GitHubOutput.line(diagnostic, in: system.controlsPath))
+                }
+                for (threat, line) in zip(unanswered, unansweredLines) {
+                    output(
+                        GitHubOutput.line(
+                            severity: .error,
+                            file: system.controlsPath,
+                            line: line,
+                            column: 1,
+                            message: threat.described
+                        )
+                    )
+                }
+                for key in stale {
+                    output(
+                        GitHubOutput.line(
+                            severity: .error,
+                            file: system.controlsPath,
+                            line: 1,
+                            column: 1,
+                            message: "\(key) is answered but no longer raised"
+                        )
+                    )
+                }
+                for described in staleTrees {
+                    output(
+                        GitHubOutput.line(
+                            severity: .error,
+                            file: system.controlsPath,
+                            line: 1,
+                            column: 1,
+                            message: described
+                        )
+                    )
+                }
+            case .json:
+                break
             }
-            for key in stale {
-                output("\(system.controlsPath): \(key) is answered but no longer raised")
-            }
-            for described in staleTrees {
-                output("\(system.controlsPath): \(described)")
-            }
-            output("\(system.name): checked against a \(usedTolerance) risk tolerance")
+
+            checked.append(
+                CheckedSystemJSON(
+                    name: system.name,
+                    tolerance: usedTolerance,
+                    diagnostics: diagnostics.map {
+                        CheckedSystemJSON.DiagnosticJSON(
+                            severity: $0.severity.rawValue,
+                            file: system.controlsPath,
+                            line: $0.line,
+                            column: $0.column,
+                            message: $0.message
+                        )
+                    },
+                    unanswered: zip(unanswered, unansweredLines).map { threat, line in
+                        CheckedSystemJSON.UnansweredJSON(
+                            threatId: threat.threatId,
+                            sourceKind: threat.sourceKind,
+                            sourceId: threat.sourceId,
+                            riskLevel: threat.riskLevel,
+                            file: system.controlsPath,
+                            line: line
+                        )
+                    },
+                    stale: stale,
+                    staleTrees: staleTrees
+                )
+            )
+
             if unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty {
-                output("\(system.name): every threat is answered")
                 return .success
             }
             return .unanswered
         }
+
+        if machineOutput == .json {
+            output(CheckReportJSON(systems: checked, messages: messages).text())
+        }
+        return code
     }
 
     /// Writes the Markdown report for every system.
@@ -900,6 +1054,7 @@ public struct CommandLineApplication {
       --png                 draw as PNG, which only a macOS build writes
       --catalogue <dir>     read the threat catalogue from this directory
       --tolerance <level>   a likelihood finding answers a threat up to this level
+      --format <name>       plain, github or json; check, compile and format read it
       -q, --quiet           say nothing about a file that did not change
       -f, --force           remove a library a system still names
 
