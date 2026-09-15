@@ -93,6 +93,12 @@ struct ProjectWindow: View {
                     project: session,
                     threats: model.threats,
                     bound: model.attackTrees,
+                    elements: TreeElement.list(
+                        threats: model.threats,
+                        components: model.canvas.components,
+                        connections: model.canvas.connections,
+                        zones: model.canvas.zones
+                    ),
                     dismiss: { isShowingAttackTrees = false }
                 )
             }

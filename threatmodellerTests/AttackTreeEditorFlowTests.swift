@@ -1,3 +1,4 @@
+import ArchitectureDSL
 import SwiftUI
 import Testing
 import ThreatModelKit
@@ -193,5 +194,89 @@ struct AttackTreeEditorFlowTests {
         await session.writeAttackTree(try #require(draft.source()))
 
         #expect(session.attackTreeSources.map(\.id) == ["one"])
+    }
+
+    // MARK: the canvas
+
+    /// A tree drawn as a graph writes through the same use case, the model
+    /// scores it, and the report states it.
+    @Test func aGraphDrawnOnTheCanvasWritesAndTheModelScoresIt() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        let goal = try #require(
+            model.threats.first { $0.threatId == "misconfiguration" && $0.source.id == "component:db" }
+        )
+        let step = try #require(model.threats.first { $0.threatId == "credential-theft" })
+
+        var graph = TreeGraph()
+        let goalNode = graph.add(
+            .step(target: try #require(TreeDraft.target(of: goal.threatKey)), note: nil),
+            title: goal.name
+        )
+        graph.goalId = goalNode
+        let all = graph.add(.allOf, title: "ALL")
+        graph.join(from: all, to: goalNode)
+        let stepNode = graph.add(
+            .step(target: try #require(TreeDraft.target(of: step.threatKey)), note: nil),
+            title: step.name
+        )
+        graph.join(from: stepNode, to: all)
+
+        let tree = try graph.tree(
+            id: "drawn-on-the-canvas",
+            name: "Drawn on the canvas",
+            description: nil,
+            raisesRiskBy: 30
+        ).get()
+        await session.writeAttackTree(tree)
+
+        let written = try #require(
+            useCases.project.text(at: "/work/threatmodel/payments.attacktree")
+        )
+        #expect(written.contains("tree \"drawn-on-the-canvas\" {"))
+
+        let reloaded = try #require(session.model)
+        let bound = try #require(reloaded.attackTrees.first)
+        #expect(bound.id == "drawn-on-the-canvas")
+        #expect(bound.isStale == false)
+
+        let markdown = reloaded.markdownExport()
+        #expect(String(decoding: markdown.data, as: UTF8.self).contains("Drawn on the canvas"))
+    }
+
+    /// The file the window writes is the file `threatmodeller format` writes:
+    /// reading it back and writing it again changes nothing.
+    @Test func aDrawnTreeAndAFormattedTreeAreTheSameBytes() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        let goal = try #require(
+            model.threats.first { $0.threatId == "misconfiguration" && $0.source.id == "component:db" }
+        )
+
+        var graph = TreeGraph()
+        let goalNode = graph.add(
+            .step(target: try #require(TreeDraft.target(of: goal.threatKey)), note: nil),
+            title: goal.name
+        )
+        graph.goalId = goalNode
+        let stepNode = graph.add(
+            .step(target: try #require(TreeDraft.target(of: goal.threatKey)), note: "the route"),
+            title: goal.name
+        )
+        graph.join(from: stepNode, to: goalNode)
+
+        let tree = try graph.tree(
+            id: "round-trip", name: nil, description: nil, raisesRiskBy: 10
+        ).get()
+        await session.writeAttackTree(tree)
+
+        let written = try #require(
+            useCases.project.text(at: "/work/threatmodel/payments.attacktree")
+        )
+        let gateway = HclAttackTreeSource()
+        let read = gateway.read(written)
+        #expect(read.hasErrors == false)
+        let formatted = gateway.write(try #require(read.source))
+        #expect(formatted == written)
     }
 }

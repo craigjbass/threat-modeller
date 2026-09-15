@@ -1,27 +1,53 @@
 import SwiftUI
 import ThreatModelKit
 
-/// Writing an attack tree in the window.
+/// Drawing an attack tree in the window.
 ///
 /// The design in
-/// `docs/superpowers/specs/2026-09-15-attack-tree-editor-design.md` states the
-/// shape: the trees on the left, the tree in front on the right, and every
-/// change written through a use case so a tree written here and one written
-/// by `threatmodeller format` are the same file.
+/// `docs/superpowers/specs/2026-09-15-attack-tree-canvas-design.md` states the
+/// shape: the trees on the left, a canvas in front, the elements beside it,
+/// and every change that yields a valid tree written at once through a use
+/// case, so a tree drawn here and one written by `threatmodeller format` are
+/// the same file.
 struct AttackTreeSheet: View {
     let project: ProjectSession
     /// The threats the model raises, so a goal and a step name one of them
     /// rather than a word a person typed.
     let threats: [AssessedThreat]
     /// The trees the model bound and scored, so the sheet states what each
-    /// tree is worth while it is written.
+    /// tree is worth while it is drawn.
     let bound: [BoundAttackTree]
+    /// The elements the `.arch` file states, offered beside the canvas.
+    let elements: [TreeElement]
     let dismiss: () -> Void
 
     /// The tree in front, or nil while none is chosen.
     @State private var chosen: String?
-    /// What a person is writing, before it is written to the file.
-    @State private var draft: TreeDraft?
+    /// What a person is drawing.
+    @State private var graph = TreeGraph()
+    @State private var pending: [PendingElement] = []
+    @State private var meta = Meta()
+    /// Why the graph is not a tree, or nil while it writes.
+    @State private var refusal: String?
+    /// The last tree written, so an unchanged graph writes nothing.
+    @State private var lastWritten: SourceAttackTree?
+    /// True once a tree is chosen or added, so the canvas has something to be.
+    @State private var isEditing = false
+
+    /// The attributes the tree states beside its shape.
+    struct Meta: Equatable {
+        var id: String
+        var name: String
+        var description: String
+        var raisesRiskBy: Int
+
+        init(id: String = "", name: String = "", description: String = "", raisesRiskBy: Int = 0) {
+            self.id = id
+            self.name = name
+            self.description = description
+            self.raisesRiskBy = raisesRiskBy
+        }
+    }
 
     private var trees: [SourceAttackTree] { project.attackTreeSources }
 
@@ -64,7 +90,7 @@ struct AttackTreeSheet: View {
             }
         }
         .padding(20)
-        .frame(minWidth: 760, minHeight: 520)
+        .frame(minWidth: 1000, minHeight: 600)
         .onAppear { chooseTheFirstTree() }
     }
 
@@ -116,86 +142,48 @@ struct AttackTreeSheet: View {
 
     @ViewBuilder
     private var editor: some View {
-        if let draft {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    TextField("Name", text: name(of: draft))
+        if isEditing {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    TextField("Name", text: $meta.name)
                         .textFieldStyle(.roundedBorder)
                         .accessibilityIdentifier("attack-tree-name")
 
-                    TextField("Description", text: description(of: draft), axis: .vertical)
-                        .lineLimit(2 ... 4)
+                    Text("Raises risk by")
+                        .font(.callout)
+                    TextField("", value: $meta.raisesRiskBy, format: .number)
+                        .frame(width: 60)
                         .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("attack-tree-description")
-
-                    HStack {
-                        Text("Raises risk by")
-                        TextField("", value: raisesRiskBy(of: draft), format: .number)
-                            .frame(width: 60)
-                            .textFieldStyle(.roundedBorder)
-                            .accessibilityIdentifier("attack-tree-raises-risk-by")
-                        Text("per cent")
-                            .foregroundStyle(.secondary)
-                    }
-                    .font(.callout)
-
-                    Picker("Goal", selection: goal(of: draft)) {
-                        ForEach(threats, id: \.threatKey) { threat in
-                            Text("\(threat.name) on \(threat.source.displayName)")
-                                .tag(threat.threatKey)
-                        }
-                    }
-                    .accessibilityIdentifier("attack-tree-goal")
-
-                    Divider()
-
-                    Text("Steps")
-                        .font(.subheadline.weight(.semibold))
-                    Text("Every step is open at once, so a route needs all of them.")
-                        .font(.caption)
+                        .accessibilityIdentifier("attack-tree-raises-risk-by")
+                    Text("per cent")
+                        .font(.callout)
                         .foregroundStyle(.secondary)
-
-                    ForEach(Array(draft.steps.enumerated()), id: \.offset) { index, step in
-                        HStack {
-                            Picker("", selection: stepKey(of: draft, at: index)) {
-                                ForEach(threats, id: \.threatKey) { threat in
-                                    Text("\(threat.name) on \(threat.source.displayName)")
-                                        .tag(threat.threatKey)
-                                }
-                            }
-                            .labelsHidden()
-
-                            Button {
-                                remove(stepAt: index)
-                            } label: {
-                                Image(systemName: "trash")
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityIdentifier("remove-step-\(index)")
-                        }
-                        .accessibilityIdentifier("attack-tree-step-\(index)")
-                        Text(step.note ?? "")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Button("Add Step") { addStep() }
-                        .disabled(threats.isEmpty)
-                        .accessibilityIdentifier("add-attack-tree-step")
-
-                    Divider()
-
-                    HStack {
-                        Button("Save Tree") { save() }
-                            .disabled(draft.steps.isEmpty)
-                            .accessibilityIdentifier("save-attack-tree")
-
-                        Button("Delete Tree", role: .destructive) { delete() }
-                            .accessibilityIdentifier("delete-attack-tree")
-                    }
                 }
-                .padding(.trailing, 4)
+
+                TextField("Description", text: $meta.description)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("attack-tree-description")
+
+                HStack(alignment: .top, spacing: 12) {
+                    TreeCanvas(
+                        graph: $graph,
+                        pending: $pending,
+                        elements: elements,
+                        bound: bound.first { $0.id == meta.id }
+                    )
+                    elementList
+                }
+
+                Text(refusal.map { "Not written: \($0)." } ?? writtenLine)
+                    .font(.caption)
+                    .foregroundStyle(refusal == nil ? Color.secondary : .orange)
+                    .accessibilityIdentifier("attack-tree-standing")
+
+                Button("Delete Tree", role: .destructive) { delete() }
+                    .accessibilityIdentifier("delete-attack-tree")
             }
+            .onChange(of: graph) { _, _ in save() }
+            .onChange(of: meta) { _, _ in save() }
         } else {
             Text("Pick a tree, or add one.")
                 .font(.callout)
@@ -204,32 +192,78 @@ struct AttackTreeSheet: View {
         }
     }
 
+    /// What the assessment says about the written tree, under the canvas.
+    private var writtenLine: String {
+        guard let scored = bound.first(where: { $0.id == meta.id }) else {
+            return "Written. The next assessment scores this tree."
+        }
+        if scored.isStale { return "Stale: a step names something this model no longer raises." }
+        return scored.isOpen
+            ? "Open: the goal's score moves \(scored.scoreBefore) \u{2192} \(scored.score)."
+            : "Closed: every route is answered, and no score moves."
+    }
+
+    /// The elements the person drags from, with the two junctions above them.
+    private var elementList: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("This system's elements")
+                .font(.subheadline.weight(.semibold))
+            Text("Drag one onto the canvas. A junction joins steps.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            List {
+                Section {
+                    Text("ALL OF").font(.caption.weight(.bold))
+                        .draggable("junction:all")
+                        .accessibilityIdentifier("tree-element-junction-all")
+                    Text("ANY OF").font(.caption.weight(.bold))
+                        .draggable("junction:any")
+                        .accessibilityIdentifier("tree-element-junction-any")
+                }
+                Section {
+                    ForEach(elements) { element in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(element.name).font(.callout).lineLimit(1)
+                                Text(element.kind).font(.caption2).foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 4)
+                            Text("\(element.threats.count)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .help("The threats this model raises here.")
+                        }
+                        .draggable(element.payload)
+                        .accessibilityIdentifier("tree-element-\(element.payload)")
+                    }
+                }
+            }
+            .frame(width: 210)
+        }
+    }
+
     // MARK: what a person changes
 
-    private func name(of draft: TreeDraft) -> Binding<String> {
-        Binding(get: { draft.name }, set: { self.draft?.name = $0 })
-    }
-
-    private func description(of draft: TreeDraft) -> Binding<String> {
-        Binding(get: { draft.description }, set: { self.draft?.description = $0 })
-    }
-
-    private func raisesRiskBy(of draft: TreeDraft) -> Binding<Int> {
-        Binding(get: { draft.raisesRiskBy }, set: { self.draft?.raisesRiskBy = $0 })
-    }
-
-    private func goal(of draft: TreeDraft) -> Binding<String> {
-        Binding(get: { draft.goalKey }, set: { self.draft?.goalKey = $0 })
-    }
-
-    private func stepKey(of draft: TreeDraft, at index: Int) -> Binding<String> {
-        Binding(
-            get: { index < draft.steps.count ? draft.steps[index].key : "" },
-            set: { key in
-                guard index < (self.draft?.steps.count ?? 0) else { return }
-                self.draft?.steps[index].key = key
-            }
+    /// Writes the graph when it states a tree, or states the refusal. There
+    /// is no Save button to forget: a valid change writes at once.
+    private func save() {
+        let result = graph.tree(
+            id: meta.id,
+            name: meta.name.isEmpty ? nil : meta.name,
+            description: meta.description.isEmpty ? nil : meta.description,
+            raisesRiskBy: meta.raisesRiskBy
         )
+        switch result {
+        case .success(let tree):
+            refusal = nil
+            guard tree != lastWritten else { return }
+            lastWritten = tree
+            project.saveAttackTree(tree)
+            chosen = tree.id
+        case .failure(let fault):
+            refusal = fault.message
+        }
     }
 
     private func chooseTheFirstTree() {
@@ -239,48 +273,45 @@ struct AttackTreeSheet: View {
     }
 
     private func openTheChosenTree() {
-        guard let chosen, let tree = trees.first(where: { $0.id == chosen }) else {
-            draft = nil
-            return
+        guard let chosen, let tree = trees.first(where: { $0.id == chosen }) else { return }
+        meta = Meta(
+            id: tree.id,
+            name: tree.name ?? tree.id,
+            description: tree.description ?? "",
+            raisesRiskBy: tree.raisesRiskBy
+        )
+        graph = TreeGraph.graph(of: tree) { target in
+            let key = TreeDraft.key(of: target)
+            guard let threat = threats.first(where: { $0.threatKey == key }) else {
+                return (target.threatId, "\(target.sourceKind) \(target.sourceId)")
+            }
+            return (threat.name, threat.source.displayName)
         }
-        draft = TreeDraft(tree)
+        pending = []
+        refusal = nil
+        lastWritten = tree
+        isEditing = true
     }
 
     private func addTree() {
-        guard let first = threats.first else { return }
-        let draft = TreeDraft(
-            id: "tree-\(trees.count + 1)",
-            name: "A new tree",
-            description: "",
-            raisesRiskBy: 0,
-            goalKey: first.threatKey,
-            steps: [TreeDraft.Step(key: first.threatKey, note: nil)]
-        )
-        self.draft = draft
-        chosen = draft.id
-    }
-
-    private func addStep() {
-        guard let first = threats.first else { return }
-        draft?.steps.append(TreeDraft.Step(key: first.threatKey, note: nil))
-    }
-
-    private func remove(stepAt index: Int) {
-        guard index < (draft?.steps.count ?? 0) else { return }
-        draft?.steps.remove(at: index)
-    }
-
-    private func save() {
-        guard let draft, let tree = draft.source() else { return }
-        project.saveAttackTree(tree)
-        chosen = tree.id
+        var number = trees.count + 1
+        while trees.contains(where: { $0.id == "tree-\(number)" }) { number += 1 }
+        meta = Meta(id: "tree-\(number)", name: "A new tree")
+        graph = TreeGraph()
+        pending = []
+        refusal = TreeGraph.Refusal.noGoal.message
+        lastWritten = nil
+        chosen = nil
+        isEditing = true
     }
 
     private func delete() {
-        guard let draft else { return }
-        project.deleteAttackTree(draft.id)
-        self.draft = nil
+        project.deleteAttackTree(meta.id)
+        graph = TreeGraph()
+        pending = []
+        lastWritten = nil
         chosen = nil
+        isEditing = false
     }
 }
 

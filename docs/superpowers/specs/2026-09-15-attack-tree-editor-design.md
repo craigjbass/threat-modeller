@@ -1,6 +1,9 @@
 # Writing an attack tree in the window
 
-**Status:** decided, 15 September 2026.
+**Status:** superseded in part, 15 September 2026.
+`2026-09-15-attack-tree-canvas-design.md` replaces the form — the **What a
+person does** table and the outline column — with a canvas. The sheet, the
+use cases, the one writer, the score display and the refusals below stand.
 
 ## The problem
 
