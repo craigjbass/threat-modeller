@@ -479,6 +479,26 @@ final class ProjectSession {
         coalescer.schedule { [weak self] in self?.saveNow() }
     }
 
+    /// Lays the drawn diagram out again, and moves the elements to the result.
+    ///
+    /// The layout search is the most expensive thing this application runs, so
+    /// it runs off the main actor and the window says what it is doing while
+    /// it runs. With elements named, only those move.
+    func layOutDiagram(componentIds: [String] = [], zoneIds: [String] = []) async {
+        guard let model else { return }
+        loading = .drawingTheSystem
+        defer { loading = nil }
+
+        let useCases = self.useCases
+        await Task.detached {
+            _ = useCases.arrangeDiagram().execute(
+                ArrangeDiagramRequest(componentIds: componentIds, zoneIds: zoneIds)
+            )
+        }.value
+
+        model.reread()
+    }
+
     /// Writes the drawn system back to the file it came from, and merges the
     /// answers on screen into its controls file.
     /// Writes from somewhere that cannot wait for it: the menu, or the timer

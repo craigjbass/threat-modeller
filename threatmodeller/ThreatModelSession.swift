@@ -1135,6 +1135,13 @@ final class ThreatModelSession {
 
     /// Spec section 2: the delivery mechanism calls `AssessThreatModel`
     /// explicitly after each change, and reads the canvas the same way.
+    /// Reads the model again, after something outside this session changed
+    /// it. The layout runs off the main actor and writes through the same
+    /// gateway, so the session has to be told to read it back.
+    func reread() {
+        refresh()
+    }
+
     private func refresh() {
         revision += 1
         palette = useCases.listTechnologies().execute(ListTechnologiesRequest()).providers

@@ -53,31 +53,36 @@ struct ThreatModellerApp: App {
     /// The project roots the user opened before, for the welcome window.
     private let recents = RecentProjects()
 
-    /// Read once, at launch. The catalogue does not change while the
-    /// application runs, and a failed load leaves the window saying so.
-    private let catalogue: ViewCatalogueVersionResponse? = {
-        guard let useCases = try? Dependencies() else { return nil }
-        return useCases.viewCatalogueVersion().execute(ViewCatalogueVersionRequest())
-    }()
+    init() {
+        guard let useCases = dependencies.useCases else {
+            project = nil
+            return
+        }
+        let session = ProjectSession(useCases: useCases)
+        // A path on the command line opens a project at launch, and so does
+        // the setting that carries a person on where they left off.
+        let choice = LaunchChoice.choose(
+            commandLinePath: ProjectLaunchArgument.path(),
+            reopensLastProject: UserDefaults.standard.bool(forKey: LaunchChoice.reopenKey),
+            lastProject: RecentProjects().mostRecent()?.path,
+            exists: { path in RecentProjects().exists(RecentProject(path: path, name: "")) }
+        )
+        if case .project(let root) = choice { session.reopen(root: root) }
+        project = session
+    }
+
+    /// Built once, at launch. Building it parses the vendored catalogue, so
+    /// nothing builds a second one.
+    private let dependencies = LaunchDependencies()
+
+    /// What the About window states about the catalogue. Nil when the
+    /// dependencies could not be built, and the window says so.
+    private var catalogue: ViewCatalogueVersionResponse? { dependencies.catalogue }
 
     /// One project session for this application. A project is a directory, and
     /// a second window on the same directory would fight the first over its
     /// files. It is nil only when the catalogue could not be loaded.
-    private let project: ProjectSession? = {
-        guard let useCases = try? Dependencies() else { return nil }
-        let session = ProjectSession(useCases: useCases)
-        // A path on the command line opens a project at launch, and so does
-        // the setting that carries a person on where they left off.
-        let recents = RecentProjects()
-        let choice = LaunchChoice.choose(
-            commandLinePath: ProjectLaunchArgument.path(),
-            reopensLastProject: UserDefaults.standard.bool(forKey: LaunchChoice.reopenKey),
-            lastProject: recents.mostRecent()?.path,
-            exists: { path in recents.exists(RecentProject(path: path, name: "")) }
-        )
-        if case .project(let root) = choice { session.reopen(root: root) }
-        return session
-    }()
+    private let project: ProjectSession?
 
     /// What the application opens at launch.
     private var launchChoice: LaunchChoice {

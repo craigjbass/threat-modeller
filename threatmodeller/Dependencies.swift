@@ -392,6 +392,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         ResizeZone(models: models)
     }
 
+    func arrangeDiagram() -> ArrangeDiagramUseCase {
+        ArrangeDiagram(models: models, catalogue: catalogue, layout: layOutModel())
+    }
+
     func changeComponentTechnology() -> ChangeComponentTechnologyUseCase {
         ChangeComponentTechnology(models: models, catalogue: catalogue)
     }

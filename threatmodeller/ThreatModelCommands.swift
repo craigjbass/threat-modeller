@@ -108,6 +108,31 @@ struct ThreatModelCommands: Commands {
         // text; anything else acts on what the canvas has selected. Two items
         // sharing one shortcut would give the user whichever the menu listed
         // first, so there is one item per shortcut and it routes.
+        // The View menu. Laying the diagram out again is how a person gets a
+        // picture back after an hour of dragging one by hand.
+        CommandMenu("View") {
+            Button("Lay Out Diagram") {
+                guard let project else { return }
+                Task { await project.layOutDiagram() }
+            }
+            .keyboardShortcut("l", modifiers: [.command, .shift])
+            .disabled(project?.model == nil)
+            .accessibilityIdentifier("lay-out-diagram")
+
+            Button("Lay Out Selection") {
+                guard let project, let canvas else { return }
+                Task {
+                    await project.layOutDiagram(
+                        componentIds: Array(canvas.selectedComponentIds),
+                        zoneIds: Array(canvas.selectedZoneIds)
+                    )
+                }
+            }
+            .keyboardShortcut("l", modifiers: [.command, .option])
+            .disabled(hasSelection == false)
+            .accessibilityIdentifier("lay-out-selection")
+        }
+
         CommandGroup(replacing: .pasteboard) {
             Button("Cut") {
                 switch PasteboardRouting.target(isEditingText: PasteboardRouting.isEditingText) {

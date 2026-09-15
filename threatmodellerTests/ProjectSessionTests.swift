@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Testing
 import ThreatModelKit
@@ -753,6 +754,74 @@ struct EmptyProjectTests {
     }
 }
 
+
+/// Laying the drawn diagram out again, from the View menu.
+@MainActor
+@Suite("Laying the diagram out again")
+struct LayOutDiagramTests {
+    private let payments = """
+    system "Payments" {
+      zone "app" {
+        kind = "private"
+
+        component "api" { technology = "aws-ec2" }
+        component "db" { technology = "aws-rds" }
+      }
+
+      flow api -> db
+    }
+
+    """
+
+    private func aProject() async -> ProjectSession {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+        return session
+    }
+
+    private func positions(_ session: ProjectSession) -> [String: CGPoint] {
+        Dictionary(
+            uniqueKeysWithValues: (session.model?.canvas.components ?? []).map {
+                ($0.id, CGPoint(x: $0.x, y: $0.y))
+            }
+        )
+    }
+
+    @Test func oneUndoPutsEveryElementBack() async throws {
+        let session = await aProject()
+        let model = try #require(session.model)
+        let ids = model.canvas.components.map(\.id)
+        model.move(ids.map { ComponentMove(componentId: $0, x: 1500, y: 1500) })
+        let scattered = positions(session)
+
+        await session.layOutDiagram()
+        #expect(positions(session) != scattered)
+
+        model.undo()
+
+        #expect(positions(session) == scattered)
+        #expect(session.loading == nil)
+    }
+
+    @Test func layingOutTheSelectionMovesNothingElse() async throws {
+        let session = await aProject()
+        let model = try #require(session.model)
+        let ids = model.canvas.components.map(\.id)
+        model.move(ids.map { ComponentMove(componentId: $0, x: 1500, y: 1500) })
+        let before = positions(session)
+
+        await session.layOutDiagram(componentIds: [ids[0]], zoneIds: [])
+
+        #expect(positions(session)[ids[1]] == before[ids[1]])
+        #expect(positions(session)[ids[0]] != before[ids[0]])
+    }
+}
 
 /// A coalescer a test drives by hand, so no test waits.
 @MainActor

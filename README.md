@@ -655,6 +655,11 @@ from anywhere.
   command line prints.
 - A save message and a report message show in the toolbar, where the load stage
   shows, and clear themselves after four seconds.
+- *View ▸ Lay Out Diagram* (`Shift+Cmd+L`) lays the drawn model out again and
+  moves every component and every zone to the result, as one undoable change.
+  *Lay Out Selection* (`Cmd+Option+L`) does the same for what is selected and
+  moves nothing else. The layout runs off the main actor, and the toolbar says
+  what it is doing while it runs.
 - A secondary click opens a menu on the thing under the pointer: a component,
   a zone, a flow, or open canvas. *Rename…* and *Label…* open the field on the
   element itself; *Show Threats* and *Show Controls* change the stage and
