@@ -75,6 +75,10 @@ public struct CommandLineApplication {
         var formatWord: String?
         var wantsStandardOutput = false
         var diagramLanguage: String?
+        var fieldWords: String?
+        var sortWord: String?
+        var wantsHeader = true
+        var wantsJson = false
         var commits = ReadRiskHistory.defaultCommits
 
         var flagless: [String] = []
@@ -120,6 +124,16 @@ public struct CommandLineApplication {
                 wantsHtml = true
             case "--stdout":
                 wantsStandardOutput = true
+            case "--fields":
+                index += 1
+                fieldWords = index < words.count ? words[index] : nil
+            case "--sort":
+                index += 1
+                sortWord = index < words.count ? words[index] : nil
+            case "--no-header":
+                wantsHeader = false
+            case "--json":
+                wantsJson = true
             case "-o":
                 index += 1
                 if index < words.count { flagless.append("-o:" + words[index]) }
@@ -187,6 +201,15 @@ public struct CommandLineApplication {
         case "draw":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return draw(root: root, into: into, wants: pictures, isQuiet: isQuiet, output: output)
+        case "list":
+            return list(
+                root: root,
+                fields: fieldWords,
+                sort: sortWord,
+                wantsHeader: wantsHeader,
+                wantsJson: wantsJson,
+                output: output
+            )
         case "export":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return export(
@@ -1340,6 +1363,138 @@ public struct CommandLineApplication {
     /// SVG is written by this package, so it works wherever the tool runs. PNG
     /// needs a drawing engine, which only Apple's platforms supply here, so a
     /// Linux build says so rather than writing nothing.
+    /// Says what each system in a project holds and what it scores.
+    ///
+    /// One resolve per system and no layout: the numbers come from the
+    /// assessment, and nothing here places a component. A system whose files
+    /// do not parse takes a row that says `unparsed`, and the verb still
+    /// exits 0, because `check` is the verb that fails.
+    private func list(
+        root: String,
+        fields fieldWords: String?,
+        sort sortWord: String?,
+        wantsHeader: Bool,
+        wantsJson: Bool,
+        output: (String) -> Void
+    ) -> Int32 {
+        var fields = SystemList.Field.allCases
+        if let fieldWords {
+            switch SystemList.fields(named: fieldWords) {
+            case .success(let picked):
+                fields = picked
+            case .failure(let word):
+                output(
+                    "threatmodeller: there is no column \"\(word)\";"
+                        + " this application writes \(SystemList.Field.names)"
+                )
+                return ExitCode.didNotParse.rawValue
+            }
+        }
+
+        var sortField: SystemList.Field?
+        if let sortWord {
+            guard let field = SystemList.Field(rawValue: sortWord) else {
+                output(
+                    "threatmodeller: there is no column \"\(sortWord)\";"
+                        + " this application writes \(SystemList.Field.names)"
+                )
+                return ExitCode.didNotParse.rawValue
+            }
+            sortField = field
+        }
+
+        // A diagnostic about one system's file is not this verb's output: an
+        // unparsed system takes a row saying so. What the walk says about the
+        // project itself is written, because then there are no rows at all.
+        var rows: [SystemRow] = []
+        var said: [String] = []
+        let code = forEachSystem(root: root, output: { said.append($0) }) { system, useCases in
+            rows.append(row(of: system, useCases: useCases))
+            return .success
+        }
+        guard code == ExitCode.success.rawValue, rows.isEmpty == false else {
+            for line in said { output(line) }
+            return code
+        }
+
+        if let sortField { rows = SystemList.sorted(rows, by: sortField) }
+
+        if wantsJson {
+            output(SystemList.json(rows, fields: fields))
+        } else {
+            for line in SystemList.plain(rows, fields: fields, wantsHeader: wantsHeader) {
+                output(line)
+            }
+        }
+        return ExitCode.success.rawValue
+    }
+
+    /// One system's row. Nothing here writes a file or draws anything.
+    private func row(of system: ProjectSystem, useCases: CommandLineDependencies) -> SystemRow {
+        let unparsed = SystemRow(
+            name: system.name,
+            file: system.headerPath,
+            isUnparsed: true
+        )
+        guard let architectureText = try? projects.read(path: system.architecturePath) else {
+            return unparsed
+        }
+
+        let imported = useCases.importArchitecture()
+            .execute(
+                ImportArchitectureRequest(
+                    text: architectureText,
+                    attackTreeText: treeText(of: system),
+                    parts: system.isSplit ? Self.parts(of: system, projects: projects) : [],
+                    directoryName: system.isSplit ? system.name : nil,
+                    attackTreeTexts: system.isSplit
+                        ? Self.treeTexts(of: system, projects: projects)
+                        : []
+                )
+            )
+        guard case .imported(_, _, let catalogueTag) = imported else { return unparsed }
+
+        if projects.exists(path: system.controlsPath),
+           let controlsText = try? projects.read(path: system.controlsPath) {
+            _ = useCases.applyControlAnswers()
+                .execute(ApplyControlAnswersRequest(text: controlsText))
+        }
+
+        let canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
+        let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+        let worst = assessment.threats.max { $0.riskScore < $1.riskScore }
+        // Who owns the system and when it was last read again are the file's
+        // own words, so they are read from the source rather than from a
+        // report nobody asked this verb to build.
+        let source = architecture.read(architectureText).source
+
+        return SystemRow(
+            name: system.name,
+            file: system.headerPath,
+            owner: source?.owner ?? "",
+            components: canvas.components.count,
+            zones: canvas.zones.count,
+            flows: canvas.connections.count,
+            threats: assessment.threats.count,
+            unanswered: assessment.threats.filter(Self.isUnanswered).count,
+            accepted: assessment.threats
+                .filter { $0.controls.contains { $0.statusId == ControlStatus.accepted.rawValue } }
+                .count,
+            worstScore: worst?.riskScore ?? 0,
+            worstLevel: worst?.riskLevel ?? "",
+            catalogueTag: catalogueTag ?? "",
+            reviewed: source?.reviewed ?? ""
+        )
+    }
+
+    /// A threat nobody has answered: no control carries an answer, and no
+    /// compensating control stands. The report counts the same way.
+    private static func isUnanswered(_ threat: AssessedThreat) -> Bool {
+        guard threat.compensatingLabels.isEmpty else { return false }
+        return threat.controls.contains { $0.statusId != ControlStatus.notImplemented.rawValue }
+            == false
+    }
+
     /// The shapes `export` writes.
     enum ExportFormat: String, CaseIterable {
         case json
@@ -1844,6 +1999,7 @@ public struct CommandLineApplication {
       threatmodeller report  [<root>]  write every .md report
       threatmodeller draw    [<root>]  write every diagram as a picture
       threatmodeller export  [<root>]  write every model as data another program reads
+      threatmodeller list    [<root>]  say what each system holds and what it scores
       threatmodeller format  [<root>]  rewrite every .arch, .attacktree and .lib file
                                        in the canonical shape
       threatmodeller help              show this text
@@ -1876,6 +2032,10 @@ public struct CommandLineApplication {
       --format <name>       plain, github or json; check, compile and format read it.
                             export reads json or otm, the shape it writes
       --stdout              export writes one system to standard output
+      --fields <a,b,c>      list writes these columns, in this order
+      --sort <field>        list orders the rows by this column
+      --no-header           list writes no header row
+      --json                list writes the rows as an array a dashboard reads
       --commits <n>         how many commits history samples, newest first
       -q, --quiet           say nothing about a file that did not change
       -f, --force           remove a library a system still names

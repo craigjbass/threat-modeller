@@ -401,6 +401,7 @@ threatmodeller history [<root>]              # says what the model scored at eac
 threatmodeller report  [<root>] [-o <dir>]   # writes every .md report and its diagrams
 threatmodeller draw    [<root>] [-o <dir>]   # writes every diagram as SVG or PNG
 threatmodeller export  [<root>] [-o <dir>]   # writes every model as data another program reads
+threatmodeller list    [<root>]              # says what each system holds and what it scores
 threatmodeller format  [<root>]                # rewrites every .arch, .attacktree and .lib file
 threatmodeller library <operation> …         # manages the shared element libraries
 threatmodeller help                          # shows the usage text
@@ -432,6 +433,24 @@ likelihood findings" above); `<level>` is `low`, `medium`, `high` or
 `critical`. `-q` or `--quiet` says nothing about a file that did not change.
 `-f` or `--force` removes a library a system still names. `--format <name>`
 picks the shape `check`, `compile` and `format` write; see below.
+
+### Listing the systems in a project
+
+`threatmodeller list` writes one row per system: its name, its file, its owner,
+how many components, zones and flows it holds, how many threats it raises, how
+many of those nobody has answered, how many carry an accepted risk, the worst
+score and its level, the catalogue tag and when the model was last read again.
+
+```
+threatmodeller list .                                    # every column, a header, file order
+threatmodeller list . --fields name,unanswered,worst     # these columns, in this order
+threatmodeller list . --sort unanswered --no-header      # worst first, no header
+threatmodeller list . --json                             # the same rows as an array
+```
+
+A system whose files do not parse takes a row holding its name, its file and
+the word `unparsed`, and the verb still exits 0: `check` is the verb that
+fails, and a list that drops a system hides it.
 
 ### Exporting the assessed model as data
 

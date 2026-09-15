@@ -264,6 +264,26 @@ flows:
 | `LayOutModel.execute` alone | 0.502 s |
 | `CompileControls.execute`, after the field | 0.010 s |
 
+## What listing the systems costs
+
+`threatmodeller list` resolves each system once and draws nothing: it reads the
+canvas for the counts and the assessment for the scores, and no code in the
+path places a component. Measured in a debug build by
+`SystemListTests.readsAProjectOfManySystemsQuickly`, with twenty systems of two
+components, one zone and one flow each:
+
+| What | Time |
+| --- | --- |
+| `list` over 20 systems | 0.445 s |
+| one system | 0.022 s |
+
+Run it again with:
+
+```sh
+cd ThreatModelKit
+THREATMODELLER_MEASURE=1 swift test --filter readsAProjectOfManySystemsQuickly
+```
+
 ## What reading the history costs
 
 `threatmodeller history` and `threatmodeller report` compile the model once per

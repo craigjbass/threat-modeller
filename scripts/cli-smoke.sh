@@ -77,6 +77,13 @@ tm report "$work/sample"
 test -f "$work/sample/threatmodel/payments.md"
 head -20 "$work/sample/threatmodel/payments.md"
 
+step "list says what the project holds"
+tm list "$work/sample" > "$work/sample/list.txt"
+grep -q '^NAME' "$work/sample/list.txt"
+grep -q 'payments' "$work/sample/list.txt"
+tm list "$work/sample" --json > "$work/sample/list.json"
+grep -q '"unanswered"' "$work/sample/list.json"
+
 step "export writes the model as data"
 tm export "$work/sample"
 test -f "$work/sample/threatmodel/payments.json"
