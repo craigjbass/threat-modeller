@@ -43,6 +43,19 @@ struct ThreatFilterTests {
         #expect(kept.allSatisfy { $0.source.displayName.lowercased().contains("rds") })
     }
 
+    @Test func narrowsByWhatTheThreatHarms() {
+        let threats = session().threats
+        var filter = ThreatFilter()
+        filter.impactId = ThreatImpact.availability.rawValue
+
+        let kept = filter.narrow(threats)
+
+        #expect(kept.isEmpty == false)
+        #expect(kept.count < threats.count)
+        #expect(kept.allSatisfy { $0.impacts.contains("availability") })
+        #expect(filter.isNarrowing)
+    }
+
     @Test func narrowsByTheThreatId() {
         let threats = session().threats
         var filter = ThreatFilter()

@@ -268,6 +268,7 @@ struct LibraryParser {
         var description = ""
         var severityLabel: String?
         var strideIds: [String] = []
+        var impacts: [String] = []
         var isConnectionThreat = false
         var isZoneThreat = false
         var zoneContext: String?
@@ -285,6 +286,18 @@ struct LibraryParser {
             case "description": description = parseTextAttribute() ?? ""
             case "severity": severityLabel = parseTextAttribute()
             case "stride": strideIds = parseListAttribute()
+            case "impacts":
+                let token = current
+                impacts = parseListAttribute().filter { word in
+                    guard ThreatImpact(rawValue: word) == nil else { return true }
+                    record(
+                        "impacts holds \"\(word)\"; this application holds "
+                            + ThreatImpact.allCases.map { "\"\($0.rawValue)\"" }
+                                .joined(separator: ", "),
+                        at: token
+                    )
+                    return false
+                }
             case "connection": isConnectionThreat = parseBooleanAttribute() ?? false
             case "zone": isZoneThreat = parseBooleanAttribute() ?? false
             case "zone_context": zoneContext = parseTextAttribute()
@@ -322,9 +335,9 @@ struct LibraryParser {
                 }
             default:
                 record(
-                    "a threat holds name, description, severity, stride, connection, zone, "
-                        + "zone_context, mitre, control, applies_to, boundary, runs_as, "
-                        + "pathway and likelihood, not \"\(current.text)\""
+                    "a threat holds name, description, severity, stride, impacts, "
+                        + "connection, zone, zone_context, mitre, control, applies_to, "
+                        + "boundary, runs_as, pathway and likelihood, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -345,6 +358,7 @@ struct LibraryParser {
             description: description,
             severityLabel: severityLabel,
             strideIds: strideIds,
+            impacts: impacts,
             isConnectionThreat: isConnectionThreat,
             isZoneThreat: isZoneThreat,
             zoneContext: zoneContext,

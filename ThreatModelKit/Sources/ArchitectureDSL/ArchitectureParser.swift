@@ -84,6 +84,11 @@ struct ArchitectureParser {
         var mitigates: [SourceMitigates] = []
         var riskTolerance: String?
         var assumptions: [SourceAssumption] = []
+        var useCases: [SourceUseCase] = []
+        var exclusions: [SourceExclusion] = []
+        var systemAssets: [SourceSystemAsset] = []
+        var thirdParties: [SourceThirdParty] = []
+        var diagrams: [SourceDiagram] = []
         var faces: [String] = []
         var requiresEvidenceAbove: String?
         var owner: String?
@@ -107,6 +112,12 @@ struct ArchitectureParser {
                 if let zone = parseZone() { zones.append(zone) }
             case "component":
                 if let component = parseComponent() { components.append(component) }
+            case "asset":
+                if let asset = parseSystemAsset() { systemAssets.append(asset) }
+            case "third_party":
+                if let party = parseThirdParty() { thirdParties.append(party) }
+            case "diagram":
+                if let diagram = parseDiagram() { diagrams.append(diagram) }
             case "flow":
                 if let flow = parseFlow() { flows.append(flow) }
             case "mitigates":
@@ -125,6 +136,10 @@ struct ArchitectureParser {
                 }
             case "assumption":
                 if let assumption = parseAssumption() { assumptions.append(assumption) }
+            case "use_case":
+                if let useCase = parseUseCase() { useCases.append(useCase) }
+            case "exclusion":
+                if let exclusion = parseExclusion() { exclusions.append(exclusion) }
             case "owner":
                 owner = parseTextAttribute()
             case "description":
@@ -183,7 +198,8 @@ struct ArchitectureParser {
                     "a system holds catalogue, owner, description, authors, links, "
                         + "repositories, created, reviewed, version, attribute, technology, "
                         + "zone, component, flow, mitigates, risk_tolerance, "
-                        + "requires_evidence_above, assumption, faces and threat_actor, not "
+                        + "requires_evidence_above, assumption, use_case, exclusion, asset, "
+                        + "third_party, diagram, faces and threat_actor, not "
                         + "\"\(current.text)\""
                 )
                 skipToNextBlock()
@@ -192,6 +208,10 @@ struct ArchitectureParser {
         if insideABlock { _ = expect(.rightBrace, "}") }
 
         let checked = checkedActions(on: mitigates, assumptions: assumptions)
+        let everyComponent = components + zones.flatMap(\.components)
+        checkExclusions(exclusions, against: everyComponent)
+        checkAssets(systemAssets, components: everyComponent, flows: flows)
+        checkThirdParties(thirdParties, components: everyComponent, assumptions: assumptions)
 
         return ArchitectureSource(
             systemName: name,
@@ -203,6 +223,11 @@ struct ArchitectureParser {
             mitigates: checked,
             riskTolerance: riskTolerance,
             assumptions: assumptions,
+            useCases: useCases,
+            exclusions: exclusions,
+            systemAssets: systemAssets,
+            thirdParties: thirdParties,
+            diagrams: diagrams,
             requiresEvidenceAbove: requiresEvidenceAbove,
             owner: owner,
             faces: faces,
@@ -362,6 +387,301 @@ struct ArchitectureParser {
             return nil
         }
         return SourceAssumption(label: label.text, text: text, owner: owner)
+    }
+
+    /// A thing both drawn and excluded is a contradiction, so an exclusion
+    /// whose label names a component the same system draws is a warning.
+    private mutating func checkExclusions(
+        _ exclusions: [SourceExclusion],
+        against components: [SourceComponent]
+    ) {
+        var names: Set<String> = []
+        for component in components {
+            names.insert(component.id.lowercased())
+            if let name = component.name { names.insert(name.lowercased()) }
+        }
+        for exclusion in exclusions where names.contains(exclusion.label.lowercased()) {
+            record(
+                "the exclusion \"\(exclusion.label)\" names a component this system draws; "
+                    + "a thing both drawn and excluded is a contradiction",
+                severity: .warning
+            )
+        }
+    }
+
+    static let diagramKinds: Set<String> = ["mermaid"]
+
+    /// A `diagram` block: one picture the team keeps beside the diagram the
+    /// canvas draws.
+    private mutating func parseDiagram() -> SourceDiagram? {
+        advance()
+        guard let label = expect(.string, "what the diagram is called") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var kind = "mermaid"
+        var text: String?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "kind":
+                let token = current
+                kind = parseTextAttribute() ?? kind
+                expectVocabulary(kind, Self.diagramKinds, field: "kind", at: token)
+            case "text": text = parseTextAttribute()
+            default:
+                record("a diagram holds kind and text, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let text, text.contains(where: { $0.isWhitespace == false }) else {
+            record("the diagram \"\(label.text)\" has no text", at: label)
+            return nil
+        }
+        return SourceDiagram(label: label.text, kind: kind, text: text)
+    }
+
+    static let thirdPartyKinds: Set<String> = ["saas", "open_source", "infrastructure", "contractor"]
+    static let uptimeDependencies: Set<String> = ["none", "degraded", "hard", "operational"]
+
+    /// A `third_party` block: one party outside this team the system depends
+    /// on.
+    private mutating func parseThirdParty() -> SourceThirdParty? {
+        advance()
+        guard let id = expect(.string, "the third party's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var name: String?
+        var description = ""
+        var kind = "saas"
+        var payingCustomer = false
+        var uptime: String?
+        var uptimeNotes = ""
+        var owner: String?
+        var link: String?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": name = parseTextAttribute()
+            case "description": description = parseTextAttribute() ?? description
+            case "kind":
+                let token = current
+                kind = parseTextAttribute() ?? kind
+                expectVocabulary(kind, Self.thirdPartyKinds, field: "kind", at: token)
+            case "paying_customer": payingCustomer = parseBooleanAttribute() ?? payingCustomer
+            case "uptime":
+                let token = current
+                let raw = parseTextAttribute() ?? ""
+                expectVocabulary(raw, Self.uptimeDependencies, field: "uptime", at: token)
+                uptime = raw
+            case "uptime_notes": uptimeNotes = parseTextAttribute() ?? uptimeNotes
+            case "owner": owner = parseTextAttribute()
+            case "link": link = parseTextAttribute()
+            default:
+                record(
+                    "a third_party holds name, description, kind, paying_customer, uptime, "
+                        + "uptime_notes, owner and link, not \"\(current.text)\""
+                )
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let name, name.isEmpty == false else {
+            record("the third party \"\(id.text)\" has no name", at: id)
+            return nil
+        }
+        guard let uptime, uptime.isEmpty == false else {
+            record(
+                "the third party \"\(id.text)\" states no uptime; state \"none\", "
+                    + "\"degraded\", \"hard\" or \"operational\"",
+                at: id
+            )
+            return nil
+        }
+        return SourceThirdParty(
+            id: id.text,
+            name: name,
+            description: description,
+            kind: kind,
+            payingCustomer: payingCustomer,
+            uptime: uptime,
+            uptimeNotes: uptimeNotes,
+            owner: owner,
+            link: link
+        )
+    }
+
+    /// A `provided_by` naming nothing is an error. A party this system cannot
+    /// run without, and that no assumption names, is a warning: a dependency
+    /// nobody has thought about is the one that fails.
+    private mutating func checkThirdParties(
+        _ parties: [SourceThirdParty],
+        components: [SourceComponent],
+        assumptions: [SourceAssumption]
+    ) {
+        let declared = Set(parties.map(\.id))
+        for component in components {
+            guard let provider = component.providedBy else { continue }
+            guard declared.contains(provider) == false else { continue }
+            record(
+                "the component \"\(component.id)\" is provided by \"\(provider)\", "
+                    + "which no third_party declares"
+            )
+        }
+
+        let said = assumptions.map { "\($0.label) \($0.text)".lowercased() }
+        for party in parties where party.uptime == "hard" {
+            let names = [party.id.lowercased(), party.name.lowercased()]
+            guard said.contains(where: { text in names.contains(where: text.contains) }) == false
+            else { continue }
+            record(
+                "this system cannot run without \"\(party.name)\" and no assumption names it",
+                severity: .warning
+            )
+        }
+    }
+
+    /// An `asset` block on a system: one named thing of value.
+    private mutating func parseSystemAsset() -> SourceSystemAsset? {
+        advance()
+        guard let id = expect(.string, "the asset's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var name: String?
+        var classification = "internal"
+        var description = ""
+        var owner: String?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": name = parseTextAttribute()
+            // A classification word belongs to the project's scheme, and a
+            // library states that scheme, which the parser has never read.
+            // `ImportArchitecture` says what the scheme does not hold.
+            case "classification": classification = parseTextAttribute() ?? classification
+            case "description": description = parseTextAttribute() ?? description
+            case "owner": owner = parseTextAttribute()
+            default:
+                record(
+                    "an asset holds name, classification, description and owner, not "
+                        + "\"\(current.text)\""
+                )
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let name, name.isEmpty == false else {
+            record("the asset \"\(id.text)\" has no name", at: id)
+            return nil
+        }
+        return SourceSystemAsset(
+            id: id.text,
+            name: name,
+            classification: classification,
+            description: description,
+            owner: owner
+        )
+    }
+
+    /// What a component holds and what a flow carries must name an asset the
+    /// system declares, and a flow must carry what its own end holds.
+    private mutating func checkAssets(
+        _ assets: [SourceSystemAsset],
+        components: [SourceComponent],
+        flows: [SourceFlow]
+    ) {
+        let declared = Set(assets.map(\.id))
+        var holdsById: [String: Set<String>] = [:]
+        for component in components {
+            holdsById[component.id] = Set(component.holds)
+            for held in component.holds where declared.contains(held) == false {
+                record(
+                    "the component \"\(component.id)\" holds \"\(held)\", which no asset declares"
+                )
+            }
+        }
+        for flow in flows {
+            for carried in flow.carries {
+                guard declared.contains(carried) else {
+                    record(
+                        "the flow \"\(flow.id)\" carries \"\(carried)\", which no asset declares"
+                    )
+                    continue
+                }
+                guard let held = holdsById[flow.sourceId] else { continue }
+                if held.contains(carried) == false {
+                    record(
+                        "the flow \"\(flow.id)\" carries \"\(carried)\", which the component "
+                            + "\"\(flow.sourceId)\" does not hold",
+                        severity: .warning
+                    )
+                }
+            }
+        }
+    }
+
+    /// A `use_case` block: what a person does with the system.
+    private mutating func parseUseCase() -> SourceUseCase? {
+        advance()
+        guard let label = expect(.string, "what the use case is called") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var text: String?
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "text": text = parseTextAttribute()
+            default:
+                record("a use_case holds text, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let text, text.isEmpty == false else {
+            record("the use_case \"\(label.text)\" has no text", at: label)
+            return nil
+        }
+        return SourceUseCase(label: label.text, text: text)
+    }
+
+    /// An `exclusion` block: what this model does not cover, and why.
+    ///
+    /// A rationale is required. An exclusion with no reason is a gap, and a
+    /// reader cannot tell a decision from an oversight.
+    private mutating func parseExclusion() -> SourceExclusion? {
+        advance()
+        guard let label = expect(.string, "what the exclusion is called") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var text: String?
+        var rationale: String?
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "text": text = parseTextAttribute()
+            case "rationale": rationale = parseTextAttribute()
+            default:
+                record("an exclusion holds text and rationale, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let text, text.isEmpty == false else {
+            record("the exclusion \"\(label.text)\" has no text", at: label)
+            return nil
+        }
+        guard let rationale, rationale.isEmpty == false else {
+            record(
+                "the exclusion \"\(label.text)\" has no rationale; an exclusion with no "
+                    + "reason is a gap",
+                at: label
+            )
+            return nil
+        }
+        return SourceExclusion(label: label.text, text: text, rationale: rationale)
     }
 
     /// A `threat_actor` block. The same attributes in a `.lib` file and in an
@@ -564,14 +884,22 @@ struct ArchitectureParser {
         var runsAs = "user"
         var shape: String?
         var assets: [SourceAsset] = []
+        var holds: [String] = []
+        var providedBy: String?
+        var declaredData: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
             case "technology": technologyId = parseTextAttribute()
             case "name": name = parseTextAttribute()
+            case "holds":
+                holds = parseListAttribute()
+            case "provided_by":
+                providedBy = parseTextAttribute()
             case "data":
                 let token = current
                 data = parseTextAttribute() ?? data
+                declaredData = data
                 // A classification word belongs to the project's scheme, and
                 // a library states that scheme, which the parser has never
                 // read. `ImportArchitecture` says what the scheme does not
@@ -590,7 +918,10 @@ struct ArchitectureParser {
             case "asset":
                 if let asset = parseAsset() { assets.append(asset) }
             default:
-                record("a component holds technology, name, data, threats, runs_as, shape and asset, not \"\(current.text)\"")
+                record(
+                    "a component holds technology, name, data, holds, provided_by, threats, "
+                        + "runs_as, shape and asset, not \"\(current.text)\""
+                )
                 skipAttribute()
             }
         }
@@ -608,6 +939,9 @@ struct ArchitectureParser {
             raisesThreats: raisesThreats,
             runsAs: runsAs,
             assets: assets,
+            holds: holds,
+            providedBy: providedBy,
+            declaredData: declaredData,
             shape: shape
         )
     }
@@ -650,6 +984,7 @@ struct ArchitectureParser {
 
         var kind = "network"
         var description: String?
+        var carries: [String] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -659,8 +994,10 @@ struct ArchitectureParser {
                 expectVocabulary(kind, Self.flowKinds, field: "kind", at: token)
             case "description":
                 description = parseTextAttribute()
+            case "carries":
+                carries = parseListAttribute()
             default:
-                record("a flow holds kind and description, not \"\(current.text)\"")
+                record("a flow holds kind, description and carries, not \"\(current.text)\"")
                 skipAttribute()
             }
         }
@@ -670,7 +1007,8 @@ struct ArchitectureParser {
             sourceId: source.text,
             targetId: target.text,
             kind: kind,
-            description: description
+            description: description,
+            carries: carries
         )
     }
 

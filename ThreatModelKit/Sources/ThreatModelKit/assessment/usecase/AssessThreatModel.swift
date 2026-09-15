@@ -172,6 +172,8 @@ public struct AssessedThreat: Hashable, Sendable {
     public let severityId: String
     public let severityLabel: String
     public let stride: [String]
+    /// What this threat harms: `confidentiality`, `integrity`, `availability`.
+    public let impacts: [String]
     public let mitreTechniques: [AssessedMitreTechnique]
     public let controls: [AssessedControl]
     public let source: AssessedThreatSource
@@ -242,6 +244,7 @@ public struct AssessedThreat: Hashable, Sendable {
         severityId: String,
         severityLabel: String,
         stride: [String],
+        impacts: [String] = [],
         mitreTechniques: [AssessedMitreTechnique],
         controls: [AssessedControl],
         source: AssessedThreatSource,
@@ -276,6 +279,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.severityId = severityId
         self.severityLabel = severityLabel
         self.stride = stride
+        self.impacts = impacts
         self.mitreTechniques = mitreTechniques
         self.controls = controls
         self.source = source
@@ -366,6 +370,7 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     severityId: threat.severity.id,
                     severityLabel: threat.severity.label,
                     stride: threat.threat.stride.map(\.value),
+                    impacts: threat.impacts.map(\.rawValue),
                     mitreTechniques: threat.threat.mitreTechniques.map {
                         AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
                     },

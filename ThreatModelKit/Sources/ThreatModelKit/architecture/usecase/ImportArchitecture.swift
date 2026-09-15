@@ -176,6 +176,32 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             }
         }
 
+        // A component that states a classification below one it holds says
+        // two things at once. The stated word stands, and the warning names
+        // the asset that disagrees with it.
+        var lowerThanHeld: [Diagnostic] = []
+        let classificationByAsset = Dictionary(
+            source.systemAssets.map { ($0.id, $0.classification) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        for component in source.everyComponent {
+            guard let stated = component.declaredData else { continue }
+            let statedRank = DataSensitivity(stated).rank(in: scheme)
+            for held in component.holds {
+                guard let word = classificationByAsset[held] else { continue }
+                guard DataSensitivity(word).rank(in: scheme) > statedRank else { continue }
+                lowerThanHeld.append(
+                    Diagnostic(
+                        severity: .warning,
+                        line: 1,
+                        column: 1,
+                        message: "the component \"\(component.id)\" states data \"\(stated)\" "
+                            + "and holds \"\(held)\", which is \"\(word)\""
+                    )
+                )
+            }
+        }
+
         // The file already states which zone holds which component, so the
         // membership is read rather than derived from a layout.
         var zoneByComponent: [String: String] = [:]
@@ -183,19 +209,62 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             for component in zone.components { zoneByComponent[component.id] = zone.id }
         }
 
+        model.systemAssets = source.systemAssets.map {
+            SystemAsset(
+                id: $0.id,
+                name: $0.name,
+                classification: DataSensitivity($0.classification),
+                description: $0.description,
+                owner: $0.owner
+            )
+        }
+        model.thirdParties = source.thirdParties.map {
+            ThirdParty(
+                id: $0.id,
+                name: $0.name,
+                description: $0.description,
+                kind: ThirdPartyKind(rawValue: $0.kind) ?? .saas,
+                payingCustomer: $0.payingCustomer,
+                uptime: UptimeDependency(rawValue: $0.uptime) ?? .none,
+                uptimeNotes: $0.uptimeNotes,
+                owner: $0.owner,
+                link: $0.link
+            )
+        }
+        model.diagrams = source.diagrams.map {
+            SystemDiagram(label: $0.label, kind: $0.kind, text: $0.text)
+        }
+        let classificationById = Dictionary(
+            model.systemAssets.map { ($0.id, $0.classification) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
         for component in source.everyComponent {
+            // A component that states what it holds and states no `data` of
+            // its own takes the highest classification it holds. A component
+            // that states both keeps its own word, and the warning below says
+            // when that word is the lower of the two.
+            let held = component.holds.compactMap { classificationById[$0] }
+            let highestHeld = SensitivityLadder.highest(of: held)
+            let sensitivity = component.declaredData == nil
+                ? (highestHeld ?? DataSensitivity(component.data))
+                : DataSensitivity(component.data)
+
             model.components.append(
                 Component(
                     id: ComponentId(component.id),
                     technologyId: TechnologyId(component.technologyId),
                     position: positions[component.id] ?? Point(x: 0, y: 0),
-                    sensitivity: DataSensitivity(component.data),
+                    sensitivity: sensitivity,
                     customName: component.name,
                     threatsDisabled: component.raisesThreats == false,
                     runsAs: PrivilegeLevel(rawValue: component.runsAs) ?? .default,
                     assets: component.assets.map {
                         Asset(name: $0.name, sensitivity: DataSensitivity($0.data))
                     },
+                    holds: component.holds,
+                    providedBy: component.providedBy,
+                    statesOwnSensitivity: component.declaredData != nil,
                     shape: component.shape.flatMap(DiagramShape.init(rawValue:)),
                     zoneId: zoneByComponent[component.id].map(ZoneId.init)
                 )
@@ -234,7 +303,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     source: ComponentId(flow.sourceId),
                     target: ComponentId(flow.targetId),
                     kind: FlowKind(rawValue: flow.kind) ?? .default,
-                    description: flow.description
+                    description: flow.description,
+                    carries: flow.carries
                 )
             )
         }
@@ -271,6 +341,12 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
         }
         model.assumptions = source.assumptions.map {
             SystemAssumption(label: $0.label, text: $0.text, owner: $0.owner)
+        }
+        model.useCases = source.useCases.map {
+            SystemUseCase(label: $0.label, text: $0.text)
+        }
+        model.exclusions = source.exclusions.map {
+            SystemExclusion(label: $0.label, text: $0.text, rationale: $0.rationale)
         }
 
         var toleranceWarnings: [Diagnostic] = []
@@ -311,7 +387,7 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
 
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         var warnings = read.warnings + statusWarnings + toleranceWarnings
-            + unknownClassifications
+            + unknownClassifications + lowerThanHeld
         for component in source.everyComponent
         where lookup.findById(TechnologyId(component.technologyId)) == nil {
             warnings.append(

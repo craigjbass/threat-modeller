@@ -269,6 +269,15 @@ struct ThreatCard: View {
                     .background(Capsule().fill(Color.secondary.opacity(0.15)))
             }
 
+            ForEach(threat.impacts, id: \.self) { impact in
+                Text(ThreatImpact(rawValue: impact)?.label ?? impact)
+                    .font(.caption2)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+                    .help("This threat harms \(ThreatImpact(rawValue: impact)?.label.lowercased() ?? impact).")
+            }
+
             if threat.isTlsMitigated {
                 Label("TLS", systemImage: "lock")
                     .font(.caption2)

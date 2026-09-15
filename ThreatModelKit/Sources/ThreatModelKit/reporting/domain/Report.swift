@@ -30,6 +30,17 @@ public struct Report: Equatable, Sendable {
     public let rollups: ReportRollupTables
     /// What the model takes on trust. Empty for a model that assumes nothing.
     public let assumptions: [ReportAssumption]
+    /// What a person does with this system, in file order.
+    public let useCases: [ReportUseCase]
+    /// One row per named asset: what holds it, what carries it and the worst
+    /// open threat on any of them.
+    public let dataInventory: [ReportAssetRow]
+    /// One row per party outside this team the system depends on.
+    public let thirdParties: [ReportThirdParty]
+    /// The pictures the team keeps beside the diagram, in model order.
+    public let diagrams: [ReportDiagram]
+    /// What this model does not cover, in file order.
+    public let exclusions: [ReportExclusion]
     /// The `mitigates` edges marked assumed rather than adopted, in report
     /// form. An edge names no assumption, so this travels beside
     /// `assumptions` rather than nested inside one.
@@ -85,6 +96,11 @@ public struct Report: Equatable, Sendable {
         attackPathsBeyondAppendix: Int = 0,
         rollups: ReportRollupTables = .empty,
         assumptions: [ReportAssumption] = [],
+        useCases: [ReportUseCase] = [],
+        dataInventory: [ReportAssetRow] = [],
+        thirdParties: [ReportThirdParty] = [],
+        diagrams: [ReportDiagram] = [],
+        exclusions: [ReportExclusion] = [],
         assumedMitigations: [ReportAssumedMitigation] = [],
         findings: ReportFindingsCut = ReportFindingsCut(),
         toleranceLabel: String = RiskLevel.low.label,
@@ -116,6 +132,11 @@ public struct Report: Equatable, Sendable {
         self.attackPathsBeyondAppendix = attackPathsBeyondAppendix
         self.rollups = rollups
         self.assumptions = assumptions
+        self.useCases = useCases
+        self.dataInventory = dataInventory
+        self.thirdParties = thirdParties
+        self.diagrams = diagrams
+        self.exclusions = exclusions
         self.assumedMitigations = assumedMitigations
         self.findings = findings
         self.toleranceLabel = toleranceLabel
@@ -221,6 +242,15 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     public let isReviewOverdue: Bool
     /// When the model was last read again, for the sentence that says so.
     public let reviewedOn: String?
+    /// How many unanswered threats harm each of confidentiality, integrity
+    /// and availability. One threat that harms two counts in both.
+    public let openByImpact: [ReportCount]
+    /// How many things this model states it does not cover. A reader of one
+    /// page reads what the model left out as well as what it found.
+    public let exclusionCount: Int
+    /// How many third parties this system cannot run without. A reader of one
+    /// page reads what stops the system as well as what threatens it.
+    public let hardDependencyCount: Int
 
     public init(
         verdict: String = "",
@@ -235,7 +265,10 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         unevidencedControls: Int = 0,
         implementedControls: Int = 0,
         isReviewOverdue: Bool = false,
-        reviewedOn: String? = nil
+        reviewedOn: String? = nil,
+        openByImpact: [ReportCount] = [],
+        exclusionCount: Int = 0,
+        hardDependencyCount: Int = 0
     ) {
         self.verdict = verdict
         self.toleranceLabel = toleranceLabel
@@ -250,6 +283,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         self.implementedControls = implementedControls
         self.isReviewOverdue = isReviewOverdue
         self.reviewedOn = reviewedOn
+        self.openByImpact = openByImpact
+        self.exclusionCount = exclusionCount
+        self.hardDependencyCount = hardDependencyCount
     }
 
     /// How many of each the summary names.
@@ -266,7 +302,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         actions: [ReportAction] = [],
         acceptedRisks: [ReportAcceptedRisk] = [],
         documentControl: DocumentControl? = nil,
-        today: GovernanceDate? = nil
+        today: GovernanceDate? = nil,
+        exclusionCount: Int = 0,
+        hardDependencyCount: Int = 0
     ) -> ReportExecutiveSummary {
         // Counted once per distinct control key the way `SummariseRisk`
         // counts, so a control shared across links is one control.
@@ -330,15 +368,26 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
             unevidencedControls: implemented.filter { $0.evidence == "no evidence" }.count,
             implementedControls: implemented.count,
             isReviewOverdue: overdue,
-            reviewedOn: documentControl?.reviewed
+            reviewedOn: documentControl?.reviewed,
+            openByImpact: openByImpact(threats.filter { isUnanswered($0) }),
+            exclusionCount: exclusionCount,
+            hardDependencyCount: hardDependencyCount
         )
+    }
+
+    /// How many of these threats harm each impact, in the order
+    /// `ThreatImpact.allCases` states. An impact no threat harms is left out.
+    private static func openByImpact(_ threats: [ReportThreat]) -> [ReportCount] {
+        ThreatImpact.allCases.compactMap { impact in
+            let count = threats.filter { $0.impactLabels.contains(impact.label) }.count
+            return count == 0 ? nil : ReportCount(label: impact.label, count: count)
+        }
     }
 
     /// A threat nobody has answered: no control carries an answer, and no
     /// compensating control stands.
     private static func isUnanswered(_ threat: ReportThreat) -> Bool {
-        guard threat.compensating.isEmpty else { return false }
-        return threat.controls.contains { $0.statusLabel != ControlStatus.notImplemented.label } == false
+        threat.isOpen
     }
 }
 
@@ -553,6 +602,11 @@ public struct ReportThreat: Equatable, Sendable {
     public let riskScore: Int
     public let riskLevel: String
     public let strideLabels: [String]
+    /// What this threat harms, as labels a person reads: `Confidentiality`,
+    /// `Integrity`, `Availability`.
+    public let impactLabels: [String]
+    /// The named assets on the element this threat is raised against.
+    public let assetsAtRisk: [String]
     public let mitreTechniqueIds: [String]
     /// What each technique is called and its first tactic, by technique id,
     /// from the ATT&CK data on this machine. A machine that has not
@@ -619,6 +673,8 @@ public struct ReportThreat: Equatable, Sendable {
         riskScore: Int,
         riskLevel: String,
         strideLabels: [String],
+        impactLabels: [String] = [],
+        assetsAtRisk: [String] = [],
         mitreTechniqueIds: [String],
         mitreTechniqueNames: [String: String] = [:],
         performedByLabels: [String] = [],
@@ -654,6 +710,8 @@ public struct ReportThreat: Equatable, Sendable {
         self.riskScore = riskScore
         self.riskLevel = riskLevel
         self.strideLabels = strideLabels
+        self.impactLabels = impactLabels
+        self.assetsAtRisk = assetsAtRisk
         self.mitreTechniqueIds = mitreTechniqueIds
         self.mitreTechniqueNames = mitreTechniqueNames
         self.performedByLabels = performedByLabels
@@ -671,6 +729,14 @@ public struct ReportThreat: Equatable, Sendable {
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
         self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? riskScore
         self.severityDecision = severityDecision
+    }
+
+    /// A threat nobody has answered: no control carries an answer, and no
+    /// compensating control stands. The executive summary and the data
+    /// inventory both read this, so neither can disagree with the other.
+    public var isOpen: Bool {
+        guard compensating.isEmpty else { return false }
+        return controls.contains { $0.statusLabel != ControlStatus.notImplemented.label } == false
     }
 
     /// Worst risk score first, a tie breaking on the name, so every section
@@ -697,6 +763,126 @@ public struct ReportSeverityDecision: Equatable, Sendable {
 }
 
 /// Something the model takes on trust, in report form.
+/// One picture the team keeps beside the diagram, in report form.
+public struct ReportDiagram: Equatable, Sendable {
+    public let label: String
+    public let kind: String
+    public let text: String
+
+    public init(label: String, kind: String, text: String) {
+        self.label = label
+        self.kind = kind
+        self.text = text
+    }
+}
+
+/// One party outside this team the system depends on, in report form.
+public struct ReportThirdParty: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let description: String
+    public let kindLabel: String
+    public let payingCustomer: Bool
+    public let uptimeLabel: String
+    public let uptimeNotes: String
+    public let owner: String?
+    public let link: String?
+    /// The components this party provides, by name, in model order.
+    public let provides: [String]
+    /// The named assets those components hold, in model order, each named
+    /// once.
+    public let assetNames: [String]
+
+    public init(
+        id: String,
+        name: String,
+        description: String = "",
+        kindLabel: String,
+        payingCustomer: Bool = false,
+        uptimeLabel: String,
+        uptimeNotes: String = "",
+        owner: String? = nil,
+        link: String? = nil,
+        provides: [String] = [],
+        assetNames: [String] = []
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.kindLabel = kindLabel
+        self.payingCustomer = payingCustomer
+        self.uptimeLabel = uptimeLabel
+        self.uptimeNotes = uptimeNotes
+        self.owner = owner
+        self.link = link
+        self.provides = provides
+        self.assetNames = assetNames
+    }
+}
+
+/// One named asset, and what a reader must know about it.
+public struct ReportAssetRow: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let classificationLabel: String
+    public let owner: String?
+    public let description: String
+    /// The components that hold this asset, by name, in model order.
+    public let heldBy: [String]
+    /// The flows that carry this asset, by name, in model order.
+    public let carriedBy: [String]
+    /// The worst open threat on anything that holds or carries this asset,
+    /// and its score. Nil when nothing open touches it.
+    public let worstOpenThreat: String?
+    public let worstOpenScore: Int?
+
+    public init(
+        id: String,
+        name: String,
+        classificationLabel: String,
+        owner: String? = nil,
+        description: String = "",
+        heldBy: [String] = [],
+        carriedBy: [String] = [],
+        worstOpenThreat: String? = nil,
+        worstOpenScore: Int? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.classificationLabel = classificationLabel
+        self.owner = owner
+        self.description = description
+        self.heldBy = heldBy
+        self.carriedBy = carriedBy
+        self.worstOpenThreat = worstOpenThreat
+        self.worstOpenScore = worstOpenScore
+    }
+}
+
+/// One thing a person does with the system, in report form.
+public struct ReportUseCase: Equatable, Sendable {
+    public let label: String
+    public let text: String
+
+    public init(label: String, text: String) {
+        self.label = label
+        self.text = text
+    }
+}
+
+/// One thing this model does not cover, and why, in report form.
+public struct ReportExclusion: Equatable, Sendable {
+    public let label: String
+    public let text: String
+    public let rationale: String
+
+    public init(label: String, text: String, rationale: String) {
+        self.label = label
+        self.text = text
+        self.rationale = rationale
+    }
+}
+
 public struct ReportAssumption: Equatable, Sendable {
     public let label: String
     public let text: String

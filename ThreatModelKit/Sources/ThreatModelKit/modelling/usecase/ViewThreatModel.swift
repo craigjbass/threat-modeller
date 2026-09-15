@@ -37,6 +37,8 @@ public struct ViewedComponent: Equatable, Sendable {
     /// Only the shape the user forced, or nil. The panel needs to tell Auto
     /// from a forced value the derivation would have given anyway.
     public let shapeOverrideId: String?
+    /// The system asset ids this component holds, in model order.
+    public let holds: [String]
 
     public init(
         id: String,
@@ -53,8 +55,10 @@ public struct ViewedComponent: Equatable, Sendable {
         zoneId: String?,
         runsAsId: String = PrivilegeLevel.default.rawValue,
         shapeId: String = DiagramShape.process.rawValue,
-        shapeOverrideId: String? = nil
+        shapeOverrideId: String? = nil,
+        holds: [String] = []
     ) {
+        self.holds = holds
         self.id = id
         self.technologyId = technologyId
         self.name = name
@@ -81,14 +85,18 @@ public struct ViewedConnection: Equatable, Sendable {
     public let kindId: String
     /// Why the flow is there, or nil when the user has not said.
     public let description: String?
+    /// The system asset ids this connection carries, in model order.
+    public let carries: [String]
 
     public init(
         id: String,
         sourceComponentId: String,
         targetComponentId: String,
         kindId: String = FlowKind.default.rawValue,
-        description: String? = nil
+        description: String? = nil,
+        carries: [String] = []
     ) {
+        self.carries = carries
         self.id = id
         self.sourceComponentId = sourceComponentId
         self.targetComponentId = targetComponentId
@@ -158,6 +166,53 @@ public struct ViewedAssumption: Equatable, Sendable {
     }
 }
 
+/// One named thing of value the system holds, as the interface reads it.
+public struct ViewedSystemAsset: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let classificationId: String
+    public let description: String
+    public let owner: String?
+
+    public init(
+        id: String,
+        name: String,
+        classificationId: String,
+        description: String = "",
+        owner: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.classificationId = classificationId
+        self.description = description
+        self.owner = owner
+    }
+}
+
+/// One thing a person does with the system, as the interface reads it.
+public struct ViewedUseCase: Equatable, Sendable {
+    public let label: String
+    public let text: String
+
+    public init(label: String, text: String) {
+        self.label = label
+        self.text = text
+    }
+}
+
+/// One thing this model does not cover, and why, as the interface reads it.
+public struct ViewedExclusion: Equatable, Sendable {
+    public let label: String
+    public let text: String
+    public let rationale: String
+
+    public init(label: String, text: String, rationale: String) {
+        self.label = label
+        self.text = text
+        self.rationale = rationale
+    }
+}
+
 /// One component lowering a named threat set on another, as the interface
 /// reads it.
 public struct ViewedMitigation: Equatable, Sendable {
@@ -198,6 +253,12 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     public let zones: [ViewedZone]
     /// What the system takes on trust.
     public let assumptions: [ViewedAssumption]
+    /// What a person does with this system, in file order.
+    public let useCases: [ViewedUseCase]
+    /// What this model does not cover, in file order.
+    public let exclusions: [ViewedExclusion]
+    /// The named things of value this system holds, in model order.
+    public let systemAssets: [ViewedSystemAsset]
     /// What one component lowers on another.
     public let mitigations: [ViewedMitigation]
     /// Whether there is anything to take back or put in again, so a menu item
@@ -215,6 +276,9 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         connections: [ViewedConnection],
         zones: [ViewedZone],
         assumptions: [ViewedAssumption] = [],
+        useCases: [ViewedUseCase] = [],
+        exclusions: [ViewedExclusion] = [],
+        systemAssets: [ViewedSystemAsset] = [],
         mitigations: [ViewedMitigation] = [],
         canUndo: Bool = false,
         canRedo: Bool = false,
@@ -223,6 +287,9 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     ) {
         self.name = name
         self.assumptions = assumptions
+        self.useCases = useCases
+        self.exclusions = exclusions
+        self.systemAssets = systemAssets
         self.mitigations = mitigations
         self.components = components
         self.connections = connections
@@ -273,7 +340,8 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                         providerId: providerId,
                         categoryId: categoryId
                     ).rawValue,
-                    shapeOverrideId: component.shape?.rawValue
+                    shapeOverrideId: component.shape?.rawValue,
+                    holds: component.holds
                 )
             },
             connections: model.connections.map {
@@ -282,7 +350,8 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     sourceComponentId: $0.source.value,
                     targetComponentId: $0.target.value,
                     kindId: $0.kind.rawValue,
-                    description: $0.description
+                    description: $0.description,
+                    carries: $0.carries
                 )
             },
             zones: model.zones.map {
@@ -303,6 +372,21 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
             },
             assumptions: model.assumptions.map {
                 ViewedAssumption(label: $0.label, text: $0.text, owner: $0.owner)
+            },
+            useCases: model.useCases.map {
+                ViewedUseCase(label: $0.label, text: $0.text)
+            },
+            exclusions: model.exclusions.map {
+                ViewedExclusion(label: $0.label, text: $0.text, rationale: $0.rationale)
+            },
+            systemAssets: model.systemAssets.map {
+                ViewedSystemAsset(
+                    id: $0.id,
+                    name: $0.name,
+                    classificationId: $0.classification.rawValue,
+                    description: $0.description,
+                    owner: $0.owner
+                )
             },
             mitigations: model.mitigatesEdges.map { edge in
                 ViewedMitigation(

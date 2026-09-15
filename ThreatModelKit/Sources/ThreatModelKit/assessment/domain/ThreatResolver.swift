@@ -63,6 +63,12 @@ public enum ResolvedSource: Hashable, Sendable {
 /// One threat the model raises, scored.
 public struct ResolvedThreat: Equatable, Sendable {
     public let threat: Threat
+
+    /// What this threat harms in this model: what the `.controls` file states
+    /// if it states any, else what the catalogue says.
+    public var impacts: [ThreatImpact] {
+        impactsOverride.isEmpty ? threat.impacts : impactsOverride
+    }
     /// The severity the score used. The threat's own, unless overridden.
     public let severity: ThreatSeverity
     public let source: ResolvedSource
@@ -82,6 +88,9 @@ public struct ResolvedThreat: Equatable, Sendable {
     public let mitigatedBy: [PathwayMitigationDefinition]
     /// What compensates this threat, from the controls file.
     public let compensating: [CompensatingControl]
+    /// What a team stated this threat harms in this system, from the controls
+    /// file. Empty means the catalogue's own answer stands.
+    public var impactsOverride: [ThreatImpact]
     /// The score before the compensating control was applied. Equal to
     /// `score.value` when none was.
     public let scoreBeforeCompensation: Int
@@ -130,6 +139,7 @@ public struct ResolvedThreat: Equatable, Sendable {
         scoreBeforePathwayMitigation: Int,
         scoreBeforeControls: Int? = nil,
         compensating: [CompensatingControl] = [],
+        impactsOverride: [ThreatImpact] = [],
         scoreBeforeCompensation: Int? = nil,
         mitigatedByComponents: [ComponentMitigation] = [],
         likelihood: Likelihood = .commodity,
@@ -143,6 +153,7 @@ public struct ResolvedThreat: Equatable, Sendable {
     ) {
         self.scoreBeforeControls = scoreBeforeControls ?? score.value
         self.compensating = compensating
+        self.impactsOverride = impactsOverride
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? score.value
         self.threat = threat
         self.severity = severity
@@ -237,7 +248,10 @@ public struct ThreatResolver {
             let pair = "\(threat.threat.id.value)@\(threat.source.id)"
             guard raised.contains(pair) == false else { return }
             raised.insert(pair)
-            resolved.append(compensated(likelihooded(threat)))
+            var scored = compensated(likelihooded(threat))
+            let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
+            scored.impactsOverride = model.impactOverrides[key] ?? []
+            resolved.append(scored)
         }
 
         // The component carries the zone that holds it. Geometry decides it

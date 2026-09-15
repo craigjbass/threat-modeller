@@ -43,6 +43,9 @@ public struct SourceThreatAnswer: Equatable, Sendable {
     /// What a person decided this threat's severity is, and why, or nil when
     /// the catalogue's own severity stands.
     public let severityDecision: SeverityDecision?
+    /// What a team states this threat harms in this system, or empty when the
+    /// catalogue's own answer stands.
+    public let impacts: [String]
     public let controls: [SourceControlAnswer]
     public let compensating: [CompensatingControl]
     public let recommendations: [SourceRecommendation]
@@ -58,6 +61,7 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         score: Int? = nil,
         likelihood: LikelihoodFinding? = nil,
         severityDecision: SeverityDecision? = nil,
+        impacts: [String] = [],
         controls: [SourceControlAnswer] = [],
         compensating: [CompensatingControl] = [],
         recommendations: [SourceRecommendation] = [],
@@ -70,6 +74,7 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         self.score = score
         self.likelihood = likelihood
         self.severityDecision = severityDecision
+        self.impacts = impacts
         self.controls = controls
         self.compensating = compensating
         self.recommendations = recommendations

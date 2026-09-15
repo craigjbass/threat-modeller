@@ -29,6 +29,9 @@ public enum MarkdownToHtml {
         /// a paragraph shows its own "1." on every line.
         var listIsNumbered = false
         var wroteWholePicture = false
+        /// The lines of an open fenced block, and the word after its fence.
+        var fenced: [String]?
+        var fencedKind = ""
 
         func closeTable() {
             guard table.isEmpty == false else { return }
@@ -58,6 +61,32 @@ public enum MarkdownToHtml {
         }
 
         for line in markdown.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
+            // A fenced block is written as it stands. A mermaid diagram keeps
+            // its own class, so a page that loads a renderer draws it and a
+            // page that does not shows the source.
+            if line.hasPrefix("```") {
+                if var open = fenced {
+                    if open.isEmpty == false || fencedKind.isEmpty == false {
+                        let text = open.joined(separator: "\n")
+                        let classes = fencedKind.isEmpty ? "" : " class=\"\(fencedKind)\""
+                        body.append("<pre\(classes)>\(escaped(text))</pre>")
+                    }
+                    open = []
+                    fenced = nil
+                    fencedKind = ""
+                } else {
+                    closeTable()
+                    closeList()
+                    fenced = []
+                    fencedKind = String(line.dropFirst(3)).trimmed()
+                }
+                continue
+            }
+            if fenced != nil {
+                fenced?.append(line)
+                continue
+            }
+
             if line.hasPrefix("|") {
                 closeList()
                 table.append(line)

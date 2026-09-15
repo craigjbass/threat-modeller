@@ -179,6 +179,34 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveAssumption(models: models)
     }
 
+    func setSystemUseCase() -> SetSystemUseCaseUseCase {
+        SetSystemUseCase(models: models)
+    }
+
+    func removeSystemUseCase() -> RemoveSystemUseCaseUseCase {
+        RemoveSystemUseCase(models: models)
+    }
+
+    func setExclusion() -> SetExclusionUseCase {
+        SetExclusion(models: models)
+    }
+
+    func removeExclusion() -> RemoveExclusionUseCase {
+        RemoveExclusion(models: models)
+    }
+
+    func setSystemAsset() -> SetSystemAssetUseCase {
+        SetSystemAsset(models: models, catalogue: catalogue)
+    }
+
+    func removeSystemAsset() -> RemoveSystemAssetUseCase {
+        RemoveSystemAsset(models: models)
+    }
+
+    func setConnectionAssets() -> SetConnectionAssetsUseCase {
+        SetConnectionAssets(models: models)
+    }
+
     func setCompensatingControl() -> SetCompensatingControlUseCase {
         SetCompensatingControl(models: models)
     }

@@ -15,6 +15,17 @@ public struct ArchitectureSource: Equatable, Sendable {
     /// The risk level a likelihood finding may answer up to. Nil means low.
     public let riskTolerance: String?
     public let assumptions: [SourceAssumption]
+    /// What a person does with this system, in file order.
+    public let useCases: [SourceUseCase]
+    /// What this model does not cover, in file order.
+    public let exclusions: [SourceExclusion]
+    /// The named things of value this system holds, in file order.
+    public let systemAssets: [SourceSystemAsset]
+    /// The companies, projects and people outside this team the system
+    /// depends on, in file order.
+    public let thirdParties: [SourceThirdParty]
+    /// The pictures the team keeps beside the diagram, in file order.
+    public let diagrams: [SourceDiagram]
     /// The risk level at and above which an implemented control must state
     /// evidence, or nil when the file states no such rule.
     public let requiresEvidenceAbove: String?
@@ -52,6 +63,11 @@ public struct ArchitectureSource: Equatable, Sendable {
         mitigates: [SourceMitigates] = [],
         riskTolerance: String? = nil,
         assumptions: [SourceAssumption] = [],
+        useCases: [SourceUseCase] = [],
+        exclusions: [SourceExclusion] = [],
+        systemAssets: [SourceSystemAsset] = [],
+        thirdParties: [SourceThirdParty] = [],
+        diagrams: [SourceDiagram] = [],
         requiresEvidenceAbove: String? = nil,
         owner: String? = nil,
         faces: [String] = [],
@@ -82,6 +98,11 @@ public struct ArchitectureSource: Equatable, Sendable {
         self.mitigates = mitigates
         self.riskTolerance = riskTolerance
         self.assumptions = assumptions
+        self.useCases = useCases
+        self.exclusions = exclusions
+        self.systemAssets = systemAssets
+        self.thirdParties = thirdParties
+        self.diagrams = diagrams
         self.requiresEvidenceAbove = requiresEvidenceAbove
         self.owner = owner
         self.faces = faces
@@ -167,6 +188,13 @@ public struct SourceComponent: Equatable, Sendable {
     public let raisesThreats: Bool
     public let runsAs: String
     public let assets: [SourceAsset]
+    /// The system asset ids this component holds, in file order.
+    public let holds: [String]
+    /// The third party that provides this component, or nil.
+    public let providedBy: String?
+    /// What the file stated for `data`, or nil when it stated none. A
+    /// component that states none takes the highest classification it holds.
+    public let declaredData: String?
     /// The diagram shape the file forces, or nil to let the derivation decide.
     public let shape: String?
 
@@ -178,6 +206,9 @@ public struct SourceComponent: Equatable, Sendable {
         raisesThreats: Bool = true,
         runsAs: String = "user",
         assets: [SourceAsset] = [],
+        holds: [String] = [],
+        providedBy: String? = nil,
+        declaredData: String? = nil,
         shape: String? = nil
     ) {
         self.id = id
@@ -187,6 +218,9 @@ public struct SourceComponent: Equatable, Sendable {
         self.raisesThreats = raisesThreats
         self.runsAs = runsAs
         self.assets = assets
+        self.holds = holds
+        self.providedBy = providedBy
+        self.declaredData = declaredData
         self.shape = shape
     }
 }
@@ -206,13 +240,17 @@ public struct SourceFlow: Equatable, Sendable {
     public let targetId: String
     public let kind: String
     public let description: String?
+    /// The system asset ids this flow carries, in file order.
+    public let carries: [String]
 
     public init(
         sourceId: String,
         targetId: String,
         kind: String = "network",
-        description: String? = nil
+        description: String? = nil,
+        carries: [String] = []
     ) {
+        self.carries = carries
         self.sourceId = sourceId
         self.targetId = targetId
         self.kind = kind
@@ -306,6 +344,109 @@ public struct SourceAssumption: Equatable, Sendable {
         self.label = label
         self.text = text
         self.owner = owner
+    }
+}
+
+/// One picture a team keeps beside the diagram the canvas draws.
+public struct SourceDiagram: Equatable, Sendable {
+    public let label: String
+    /// `mermaid`, the one kind this application draws.
+    public let kind: String
+    /// The picture's source, byte for byte as the file states it.
+    public let text: String
+
+    public init(label: String, kind: String = "mermaid", text: String) {
+        self.label = label
+        self.kind = kind
+        self.text = text
+    }
+}
+
+/// One party outside this team the system depends on.
+public struct SourceThirdParty: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let description: String
+    /// `saas`, `open_source`, `infrastructure` or `contractor`.
+    public let kind: String
+    /// Whether the team pays this party for the thing it provides.
+    public let payingCustomer: Bool
+    /// What happens to this system when the party stops: `none`, `degraded`,
+    /// `hard` or `operational`.
+    public let uptime: String
+    public let uptimeNotes: String
+    public let owner: String?
+    public let link: String?
+
+    public init(
+        id: String,
+        name: String,
+        description: String = "",
+        kind: String = "saas",
+        payingCustomer: Bool = false,
+        uptime: String,
+        uptimeNotes: String = "",
+        owner: String? = nil,
+        link: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.kind = kind
+        self.payingCustomer = payingCustomer
+        self.uptime = uptime
+        self.uptimeNotes = uptimeNotes
+        self.owner = owner
+        self.link = link
+    }
+}
+
+/// One named thing of value the system holds. The label is its identifier,
+/// and a component states which of these it holds.
+public struct SourceSystemAsset: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    /// A classification id, taking the words `data` takes.
+    public let classification: String
+    public let description: String
+    public let owner: String?
+
+    public init(
+        id: String,
+        name: String,
+        classification: String = "internal",
+        description: String = "",
+        owner: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.classification = classification
+        self.description = description
+        self.owner = owner
+    }
+}
+
+/// One thing a person does with the system.
+public struct SourceUseCase: Equatable, Sendable {
+    public let label: String
+    public let text: String
+
+    public init(label: String, text: String) {
+        self.label = label
+        self.text = text
+    }
+}
+
+/// One thing this model does not cover, and why.
+public struct SourceExclusion: Equatable, Sendable {
+    public let label: String
+    public let text: String
+    public let rationale: String
+
+    public init(label: String, text: String, rationale: String) {
+        self.label = label
+        self.text = text
+        self.rationale = rationale
     }
 }
 

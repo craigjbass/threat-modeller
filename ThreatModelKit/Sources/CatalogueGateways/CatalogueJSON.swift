@@ -64,6 +64,8 @@ struct ThreatJSON: Decodable {
     let description: String
     let severity: String
     let stride: [String]
+    /// What this threat harms. Absent means the STRIDE categories decide.
+    let impacts: [String]?
     let mitreTechniques: [Mitre]
     let controls: [ControlEntry]
     let isConnectionThreat: Bool?

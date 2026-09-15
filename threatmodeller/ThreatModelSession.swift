@@ -880,7 +880,8 @@ final class ThreatModelSession {
         sensitivityId: String,
         threatsDisabled: Bool,
         runsAsId: String,
-        shapeId: String? = nil
+        shapeId: String? = nil,
+        holds: [String]? = nil
     ) {
         switch useCases.setComponentProperties().execute(
             SetComponentPropertiesRequest(
@@ -889,7 +890,8 @@ final class ThreatModelSession {
                 sensitivity: sensitivityId,
                 threatsDisabled: threatsDisabled,
                 runsAs: runsAsId,
-                shape: shapeId
+                shape: shapeId,
+                holds: holds
             )
         ) {
         case .updated:
@@ -902,6 +904,8 @@ final class ThreatModelSession {
             errorMessage = "That privilege level is not recognised."
         case .unknownShape:
             errorMessage = "That shape is not one this application holds."
+        case .unknownAsset:
+            errorMessage = "This system declares no such asset."
         }
 
         refresh()
@@ -948,6 +952,73 @@ final class ThreatModelSession {
     func removeAssumption(label: String) {
         useCases.removeAssumption()
             .execute(RemoveAssumptionRequest(label: label))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    // MARK: the named things of value the system holds
+
+    func setSystemAsset(
+        id: String,
+        name: String,
+        classificationId: String,
+        description: String = "",
+        owner: String? = nil
+    ) {
+        useCases.setSystemAsset()
+            .execute(
+                SetSystemAssetRequest(
+                    id: id,
+                    name: name,
+                    classification: classificationId,
+                    description: description,
+                    owner: owner
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func removeSystemAsset(id: String) {
+        useCases.removeSystemAsset()
+            .execute(RemoveSystemAssetRequest(id: id))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func setConnectionAssets(connectionId: String, carries: [String]) {
+        useCases.setConnectionAssets()
+            .execute(SetConnectionAssetsRequest(connectionId: connectionId, carries: carries))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    // MARK: what the model covers and what it leaves out
+
+    func setSystemUseCase(label: String, text: String) {
+        useCases.setSystemUseCase()
+            .execute(SetSystemUseCaseRequest(label: label, text: text))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func removeSystemUseCase(label: String) {
+        useCases.removeSystemUseCase()
+            .execute(RemoveSystemUseCaseRequest(label: label))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func setExclusion(label: String, text: String, rationale: String) {
+        useCases.setExclusion()
+            .execute(SetExclusionRequest(label: label, text: text, rationale: rationale))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func removeExclusion(label: String) {
+        useCases.removeExclusion()
+            .execute(RemoveExclusionRequest(label: label))
             .describe(into: &errorMessage)
         refresh()
     }

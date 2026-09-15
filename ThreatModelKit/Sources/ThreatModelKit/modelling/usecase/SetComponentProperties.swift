@@ -15,6 +15,9 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
     public let runsAs: String
     /// The shape the user forced, or nil to let the derivation decide.
     public let shape: String?
+    /// The system asset ids this component holds. Nil leaves what it holds
+    /// alone, so a panel that does not offer assets changes none.
+    public let holds: [String]?
 
     public init(
         componentId: String,
@@ -22,8 +25,10 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
         sensitivity: String,
         threatsDisabled: Bool,
         runsAs: String,
-        shape: String? = nil
+        shape: String? = nil,
+        holds: [String]? = nil
     ) {
+        self.holds = holds
         self.componentId = componentId
         self.name = name
         self.sensitivity = sensitivity
@@ -39,6 +44,7 @@ public enum SetComponentPropertiesResponse: Equatable, Sendable {
     case unknownSensitivity
     case unknownPrivilegeLevel
     case unknownShape
+    case unknownAsset
 }
 
 /// Changes what a node is called, how sensitive its data is, what shape it
@@ -77,6 +83,11 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
         return models.mutate(label: ChangeLabel.setComponentProperties) { model in
             guard let index = model.components.firstIndex(where: { $0.id == componentId }) else {
                 return .unknownComponent
+            }
+            if let holds = request.holds {
+                let declared = Set(model.systemAssets.map(\.id))
+                guard holds.allSatisfy(declared.contains) else { return .unknownAsset }
+                model.components[index].holds = holds
             }
 
             model.components[index].customName = name.isEmpty ? nil : name

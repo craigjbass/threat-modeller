@@ -84,6 +84,12 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             components: report.components,
             direction: report.change?.direction
         )
+        lines += MarkdownScope.lines(
+            useCases: report.useCases,
+            exclusions: report.exclusions
+        )
+        lines += MarkdownDataInventory.lines(report.dataInventory)
+        lines += MarkdownThirdParties.lines(report.thirdParties)
         lines += MarkdownPolicy.lines(report.policy)
         lines += MarkdownRiskOverTime.lines(
             report.history,
@@ -118,6 +124,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         lines += MarkdownGlossary.lines()
         lines += threatRegister(report.threats, summary: report.summary)
         lines += modelInventory(report)
+        lines += MarkdownDiagrams.lines(report.diagrams)
         lines += MarkdownAttackPaths.appendixLines(
             report.attackPathsNotListed,
             beyond: report.attackPathsBeyondAppendix

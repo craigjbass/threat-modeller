@@ -84,6 +84,20 @@ struct ComponentPanel: View {
             .frame(width: 150)
             .accessibilityIdentifier("component-runs-as")
 
+            // The assets a system declares are a multiple choice: a component
+            // holds none, one or many, and the menu states which.
+            if session.canvas.systemAssets.isEmpty == false {
+                Menu {
+                    ForEach(session.canvas.systemAssets, id: \.id) { asset in
+                        Toggle(asset.name, isOn: holds(asset.id))
+                    }
+                } label: {
+                    Text(heldLabel)
+                }
+                .frame(width: 200)
+                .accessibilityIdentifier("component-holds")
+            }
+
             Toggle("Raise threats", isOn: threatsRaised)
                 .toggleStyle(.switch)
                 .accessibilityIdentifier("component-threats-raised")
@@ -94,6 +108,30 @@ struct ComponentPanel: View {
         .padding(.vertical, 8)
     }
 
+    /// What the menu reads when it is closed.
+    private var heldLabel: String {
+        guard component.holds.isEmpty == false else { return "Holds nothing" }
+        let names = component.holds.compactMap { id in
+            session.canvas.systemAssets.first { $0.id == id }?.name
+        }
+        return names.count == 1 ? "Holds \(names[0])" : "Holds \(names.count) assets"
+    }
+
+    private func holds(_ assetId: String) -> Binding<Bool> {
+        Binding(
+            get: { component.holds.contains(assetId) },
+            set: { wanted in
+                var held = component.holds
+                if wanted {
+                    if held.contains(assetId) == false { held.append(assetId) }
+                } else {
+                    held.removeAll { $0 == assetId }
+                }
+                write(holds: held)
+            }
+        )
+    }
+
     // MARK: writing through
 
     private func write(
@@ -101,7 +139,8 @@ struct ComponentPanel: View {
         sensitivity newSensitivity: String? = nil,
         threatsDisabled newThreatsDisabled: Bool? = nil,
         runsAs newRunsAs: String? = nil,
-        shape newShape: String? = nil
+        shape newShape: String? = nil,
+        holds newHolds: [String]? = nil
     ) {
         let picked = newShape ?? component.shapeOverrideId ?? ""
 
@@ -111,7 +150,8 @@ struct ComponentPanel: View {
             sensitivityId: newSensitivity ?? component.sensitivityId,
             threatsDisabled: newThreatsDisabled ?? component.threatsDisabled,
             runsAsId: newRunsAs ?? component.runsAsId,
-            shapeId: picked.isEmpty ? nil : picked
+            shapeId: picked.isEmpty ? nil : picked,
+            holds: newHolds
         )
     }
 

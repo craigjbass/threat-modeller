@@ -159,6 +159,8 @@ public struct SourceLibraryThreat: Equatable, Sendable {
     /// A severity id. The taxonomy says which ids exist, so the build checks it.
     public let severityLabel: String
     public let strideIds: [String]
+    /// What this threat harms. Empty means the STRIDE categories decide.
+    public let impacts: [String]
     public let isConnectionThreat: Bool
     public let isZoneThreat: Bool
     public let zoneContext: String?
@@ -182,6 +184,7 @@ public struct SourceLibraryThreat: Equatable, Sendable {
         description: String = "",
         severityLabel: String,
         strideIds: [String] = [],
+        impacts: [String] = [],
         isConnectionThreat: Bool = false,
         isZoneThreat: Bool = false,
         zoneContext: String? = nil,
@@ -198,6 +201,7 @@ public struct SourceLibraryThreat: Equatable, Sendable {
         self.description = description
         self.severityLabel = severityLabel
         self.strideIds = strideIds
+        self.impacts = impacts
         self.isConnectionThreat = isConnectionThreat
         self.isZoneThreat = isZoneThreat
         self.zoneContext = zoneContext

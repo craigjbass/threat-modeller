@@ -235,6 +235,7 @@ public extension Library {
                 severity: severity
                     ?? ThreatSeverity(id: threat.severityLabel, label: threat.severityLabel, rank: 1),
                 stride: threat.strideIds.map(StrideId.init),
+                impacts: threat.impacts.compactMap(ThreatImpact.init(rawValue:)),
                 mitreTechniques: threat.mitre.map {
                     MitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
                 },

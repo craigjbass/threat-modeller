@@ -40,6 +40,13 @@ public protocol UseCaseFactory: Sendable {
     func removeMitigatesEdge() -> RemoveMitigatesEdgeUseCase
     func setAssumption() -> SetAssumptionUseCase
     func removeAssumption() -> RemoveAssumptionUseCase
+    func setSystemUseCase() -> SetSystemUseCaseUseCase
+    func removeSystemUseCase() -> RemoveSystemUseCaseUseCase
+    func setExclusion() -> SetExclusionUseCase
+    func removeExclusion() -> RemoveExclusionUseCase
+    func setSystemAsset() -> SetSystemAssetUseCase
+    func removeSystemAsset() -> RemoveSystemAssetUseCase
+    func setConnectionAssets() -> SetConnectionAssetsUseCase
     func setCompensatingControl() -> SetCompensatingControlUseCase
     func compileControls() -> CompileControlsUseCase
     func applyControlAnswers() -> ApplyControlAnswersUseCase

@@ -73,6 +73,25 @@ struct ArchitectureWriter {
             body.append("")
         }
 
+        for useCase in source.useCases {
+            body.append("use_case \(quoted(useCase.label)) {")
+            body += indent(aligned([("text", quoted(useCase.text))]))
+            body.append("}")
+            body.append("")
+        }
+
+        for exclusion in source.exclusions {
+            body.append("exclusion \(quoted(exclusion.label)) {")
+            body += indent(
+                aligned([
+                    ("text", quoted(exclusion.text)),
+                    ("rationale", quoted(exclusion.rationale))
+                ])
+            )
+            body.append("}")
+            body.append("")
+        }
+
         if let catalogueTag = source.catalogueTag {
             body += aligned([("catalogue", quoted(catalogueTag))])
             body.append("")
@@ -174,13 +193,62 @@ struct ArchitectureWriter {
             body.append("")
         }
 
+        for asset in source.systemAssets {
+            body.append("asset \(quoted(asset.id)) {")
+            var attributes: [(String, String)] = [("name", quoted(asset.name))]
+            attributes.append(("classification", quoted(asset.classification)))
+            if asset.description.isEmpty == false {
+                attributes.append(("description", quoted(asset.description)))
+            }
+            if let owner = asset.owner {
+                attributes.append(("owner", quoted(owner)))
+            }
+            body += indent(aligned(attributes))
+            body.append("}")
+            body.append("")
+        }
+
+        // A heredoc body is written where it stands, with no indent added:
+        // the picture reads back byte for byte.
+        for diagram in source.diagrams {
+            body.append("diagram \(quoted(diagram.label)) {")
+            body.append("  kind = \(quoted(diagram.kind))")
+            body.append("  text = <<EOT")
+            body += diagram.text
+                .split(separator: "\n", omittingEmptySubsequences: false)
+                .map { Self.verbatimMark + $0 }
+            if diagram.text.hasSuffix("\n") { body.removeLast() }
+            body.append(Self.verbatimMark + "EOT")
+            body.append("}")
+            body.append("")
+        }
+
+        for party in source.thirdParties {
+            body.append("third_party \(quoted(party.id)) {")
+            var attributes: [(String, String)] = [("name", quoted(party.name))]
+            if party.description.isEmpty == false {
+                attributes.append(("description", quoted(party.description)))
+            }
+            attributes.append(("kind", quoted(party.kind)))
+            if party.payingCustomer { attributes.append(("paying_customer", "true")) }
+            attributes.append(("uptime", quoted(party.uptime)))
+            if party.uptimeNotes.isEmpty == false {
+                attributes.append(("uptime_notes", quoted(party.uptimeNotes)))
+            }
+            if let owner = party.owner { attributes.append(("owner", quoted(owner))) }
+            if let link = party.link { attributes.append(("link", quoted(link))) }
+            body += indent(aligned(attributes))
+            body.append("}")
+            body.append("")
+        }
+
         for component in source.components {
             body += componentBlock(component)
             body.append("")
         }
 
         for flow in source.flows {
-            if flow.kind == "network" && flow.description == nil {
+            if flow.kind == "network" && flow.description == nil && flow.carries.isEmpty {
                 body.append("flow \(flow.sourceId) -> \(flow.targetId)")
                 continue
             }
@@ -188,6 +256,11 @@ struct ArchitectureWriter {
             var attributes: [(String, String)] = [("kind", quoted(flow.kind))]
             if let description = flow.description {
                 attributes.append(("description", quoted(description)))
+            }
+            if flow.carries.isEmpty == false {
+                attributes.append(
+                    ("carries", "[" + flow.carries.map(quoted).joined(separator: ", ") + "]")
+                )
             }
             body += indent(aligned(attributes))
             body.append("}")
@@ -233,14 +306,29 @@ struct ArchitectureWriter {
             lines += indent(body)
             lines.append("}")
         }
-        return lines.joined(separator: "\n") + "\n"
+        return lines
+            .map { $0.hasPrefix(Self.verbatimMark) ? String($0.dropFirst()) : $0 }
+            .joined(separator: "\n") + "\n"
     }
 
     private func componentBlock(_ component: SourceComponent) -> [String] {
         var lines = ["component \(quoted(component.id)) {"]
         var attributes: [(String, String)] = [("technology", quoted(component.technologyId))]
         if let name = component.name { attributes.append(("name", quoted(name))) }
-        attributes.append(("data", quoted(component.data)))
+        // A component that states no classification of its own writes no
+        // `data` line: the assets it holds decide, and writing the derived
+        // word would make a file that says two things.
+        if let declared = component.declaredData {
+            attributes.append(("data", quoted(declared)))
+        }
+        if component.holds.isEmpty == false {
+            attributes.append(
+                ("holds", "[" + component.holds.map(quoted).joined(separator: ", ") + "]")
+            )
+        }
+        if let providedBy = component.providedBy {
+            attributes.append(("provided_by", quoted(providedBy)))
+        }
         if component.runsAs != "user" { attributes.append(("runs_as", quoted(component.runsAs))) }
         if component.raisesThreats == false { attributes.append(("threats", "false")) }
         if let shape = component.shape { attributes.append(("shape", quoted(shape))) }
@@ -265,8 +353,17 @@ struct ArchitectureWriter {
     }
 
     private func indent(_ lines: [String]) -> [String] {
-        lines.map { $0.isEmpty ? "" : "  " + $0 }
+        lines.map { line in
+            // A heredoc line stands where the team wrote it. Indenting it
+            // would change the picture the file holds.
+            if line.hasPrefix(Self.verbatimMark) { return line }
+            return line.isEmpty ? "" : "  " + line
+        }
     }
+
+    /// Marks a line no indent may touch. It is taken off before the file is
+    /// written, so nothing reaches the disk holding it.
+    static let verbatimMark = "\u{0}"
 
     /// A list of texts, the way every list attribute writes.
     private func list(_ values: [String]) -> String {

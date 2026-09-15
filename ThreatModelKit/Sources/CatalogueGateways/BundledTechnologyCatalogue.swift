@@ -133,6 +133,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
                 description: entry.description,
                 severity: severity,
                 stride: entry.stride.map(StrideId.init),
+                impacts: (entry.impacts ?? []).compactMap(ThreatImpact.init(rawValue:)),
                 mitreTechniques: entry.mitreTechniques.map {
                     MitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
                 },

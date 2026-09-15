@@ -118,14 +118,17 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `risk_tolerance`, `assumption`, `text`, `owner`, `technology`, `name`,
 `category`, `description`, `threats`, `encrypts`, `zone`, `kind`, `network`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
-`shape`, `asset`, `flow`, `mitigates`, `status`, `recommendation`, `note`,
+`shape`, `asset`, `holds`, `carries`, `classification`, `third_party`,
+`provided_by`, `paying_customer`, `uptime`, `uptime_notes`, `kind`, `link`,
+`diagram`, `text`, `flow`, `mitigates`,
+`status`, `recommendation`, `note`,
 `blocked_by`, `sources`, `faces`, `threat_actor`, `aliases`, `capability`,
 `intent`, `performs`, `techniques`, `performs_catalogue_tier`,
 `requires_evidence_above`.
 
 The controls language reads these keywords: `controls`, `for`, `catalogue`,
 `tolerance`, `stale`, `threat`, `on`, `severity`, `score`, `likelihood`,
-`tier`, `prior`, `rationale`, `sources`, `severity_override`, `control`,
+`tier`, `prior`, `rationale`, `sources`, `impacts`, `severity_override`, `control`,
 `status`, `note`, `compensating`, `reduces_risk_by`, `recommendation`,
 `evidence`, `reference`, `verified_on`, `tree`, `goal`, `chain`, `score_before`,
 `step`, `by`.
@@ -143,7 +146,7 @@ The governance language reads these keywords: `governance`, `for`, `threat`,
 
 The library language reads these keywords: `library`, `name`, `catalogue`,
 `technology`, `category`, `description`, `threats`, `encrypts`, `threat`,
-`severity`, `stride`, `connection`, `zone`, `zone_context`, `applies_to`,
+`severity`, `stride`, `impacts`, `connection`, `zone`, `zone_context`, `applies_to`,
 `boundary`, `runs_as`, `pathway`, `likelihood`, `mitre`, `tactic`, `control`,
 `mitigation`, `mitigates`, `provided_by`, `reduces_risk_by`, `mode`,
 `threat_actor`, `aliases`, `capability`, `intent`, `performs`, `techniques`,
@@ -335,7 +338,15 @@ SystemEntry  = CatalogueAttr
              | FlowStatement
              | MitigatesBlock
              | AssumptionBlock
+             | UseCaseBlock
+             | ExclusionBlock
+             | SystemAssetBlock
+             | ThirdPartyBlock
+             | DiagramBlock
              | ThreatActorBlock ;
+
+UseCaseBlock   = "use_case" String "{" "text" "=" String "}" ;
+ExclusionBlock = "exclusion" String "{" "text" "=" String "rationale" "=" String "}" ;
 
 CatalogueAttr     = "catalogue" "=" String ;
 RiskToleranceAttr = "risk_tolerance" "=" String ;
@@ -374,19 +385,44 @@ ZoneEntry = "kind"            "=" String
           | ComponentBlock ;
 
 ComponentBlock = "component" String "{" { ComponentEntry } "}" ;
-ComponentEntry = "technology" "=" String
-               | "name"       "=" String
-               | "data"       "=" String
-               | "runs_as"    "=" String
-               | "shape"      "=" String
-               | "threats"    "=" Boolean
+ComponentEntry = "technology"  "=" String
+               | "name"        "=" String
+               | "data"        "=" String
+               | "holds"       "=" StringList
+               | "provided_by" "=" String
+               | "runs_as"     "=" String
+               | "shape"       "=" String
+               | "threats"     "=" Boolean
                | AssetBlock ;
 
 AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;
 
+SystemAssetBlock = "asset" String "{" { SystemAssetEntry } "}" ;
+
+DiagramBlock = "diagram" String "{" { DiagramEntry } "}" ;
+DiagramEntry = "kind" "=" String
+             | "text" "=" ( String | Heredoc ) ;
+
+Heredoc = "<<" Identifier Newline { AnyLine } Identifier ;
+
+ThirdPartyBlock = "third_party" String "{" { ThirdPartyEntry } "}" ;
+ThirdPartyEntry = "name"            "=" String
+                | "description"     "=" String
+                | "kind"            "=" String
+                | "paying_customer" "=" Boolean
+                | "uptime"          "=" String
+                | "uptime_notes"    "=" String
+                | "owner"           "=" String
+                | "link"            "=" String ;
+SystemAssetEntry = "name"           "=" String
+                 | "classification" "=" String
+                 | "description"    "=" String
+                 | "owner"          "=" String ;
+
 FlowStatement = "flow" Identifier "->" Identifier [ "{" { FlowEntry } "}" ] ;
 FlowEntry     = "kind"        "=" String
-              | "description" "=" String ;
+              | "description" "=" String
+              | "carries"     "=" StringList ;
 
 MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
 MitigatesEntry = "threats"         "=" StringList
@@ -530,6 +566,47 @@ fills both lists from the model, `MarkdownAssumptions` writes the section, and
 states no assumption and assumes no mitigation writes no `## Assumptions`
 section at all.
 
+**`use_case` and `exclusion`.** A system states what a person does with it and
+what this model leaves out. A reader of the report can then tell a flow that
+was modelled and found safe from a flow nobody modelled.
+
+```hcl
+system "Payments" {
+  use_case "take-a-payment" {
+    text = "A customer pays for a basket."
+  }
+
+  exclusion "the card network" {
+    text      = "This model does not cover the card network."
+    rationale = "Another team owns it and models it."
+  }
+}
+```
+
+The label names the use case or the exclusion.
+
+| Block | Attribute | Type | Values | Default |
+| --- | --- | --- | --- | --- |
+| `use_case` | `text` | string | any, and not empty | **required** |
+| `exclusion` | `text` | string | any, and not empty | **required** |
+| `exclusion` | `rationale` | string | any, and not empty | **required** |
+
+A `use_case` with no `text` is the error `the use_case "<label>" has no text`,
+and the block is dropped. An `exclusion` with no `text` is the error `the
+exclusion "<label>" has no text`. An `exclusion` with no `rationale` is the
+error `the exclusion "<label>" has no rationale; an exclusion with no reason is
+a gap`: a reader cannot tell a decision from an oversight.
+
+WARNING: an exclusion whose label names a component the same system draws is
+the warning `the exclusion "<label>" names a component this system draws; a
+thing both drawn and excluded is a contradiction`. The file still reads, and
+the exclusion still stands.
+
+The report's `## Scope` section reads after the executive summary, with the use
+cases first and the exclusions second. The executive summary states how many
+exclusions the model holds. A system that states neither writes no `## Scope`
+section.
+
 ### 4.3 `technology`
 
 A `technology` block declares a technology the vendored catalogue does not hold.
@@ -653,8 +730,151 @@ A block with no `technology` is the error
 `component` block at the top level of the `system` block sits outside every
 zone.
 
-**`asset`.** A component may hold one or more `asset` blocks. An asset is a
-thing of value the component holds, separate from the component itself.
+**`asset` on the system.** A system names the things of value it holds. A
+component then states which of them it holds, and a flow states which it
+carries, so one classification is written once and read wherever the asset
+goes.
+
+```hcl
+system "Payments" {
+  asset "card-numbers" {
+    name           = "Card numbers"
+    classification = "restricted"
+    description    = "The primary account numbers customers type."
+    owner          = "Payments team"
+  }
+
+  component "api" {
+    technology = "aws-ec2"
+    holds      = ["card-numbers"]
+  }
+
+  flow api -> ledger {
+    kind    = "network"
+    carries = ["card-numbers"]
+  }
+}
+```
+
+The label is the asset's identifier, which `holds` and `carries` name.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `name` | string | any, and not empty | **required** |
+| `classification` | string | the words `data` takes | `internal` |
+| `description` | string | any | empty |
+| `owner` | string | any | none |
+
+A component that states `holds` and no `data` of its own takes the highest
+classification it holds. A component that states both keeps its own `data`
+word; a `data` word below one it holds is the warning `the component "<id>"
+states data "<word>" and holds "<asset id>", which is "<word>"`, and the file
+still reads.
+
+WARNING: a `holds` or a `carries` entry naming an asset no block declares is
+an error, and the file does not read. A flow carrying an asset the component
+it starts at does not hold is a warning, and the file still reads.
+
+The report writes a `## Data inventory` section after `## Scope`: one row per
+asset with its classification, its owner, the components that hold it, the
+flows that carry it and the worst threat nobody has answered on any of them.
+Each threat stanza names the assets at risk on the element that raised it. A
+system that declares no asset writes no section, and scores exactly what it
+scored before.
+
+**`diagram`.** A team keeps pictures the data-flow diagram cannot draw: a
+sequence of a login, a deployment. A `diagram` block holds one, and the report
+writes it under `## Diagrams` after the model inventory.
+
+```hcl
+system "Payments" {
+  diagram "The login sequence" {
+    kind = "mermaid"
+    text = <<EOT
+sequenceDiagram
+  Customer->>API: signs in
+  API->>Database: reads the account
+EOT
+  }
+}
+```
+
+The label is what the report calls the picture.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `kind` | string | `mermaid` | `mermaid` |
+| `text` | string or heredoc | any, and not only whitespace | **required** |
+
+**The heredoc rule.** `<<TAG` starts a heredoc. The body starts on the next
+line and ends at the first line holding the tag alone, whatever indents that
+line. Every byte between the two stays as it is: no escape is read, no indent
+is taken off and none is added. `format` writes the body at the left margin
+with its `EOT` line at the left margin too, so a round trip gives the file it
+read. A heredoc with no closing line is the error `this heredoc has no closing
+"<tag>" line`.
+
+GitHub draws a fenced `mermaid` block. The HTML report writes the same source
+in a `<pre class="mermaid">` block: the page states the picture's source
+rather than shipping a renderer, and a page that loads one draws it from that
+same block.
+
+**`third_party`.** A box on the diagram states a technology. A `third_party`
+block states which company, project or person runs it, what the team pays and
+what happens when it stops. A component names one with `provided_by`.
+
+```hcl
+system "Payments" {
+  third_party "stripe" {
+    name            = "Stripe"
+    description     = "The company that takes the card payment."
+    kind            = "saas"
+    paying_customer = true
+    uptime          = "hard"
+    uptime_notes    = "No payment is taken while Stripe is down."
+    owner           = "Payments team"
+    link            = "https://stripe.com"
+  }
+
+  component "checkout" {
+    technology  = "aws-ec2"
+    provided_by = "stripe"
+  }
+}
+```
+
+The label is the third party's identifier, which `provided_by` names.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `name` | string | any, and not empty | **required** |
+| `description` | string | any | empty |
+| `kind` | string | `saas`, `open_source`, `infrastructure`, `contractor` | `saas` |
+| `paying_customer` | boolean | `true`, `false` | `false` |
+| `uptime` | string | `none`, `degraded`, `hard`, `operational` | **required** |
+| `uptime_notes` | string | any | empty |
+| `owner` | string | any | none |
+| `link` | string | any | none |
+
+`uptime` states what happens to this system when the party stops. `none` means
+the system runs as it always did. `degraded` means the system runs and
+something a person notices stops working. `hard` means the system stops.
+`operational` means the system runs and the team cannot operate it.
+
+WARNING: a `provided_by` naming a party no block declares is an error, and the
+file does not read. A `hard` dependency that no assumption names is the warning
+`this system cannot run without "<name>" and no assumption names it`: a
+dependency nobody has thought about is the one that fails.
+
+The report writes a `## Third parties` section after `## Data inventory`: one
+row per party with its kind, whether the team pays, its uptime dependency, the
+components it provides and the assets those components hold. The executive
+summary states how many parties the system cannot run without. A system that
+names none writes no section.
+
+**`asset` on a component.** A component may hold one or more `asset` blocks. An
+asset here is a thing of value the component holds, named on the component
+rather than on the system.
 
 ```hcl
 component "workstation" {
@@ -905,6 +1125,7 @@ ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String "{" { ThreatEnt
 SourceKind  = "component" | "zone" | "flow" ;
 ThreatEntry = "severity" "=" String
             | "score"    "=" Number
+            | "impacts"  "=" StringList
             | LikelihoodBlock
             | SeverityOverrideBlock
             | ControlBlock
@@ -998,10 +1219,33 @@ threat "t-mitm" on flow "cdn->api" { }
 | --- | --- | --- |
 | `severity` | string | the severity, restated from the catalogue so the file reads alone |
 | `score` | number | the score, restated the same way |
+| `impacts` | a list of `confidentiality`, `integrity`, `availability` | what this threat harms in this system |
 
 WARNING: `severity` and `score` are written for the reader. The application
 recomputes both from the catalogue and the answers, so an edit to either changes
 nothing.
+
+`impacts` is the team's answer, and the application keeps it. A threat that
+states none harms what the catalogue says it harms, and the catalogue's own
+answer comes from the threat's stride categories when the threat states no
+impact of its own:
+
+| Stride category | What it harms |
+| --- | --- |
+| `spoofing` | confidentiality |
+| `information-disclosure` | confidentiality |
+| `tampering` | integrity |
+| `repudiation` | integrity |
+| `denial-of-service` | availability |
+| `elevation-of-privilege` | confidentiality, integrity, availability |
+
+A threat that states no stride category, and one whose categories are outside
+this table, harms all three. An `impacts` list holding a word outside the three
+is the warning `impacts holds "<word>"; this application holds confidentiality,
+integrity and availability`, and the word is dropped.
+
+An impact labels a threat and moves no number: the score is what section 3 of
+the design states, whatever the threat harms.
 
 An empty body means the threat is raised and nothing answers it:
 
@@ -1509,6 +1753,7 @@ ThreatEntry = "name"         "=" String
             | "description"  "=" String
             | "severity"     "=" String
             | "stride"       "=" StringList
+            | "impacts"      "=" StringList
             | "connection"   "=" Boolean
             | "zone"         "=" Boolean
             | "zone_context" "=" String
@@ -1556,6 +1801,7 @@ read.
 | | | `description` | string | empty |
 | | | `severity` | a severity id from the taxonomy | **required** |
 | | | `stride` | a list of stride ids | empty |
+| | | `impacts` | a list of `confidentiality`, `integrity`, `availability` | what the stride categories decide |
 | | | `connection` | `true` or `false` | `false` |
 | | | `zone` | `true` or `false` | `false` |
 | | | `zone_context` | string | none |
@@ -2196,13 +2442,29 @@ entry" or "an unknown attribute".
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
-| architecture | `component` | `a component holds technology, name, data, threats, runs_as, shape and asset, not "<word>"` |
+| architecture | `component` | `a component holds technology, name, data, holds, provided_by, threats, runs_as, shape and asset, not "<word>"` |
+| architecture | `third_party` | `a third_party holds name, description, kind, paying_customer, uptime, uptime_notes, owner and link, not "<word>"` |
+| architecture | `third_party` | `the third party "<id>" has no name` |
+| architecture | `third_party` | `the third party "<id>" states no uptime; state "none", "degraded", "hard" or "operational"` |
+| architecture | `component` | `the component "<id>" is provided by "<id>", which no third_party declares` |
+| architecture | `third_party` | `this system cannot run without "<name>" and no assumption names it` |
+| architecture | `diagram` | `a diagram holds kind and text, not "<word>"` |
+| architecture | `diagram` | `the diagram "<label>" has no text` |
+| architecture | heredoc | `a heredoc starts "<<" and a tag, as in "<<EOT"` |
+| architecture | heredoc | `this heredoc has no closing "<tag>" line` |
 | architecture | `asset` | `an asset holds data, not "<word>"` |
+| architecture | `asset` | `an asset holds name, classification, description and owner, not "<word>"` |
+| architecture | `asset` | `the asset "<id>" has no name` |
+| architecture | `component` | `the component "<id>" holds "<asset id>", which no asset declares` |
+| architecture | `flow` | `the flow "<id>" carries "<asset id>", which no asset declares` |
+| architecture | `flow` | `the flow "<id>" carries "<asset id>", which the component "<id>" does not hold` |
+| architecture | `component` | `the component "<id>" states data "<word>" and holds "<asset id>", which is "<word>"` |
 | architecture | `flow` | `a flow holds kind and description, not "<word>"` |
 | architecture | `mitigates` | `a mitigates edge holds threats, reduces_risk_by, status and recommendation, not "<word>"` |
 | architecture | `recommendation` (on a `mitigates` edge) | `a recommendation holds text, note, blocked_by and sources, not "<word>"` |
 | controls | `controls for` | `a controls file holds catalogue, tolerance, threat, tree, stale threat and stale tree, not "<word>"` |
-| controls | `threat` | `a threat holds severity, score, likelihood, severity_override, control, compensating and recommendation, not "<word>"` |
+| controls | `threat` | `a threat holds severity, score, impacts, likelihood, severity_override, control, compensating and recommendation, not "<word>"` |
+| controls | `threat` | `impacts holds "<word>"; this application holds confidentiality, integrity and availability` |
 | controls | `likelihood` | `a likelihood holds tier, prior, rationale and sources, not "<word>"` |
 | controls | `severity_override` | `a severity_override holds rationale and sources, not "<word>"` |
 | controls | `control` | `a control holds status, note, evidence, reference and verified_on, not "<word>"` |
@@ -2218,7 +2480,8 @@ entry" or "an unknown attribute".
 | governance | `work` and `action` | `planned work holds owner, effort, due_by, status, acceptance, note and sources, not "<word>"` |
 | library | `library` | `a library holds name, catalogue, technology, threat, mitigation and threat_actor, not "<word>"` |
 | library | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
-| library | `threat` | `a threat holds name, description, severity, stride, connection, zone, zone_context, mitre, control, applies_to, boundary, runs_as, pathway and likelihood, not "<word>"` |
+| library | `threat` | `a threat holds name, description, severity, stride, impacts, connection, zone, zone_context, mitre, control, applies_to, boundary, runs_as, pathway and likelihood, not "<word>"` |
+| library | `threat` | `impacts holds "<word>"; this application holds confidentiality, integrity and availability` |
 | library | `mitre` | `a mitre technique holds name and tactic, not "<word>"` |
 | library | `mitigation` | `a mitigation holds name, description, mitigates, provided_by, reduces_risk_by and mode, not "<word>"` |
 
@@ -2358,7 +2621,15 @@ SystemEntry  = CatalogueAttr
              | FlowStatement
              | MitigatesBlock
              | AssumptionBlock
+             | UseCaseBlock
+             | ExclusionBlock
+             | SystemAssetBlock
+             | ThirdPartyBlock
+             | DiagramBlock
              | ThreatActorBlock ;
+
+UseCaseBlock   = "use_case" String "{" "text" "=" String "}" ;
+ExclusionBlock = "exclusion" String "{" "text" "=" String "rationale" "=" String "}" ;
 
 CatalogueAttr     = "catalogue" "=" String ;
 RiskToleranceAttr = "risk_tolerance" "=" String ;
@@ -2397,19 +2668,44 @@ ZoneEntry = "kind"            "=" String
           | ComponentBlock ;
 
 ComponentBlock = "component" String "{" { ComponentEntry } "}" ;
-ComponentEntry = "technology" "=" String
-               | "name"       "=" String
-               | "data"       "=" String
-               | "runs_as"    "=" String
-               | "shape"      "=" String
-               | "threats"    "=" Boolean
+ComponentEntry = "technology"  "=" String
+               | "name"        "=" String
+               | "data"        "=" String
+               | "holds"       "=" StringList
+               | "provided_by" "=" String
+               | "runs_as"     "=" String
+               | "shape"       "=" String
+               | "threats"     "=" Boolean
                | AssetBlock ;
 
 AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;
 
+SystemAssetBlock = "asset" String "{" { SystemAssetEntry } "}" ;
+
+DiagramBlock = "diagram" String "{" { DiagramEntry } "}" ;
+DiagramEntry = "kind" "=" String
+             | "text" "=" ( String | Heredoc ) ;
+
+Heredoc = "<<" Identifier Newline { AnyLine } Identifier ;
+
+ThirdPartyBlock = "third_party" String "{" { ThirdPartyEntry } "}" ;
+ThirdPartyEntry = "name"            "=" String
+                | "description"     "=" String
+                | "kind"            "=" String
+                | "paying_customer" "=" Boolean
+                | "uptime"          "=" String
+                | "uptime_notes"    "=" String
+                | "owner"           "=" String
+                | "link"            "=" String ;
+SystemAssetEntry = "name"           "=" String
+                 | "classification" "=" String
+                 | "description"    "=" String
+                 | "owner"          "=" String ;
+
 FlowStatement = "flow" Identifier "->" Identifier [ "{" { FlowEntry } "}" ] ;
 FlowEntry     = "kind"        "=" String
-              | "description" "=" String ;
+              | "description" "=" String
+              | "carries"     "=" StringList ;
 
 MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
 MitigatesEntry = "threats"         "=" StringList
@@ -2449,6 +2745,7 @@ ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String
 SourceKind  = "component" | "zone" | "flow" ;
 ThreatEntry = "severity" "=" String
             | "score"    "=" Number
+            | "impacts"  "=" StringList
             | LikelihoodBlock
             | SeverityOverrideBlock
             | ControlBlock
@@ -2500,6 +2797,7 @@ ThreatEntry = "name"         "=" String
             | "description"  "=" String
             | "severity"     "=" String
             | "stride"       "=" StringList
+            | "impacts"      "=" StringList
             | "connection"   "=" Boolean
             | "zone"         "=" Boolean
             | "zone_context" "=" String

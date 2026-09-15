@@ -178,6 +178,34 @@ public final class TestDependencies: UseCaseFactory {
         RemoveAssumption(models: models)
     }
 
+    public func setSystemUseCase() -> SetSystemUseCaseUseCase {
+        SetSystemUseCase(models: models)
+    }
+
+    public func removeSystemUseCase() -> RemoveSystemUseCaseUseCase {
+        RemoveSystemUseCase(models: models)
+    }
+
+    public func setExclusion() -> SetExclusionUseCase {
+        SetExclusion(models: models)
+    }
+
+    public func removeExclusion() -> RemoveExclusionUseCase {
+        RemoveExclusion(models: models)
+    }
+
+    public func setSystemAsset() -> SetSystemAssetUseCase {
+        SetSystemAsset(models: models, catalogue: catalogue)
+    }
+
+    public func removeSystemAsset() -> RemoveSystemAssetUseCase {
+        RemoveSystemAsset(models: models)
+    }
+
+    public func setConnectionAssets() -> SetConnectionAssetsUseCase {
+        SetConnectionAssets(models: models)
+    }
+
     public func setCompensatingControl() -> SetCompensatingControlUseCase {
         SetCompensatingControl(models: models)
     }

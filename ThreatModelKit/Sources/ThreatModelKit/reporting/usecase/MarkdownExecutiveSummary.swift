@@ -111,6 +111,36 @@ public enum MarkdownExecutiveSummary {
                 + " no answered control and no compensating control."
         )
         lines.append("")
+
+        if summary.exclusionCount > 0 {
+            lines.append(
+                summary.exclusionCount == 1
+                    ? "This model states 1 exclusion, listed under Scope."
+                    : "This model states \(summary.exclusionCount) exclusions, listed under Scope."
+            )
+            lines.append("")
+        }
+
+        if summary.hardDependencyCount > 0 {
+            lines.append(
+                summary.hardDependencyCount == 1
+                    ? "This system stops when 1 third party stops."
+                    : "This system stops when any of \(summary.hardDependencyCount) "
+                        + "third parties stops."
+            )
+            lines.append("")
+        }
+
+        if summary.openByImpact.isEmpty == false {
+            lines.append(
+                "Those threats harm "
+                    + summary.openByImpact
+                        .map { "\($0.label.lowercased()) \($0.count)" }
+                        .joined(separator: ", ")
+                    + "."
+            )
+            lines.append("")
+        }
         return lines
     }
 }

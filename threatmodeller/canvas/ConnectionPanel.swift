@@ -31,6 +31,20 @@ struct ConnectionPanel: View {
                 .frame(width: 280)
                 .accessibilityIdentifier("connection-description")
 
+            // What a flow carries names the assets, so a reader of the report
+            // sees which asset a threat on this flow puts at risk.
+            if session.canvas.systemAssets.isEmpty == false {
+                Menu {
+                    ForEach(session.canvas.systemAssets, id: \.id) { asset in
+                        Toggle(asset.name, isOn: carries(asset.id))
+                    }
+                } label: {
+                    Text(carriedLabel)
+                }
+                .frame(width: 200)
+                .accessibilityIdentifier("connection-carries")
+            }
+
             // The direction decides which threats the flow raises, so it is
             // changed here rather than by deleting the flow and drawing it
             // again, which loses the kind and the description.
@@ -42,6 +56,30 @@ struct ConnectionPanel: View {
         .padding(.horizontal, CanvasView.windowEdgeMargin)
         .padding(.vertical, 8)
         .background(.bar)
+    }
+
+    /// What the menu reads when it is closed.
+    private var carriedLabel: String {
+        guard connection.carries.isEmpty == false else { return "Carries nothing" }
+        let names = connection.carries.compactMap { id in
+            session.canvas.systemAssets.first { $0.id == id }?.name
+        }
+        return names.count == 1 ? "Carries \(names[0])" : "Carries \(names.count) assets"
+    }
+
+    private func carries(_ assetId: String) -> Binding<Bool> {
+        Binding(
+            get: { connection.carries.contains(assetId) },
+            set: { wanted in
+                var carried = connection.carries
+                if wanted {
+                    if carried.contains(assetId) == false { carried.append(assetId) }
+                } else {
+                    carried.removeAll { $0 == assetId }
+                }
+                session.setConnectionAssets(connectionId: connection.id, carries: carried)
+            }
+        )
     }
 
     private var kind: Binding<String> {

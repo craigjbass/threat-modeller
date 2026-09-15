@@ -95,6 +95,7 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                 score: answer.score,
                 likelihood: answer.likelihood,
                 severityDecision: answer.severityDecision,
+                impacts: answer.impacts,
                 controls: answer.controls.map { control in
                     SourceControlAnswer(
                         description: control.description,

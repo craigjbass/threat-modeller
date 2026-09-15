@@ -114,6 +114,11 @@ struct ControlsWriter {
         if let score = answer.score {
             attributes.append(("score", String(score)))
         }
+        if answer.impacts.isEmpty == false {
+            attributes.append(
+                ("impacts", "[" + answer.impacts.map(quoted).joined(separator: ", ") + "]")
+            )
+        }
         body += aligned(attributes)
 
         if let finding = answer.likelihood {

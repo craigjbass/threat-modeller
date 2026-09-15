@@ -264,6 +264,14 @@ struct ThreatSidebar: View {
                 }
                 .accessibilityIdentifier("threat-stride-filter")
 
+                Picker("Impact", selection: $filter.impactId) {
+                    Text("Every impact").tag(String?.none)
+                    ForEach(ThreatImpact.allCases, id: \.rawValue) { impact in
+                        Text(impact.label).tag(String?.some(impact.rawValue))
+                    }
+                }
+                .accessibilityIdentifier("threat-impact-filter")
+
                 Picker("Answered", selection: $filter.answered) {
                     ForEach(ThreatFilter.Answered.allCases) { state in
                         Text(state.label).tag(state)

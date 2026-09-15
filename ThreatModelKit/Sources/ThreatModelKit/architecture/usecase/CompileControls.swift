@@ -206,6 +206,9 @@ public struct CompileControls: CompileControlsUseCase {
                 score: threat.score.value,
                 likelihood: previous?.likelihood,
                 severityDecision: previous?.severityDecision,
+                // What a team states this threat harms is the team's, so the
+                // merge keeps it whole.
+                impacts: previous?.impacts ?? [],
                 controls: controls,
                 compensating: previous?.compensating ?? [],
                 recommendations: previous?.recommendations ?? [],
@@ -228,6 +231,7 @@ public struct CompileControls: CompileControlsUseCase {
                     score: previous.score,
                     likelihood: previous.likelihood,
                     severityDecision: previous.severityDecision,
+                    impacts: previous.impacts,
                     controls: previous.controls,
                     compensating: previous.compensating,
                     recommendations: previous.recommendations,

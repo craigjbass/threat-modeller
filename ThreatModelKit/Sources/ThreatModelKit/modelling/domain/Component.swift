@@ -20,6 +20,14 @@ public struct Component: Equatable, Sendable {
     public var threatsDisabled: Bool
     public var runsAs: PrivilegeLevel
     public var assets: [Asset]
+    /// The system asset ids this component holds, in file order.
+    public var holds: [String]
+    /// The third party that provides this component, or nil.
+    public var providedBy: String?
+    /// Whether the component states a classification of its own. False means
+    /// the component takes the highest classification of what it holds, and
+    /// the file writes no `data` line.
+    public var statesOwnSensitivity: Bool
     /// The shape the user forced, or nil to let `DiagramShapeMap` decide.
     public var shape: DiagramShape?
     /// The zone that holds this component, or nil when no zone does.
@@ -40,6 +48,9 @@ public struct Component: Equatable, Sendable {
         threatsDisabled: Bool = false,
         runsAs: PrivilegeLevel = .default,
         assets: [Asset] = [],
+        holds: [String] = [],
+        providedBy: String? = nil,
+        statesOwnSensitivity: Bool = true,
         shape: DiagramShape? = nil,
         zoneId: ZoneId? = nil
     ) {
@@ -51,6 +62,9 @@ public struct Component: Equatable, Sendable {
         self.threatsDisabled = threatsDisabled
         self.runsAs = runsAs
         self.assets = assets
+        self.holds = holds
+        self.providedBy = providedBy
+        self.statesOwnSensitivity = statesOwnSensitivity
         self.shape = shape
         self.zoneId = zoneId
     }

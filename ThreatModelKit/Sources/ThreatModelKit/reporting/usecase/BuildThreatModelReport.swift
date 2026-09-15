@@ -99,6 +99,22 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             }
         )
 
+        // What each element holds or carries, by the source id the resolver
+        // mints, so a threat can name the assets at risk on its own source.
+        var assetNamesBySource: [String: [String]] = [:]
+        let assetNameById = Dictionary(
+            model.systemAssets.map { ($0.id, $0.name) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        for component in model.components where component.holds.isEmpty == false {
+            assetNamesBySource["component:\(component.id.value)"] =
+                component.holds.compactMap { assetNameById[$0] }
+        }
+        for connection in model.connections where connection.carries.isEmpty == false {
+            assetNamesBySource["connection:\(connection.id.value)"] =
+                connection.carries.compactMap { assetNameById[$0] }
+        }
+
         // An open tree raises its goal, so the goal's stanza names the tree
         // and the score the stage received. A stale tree and a closed tree
         // raise nothing and name nothing.
@@ -135,6 +151,10 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 strideLabels: assessed.stride.compactMap {
                     taxonomy.strideCategory(id: StrideId($0))?.label
                 },
+                impactLabels: assessed.impacts.compactMap {
+                    ThreatImpact(rawValue: $0)?.label
+                },
+                assetsAtRisk: assetNamesBySource[assessed.source.id] ?? [],
                 overrides: catalogue.overrides(),
                 techniqueNames: techniqueNames
             )
@@ -184,6 +204,67 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 text: assumption.text,
                 owner: assumption.owner
             )
+        }
+
+        // One row per named asset. The worst open threat is the worst on
+        // anything that holds it or carries it, because a reader asks what
+        // stands against this asset, not against one element.
+        let dataInventory = model.systemAssets.map { asset -> ReportAssetRow in
+            let holders = model.components.filter { $0.holds.contains(asset.id) }
+            let carriers = model.connections.filter { $0.carries.contains(asset.id) }
+            var sourceIds = Set(holders.map { "component:\($0.id.value)" })
+            sourceIds.formUnion(carriers.map { "connection:\($0.id.value)" })
+            let worst = threats
+                .filter { sourceIds.contains($0.sourceId) && $0.isOpen }
+                .sorted(by: ReportThreat.worstFirst)
+                .first
+            return ReportAssetRow(
+                id: asset.id,
+                name: asset.name,
+                classificationLabel: asset.classification.label(in: catalogue.classifications()),
+                owner: asset.owner,
+                description: asset.description,
+                heldBy: holders.map { nameById[$0.id] ?? $0.id.value },
+                carriedBy: carriers.map {
+                    "\(nameById[$0.source] ?? $0.source.value) \u{2192} "
+                        + "\(nameById[$0.target] ?? $0.target.value)"
+                },
+                worstOpenThreat: worst?.name,
+                worstOpenScore: worst?.riskScore
+            )
+        }
+
+        let thirdParties = model.thirdParties.map { party -> ReportThirdParty in
+            let provided = model.components.filter { $0.providedBy == party.id }
+            var names: [String] = []
+            for component in provided {
+                for held in component.holds {
+                    guard let name = assetNameById[held], names.contains(name) == false else {
+                        continue
+                    }
+                    names.append(name)
+                }
+            }
+            return ReportThirdParty(
+                id: party.id,
+                name: party.name,
+                description: party.description,
+                kindLabel: party.kind.label,
+                payingCustomer: party.payingCustomer,
+                uptimeLabel: party.uptime.label,
+                uptimeNotes: party.uptimeNotes,
+                owner: party.owner,
+                link: party.link,
+                provides: provided.map { nameById[$0.id] ?? $0.id.value },
+                assetNames: names
+            )
+        }
+
+        let useCases = model.useCases.map {
+            ReportUseCase(label: $0.label, text: $0.text)
+        }
+        let exclusions = model.exclusions.map {
+            ReportExclusion(label: $0.label, text: $0.text, rationale: $0.rationale)
         }
 
         let recommendations = RecommendationsReport.build(
@@ -346,6 +427,13 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 attackPathsBeyondAppendix: attack.beyond,
                 rollups: ReportRollups.build(threats: threats, zones: zones),
                 assumptions: assumptions,
+                useCases: useCases,
+                dataInventory: dataInventory,
+                thirdParties: thirdParties,
+                diagrams: model.diagrams.map {
+                    ReportDiagram(label: $0.label, kind: $0.kind, text: $0.text)
+                },
+                exclusions: exclusions,
                 assumedMitigations: assumedMitigations,
                 findings: findingsCut,
                 toleranceLabel: tolerance.label,
@@ -357,7 +445,9 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     actions: actions,
                     acceptedRisks: acceptedRisks,
                     documentControl: control,
-                    today: CheckGovernance.today(clock.now())
+                    today: CheckGovernance.today(clock.now()),
+                    exclusionCount: exclusions.count,
+                    hardDependencyCount: model.thirdParties.filter { $0.uptime == .hard }.count
                 ),
                 methodology: ReportMethodology.build(zones: zones, tolerance: tolerance),
                 actions: actions,
@@ -420,6 +510,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         tree: BoundAttackTree?,
         compensating: [ReportCompensatingControl],
         strideLabels: [String],
+        impactLabels: [String],
+        assetsAtRisk: [String],
         overrides: [ThreatId: ThreatOverride] = [:],
         techniqueNames: [String: String] = [:]
     ) -> ReportThreat {
@@ -431,6 +523,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             riskScore: assessed.riskScore,
             riskLevel: assessed.riskLevel,
             strideLabels: strideLabels,
+            impactLabels: impactLabels,
+            assetsAtRisk: assetsAtRisk,
             mitreTechniqueIds: assessed.mitreTechniques.map(\.id),
             mitreTechniqueNames: Dictionary(
                 uniqueKeysWithValues: assessed.mitreTechniques.compactMap { technique in

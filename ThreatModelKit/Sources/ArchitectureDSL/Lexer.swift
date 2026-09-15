@@ -86,6 +86,72 @@ public struct Lexer {
                 continue
             }
 
+            // A heredoc: `<<TAG`, then every line up to a line holding the
+            // tag alone. The body is kept byte for byte, so a diagram written
+            // in it reads back the way a person wrote it.
+            if character == "<" && peek(index + 1) == "<" {
+                advance(2)
+                var tag = ""
+                while index < characters.count,
+                      characters[index].isLetter
+                        || characters[index].isNumber
+                        || characters[index] == "_" {
+                    tag.append(characters[index])
+                    advance()
+                }
+                guard tag.isEmpty == false else {
+                    faults.append(
+                        Diagnostic(
+                            severity: .error,
+                            line: startLine,
+                            column: startColumn,
+                            message: "a heredoc starts \"<<\" and a tag, as in \"<<EOT\""
+                        )
+                    )
+                    continue
+                }
+                // Everything up to the end of the line the tag is on belongs
+                // to the tag line, not to the body.
+                while index < characters.count && characters[index] != "\n" { advance() }
+                if index < characters.count { advance() }
+
+                var body = ""
+                var isClosed = false
+                var lineText = ""
+                while index < characters.count {
+                    let inner = characters[index]
+                    advance()
+                    if inner == "\n" {
+                        if lineText.trimmedForHeredoc() == tag {
+                            isClosed = true
+                            break
+                        }
+                        body += lineText + "\n"
+                        lineText = ""
+                        continue
+                    }
+                    lineText.append(inner)
+                }
+                if isClosed == false && lineText.trimmedForHeredoc() == tag {
+                    isClosed = true
+                }
+                guard isClosed else {
+                    faults.append(
+                        Diagnostic(
+                            severity: .error,
+                            line: startLine,
+                            column: startColumn,
+                            message: "this heredoc has no closing \"\(tag)\" line"
+                        )
+                    )
+                    continue
+                }
+                tokens.append(
+                    Token(kind: .string, text: body, line: startLine, column: startColumn)
+                )
+                continue
+            }
+
             if character == "-" && peek(index + 1) == ">" {
                 advance(2)
                 tokens.append(Token(kind: .arrow, text: "->", line: startLine, column: startColumn))
@@ -165,5 +231,15 @@ public struct Lexer {
         case "t": "\t"
         default: character
         }
+    }
+}
+
+private extension String {
+    /// A heredoc closes on a line holding the tag alone, whatever indents it.
+    func trimmedForHeredoc() -> String {
+        var characters = Array(self)
+        while characters.first?.isWhitespace == true { characters.removeFirst() }
+        while characters.last?.isWhitespace == true { characters.removeLast() }
+        return String(characters)
     }
 }

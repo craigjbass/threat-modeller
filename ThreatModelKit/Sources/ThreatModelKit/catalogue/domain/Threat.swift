@@ -26,6 +26,9 @@ public struct Threat: Equatable, Sendable {
     public let description: String
     public let severity: ThreatSeverity
     public let stride: [StrideId]
+    /// What this threat harms. Empty means the STRIDE categories decide, by
+    /// the default `ThreatImpact.derived(from:)` states.
+    public let impacts: [ThreatImpact]
     public let mitreTechniques: [MitreTechnique]
     public let controls: [Control]
     public let isConnectionThreat: Bool
@@ -49,6 +52,7 @@ public struct Threat: Equatable, Sendable {
         description: String,
         severity: ThreatSeverity,
         stride: [StrideId] = [],
+        impacts: [ThreatImpact] = [],
         mitreTechniques: [MitreTechnique] = [],
         controls: [Control] = [],
         isConnectionThreat: Bool = false,
@@ -65,6 +69,7 @@ public struct Threat: Equatable, Sendable {
         self.description = description
         self.severity = severity
         self.stride = stride
+        self.impacts = impacts.isEmpty ? ThreatImpact.derived(from: stride) : impacts
         self.mitreTechniques = mitreTechniques
         self.controls = controls
         self.isConnectionThreat = isConnectionThreat

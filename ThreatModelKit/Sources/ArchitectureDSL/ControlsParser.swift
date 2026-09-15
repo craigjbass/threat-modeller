@@ -180,11 +180,24 @@ struct ControlsParser {
         var controls: [SourceControlAnswer] = []
         var compensating: [CompensatingControl] = []
         var recommendations: [SourceRecommendation] = []
+        var impacts: [String] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
             case "severity": severityLabel = parseTextAttribute()
             case "score": score = parseNumberAttribute()
+            case "impacts":
+                let token = current
+                impacts = parseListAttribute().filter { word in
+                    guard ThreatImpact(rawValue: word) == nil else { return true }
+                    record(
+                        "impacts holds \"\(word)\"; this application holds "
+                            + ThreatImpact.allCases.map { "\"\($0.rawValue)\"" }
+                                .joined(separator: ", "),
+                        at: token
+                    )
+                    return false
+                }
             case "likelihood":
                 let token = current
                 if let finding = parseLikelihood() {
@@ -211,8 +224,8 @@ struct ControlsParser {
                 if let recommendation = parseRecommendation() { recommendations.append(recommendation) }
             default:
                 record(
-                    "a threat holds severity, score, likelihood, severity_override, control, "
-                        + "compensating and recommendation, not \"\(current.text)\""
+                    "a threat holds severity, score, impacts, likelihood, severity_override, "
+                        + "control, compensating and recommendation, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -227,6 +240,7 @@ struct ControlsParser {
             score: score,
             likelihood: likelihood,
             severityDecision: severityDecision,
+            impacts: impacts,
             controls: controls,
             compensating: compensating,
             recommendations: recommendations,

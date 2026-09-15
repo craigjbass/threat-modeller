@@ -27,8 +27,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// itself: the description, the authors, the links, the repositories, the
     /// dates, the version and the team's own attributes. A file at version 7
     /// or below states none of them and reads back with none.
-    public static let formatVersion = 8
-    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7, 8]
+    public static let formatVersion = 9
+    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
     public init() {}
 
@@ -158,7 +158,57 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                         attributes: model.documentFacts.attributes.map {
                             DocumentFactsJSON.AttributeJSON(name: $0.name, value: $0.value)
                         }
-                    )
+                    ),
+                impactOverrides: model.impactOverrides.isEmpty
+                    ? nil
+                    : Dictionary(
+                        uniqueKeysWithValues: model.impactOverrides.map { key, impacts in
+                            (key.value, impacts.map(\.rawValue))
+                        }
+                    ),
+                useCases: model.useCases.isEmpty
+                    ? nil
+                    : model.useCases.map { SystemUseCaseJSON(label: $0.label, text: $0.text) },
+                exclusions: model.exclusions.isEmpty
+                    ? nil
+                    : model.exclusions.map {
+                        SystemExclusionJSON(
+                            label: $0.label,
+                            text: $0.text,
+                            rationale: $0.rationale
+                        )
+                    },
+                systemAssets: model.systemAssets.isEmpty
+                    ? nil
+                    : model.systemAssets.map {
+                        SystemAssetJSON(
+                            id: $0.id,
+                            name: $0.name,
+                            classification: $0.classification.rawValue,
+                            description: $0.description,
+                            owner: $0.owner
+                        )
+                    },
+                thirdParties: model.thirdParties.isEmpty
+                    ? nil
+                    : model.thirdParties.map {
+                        ThirdPartyJSON(
+                            id: $0.id,
+                            name: $0.name,
+                            description: $0.description,
+                            kind: $0.kind.rawValue,
+                            payingCustomer: $0.payingCustomer,
+                            uptime: $0.uptime.rawValue,
+                            uptimeNotes: $0.uptimeNotes,
+                            owner: $0.owner,
+                            link: $0.link
+                        )
+                    },
+                diagrams: model.diagrams.isEmpty
+                    ? nil
+                    : model.diagrams.map {
+                        SystemDiagramJSON(label: $0.label, kind: $0.kind, text: $0.text)
+                    }
             )
         )
     }
@@ -287,6 +337,42 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     )
                 }
             ),
+            impactOverrides: Dictionary(
+                uniqueKeysWithValues: (document.impactOverrides ?? [:]).map { key, raw in
+                    (ThreatKey(key), raw.compactMap(ThreatImpact.init(rawValue:)))
+                }
+            ),
+            useCases: (document.useCases ?? []).map {
+                SystemUseCase(label: $0.label, text: $0.text)
+            },
+            exclusions: (document.exclusions ?? []).map {
+                SystemExclusion(label: $0.label, text: $0.text, rationale: $0.rationale)
+            },
+            systemAssets: (document.systemAssets ?? []).map {
+                SystemAsset(
+                    id: $0.id,
+                    name: $0.name,
+                    classification: DataSensitivity($0.classification),
+                    description: $0.description,
+                    owner: $0.owner
+                )
+            },
+            thirdParties: (document.thirdParties ?? []).map {
+                ThirdParty(
+                    id: $0.id,
+                    name: $0.name,
+                    description: $0.description,
+                    kind: ThirdPartyKind(rawValue: $0.kind) ?? .saas,
+                    payingCustomer: $0.payingCustomer,
+                    uptime: UptimeDependency(rawValue: $0.uptime) ?? .none,
+                    uptimeNotes: $0.uptimeNotes,
+                    owner: $0.owner,
+                    link: $0.link
+                )
+            },
+            diagrams: (document.diagrams ?? []).map {
+                SystemDiagram(label: $0.label, kind: $0.kind, text: $0.text)
+            },
             assumptions: (document.assumptions ?? []).map {
                 SystemAssumption(label: $0.label, text: $0.text, owner: $0.owner)
             },
@@ -432,7 +518,10 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 AssetJSON(name: $0.name, sensitivity: $0.sensitivity.rawValue)
             },
             shape: component.shape?.rawValue,
-            zoneId: component.zoneId?.value
+            zoneId: component.zoneId?.value,
+            holds: component.holds.isEmpty ? nil : component.holds,
+            statesOwnSensitivity: component.statesOwnSensitivity ? nil : false,
+            providedBy: component.providedBy
         )
     }
 
@@ -466,7 +555,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             source: connection.source.value,
             target: connection.target.value,
             kind: connection.kind.rawValue,
-            description: connection.description
+            description: connection.description,
+            carries: connection.carries.isEmpty ? nil : connection.carries
         )
     }
 
@@ -506,6 +596,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     sensitivity: DataSensitivity($0.sensitivity)
                 )
             },
+            holds: json.holds ?? [],
+            providedBy: json.providedBy,
+            statesOwnSensitivity: json.statesOwnSensitivity ?? true,
             shape: try optionalShape(from: json.shape),
             zoneId: json.zoneId.map(ZoneId.init)
         )
@@ -517,7 +610,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             source: ComponentId(json.source),
             target: ComponentId(json.target),
             kind: try optionalValue(FlowKind.self, field: "kind", raw: json.kind, default: .default),
-            description: json.description
+            description: json.description,
+            carries: json.carries ?? []
         )
     }
 

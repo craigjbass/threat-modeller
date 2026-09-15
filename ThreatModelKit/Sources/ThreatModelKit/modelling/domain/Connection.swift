@@ -10,14 +10,18 @@ public struct Connection: Equatable, Sendable {
     public let target: ComponentId
     public var kind: FlowKind
     public var description: String?
+    /// The system asset ids this connection carries, in file order.
+    public var carries: [String]
 
     public init(
         id: ConnectionId,
         source: ComponentId,
         target: ComponentId,
         kind: FlowKind = .default,
-        description: String? = nil
+        description: String? = nil,
+        carries: [String] = []
     ) {
+        self.carries = carries
         self.id = id
         self.source = source
         self.target = target

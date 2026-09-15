@@ -34,6 +34,54 @@ struct DocumentJSON: Codable {
     /// states about itself. A file at version 7 or below holds neither.
     let owner: String?
     let documentFacts: DocumentFactsJSON?
+    /// Version 9 adds these three: what a team stated a threat harms, what a
+    /// person does with the system, and what the model does not cover.
+    let impactOverrides: [String: [String]]?
+    let useCases: [SystemUseCaseJSON]?
+    let exclusions: [SystemExclusionJSON]?
+    /// The named things of value the system holds.
+    let systemAssets: [SystemAssetJSON]?
+    /// The parties outside this team the system depends on.
+    let thirdParties: [ThirdPartyJSON]?
+    /// The pictures the team keeps beside the diagram.
+    let diagrams: [SystemDiagramJSON]?
+}
+
+struct SystemDiagramJSON: Codable {
+    let label: String
+    let kind: String
+    let text: String
+}
+
+struct ThirdPartyJSON: Codable {
+    let id: String
+    let name: String
+    let description: String
+    let kind: String
+    let payingCustomer: Bool
+    let uptime: String
+    let uptimeNotes: String
+    let owner: String?
+    let link: String?
+}
+
+struct SystemAssetJSON: Codable {
+    let id: String
+    let name: String
+    let classification: String
+    let description: String
+    let owner: String?
+}
+
+struct SystemUseCaseJSON: Codable {
+    let label: String
+    let text: String
+}
+
+struct SystemExclusionJSON: Codable {
+    let label: String
+    let text: String
+    let rationale: String
 }
 
 struct LikelihoodFindingJSON: Codable {
@@ -138,6 +186,12 @@ struct ComponentJSON: Codable {
     /// The zone that holds this component. Absent in a file written before
     /// format version 7; the codec then reads it from the coordinates.
     let zoneId: String?
+    /// Version 9 adds these two: the system asset ids this component holds,
+    /// and whether it states a classification of its own.
+    let holds: [String]?
+    let statesOwnSensitivity: Bool?
+    /// The third party that provides this component.
+    let providedBy: String?
 }
 
 struct ConnectionJSON: Codable {
@@ -146,6 +200,8 @@ struct ConnectionJSON: Codable {
     let target: String
     let kind: String?
     let description: String?
+    /// Version 9 adds this: the system asset ids this connection carries.
+    let carries: [String]?
 }
 
 struct ZoneJSON: Codable {

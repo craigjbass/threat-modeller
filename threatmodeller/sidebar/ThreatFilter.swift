@@ -29,10 +29,13 @@ struct ThreatFilter: Equatable {
     var levelId: String?
     /// A STRIDE category id, or nil for every category.
     var strideId: String?
+    /// A `ThreatImpact` raw value, or nil for every impact.
+    var impactId: String?
     var answered: Answered = .either
 
     var isNarrowing: Bool {
-        text.isEmpty == false || levelId != nil || strideId != nil || answered != .either
+        text.isEmpty == false || levelId != nil || strideId != nil || impactId != nil
+            || answered != .either
     }
 
     /// The threats this filter keeps, in the order they were given.
@@ -46,6 +49,7 @@ struct ThreatFilter: Equatable {
     func keeps(_ threat: AssessedThreat) -> Bool {
         if let levelId, threat.riskLevel != levelId { return false }
         if let strideId, threat.stride.contains(strideId) == false { return false }
+        if let impactId, threat.impacts.contains(impactId) == false { return false }
         switch answered {
         case .either: break
         case .answered: if Self.isAnswered(threat) == false { return false }

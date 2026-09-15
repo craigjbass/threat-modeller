@@ -16,7 +16,12 @@ public enum ArchitectureSourceBuilder {
                     data: component.sensitivity.rawValue,
                     raisesThreats: component.threatsDisabled == false,
                     runsAs: component.runsAs.rawValue,
-                    assets: component.assets.map { SourceAsset(name: $0.name, data: $0.sensitivity.rawValue) }
+                    assets: component.assets.map { SourceAsset(name: $0.name, data: $0.sensitivity.rawValue) },
+                    holds: component.holds,
+                    providedBy: component.providedBy,
+                    declaredData: component.statesOwnSensitivity
+                        ? component.sensitivity.rawValue
+                        : nil
                 )
                 if let zoneId = component.zoneId,
                    model.zones.contains(where: { $0.id == zoneId }) {
@@ -91,6 +96,37 @@ public enum ArchitectureSourceBuilder {
                         text: assumption.text,
                         owner: assumption.owner
                     )
+                },
+                useCases: model.useCases.map {
+                    SourceUseCase(label: $0.label, text: $0.text)
+                },
+                exclusions: model.exclusions.map {
+                    SourceExclusion(label: $0.label, text: $0.text, rationale: $0.rationale)
+                },
+                systemAssets: model.systemAssets.map {
+                    SourceSystemAsset(
+                        id: $0.id,
+                        name: $0.name,
+                        classification: $0.classification.rawValue,
+                        description: $0.description,
+                        owner: $0.owner
+                    )
+                },
+                thirdParties: model.thirdParties.map {
+                    SourceThirdParty(
+                        id: $0.id,
+                        name: $0.name,
+                        description: $0.description,
+                        kind: $0.kind.rawValue,
+                        payingCustomer: $0.payingCustomer,
+                        uptime: $0.uptime.rawValue,
+                        uptimeNotes: $0.uptimeNotes,
+                        owner: $0.owner,
+                        link: $0.link
+                    )
+                },
+                diagrams: model.diagrams.map {
+                    SourceDiagram(label: $0.label, kind: $0.kind, text: $0.text)
                 },
                 owner: model.owner.isEmpty ? nil : model.owner,
                 // What the model states about itself. A model that states

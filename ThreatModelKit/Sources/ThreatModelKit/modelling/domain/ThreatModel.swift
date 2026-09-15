@@ -31,6 +31,19 @@ public struct ThreatModel: Equatable, Sendable {
     /// threat and source. Wins over `severityOverrides` for the threat it
     /// names.
     public var severityDecisions: [ThreatKey: SeverityDecision]
+    /// What a team states a threat harms in this system, by threat and source.
+    /// Empty for a threat whose catalogue answer stands.
+    public var impactOverrides: [ThreatKey: [ThreatImpact]]
+    /// What a person does with this system, in file order.
+    public var useCases: [SystemUseCase]
+    /// What this model does not cover, in file order.
+    public var exclusions: [SystemExclusion]
+    /// The named things of value this system holds, in file order.
+    public var systemAssets: [SystemAsset]
+    /// The parties outside this team the system depends on, in file order.
+    public var thirdParties: [ThirdParty]
+    /// The pictures the team keeps beside the diagram, in file order.
+    public var diagrams: [SystemDiagram]
     /// What the model takes on trust. The report gives them a section.
     public var assumptions: [SystemAssumption]
     /// The routes a person wrote in the `.attacktree` file. Empty when the
@@ -114,6 +127,12 @@ public struct ThreatModel: Equatable, Sendable {
         recommendations: [ThreatKey: [Recommendation]] = [:],
         likelihoodFindings: [ThreatKey: LikelihoodFinding] = [:],
         severityDecisions: [ThreatKey: SeverityDecision] = [:],
+        impactOverrides: [ThreatKey: [ThreatImpact]] = [:],
+        useCases: [SystemUseCase] = [],
+        exclusions: [SystemExclusion] = [],
+        systemAssets: [SystemAsset] = [],
+        thirdParties: [ThirdParty] = [],
+        diagrams: [SystemDiagram] = [],
         assumptions: [SystemAssumption] = [],
         attackTrees: [SourceAttackTree] = [],
         riskTolerance: RiskLevel? = nil,
@@ -144,6 +163,12 @@ public struct ThreatModel: Equatable, Sendable {
         self.recommendations = recommendations
         self.likelihoodFindings = likelihoodFindings
         self.severityDecisions = severityDecisions
+        self.impactOverrides = impactOverrides
+        self.useCases = useCases
+        self.exclusions = exclusions
+        self.systemAssets = systemAssets
+        self.thirdParties = thirdParties
+        self.diagrams = diagrams
         self.assumptions = assumptions
         self.attackTrees = attackTrees
         self.riskTolerance = riskTolerance

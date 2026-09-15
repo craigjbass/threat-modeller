@@ -178,6 +178,16 @@ struct LibraryWriter {
             let isNumber = Int(likelihood) != nil
             attributes.append(("likelihood", isNumber ? likelihood : quoted(likelihood)))
         }
+        if threat.impacts.isEmpty == false {
+            attributes.append(
+                ("impacts", "[" + threat.impacts.map(quoted).joined(separator: ", ") + "]")
+            )
+        }
+        if threat.impacts.isEmpty == false {
+            attributes.append(
+                ("impacts", "[" + threat.impacts.map(quoted).joined(separator: ", ") + "]")
+            )
+        }
         if threat.strideIds.isEmpty == false {
             attributes.append(
                 ("stride", "[" + threat.strideIds.map(quoted).joined(separator: ", ") + "]")

@@ -58,6 +58,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         var recommendations: [ThreatKey: [Recommendation]] = [:]
         var likelihoods: [ThreatKey: LikelihoodFinding] = [:]
         var decisions: [ThreatKey: SeverityDecision] = [:]
+        var impacts: [ThreatKey: [ThreatImpact]] = [:]
         var warnings = read.warnings
         var applied = 0
 
@@ -104,6 +105,10 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
                 }
             }
 
+            if answer.impacts.isEmpty == false {
+                impacts[answer.key] = answer.impacts.compactMap(ThreatImpact.init(rawValue:))
+            }
+
             if let finding = answer.likelihood {
                 likelihoods[answer.key] = finding
             }
@@ -131,6 +136,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         let readRecommendations = recommendations
         let readLikelihoods = likelihoods
         let readDecisions = decisions
+        let readImpacts = impacts
         let count = applied
         let readWarnings = warnings
 
@@ -141,6 +147,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
             model.recommendations = readRecommendations
             model.likelihoodFindings = readLikelihoods
             model.severityDecisions = readDecisions
+            model.impactOverrides = readImpacts
             return .applied(answers: count, warnings: readWarnings)
         }
     }

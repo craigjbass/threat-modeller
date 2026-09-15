@@ -53,6 +53,12 @@ public enum MarkdownThreatStanza {
         if threat.scoreIfAssumptionsHold != threat.riskScore {
             lines.append("- If the assumptions hold: \(threat.scoreIfAssumptionsHold)")
         }
+        if threat.assetsAtRisk.isEmpty == false {
+            lines.append("- Assets at risk: \(threat.assetsAtRisk.joined(separator: ", "))")
+        }
+        if threat.impactLabels.isEmpty == false {
+            lines.append("- Impact: \(threat.impactLabels.joined(separator: ", "))")
+        }
         if threat.strideLabels.isEmpty == false {
             lines.append("- STRIDE: \(threat.strideLabels.joined(separator: ", "))")
         }
