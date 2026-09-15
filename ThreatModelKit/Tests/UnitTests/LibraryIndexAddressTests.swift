@@ -9,8 +9,8 @@ struct LibraryIndexAddressTests {
 
     @Test func statesThePlainAddressOfAPublicGitHubIndex() {
         #expect(
-            LibraryIndex.rawAddress(of: "https://github.com/craigjbass/threat-modeller-index")
-                == "https://raw.githubusercontent.com/craigjbass/threat-modeller-index/HEAD/index.json"
+            LibraryIndex.rawAddress(of: "https://github.com/craigjbass/threat-modeller")
+                == "https://raw.githubusercontent.com/craigjbass/threat-modeller/HEAD/index.json"
         )
     }
 

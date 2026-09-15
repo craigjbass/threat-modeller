@@ -24,7 +24,7 @@ application already runs for a library, so:
 - a team points at an index of its own by naming a repository, the way it names
   a library.
 
-The default index is `https://github.com/craigjbass/threat-modeller-index`, and
+The default index is `https://github.com/craigjbass/threat-modeller`, and
 `ProjectConvention.defaultLibraryIndex` states it. A person changes it in the
 Libraries sheet, and the choice is kept in `UserDefaults` under
 `libraryIndexRepository`.

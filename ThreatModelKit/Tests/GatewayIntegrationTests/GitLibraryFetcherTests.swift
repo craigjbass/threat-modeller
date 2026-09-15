@@ -159,12 +159,12 @@ struct GitLibraryIndexTests {
         let downloader = FakeDownloader()
         downloader.put(
             index,
-            at: "https://raw.githubusercontent.com/craigjbass/threat-modeller-index/HEAD/index.json"
+            at: "https://raw.githubusercontent.com/craigjbass/threat-modeller/HEAD/index.json"
         )
         let fetcher = GitLibraryFetcher(downloader: downloader)
 
         let text = try fetcher.fetchIndex(
-            repository: "https://github.com/craigjbass/threat-modeller-index"
+            repository: "https://github.com/craigjbass/threat-modeller"
         )
 
         #expect(try LibraryIndex.read(text).map(\.label) == ["acme"])

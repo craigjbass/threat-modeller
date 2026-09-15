@@ -17,7 +17,7 @@ public enum ProjectConvention {
     /// The index this application reads when nobody names another. It is a
     /// git repository holding one `index.json`, as the library index design
     /// states.
-    public static let defaultLibraryIndex = "https://github.com/craigjbass/threat-modeller-index"
+    public static let defaultLibraryIndex = "https://github.com/craigjbass/threat-modeller"
     public static let libraryExtension = "lib"
 
     /// The directory inside a subproject that holds each kind of file. The
