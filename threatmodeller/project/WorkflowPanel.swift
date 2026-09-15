@@ -64,7 +64,7 @@ struct WorkflowPanel: View {
     static func rect(in bounds: CGRect, panelSize: CGSize, liftedBy: CGFloat) -> CGRect {
         // With a selection panel under it the panel keeps the gap above that
         // panel. With none it keeps the margin from the bottom edge.
-        let bottom = bounds.maxY - (liftedBy > 0 ? liftedBy + gapAboveSelectionPanel : bottomMargin)
+        let bottom = bounds.maxY - lift(over: liftedBy)
         return CGRect(
             x: bounds.midX - panelSize.width / 2,
             y: bottom - panelSize.height,
@@ -73,15 +73,35 @@ struct WorkflowPanel: View {
         )
     }
 
-    /// Where a selection panel of that height draws: along the bottom edge of
-    /// the column, the full width.
+    /// Where a selection panel of that height draws.
+    ///
+    /// The column keeps `reservedHeight + bottomMargin` at its bottom edge for
+    /// this floating panel, and the selection panel sits on top of that room,
+    /// because the column insets the room outside the canvas's own inset.
     static func selectionPanelRect(in bounds: CGRect, height: CGFloat) -> CGRect {
-        CGRect(x: bounds.minX, y: bounds.maxY - height, width: bounds.width, height: height)
+        CGRect(
+            x: bounds.minX,
+            y: bounds.maxY - reservedRoom - height,
+            width: bounds.width,
+            height: height
+        )
     }
 
-    private var lift: CGFloat {
-        liftedBy > 0 ? liftedBy + Self.gapAboveSelectionPanel : Self.bottomMargin
+    /// The room the column keeps at its bottom edge for this panel.
+    static var reservedRoom: CGFloat { reservedHeight + bottomMargin }
+
+    /// How far above the column's bottom edge the panel draws.
+    ///
+    /// With no selection panel it keeps the margin. With one it clears the
+    /// room kept for itself, then that panel, then the gap: the selection
+    /// panel is drawn above the reserved room, so lifting by its height alone
+    /// left this panel over its controls.
+    static func lift(over selectionPanelHeight: CGFloat) -> CGFloat {
+        guard selectionPanelHeight > 0 else { return bottomMargin }
+        return reservedRoom + selectionPanelHeight + gapAboveSelectionPanel
     }
+
+    private var lift: CGFloat { Self.lift(over: liftedBy) }
 
     private var row: some View {
         HStack(spacing: 12) {
