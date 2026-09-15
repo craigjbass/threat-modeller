@@ -42,7 +42,8 @@ struct PathwayMitigationScoringTests {
     )
 
     private func assess(_ model: ThreatModel) -> AssessThreatModelResponse {
-        AssessThreatModel(models: InMemoryThreatModelGateway(model), catalogue: catalogue)
+        let model = model.withZoneMembershipFromGeometry()
+        return AssessThreatModel(models: InMemoryThreatModelGateway(model), catalogue: catalogue)
             .execute(AssessThreatModelRequest())
     }
 

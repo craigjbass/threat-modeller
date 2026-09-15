@@ -201,6 +201,20 @@ Wait three seconds, then render.
 **Prevention.** Run `pkill -x threatmodeller` after every `RunAllTests` or
 `RunSomeTests`, before the next preview or snippet.
 
+## What a compile costs
+
+`threatmodeller compile` scores a model and draws nothing. Zone membership is a
+field on the component, set from the nesting the `.arch` file states, so the
+compile path runs no layout search. Measured in a release build, by the method
+the section below states, with sixty components in one zone and fifty-nine
+flows:
+
+| What | Time |
+| --- | --- |
+| `CompileControls.execute`, before the field | 0.512 s |
+| `LayOutModel.execute` alone | 0.502 s |
+| `CompileControls.execute`, after the field | 0.010 s |
+
 ## What reading the history costs
 
 `threatmodeller history` and `threatmodeller report` compile the model once per

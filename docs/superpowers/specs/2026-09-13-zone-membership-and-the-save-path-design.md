@@ -111,9 +111,18 @@ still draws where the layout puts it.
 
 ## 6. What it should cost
 
-Measured on the save path, release build, sixty components: the layout is
-1.255 s of it today and should be zero afterwards. Dragging a node should
-stop costing a layout search at all.
+Measured on the save path, release build, sixty components in one zone with
+fifty-nine flows, on 2026-09-15:
+
+| What | Time |
+| --- | --- |
+| `CompileControls.execute`, before the field | 0.512 s |
+| `LayOutModel.execute` alone | 0.502 s |
+| `CompileControls.execute`, after the field | 0.010 s |
+
+The layout was 98 per cent of a compile, and the compile now runs none.
+Dragging a node costs no layout search: `MoveComponents` writes the zone the
+component's centre sits in, and the save path compiles with no layout.
 
 ## 7. The other undelivered item: `brokenBoundaries`
 

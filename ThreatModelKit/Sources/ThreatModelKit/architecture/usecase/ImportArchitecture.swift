@@ -32,14 +32,20 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
     private let catalogue: TechnologyCatalogue
     private let sources: ArchitectureSourceGateway
     private let attackTreeSources: AttackTreeSourceGateway
-    private let layout: LayOutModelUseCase
+    /// What draws the picture, or nil when nobody looks at it.
+    ///
+    /// Zone membership comes from the nesting the file states, so a caller
+    /// that only scores a model — the compile path — needs no picture and
+    /// gives no layout. A component then keeps the origin and a zone gets a
+    /// rectangle of nothing.
+    private let layout: LayOutModelUseCase?
 
     public init(
         models: ThreatModelGateway,
         catalogue: TechnologyCatalogue,
         sources: ArchitectureSourceGateway,
         attackTreeSources: AttackTreeSourceGateway = NoAttackTreeSource(),
-        layout: LayOutModelUseCase
+        layout: LayOutModelUseCase?
     ) {
         self.models = models
         self.catalogue = catalogue
@@ -80,7 +86,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             }
         )
 
-        let placed = layout.execute(LayOutModelRequest(source: source, shapes: shapes))
+        let placed = layout?.execute(LayOutModelRequest(source: source, shapes: shapes))
+            ?? LayOutModelResponse(components: [], zones: [])
         let positions = Dictionary(
             uniqueKeysWithValues: placed.components.map { ($0.id, Point(x: $0.x, y: $0.y)) }
         )
@@ -104,6 +111,13 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             }
         )
 
+        // The file already states which zone holds which component, so the
+        // membership is read rather than derived from a layout.
+        var zoneByComponent: [String: String] = [:]
+        for zone in source.zones {
+            for component in zone.components { zoneByComponent[component.id] = zone.id }
+        }
+
         for component in source.everyComponent {
             model.components.append(
                 Component(
@@ -117,21 +131,25 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     assets: component.assets.map {
                         Asset(name: $0.name, sensitivity: DataSensitivity(rawValue: $0.data) ?? .internalData)
                     },
-                    shape: component.shape.flatMap(DiagramShape.init(rawValue:))
+                    shape: component.shape.flatMap(DiagramShape.init(rawValue:)),
+                    zoneId: zoneByComponent[component.id].map(ZoneId.init)
                 )
             )
         }
 
         for zone in source.zones {
-            guard let rectangle = placed.zones.first(where: { $0.id == zone.id }) else { continue }
+            // With no layout there is no rectangle, and a zone with no
+            // rectangle still holds its components: membership is the field,
+            // not the geometry. The compile path is the caller that does this.
+            let rectangle = placed.zones.first { $0.id == zone.id }
             model.zones.append(
                 Zone(
                     id: ZoneId(zone.id),
                     rect: Rect(
-                        x: rectangle.x,
-                        y: rectangle.y,
-                        width: rectangle.width,
-                        height: rectangle.height
+                        x: rectangle?.x ?? 0,
+                        y: rectangle?.y ?? 0,
+                        width: rectangle?.width ?? 0,
+                        height: rectangle?.height ?? 0
                     ),
                     name: zone.name,
                     networkZone: NetworkZone(rawValue: zone.kind) ?? .privateZone,

@@ -55,6 +55,14 @@ public struct ResizeZone: ResizeZoneUseCase {
                 width: request.width,
                 height: request.height
             )
+            // A zone that moves or resizes takes the components its new
+            // rectangle holds and releases the rest.
+            for component in model.components.indices {
+                model.components[component].zoneId = ZoneContainment.zone(
+                    holding: model.components[component].centre,
+                    in: model.zones
+                )?.id
+            }
             return .resized
         }
     }

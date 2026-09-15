@@ -51,6 +51,14 @@ public struct AddZone: AddZoneUseCase {
 
         return models.mutate(label: ChangeLabel.addZone) { model in
             model.zones.append(zone)
+            // A zone drawn over a component takes it, the way a zone resized
+            // over one does.
+            for index in model.components.indices {
+                model.components[index].zoneId = ZoneContainment.zone(
+                    holding: model.components[index].centre,
+                    in: model.zones
+                )?.id
+            }
             return .added(zoneId: zone.id.value)
         }
     }

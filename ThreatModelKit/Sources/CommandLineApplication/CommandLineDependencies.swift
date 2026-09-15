@@ -35,8 +35,7 @@ struct CommandLineDependencies {
             catalogue: catalogue,
             architectureSources: architectureSources,
             controlsSources: controlsSources,
-            attackTreeSources: attackTreeSources,
-            layout: layOutModel()
+            attackTreeSources: attackTreeSources
         )
     }
 

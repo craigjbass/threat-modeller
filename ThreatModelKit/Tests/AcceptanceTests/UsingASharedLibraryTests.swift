@@ -62,8 +62,7 @@ struct UsingASharedLibraryTests {
             catalogue: catalogue,
             architectureSources: HclArchitectureSource(),
             controlsSources: HclControlsSource(),
-            attackTreeSources: HclAttackTreeSource(),
-            layout: LayOutModel()
+            attackTreeSources: HclAttackTreeSource()
         )
         .execute(CompileControlsRequest(architectureText: architecture, controlsText: controls))
     }

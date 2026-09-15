@@ -222,7 +222,8 @@ struct AttackPathTests {
             id: ComponentId("gateway"),
             technologyId: TechnologyId("aws-ec2"),
             position: Point(x: 20, y: 20),
-            sensitivity: .internalData
+            sensitivity: .internalData,
+            zoneId: ZoneId("dmz")
         )
         // "gateway" has an inbound flow from "far", so the no-inbound half of
         // the start rule does not make it a start on its own. Only the

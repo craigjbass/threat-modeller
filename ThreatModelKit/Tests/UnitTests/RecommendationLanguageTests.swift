@@ -77,8 +77,7 @@ struct RecommendationLanguageTests {
             catalogue: CatalogueFixture.catalogue(),
             architectureSources: HclArchitectureSource(),
             controlsSources: HclControlsSource(),
-            attackTreeSources: HclAttackTreeSource(),
-            layout: LayOutModel()
+            attackTreeSources: HclAttackTreeSource()
         ).execute(CompileControlsRequest(architectureText: architecture, controlsText: controls))
 
         guard case .compiled(let text, _, _, _, _, _, _) = response else {
@@ -136,8 +135,7 @@ struct RecommendationLanguageTests {
             catalogue: CatalogueFixture.catalogue(),
             architectureSources: HclArchitectureSource(),
             controlsSources: HclControlsSource(),
-            attackTreeSources: HclAttackTreeSource(),
-            layout: LayOutModel()
+            attackTreeSources: HclAttackTreeSource()
         )
 
         // A person adds a recommendation while the architecture still raises

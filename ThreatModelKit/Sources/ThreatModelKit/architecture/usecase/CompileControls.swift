@@ -46,32 +46,33 @@ public struct CompileControls: CompileControlsUseCase {
     private let architectureSources: ArchitectureSourceGateway
     private let controlsSources: ControlsSourceGateway
     private let attackTreeSources: AttackTreeSourceGateway
-    private let layout: LayOutModelUseCase
 
     public init(
         catalogue: TechnologyCatalogue,
         architectureSources: ArchitectureSourceGateway,
         controlsSources: ControlsSourceGateway,
-        attackTreeSources: AttackTreeSourceGateway,
-        layout: LayOutModelUseCase
+        attackTreeSources: AttackTreeSourceGateway
     ) {
         self.catalogue = catalogue
         self.architectureSources = architectureSources
         self.controlsSources = controlsSources
         self.attackTreeSources = attackTreeSources
-        self.layout = layout
     }
 
     public func execute(_ request: CompileControlsRequest) -> CompileControlsResponse {
         // The architecture is imported into a store of its own, so compiling
         // never changes what is on screen.
+        //
+        // No layout: a compile scores a model and draws nothing, and zone
+        // membership comes from the nesting the file states. The layout search
+        // was 98 per cent of what a compile cost.
         let store = InMemoryThreatModelGateway()
         let imported = ImportArchitecture(
             models: store,
             catalogue: catalogue,
             sources: architectureSources,
             attackTreeSources: attackTreeSources,
-            layout: layout
+            layout: nil
         ).execute(
             ImportArchitectureRequest(
                 text: request.architectureText,

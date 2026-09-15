@@ -105,8 +105,7 @@ struct LikelihoodEndToEndTests {
             catalogue: merged,
             architectureSources: architectureSources,
             controlsSources: controlsSources,
-            attackTreeSources: HclAttackTreeSource(),
-            layout: LayOutModel()
+            attackTreeSources: HclAttackTreeSource()
         )
         guard case .compiled(let stub, _, let firstUnanswered, _, _, _, _) = compiles.execute(
             CompileControlsRequest(architectureText: architectureText)

@@ -22,6 +22,14 @@ public struct Component: Equatable, Sendable {
     public var assets: [Asset]
     /// The shape the user forced, or nil to let `DiagramShapeMap` decide.
     public var shape: DiagramShape?
+    /// The zone that holds this component, or nil when no zone does.
+    ///
+    /// The field is what every reader reads. Geometry decides it only when a
+    /// person moves a node, moves a zone or resizes a zone: `ZoneContainment`
+    /// answers then, and the answer is written here. Reading a `.arch` file
+    /// takes the nesting the file states, so nothing lays a diagram out to
+    /// know which zone holds what.
+    public var zoneId: ZoneId?
 
     public init(
         id: ComponentId,
@@ -32,7 +40,8 @@ public struct Component: Equatable, Sendable {
         threatsDisabled: Bool = false,
         runsAs: PrivilegeLevel = .default,
         assets: [Asset] = [],
-        shape: DiagramShape? = nil
+        shape: DiagramShape? = nil,
+        zoneId: ZoneId? = nil
     ) {
         self.id = id
         self.technologyId = technologyId
@@ -43,6 +52,7 @@ public struct Component: Equatable, Sendable {
         self.runsAs = runsAs
         self.assets = assets
         self.shape = shape
+        self.zoneId = zoneId
     }
 
     /// The size each shape draws at. `size` stays the slot the component

@@ -18,8 +18,9 @@ public enum ArchitectureSourceBuilder {
                     runsAs: component.runsAs.rawValue,
                     assets: component.assets.map { SourceAsset(name: $0.name, data: $0.sensitivity.rawValue) }
                 )
-                if let zone = ZoneContainment.zone(holding: component.centre, in: model.zones) {
-                    inZone[zone.id, default: []].append(written)
+                if let zoneId = component.zoneId,
+                   model.zones.contains(where: { $0.id == zoneId }) {
+                    inZone[zoneId, default: []].append(written)
                 } else {
                     loose.append(written)
                 }

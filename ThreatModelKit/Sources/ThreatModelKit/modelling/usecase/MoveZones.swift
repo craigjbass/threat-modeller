@@ -70,6 +70,15 @@ public struct MoveZones: MoveZonesUseCase {
                     height: size.height
                 )
             }
+            // A zone that moves takes the components its new rectangle holds
+            // and releases the rest, the way a resize does.
+            for index in model.components.indices {
+                model.components[index].zoneId = ZoneContainment.zone(
+                    holding: model.components[index].centre,
+                    in: model.zones
+                )?.id
+            }
+
             return .moved(count: corners.count)
         }
     }

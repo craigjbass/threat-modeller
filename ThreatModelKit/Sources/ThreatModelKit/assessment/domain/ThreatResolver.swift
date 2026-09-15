@@ -237,15 +237,18 @@ public struct ThreatResolver {
             resolved.append(compensated(likelihooded(threat)))
         }
 
-        // Derived, never stored. Spec section 5.2.
+        // The component carries the zone that holds it. Geometry decides it
+        // on a drag or a resize and writes it there, so nothing here lays a
+        // diagram out to score it.
+        let zonesById = Dictionary(
+            model.zones.map { ($0.id, $0) },
+            uniquingKeysWith: { _, later in later }
+        )
         var zonesByComponent: [ComponentId: Zone] = [:]
         var sensitivityById: [ComponentId: DataSensitivity] = [:]
         var technologyById: [ComponentId: TechnologyId] = [:]
         for component in model.components {
-            zonesByComponent[component.id] = ZoneContainment.zone(
-                holding: component.centre,
-                in: model.zones
-            )
+            zonesByComponent[component.id] = component.zoneId.flatMap { zonesById[$0] }
             sensitivityById[component.id] = component.effectiveSensitivity
             technologyById[component.id] = component.technologyId
         }

@@ -51,6 +51,24 @@
 
 **Write the two figures into this file before going on.** Every later claim about what was saved is measured against them.
 
+**Measured on 2026-09-15**, release build, sixty components in one zone with
+fifty-nine flows, the fixture catalogue:
+
+| What | Time |
+| --- | --- |
+| `CompileControls.execute` | 0.512 s |
+| `LayOutModel.execute` alone | 0.502 s |
+
+The layout is 98 percent of the compile.
+
+**After the change**, same machine, same source, release build:
+
+| What | Time |
+| --- | --- |
+| `CompileControls.execute` | 0.010 s |
+
+The compile runs no layout, and takes 2 percent of what it took.
+
 ## Task 1: a component carries its zone
 
 - [ ] Test: a `Component` built with a `zoneId` keeps it.

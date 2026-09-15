@@ -19,9 +19,12 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// fields, so it would open a version 5 file and then drop them again on
     /// the next save; refusing the file by its version number stops that
     /// silent loss instead. Version 6 adds the action an assumed edge
-    /// carries.
-    public static let formatVersion = 6
-    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6]
+    /// carries. Version 7 adds the zone a component sits in, which was read
+    /// from the coordinates before and is now written on the component. A file
+    /// at version 6 or below reads back with the same membership, filled in
+    /// from the coordinates the file holds.
+    public static let formatVersion = 7
+    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7]
 
     public init() {}
 
@@ -153,13 +156,26 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             )
         }
 
-        let components = try document.components.map(Self.component(from:))
+        var components = try document.components.map(Self.component(from:))
+        let zones = try document.zones.map(Self.zone(from:))
+
+        // A file written before version 7 states no membership, so it is read
+        // from the coordinates the file holds. The picture and the membership
+        // then say what they said when the file was written.
+        if document.formatVersion < 7 {
+            for index in components.indices {
+                components[index].zoneId = ZoneContainment.zone(
+                    holding: components[index].centre,
+                    in: zones
+                )?.id
+            }
+        }
 
         return ThreatModel(
             name: document.name,
             components: components,
             connections: try document.connections.map(Self.connection(from:)),
-            zones: try document.zones.map(Self.zone(from:)),
+            zones: zones,
             // A file written before the element keying keys a component
             // override by its technology. Reading it forward writes that
             // override onto every component of that technology, so the user's
@@ -383,7 +399,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             assets: component.assets.map {
                 AssetJSON(name: $0.name, sensitivity: $0.sensitivity.rawValue)
             },
-            shape: component.shape?.rawValue
+            shape: component.shape?.rawValue,
+            zoneId: component.zoneId?.value
         )
     }
 
@@ -455,7 +472,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     sensitivity: DataSensitivity(rawValue: $0.sensitivity) ?? .internalData
                 )
             },
-            shape: try optionalShape(from: json.shape)
+            shape: try optionalShape(from: json.shape),
+            zoneId: json.zoneId.map(ZoneId.init)
         )
     }
 

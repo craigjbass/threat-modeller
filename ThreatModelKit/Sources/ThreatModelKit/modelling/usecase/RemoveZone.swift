@@ -36,6 +36,14 @@ public struct RemoveZone: RemoveZoneUseCase {
             }
 
             model.zones.removeAll { $0.id == id }
+            // The components that zone held belong to whichever zone still
+            // covers them, and to none when nothing does.
+            for index in model.components.indices where model.components[index].zoneId == id {
+                model.components[index].zoneId = ZoneContainment.zone(
+                    holding: model.components[index].centre,
+                    in: model.zones
+                )?.id
+            }
             return .removed
         }
     }

@@ -71,12 +71,13 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         }
         let nameOf: (ComponentId) -> String = { nameById[$0] ?? $0.value }
 
+        let zonesById = Dictionary(
+            model.zones.map { ($0.id, $0) },
+            uniquingKeysWith: { _, later in later }
+        )
         let zoneByComponent = Dictionary(
             uniqueKeysWithValues: model.components.map { component in
-                (
-                    component.id,
-                    ZoneContainment.zone(holding: component.centre, in: model.zones)
-                )
+                (component.id, component.zoneId.flatMap { zonesById[$0] })
             }
         )
 

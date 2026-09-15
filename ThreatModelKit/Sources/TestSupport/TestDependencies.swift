@@ -16,6 +16,9 @@ public final class TestDependencies: UseCaseFactory {
     /// The store, so a test can state domain facts a use case does not yet
     /// write. Every other test goes through the use cases.
     public var modelStore: ThreatModelGateway { models }
+    /// The catalogue this root wires, so a test builds a use case of its own
+    /// over the same data.
+    public var catalogueInUse: TechnologyCatalogue { catalogue }
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
     /// The project this composition root wires, so a test can put a file in
@@ -174,8 +177,7 @@ public final class TestDependencies: UseCaseFactory {
             catalogue: catalogue,
             architectureSources: architectureSources,
             controlsSources: controlsSources,
-            attackTreeSources: attackTreeSources,
-            layout: layOutModel()
+            attackTreeSources: attackTreeSources
         )
     }
 

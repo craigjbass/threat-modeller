@@ -5,9 +5,15 @@ import TestSupport
 struct ViewThreatModelTests {
     private let catalogue = CatalogueFixture.catalogue()
 
+    /// A hand-built model states a picture and no membership, so the
+    /// membership that picture means is filled in, the way an older document
+    /// is read.
     private func view(_ model: ThreatModel) -> ViewThreatModelResponse {
-        ViewThreatModel(models: InMemoryThreatModelGateway(model), catalogue: catalogue)
-            .execute(ViewThreatModelRequest())
+        ViewThreatModel(
+            models: InMemoryThreatModelGateway(model.withZoneMembershipFromGeometry()),
+            catalogue: catalogue
+        )
+        .execute(ViewThreatModelRequest())
     }
 
     private func component(

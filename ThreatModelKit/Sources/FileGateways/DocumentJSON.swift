@@ -110,6 +110,9 @@ struct ComponentJSON: Codable {
     let assets: [AssetJSON]?
     /// The shape the user forced. Absent means the derivation decides.
     let shape: String?
+    /// The zone that holds this component. Absent in a file written before
+    /// format version 7; the codec then reads it from the coordinates.
+    let zoneId: String?
 }
 
 struct ConnectionJSON: Codable {

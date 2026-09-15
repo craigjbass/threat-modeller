@@ -267,7 +267,7 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     sensitivityId: component.sensitivity.rawValue,
                     threatsDisabled: component.threatsDisabled,
                     isUnknownTechnology: technology == nil,
-                    zoneId: ZoneContainment.zone(holding: component.centre, in: model.zones)?.id.value,
+                    zoneId: component.zoneId?.value,
                     runsAsId: component.runsAs.rawValue,
                     shapeId: component.resolvedShape(
                         providerId: providerId,

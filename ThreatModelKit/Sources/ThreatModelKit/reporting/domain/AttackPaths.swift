@@ -33,10 +33,10 @@ public enum AttackPaths {
             hasInbound.insert(connection.target)
         }
 
-        let publicZones = zones.filter { $0.networkZone == .publicZone }
+        let publicZoneIds = Set(zones.filter { $0.networkZone == .publicZone }.map(\.id))
         let starts = components.filter { component in
             hasInbound.contains(component.id) == false
-                || ZoneContainment.zone(holding: component.centre, in: publicZones) != nil
+                || component.zoneId.map(publicZoneIds.contains) == true
         }
         let ends = Set(
             components

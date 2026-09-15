@@ -175,8 +175,7 @@ nonisolated final class Dependencies: UseCaseFactory {
             catalogue: catalogue,
             architectureSources: architectureSources,
             controlsSources: controlsSources,
-            attackTreeSources: attackTreeSources,
-            layout: layOutModel()
+            attackTreeSources: attackTreeSources
         )
     }
 

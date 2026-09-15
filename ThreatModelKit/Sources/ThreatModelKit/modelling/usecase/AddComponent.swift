@@ -51,8 +51,11 @@ public struct AddComponent: AddComponentUseCase {
         )
 
         return models.mutate(label: ChangeLabel.addComponent) { model in
-            model.components.append(component)
-            return .added(componentId: component.id.value)
+            var placed = component
+            // A component dropped inside a zone rectangle joins that zone.
+            placed.zoneId = ZoneContainment.zone(holding: placed.centre, in: model.zones)?.id
+            model.components.append(placed)
+            return .added(componentId: placed.id.value)
         }
     }
 }

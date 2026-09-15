@@ -35,11 +35,13 @@ struct DocumentFormatVersionSixTests {
         return model
     }
 
-    @Test func writesVersionSix() throws {
+    /// The version moves with the format. Version 7 adds the zone a
+    /// component sits in, and the fields this suite covers are unchanged.
+    @Test func writesTheCurrentVersion() throws {
         let data = try ThreatModelCodec().encode(model())
 
         let read = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(read["formatVersion"] as? Int == 6)
+        #expect(read["formatVersion"] as? Int == ThreatModelCodec.formatVersion)
     }
 
     @Test func readsBackEveryEdgeWithAndWithoutAnAction() throws {

@@ -57,9 +57,15 @@ public struct MoveComponents: MoveComponentsUseCase {
             guard positions.isEmpty == false else { return .moved(count: 0) }
 
             for index in model.components.indices {
-                if let position = positions[model.components[index].id] {
-                    model.components[index].position = position
-                }
+                guard let position = positions[model.components[index].id] else { continue }
+                model.components[index].position = position
+                // A drag is where geometry decides membership: a component
+                // dropped inside a zone joins it, and one dropped outside
+                // every zone leaves the one it was in.
+                model.components[index].zoneId = ZoneContainment.zone(
+                    holding: model.components[index].centre,
+                    in: model.zones
+                )?.id
             }
             return .moved(count: positions.count)
         }
