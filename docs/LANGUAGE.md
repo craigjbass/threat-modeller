@@ -1289,6 +1289,12 @@ library "acme" {
 }
 ```
 
+A `mitigation` block states a pathway mitigation the library brings: what
+provides it, which threats it answers, the percentage it lowers a score by and
+the mode it starts in. A threat the library marks `pathway = true` is a pathway
+threat. The Pathway Mitigations panel lists the vendored mitigations and every
+library's together, and names the library each library one came from.
+
 A library's own words are known to that library: a technology names a category
 it declares, and a threat names a severity or a stride category it declares. A
 word the vendored taxonomy already holds stands as the vendored catalogue

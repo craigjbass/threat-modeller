@@ -192,3 +192,89 @@ struct ClashingLibraryTaxonomyTests {
         #expect(taxonomy.category(id: CategoryId("shared"))?.label == "Acme's word")
     }
 }
+
+/// A pathway mitigation a library states.
+@Suite("A library's own pathway mitigation")
+struct LibraryPathwayMitigationTests {
+    private let source = """
+    library "acme" {
+      name = "Acme Platform"
+
+      technology "firewall" {
+        name     = "Acme Firewall"
+        category = "compute"
+      }
+
+      threat "lateral-movement" {
+        name     = "Lateral movement"
+        severity = "high"
+        pathway  = true
+
+        control "Segment the network"
+      }
+
+      mitigation "network-firewall" {
+        name            = "Acme Network Firewall"
+        mitigates       = ["lateral-movement"]
+        provided_by     = ["firewall"]
+        reduces_risk_by = 50
+        mode            = "remove"
+      }
+    }
+    """
+
+    private func loaded() -> [Library] {
+        let app = TestDependencies()
+        app.project.put(source, at: "/work/threatmodel/library/acme.lib")
+        let response = app.loadLibraries().execute(LoadLibrariesRequest(root: "/work"))
+        guard case .loaded(let libraries, _) = response else {
+            Issue.record("the library did not load: \(response)")
+            return []
+        }
+        return libraries
+    }
+
+    @Test func theLibraryStatesTheMitigationAndTheThreatItAnswers() throws {
+        let library = try #require(loaded().first)
+
+        let mitigation = try #require(library.pathwayMitigations.first)
+        #expect(mitigation.id == PathwayMitigationId("acme-network-firewall"))
+        #expect(mitigation.reducesRiskBy == 50)
+        #expect(mitigation.defaultMode == .remove)
+        #expect(mitigation.technologyIds == [TechnologyId("acme-firewall")])
+        #expect(library.threats[0].isPathwayThreat)
+    }
+
+    @Test func theMitigationNamesTheLibraryItCameFrom() throws {
+        let library = try #require(loaded().first)
+
+        #expect(library.pathwayMitigations.first?.libraryLabel == "Acme Platform")
+    }
+
+    @Test func thePanelListsTheVendoredOnesAndTheLibrarysTogether() throws {
+        let app = TestDependencies()
+        app.project.put(source, at: "/work/threatmodel/library/acme.lib")
+        guard case .loaded(let libraries, _) = app.loadLibraries()
+            .execute(LoadLibrariesRequest(root: "/work")) else {
+            Issue.record("expected the library to load")
+            return
+        }
+        app.useLibraries(libraries)
+
+        let listed = app.listPathwayMitigations()
+            .execute(ListPathwayMitigationsRequest()).mitigations
+
+        #expect(listed.contains { $0.id == "acme-network-firewall" })
+        #expect(listed.contains { $0.libraryLabel == nil })
+        #expect(listed.first { $0.id == "acme-network-firewall" }?.libraryLabel == "Acme Platform")
+    }
+
+    @Test func aModelThatReadsNoLibraryShowsTheVendoredOnesOnly() {
+        let app = TestDependencies()
+
+        let listed = app.listPathwayMitigations()
+            .execute(ListPathwayMitigationsRequest()).mitigations
+
+        #expect(listed.allSatisfy { $0.libraryLabel == nil })
+    }
+}

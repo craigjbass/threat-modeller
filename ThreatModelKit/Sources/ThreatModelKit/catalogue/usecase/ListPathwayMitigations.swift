@@ -21,6 +21,8 @@ public struct ListedPathwayMitigation: Equatable, Sendable {
     /// True when something on this diagram provides it. A switch turned on
     /// that nothing provides changes no score.
     public let isProvidedOnThisModel: Bool
+    /// The library that states it, or nil for a vendored one.
+    public let libraryLabel: String?
 
     public init(
         id: String,
@@ -31,7 +33,8 @@ public struct ListedPathwayMitigation: Equatable, Sendable {
         reductionPercent: Int,
         providedByTechnologyNames: [String],
         mitigatedThreatNames: [String],
-        isProvidedOnThisModel: Bool
+        isProvidedOnThisModel: Bool,
+        libraryLabel: String? = nil
     ) {
         self.id = id
         self.label = label
@@ -42,6 +45,7 @@ public struct ListedPathwayMitigation: Equatable, Sendable {
         self.providedByTechnologyNames = providedByTechnologyNames
         self.mitigatedThreatNames = mitigatedThreatNames
         self.isProvidedOnThisModel = isProvidedOnThisModel
+        self.libraryLabel = libraryLabel
     }
 }
 
@@ -102,7 +106,8 @@ public struct ListPathwayMitigations: ListPathwayMitigationsUseCase {
                         lookup.findById($0)?.name
                     },
                     mitigatedThreatNames: definition.mitigatesThreatIds.compactMap { threatNames[$0] },
-                    isProvidedOnThisModel: definition.technologyIds.contains(where: present.contains)
+                    isProvidedOnThisModel: definition.technologyIds.contains(where: present.contains),
+                    libraryLabel: definition.libraryLabel
                 )
             }
         )

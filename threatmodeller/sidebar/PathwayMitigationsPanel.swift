@@ -89,6 +89,13 @@ struct PathwayMitigationsPanel: View {
             .toggleStyle(.checkbox)
             .accessibilityIdentifier("pathway-\(mitigation.id)-enabled")
 
+            if let libraryLabel = mitigation.libraryLabel {
+                Text("From \(libraryLabel)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("pathway-\(mitigation.id)-library")
+            }
+
             if mitigation.isProvidedOnThisModel == false {
                 Text("Nothing on this diagram provides it. \(mitigation.providedByTechnologyNames.joined(separator: ", ")) would.")
                     .font(.caption2)

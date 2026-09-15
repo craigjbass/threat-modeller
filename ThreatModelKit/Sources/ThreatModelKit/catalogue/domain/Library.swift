@@ -196,7 +196,8 @@ public extension Library {
                     TechnologyId(declaredTechnologies.contains($0) ? prefixed($0) : $0)
                 },
                 reducesRiskBy: mitigation.reducesRiskBy,
-                defaultMode: mitigation.mode.flatMap(PathwayMitigationMode.init(rawValue:))
+                defaultMode: mitigation.mode.flatMap(PathwayMitigationMode.init(rawValue:)),
+                libraryLabel: source.displayName ?? source.label
             )
         }
 

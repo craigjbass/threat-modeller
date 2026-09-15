@@ -24,6 +24,9 @@ public struct PathwayMitigationDefinition: Equatable, Sendable {
     /// or nil when the catalogue states nothing. The user's settings start
     /// from this mode until the user sets their own.
     public let defaultMode: PathwayMitigationMode?
+    /// The library that states this mitigation, or nil for a vendored one.
+    /// The panel names it, so a reader knows where a mitigation came from.
+    public let libraryLabel: String?
 
     public init(
         id: PathwayMitigationId,
@@ -32,7 +35,8 @@ public struct PathwayMitigationDefinition: Equatable, Sendable {
         mitigatesThreatIds: [ThreatId],
         technologyIds: [TechnologyId],
         reducesRiskBy: Int? = nil,
-        defaultMode: PathwayMitigationMode? = nil
+        defaultMode: PathwayMitigationMode? = nil,
+        libraryLabel: String? = nil
     ) {
         self.id = id
         self.label = label
@@ -41,6 +45,7 @@ public struct PathwayMitigationDefinition: Equatable, Sendable {
         self.technologyIds = technologyIds
         self.reducesRiskBy = reducesRiskBy
         self.defaultMode = defaultMode
+        self.libraryLabel = libraryLabel
     }
 
     public func mitigates(_ threatId: ThreatId) -> Bool {
