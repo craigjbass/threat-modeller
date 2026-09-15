@@ -1,0 +1,33 @@
+system "Payments" {
+  zone "google-compute-network-main" {
+    kind    = "private"
+    network = "vpc"
+    name    = "payments"
+    source  = "terraform"
+  }
+
+  zone "google-compute-subnetwork-app" {
+    kind    = "private"
+    network = "subnet"
+    name    = "app"
+    source  = "terraform"
+
+    component "google-compute-instance-api" {
+      technology = "gcp-compute-engine"
+      name       = "api"
+      source     = "terraform"
+    }
+  }
+
+  component "google-sql-database-instance-ledger" {
+    technology = "gcp-cloud-sql"
+    name       = "ledger"
+    source     = "terraform"
+  }
+
+  component "google-storage-bucket-receipts" {
+    technology = "gcp-cloud-storage"
+    name       = "receipts"
+    source     = "terraform"
+  }
+}

@@ -390,6 +390,7 @@ ComponentEntry = "technology"  "=" String
                | "data"        "=" String
                | "holds"       "=" StringList
                | "provided_by" "=" String
+               | "source"      "=" String
                | "runs_as"     "=" String
                | "shape"       "=" String
                | "threats"     "=" Boolean
@@ -818,6 +819,22 @@ GitHub draws a fenced `mermaid` block. The HTML report writes the same source
 in a `<pre class="mermaid">` block: the page states the picture's source
 rather than shipping a renderer, and a page that loads one draws it from that
 same block.
+
+**`source`.** A `component` and a `zone` may state what wrote them.
+
+```hcl
+component "aws-instance-api" {
+  technology = "aws-ec2"
+  source     = "terraform"
+}
+```
+
+The language reads any word. `terraform` is the one
+`threatmodeller import terraform` writes, and that verb owns only what it
+wrote: an element stating `source = "terraform"` that the state no longer
+holds is removed on the next import, and an element stating no `source` is a
+person's own and is never removed or changed. The mapping is stated in
+`docs/superpowers/specs/2026-09-15-terraform-import-design.md`.
 
 **`third_party`.** A box on the diagram states a technology. A `third_party`
 block states which company, project or person runs it, what the team pays and
@@ -2457,7 +2474,7 @@ entry" or "an unknown attribute".
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
-| architecture | `component` | `a component holds technology, name, data, holds, provided_by, threats, runs_as, shape and asset, not "<word>"` |
+| architecture | `component` | `a component holds technology, name, data, holds, provided_by, source, threats, runs_as, shape and asset, not "<word>"` |
 | architecture | `third_party` | `a third_party holds name, description, kind, paying_customer, uptime, uptime_notes, owner and link, not "<word>"` |
 | architecture | `third_party` | `the third party "<id>" has no name` |
 | architecture | `third_party` | `the third party "<id>" states no uptime; state "none", "degraded", "hard" or "operational"` |
@@ -2688,6 +2705,7 @@ ComponentEntry = "technology"  "=" String
                | "data"        "=" String
                | "holds"       "=" StringList
                | "provided_by" "=" String
+               | "source"      "=" String
                | "runs_as"     "=" String
                | "shape"       "=" String
                | "threats"     "=" Boolean

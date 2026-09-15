@@ -34,6 +34,9 @@ public struct CommandLineApplication {
     private let mitreActors: MitreActorSource
     /// Built once a catalogue is known, which is only when a verb needs one.
     private let makeCatalogue: () throws -> TechnologyCatalogue
+    /// What arrives on standard input. `import` reads a Terraform state from
+    /// it, and a test hands one over without a pipe.
+    private let standardInput: () -> String
 
     public init(
         projects: ProjectSourceGateway,
@@ -45,8 +48,10 @@ public struct CommandLineApplication {
         fetcher: LibraryFetching = GitLibraryFetcher(),
         attackData: AttackDataGateway = FileSystemAttackData(),
         downloader: AttackDownloading = CurlDownloader(),
-        catalogue: @escaping () throws -> TechnologyCatalogue = { try BundledTechnologyCatalogue() }
+        catalogue: @escaping () throws -> TechnologyCatalogue = { try BundledTechnologyCatalogue() },
+        standardInput: @escaping () -> String = CommandLineApplication.everyLineOfStandardInput
     ) {
+        self.standardInput = standardInput
         self.attackData = attackData
         self.downloader = downloader
         mitreActors = MitreActorSource(data: attackData)
@@ -206,6 +211,8 @@ public struct CommandLineApplication {
         case "draw":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return draw(root: root, into: into, wants: pictures, isQuiet: isQuiet, output: output)
+        case "import":
+            return importing(words: Array(words.dropFirst()), isQuiet: isQuiet, output: output)
         case "list":
             return list(
                 root: root,
@@ -1396,6 +1403,113 @@ public struct CommandLineApplication {
     /// SVG is written by this package, so it works wherever the tool runs. PNG
     /// needs a drawing engine, which only Apple's platforms supply here, so a
     /// Linux build says so rather than writing nothing.
+    /// Draws what a Terraform state holds.
+    ///
+    /// The state arrives on standard input, the way `terraform show -json`
+    /// writes it, so nothing here reaches a cloud account.
+    private func importing(
+        words: [String],
+        isQuiet: Bool,
+        output: (String) -> Void
+    ) -> Int32 {
+        guard words.first == "terraform" else {
+            output("threatmodeller: import takes terraform")
+            return ExitCode.didNotParse.rawValue
+        }
+        let root = words.dropFirst().first { $0.hasPrefix("-o:") == false } ?? "."
+
+        let stateText = standardInput()
+        guard stateText.isEmpty == false else {
+            output("threatmodeller: no state arrived on standard input")
+            return ExitCode.didNotParse.rawValue
+        }
+
+        let layout: ProjectLayout
+        do {
+            layout = try projects.discover(root: root)
+        } catch {
+            output("threatmodeller: \(Self.described(error))")
+            return ExitCode.fileFault.rawValue
+        }
+
+        // The one system a project holds, or a new one named after the
+        // directory. A project of many systems is told which to import into
+        // by naming that system's own directory as the root.
+        let system = layout.systems.first
+        // A project with no system yet takes the project's own name, which is
+        // the directory holding `threatmodel/`, not that directory itself.
+        let name = system?.name ?? Self.projectName(root: root, layout: layout)
+        let path = system?.architecturePath
+            ?? ProjectConvention.path(layout.directory, "\(name).arch")
+        let held = system.flatMap { try? projects.read(path: $0.architecturePath) }
+
+        let response = ImportTerraform(sources: architecture).execute(
+            ImportTerraformRequest(
+                stateText: stateText,
+                architectureText: held,
+                systemName: name
+            )
+        )
+
+        switch response {
+        case .unreadableState:
+            output("threatmodeller: the state is not the JSON `terraform show -json` writes")
+            return ExitCode.didNotParse.rawValue
+        case .refused(let diagnostics):
+            for diagnostic in diagnostics { output(diagnostic.described(in: path)) }
+            return ExitCode.didNotParse.rawValue
+        case .nothingToImport(let unmapped):
+            for line in Self.unmappedLines(unmapped) { output(line) }
+            output("threatmodeller: this state holds nothing this application draws")
+            return ExitCode.success.rawValue
+        case .imported(let text, let added, let removed, let components, let zones, let flows, let unmapped):
+            do {
+                try projects.write(text, to: path)
+            } catch {
+                output("threatmodeller: \(Self.described(error))")
+                return ExitCode.fileFault.rawValue
+            }
+            if isQuiet == false {
+                for id in added { output("added \(id)") }
+                for id in removed {
+                    output("removed \(id), which the state no longer holds")
+                }
+                for line in Self.unmappedLines(unmapped) { output(line) }
+                output(
+                    "imported \(components) components, \(zones) zones and \(flows) flows"
+                        + " into \(path)"
+                )
+            }
+            return ExitCode.success.rawValue
+        }
+    }
+
+    /// What a project with no system yet calls the system this import writes.
+    static func projectName(root: String, layout: ProjectLayout) -> String {
+        let parts = layout.directory.split(separator: "/").map(String.init)
+        let named = parts.last == ProjectConvention.conventionDirectoryName
+            ? parts.dropLast().last
+            : parts.last
+        guard let named, named.isEmpty == false, named != "." else { return "system" }
+        return named
+    }
+
+    /// One line naming every resource type this application does not map, and
+    /// how many of each the state held.
+    static func unmappedLines(_ unmapped: [(type: String, count: Int)]) -> [String] {
+        guard unmapped.isEmpty == false else { return [] }
+        let total = unmapped.reduce(0) { $0 + $1.count }
+        let named = unmapped.map { "\($0.type) (\($0.count))" }.joined(separator: ", ")
+        return ["\(total) resources have no mapping: \(named)"]
+    }
+
+    /// The whole of standard input, as text.
+    public static func everyLineOfStandardInput() -> String {
+        var text = ""
+        while let line = readLine(strippingNewline: false) { text += line }
+        return text
+    }
+
     /// Says what each system in a project holds and what it scores.
     ///
     /// One resolve per system and no layout: the numbers come from the
@@ -2038,6 +2152,8 @@ public struct CommandLineApplication {
       threatmodeller draw    [<root>]  write every diagram as a picture
       threatmodeller export  [<root>]  write every model as data another program reads
       threatmodeller list    [<root>]  say what each system holds and what it scores
+      threatmodeller import terraform [<root>]  draw what a Terraform state holds,
+                                       reading `terraform show -json` on standard input
       threatmodeller format  [<root>]  rewrite every .arch, .attacktree and .lib file
                                        in the canonical shape
       threatmodeller help              show this text

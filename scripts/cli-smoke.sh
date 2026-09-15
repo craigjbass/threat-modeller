@@ -95,6 +95,16 @@ grep -q '"otmVersion"' "$work/sample/threatmodel/payments.otm.json"
 tm export "$work/sample" --stdout > "$work/sample/stdout.json"
 grep -q '"threats"' "$work/sample/stdout.json"
 
+step "import terraform draws what a state holds"
+mkdir -p "$work/imported/threatmodel"
+tm import terraform "$work/imported" < ThreatModelKit/Tests/Goldens/terraform-aws-state.json
+test -f "$work/imported/threatmodel/imported.arch"
+grep -q 'technology = "aws-ec2"' "$work/imported/threatmodel/imported.arch"
+grep -q 'source     = "terraform"' "$work/imported/threatmodel/imported.arch"
+cp "$work/imported/threatmodel/imported.arch" "$work/imported-first.arch"
+tm import terraform "$work/imported" < ThreatModelKit/Tests/Goldens/terraform-aws-state.json
+diff "$work/imported-first.arch" "$work/imported/threatmodel/imported.arch"
+
 step "the threatcl export is what threatcl accepts"
 tm export "$work/sample" --format threatcl
 test -f "$work/sample/threatmodel/payments.hcl"

@@ -402,6 +402,7 @@ threatmodeller report  [<root>] [-o <dir>]   # writes every .md report and its d
 threatmodeller draw    [<root>] [-o <dir>]   # writes every diagram as SVG or PNG
 threatmodeller export  [<root>] [-o <dir>]   # writes every model as data another program reads
 threatmodeller list    [<root>]              # says what each system holds and what it scores
+threatmodeller import terraform [<root>]    # draws what a Terraform state holds
 threatmodeller format  [<root>]                # rewrites every .arch, .attacktree and .lib file
 threatmodeller library <operation> …         # manages the shared element libraries
 threatmodeller help                          # shows the usage text
@@ -495,6 +496,30 @@ The slots and the rules are stated in
 [the report template design](docs/superpowers/specs/2026-09-15-report-template-design.md).
 A project that names no template renders through the shape this application
 ships, which is the report as it has always read.
+
+### Importing an architecture from Terraform
+
+A team whose infrastructure is Terraform already holds the components, the
+networks and the data stores as state. `threatmodeller import terraform` reads
+the JSON of `terraform show -json` on standard input and writes or updates one
+`.arch` file:
+
+```sh
+terraform show -json | threatmodeller import terraform .
+```
+
+Every element the import writes states `source = "terraform"`. A second import
+over the same state writes the same bytes. A resource gone from the state
+removes the element it made and says so; an element a person wrote states no
+`source` and is never removed or changed, and what a person wrote on an
+imported element — its classification, its assets, its name — stays. A
+resource type with no mapping is counted and named once, and the import still
+writes everything it could map.
+
+The mapping from resource types to technologies, from VPCs and subnets to
+zones, from security group rules to flows, and the list of what an import may
+not decide, are stated in
+[the Terraform import design](docs/superpowers/specs/2026-09-15-terraform-import-design.md).
 
 ### Listing the systems in a project
 

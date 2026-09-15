@@ -1,0 +1,48 @@
+system "Payments" {
+  zone "aws-vpc-main" {
+    kind    = "private"
+    network = "vpc"
+    name    = "payments"
+    source  = "terraform"
+  }
+
+  zone "aws-subnet-public" {
+    kind    = "public"
+    network = "subnet"
+    name    = "public"
+    source  = "terraform"
+
+    component "aws-instance-api" {
+      technology = "aws-ec2"
+      name       = "api"
+      source     = "terraform"
+    }
+  }
+
+  zone "aws-subnet-private" {
+    kind    = "private"
+    network = "subnet"
+    name    = "private"
+    source  = "terraform"
+
+    component "aws-db-instance-ledger" {
+      technology = "aws-rds"
+      name       = "ledger"
+      source     = "terraform"
+    }
+  }
+
+  component "aws-s3-bucket-receipts" {
+    technology = "aws-s3"
+    name       = "receipts"
+    source     = "terraform"
+  }
+
+  component "module-workers-aws-lambda-function-settle" {
+    technology = "aws-lambda"
+    name       = "settle"
+    source     = "terraform"
+  }
+
+  flow aws-instance-api -> aws-db-instance-ledger
+}

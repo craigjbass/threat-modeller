@@ -823,6 +823,7 @@ struct ArchitectureParser {
         var components: [SourceComponent] = []
         var boundary = "network"
         var description: String?
+        var zoneSource: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -852,8 +853,13 @@ struct ArchitectureParser {
                 expectVocabulary(boundary, Self.boundaries, field: "boundary", at: token)
             case "description":
                 description = parseTextAttribute()
+            case "source":
+                zoneSource = parseTextAttribute()
             default:
-                record("a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not \"\(current.text)\"")
+                record(
+                    "a zone holds kind, network, name, reduces_risk, reduces_risk_by, "
+                        + "component, boundary, description and source, not \"\(current.text)\""
+                )
                 skipAttribute()
             }
         }
@@ -868,7 +874,8 @@ struct ArchitectureParser {
             reducesRiskBy: reducesRiskBy,
             components: components,
             boundary: boundary,
-            description: description
+            description: description,
+            source: zoneSource
         )
     }
 
@@ -886,6 +893,7 @@ struct ArchitectureParser {
         var assets: [SourceAsset] = []
         var holds: [String] = []
         var providedBy: String?
+        var source: String?
         var declaredData: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -896,6 +904,8 @@ struct ArchitectureParser {
                 holds = parseListAttribute()
             case "provided_by":
                 providedBy = parseTextAttribute()
+            case "source":
+                source = parseTextAttribute()
             case "data":
                 let token = current
                 data = parseTextAttribute() ?? data
@@ -919,8 +929,8 @@ struct ArchitectureParser {
                 if let asset = parseAsset() { assets.append(asset) }
             default:
                 record(
-                    "a component holds technology, name, data, holds, provided_by, threats, "
-                        + "runs_as, shape and asset, not \"\(current.text)\""
+                    "a component holds technology, name, data, holds, provided_by, source, "
+                        + "threats, runs_as, shape and asset, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -941,6 +951,7 @@ struct ArchitectureParser {
             assets: assets,
             holds: holds,
             providedBy: providedBy,
+            source: source,
             declaredData: declaredData,
             shape: shape
         )

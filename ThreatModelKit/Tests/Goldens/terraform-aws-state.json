@@ -1,0 +1,112 @@
+{
+  "format_version": "1.0",
+  "terraform_version": "1.9.5",
+  "values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_vpc.main",
+          "mode": "managed",
+          "type": "aws_vpc",
+          "name": "main",
+          "values": { "id": "vpc-01", "cidr_block": "10.0.0.0/16", "name": "payments" }
+        },
+        {
+          "address": "aws_subnet.public",
+          "mode": "managed",
+          "type": "aws_subnet",
+          "name": "public",
+          "values": {
+            "id": "subnet-public",
+            "vpc_id": "vpc-01",
+            "map_public_ip_on_launch": true,
+            "name": "public"
+          }
+        },
+        {
+          "address": "aws_subnet.private",
+          "mode": "managed",
+          "type": "aws_subnet",
+          "name": "private",
+          "values": {
+            "id": "subnet-private",
+            "vpc_id": "vpc-01",
+            "map_public_ip_on_launch": false,
+            "name": "private"
+          }
+        },
+        {
+          "address": "aws_instance.api",
+          "mode": "managed",
+          "type": "aws_instance",
+          "name": "api",
+          "values": {
+            "id": "i-01",
+            "subnet_id": "subnet-public",
+            "vpc_security_group_ids": ["sg-api"],
+            "name": "api"
+          }
+        },
+        {
+          "address": "aws_db_instance.ledger",
+          "mode": "managed",
+          "type": "aws_db_instance",
+          "name": "ledger",
+          "values": {
+            "id": "db-01",
+            "subnet_id": "subnet-private",
+            "vpc_security_group_ids": ["sg-db"],
+            "name": "ledger"
+          }
+        },
+        {
+          "address": "aws_s3_bucket.receipts",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "receipts",
+          "values": { "id": "receipts", "bucket": "receipts" }
+        },
+        {
+          "address": "aws_security_group_rule.db_from_api",
+          "mode": "managed",
+          "type": "aws_security_group_rule",
+          "name": "db_from_api",
+          "values": {
+            "id": "sgr-01",
+            "type": "ingress",
+            "security_group_id": "sg-db",
+            "source_security_group_id": "sg-api"
+          }
+        },
+        {
+          "address": "aws_cloudwatch_metric_alarm.cpu",
+          "mode": "managed",
+          "type": "aws_cloudwatch_metric_alarm",
+          "name": "cpu",
+          "values": { "id": "alarm-01" }
+        },
+        {
+          "address": "data.aws_caller_identity.current",
+          "mode": "data",
+          "type": "aws_caller_identity",
+          "name": "current",
+          "values": { "id": "12345" }
+        }
+      ],
+      "child_modules": [
+        {
+          "address": "module.workers",
+          "resources": [
+            {
+              "address": "module.workers.aws_lambda_function.settle",
+              "mode": "managed",
+              "type": "aws_lambda_function",
+              "name": "settle",
+              "values": { "id": "settle", "function_name": "settle" }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

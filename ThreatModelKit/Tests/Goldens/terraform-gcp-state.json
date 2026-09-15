@@ -1,0 +1,53 @@
+{
+  "format_version": "1.0",
+  "terraform_version": "1.9.5",
+  "values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "google_compute_network.main",
+          "mode": "managed",
+          "type": "google_compute_network",
+          "name": "main",
+          "values": { "id": "net-01", "name": "payments" }
+        },
+        {
+          "address": "google_compute_subnetwork.app",
+          "mode": "managed",
+          "type": "google_compute_subnetwork",
+          "name": "app",
+          "values": { "id": "subnet-app", "network": "net-01", "name": "app" }
+        },
+        {
+          "address": "google_compute_instance.api",
+          "mode": "managed",
+          "type": "google_compute_instance",
+          "name": "api",
+          "values": { "id": "gce-01", "subnetwork": "subnet-app", "name": "api" },
+          "tags": ["api"]
+        },
+        {
+          "address": "google_sql_database_instance.ledger",
+          "mode": "managed",
+          "type": "google_sql_database_instance",
+          "name": "ledger",
+          "values": { "id": "sql-01", "name": "ledger" }
+        },
+        {
+          "address": "google_storage_bucket.receipts",
+          "mode": "managed",
+          "type": "google_storage_bucket",
+          "name": "receipts",
+          "values": { "id": "receipts", "name": "receipts" }
+        },
+        {
+          "address": "google_container_registry.images",
+          "mode": "managed",
+          "type": "google_container_registry",
+          "name": "images",
+          "values": { "id": "images" }
+        }
+      ]
+    }
+  }
+}

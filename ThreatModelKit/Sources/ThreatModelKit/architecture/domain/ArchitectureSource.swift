@@ -147,6 +147,9 @@ public struct SourceTechnology: Equatable, Sendable {
 
 public struct SourceZone: Equatable, Sendable {
     public let id: String
+    /// What wrote this zone: `terraform` for one an import wrote, nil for one
+    /// a person wrote.
+    public var source: String?
     public let kind: String
     public let network: String
     public let name: String?
@@ -166,8 +169,10 @@ public struct SourceZone: Equatable, Sendable {
         reducesRiskBy: Int? = nil,
         components: [SourceComponent] = [],
         boundary: String = "network",
-        description: String? = nil
+        description: String? = nil,
+        source: String? = nil
     ) {
+        self.source = source
         self.id = id
         self.kind = kind
         self.network = network
@@ -192,6 +197,9 @@ public struct SourceComponent: Equatable, Sendable {
     public let holds: [String]
     /// The third party that provides this component, or nil.
     public let providedBy: String?
+    /// What wrote this element: `terraform` for one an import wrote, nil for
+    /// one a person wrote. An import owns only what it wrote.
+    public let source: String?
     /// What the file stated for `data`, or nil when it stated none. A
     /// component that states none takes the highest classification it holds.
     public let declaredData: String?
@@ -208,6 +216,7 @@ public struct SourceComponent: Equatable, Sendable {
         assets: [SourceAsset] = [],
         holds: [String] = [],
         providedBy: String? = nil,
+        source: String? = nil,
         declaredData: String? = nil,
         shape: String? = nil
     ) {
@@ -220,6 +229,7 @@ public struct SourceComponent: Equatable, Sendable {
         self.assets = assets
         self.holds = holds
         self.providedBy = providedBy
+        self.source = source
         self.declaredData = declaredData
         self.shape = shape
     }

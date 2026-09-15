@@ -183,6 +183,9 @@ struct ArchitectureWriter {
             if let description = zone.description {
                 attributes.append(("description", quoted(description)))
             }
+            if let source = zone.source {
+                attributes.append(("source", quoted(source)))
+            }
             body += indent(aligned(attributes))
 
             for component in zone.components {
@@ -328,6 +331,9 @@ struct ArchitectureWriter {
         }
         if let providedBy = component.providedBy {
             attributes.append(("provided_by", quoted(providedBy)))
+        }
+        if let source = component.source {
+            attributes.append(("source", quoted(source)))
         }
         if component.runsAs != "user" { attributes.append(("runs_as", quoted(component.runsAs))) }
         if component.raisesThreats == false { attributes.append(("threats", "false")) }

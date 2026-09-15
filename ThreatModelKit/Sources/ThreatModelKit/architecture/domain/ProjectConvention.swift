@@ -178,7 +178,7 @@ public enum ProjectConvention {
     /// The directory a project keeps its systems in. `ProjectSourceGateway`
     /// states the same name; this copy is here because the rule that reads a
     /// path cannot reach a gateway.
-    static let conventionDirectoryName = "threatmodel"
+    public static let conventionDirectoryName = "threatmodel"
 
     public static func path(_ directory: String, _ fileName: String) -> String {
         directory.hasSuffix("/") ? "\(directory)\(fileName)" : "\(directory)/\(fileName)"
