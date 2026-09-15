@@ -646,6 +646,13 @@ from anywhere.
   in one panel at the bottom middle of the canvas column. When a selection
   panel is shown the floating panel moves above it. *Auto Sync* is a setting,
   not a verb, so it sits in the toolbar beside *Libraries*.
+- The report message carries *Open* and *Reveal in Finder*, and *File ▸ Open
+  Last Report* opens the same file. A report written by
+  `threatmodeller compile` outside the application is not known to the window,
+  so the item stays off until the window writes one.
+- A row in the diagnostics sheet opens the file it belongs to, and *Copy*
+  writes every row as `<path>:<line>:<column>: <message>`, the shape the
+  command line prints.
 - A save message and a report message show in the toolbar, where the load stage
   shows, and clear themselves after four seconds.
 - A plain drag on empty canvas moves the diagram, a two finger scroll moves it

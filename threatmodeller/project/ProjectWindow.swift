@@ -39,6 +39,7 @@ struct ProjectWindow: View {
                     )
                         .focusedSceneValue(\.threatModelSession, model)
                         .focusedSceneValue(\.threatModelCanvas, canvas)
+                        .focusedSceneValue(\.projectSession, session)
                 } else if let loading = session.loading {
                     loadingNotice(loading)
                 } else if session.canInitialise {
@@ -58,7 +59,8 @@ struct ProjectWindow: View {
             DiagnosticsSheet(
                 fileName: session.diagnosticsFileName ?? "",
                 diagnostics: session.diagnostics,
-                dismiss: { isShowingDiagnostics = false }
+                dismiss: { isShowingDiagnostics = false },
+                path: session.diagnosticsPath
             )
         }
         .sheet(isPresented: $isShowingHistory) {
@@ -117,11 +119,22 @@ struct ProjectWindow: View {
                     .padding(.leading, 16)
                     .accessibilityIdentifier("loading-bar")
                 } else if let message = session.toolbarMessage {
-                    Text(message)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 16)
-                        .accessibilityIdentifier("last-action-message")
+                    HStack(spacing: 8) {
+                        Text(message)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("last-action-message")
+
+                        // A report a person cannot open is a path they have to
+                        // read off the screen and find by hand.
+                        if session.canOpenReport {
+                            Button("Open") { session.openLastReport() }
+                                .accessibilityIdentifier("open-report")
+                            Button("Reveal in Finder") { session.revealLastReport() }
+                                .accessibilityIdentifier("reveal-report")
+                        }
+                    }
+                    .padding(.leading, 16)
                 }
             }
 

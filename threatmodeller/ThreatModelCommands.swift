@@ -22,6 +22,12 @@ struct ThreatModelSampleBrowserKey: FocusedValueKey {
     typealias Value = ShowSampleBrowser
 }
 
+/// The project in the front window, for the items that act on a project
+/// rather than on the drawn model.
+struct ProjectSessionKey: FocusedValueKey {
+    typealias Value = ProjectSession
+}
+
 extension FocusedValues {
     var threatModelSession: ThreatModelSession? {
         get { self[ThreatModelSessionKey.self] }
@@ -37,6 +43,11 @@ extension FocusedValues {
         get { self[ThreatModelSampleBrowserKey.self] }
         set { self[ThreatModelSampleBrowserKey.self] = newValue }
     }
+
+    var projectSession: ProjectSession? {
+        get { self[ProjectSessionKey.self] }
+        set { self[ProjectSessionKey.self] = newValue }
+    }
 }
 
 /// Everything the toolbar and the canvas do, with a menu item and a key.
@@ -47,6 +58,7 @@ struct ThreatModelCommands: Commands {
     @FocusedValue(\.threatModelSession) private var session
     @FocusedValue(\.threatModelCanvas) private var canvas
     @FocusedValue(\.threatModelSampleBrowser) private var sampleBrowser
+    @FocusedValue(\.projectSession) private var project
 
     var body: some Commands {
         CommandGroup(after: .newItem) {
@@ -67,6 +79,15 @@ struct ThreatModelCommands: Commands {
                 .disabled(session == nil)
                 .accessibilityIdentifier("export-\(kind.rawValue)")
             }
+
+            Divider()
+
+            // A report this application wrote, opened where a person reads
+            // Markdown. A report written by `threatmodeller compile` outside
+            // this application is not known here, so the item stays off.
+            Button("Open Last Report") { project?.openLastReport() }
+                .disabled(project?.canOpenReport != true)
+                .accessibilityIdentifier("open-last-report")
         }
 
         CommandGroup(replacing: .undoRedo) {

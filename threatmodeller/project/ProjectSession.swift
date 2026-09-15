@@ -18,6 +18,8 @@ final class ProjectSession {
     /// Waits out `messageDuration` and then clears the message. A test gives
     /// its own, runs the work at once, and never waits.
     private let messageTimer: ChangeCoalescing
+    /// What opens the report in another application.
+    private let workspace: Workspace
 
     private(set) var root: String?
     private(set) var directory: String?
@@ -28,6 +30,13 @@ final class ProjectSession {
     private(set) var diagnostics: [Diagnostic] = []
     /// The file the diagnostics belong to, for the sheet's heading.
     private(set) var diagnosticsFileName: String?
+    /// Where that file is, or nil when the faults belong to no one file. A row
+    /// in the sheet opens the file, so it needs the path and not the name.
+    var diagnosticsPath: String? {
+        guard let directory, let diagnosticsFileName,
+              diagnosticsFileName.contains(".") else { return nil }
+        return "\(directory)/\(diagnosticsFileName)"
+    }
     private(set) var errorMessage: String?
     /// How many threats the last save left with no answer.
     private(set) var unansweredThreats = 0
@@ -91,8 +100,10 @@ final class ProjectSession {
         watcher: ProjectWatching = FSEventsProjectWatcher(),
         defaults: UserDefaults = .standard,
         coalescer: ChangeCoalescing = TimerCoalescer(),
-        messageTimer: ChangeCoalescing = TimerCoalescer(wait: ProjectSession.messageDuration)
+        messageTimer: ChangeCoalescing = TimerCoalescer(wait: ProjectSession.messageDuration),
+        workspace: Workspace = SystemWorkspace()
     ) {
+        self.workspace = workspace
         self.useCases = useCases
         self.watcher = watcher
         self.defaults = defaults
@@ -514,6 +525,29 @@ final class ProjectSession {
         case .cannotWrite(let reason):
             errorMessage = "The answers could not be written: \(reason)"
         }
+    }
+
+    /// True once this session has written a report, so the two controls and
+    /// the File menu item have something to open. A report written by
+    /// `threatmodeller compile` outside the application is not known to this
+    /// session, and the item stays off until this session writes one.
+    var canOpenReport: Bool { reportPath != nil }
+
+    /// Opens the last report this session wrote, in the application the
+    /// person uses for Markdown.
+    func openLastReport() {
+        guard let reportPath else { return }
+        guard workspace.open(path: reportPath) else {
+            errorMessage = "No application opened \(reportPath)."
+            return
+        }
+        errorMessage = nil
+    }
+
+    /// Shows the last report this session wrote, in Finder.
+    func revealLastReport() {
+        guard let reportPath else { return }
+        workspace.reveal(path: reportPath)
     }
 
     /// What the toolbar says, or nil when it says nothing.

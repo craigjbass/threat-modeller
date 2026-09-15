@@ -609,9 +609,11 @@ struct ViewRenderTests {
                 fileName: "payments.arch",
                 diagnostics: [
                     Diagnostic(severity: .error, line: 3, column: 5, message: "kind is \"secret\""),
-                    Diagnostic(severity: .warning, line: 9, column: 1, message: "an empty zone")
+                    Diagnostic(severity: .warning, line: 9, column: 1, message: "an empty zone"),
+                    Diagnostic(severity: .warning, line: 12, column: 3, message: "the flow names no kind")
                 ],
-                dismiss: {}
+                dismiss: {},
+                path: "/work/threatmodel/payments.arch"
             ),
             width: 560,
             height: 380,
