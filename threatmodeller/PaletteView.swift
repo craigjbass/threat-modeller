@@ -34,34 +34,34 @@ struct PaletteView: View {
     @State private var selected: String?
 
     var body: some View {
-        PaletteList(
-            session: session,
-            canvas: canvas,
-            project: project,
-            searchText: searchText,
-            selected: $selected,
-            edit: { editing = EditedTechnology(value: $0) }
-        )
+        // The button sits under the list, not in a `safeAreaInset`. An inset
+        // over a `List` in a sidebar column drew its bar and took no press:
+        // the scroll view under it answered every click. A sibling in a stack
+        // owns its own hits.
+        VStack(spacing: 0) {
+            PaletteList(
+                session: session,
+                canvas: canvas,
+                project: project,
+                searchText: searchText,
+                selected: $selected,
+                edit: { editing = EditedTechnology(value: $0) }
+            )
+
+            Divider()
+
+            Button {
+                editing = EditedTechnology(value: nil)
+            } label: {
+                Label("New Technology\u{2026}", systemImage: "plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(8)
+            .accessibilityIdentifier("new-technology")
+        }
+        .background(.bar)
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search technologies")
         .navigationTitle("Technologies")
-        // A `safeAreaInset` draws over the scrolled content and paints
-        // nothing behind itself, so the rows have to scroll under a bar rather
-        // than under a bare button. The selection panels at the bottom of the
-        // canvas do the same.
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                Divider()
-                Button {
-                    editing = EditedTechnology(value: nil)
-                } label: {
-                    Label("New Technology\u{2026}", systemImage: "plus")
-                        .frame(maxWidth: .infinity)
-                }
-                .padding(8)
-                .accessibilityIdentifier("new-technology")
-            }
-            .background(.bar)
-        }
         .sheet(item: $editing) { technologyId in
             CustomTechnologyEditor(session: session, technologyId: technologyId.value)
         }
