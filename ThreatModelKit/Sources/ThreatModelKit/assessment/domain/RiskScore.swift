@@ -39,8 +39,18 @@ public struct RiskScore: Equatable, Sendable {
         self.value = value
     }
 
-    public init(severity: ThreatSeverity, sensitivity: DataSensitivity) {
-        self.value = severity.rank * sensitivity.rank
+    /// The threat's severity rank multiplied by the data's rank.
+    ///
+    /// The data's rank is its position in the scheme the project holds,
+    /// counting from 1, so a four level scheme and a five level scheme both
+    /// score. A scheme is stated only by a library; with none, the standard
+    /// four stand.
+    public init(
+        severity: ThreatSeverity,
+        sensitivity: DataSensitivity,
+        classifications: ClassificationScheme = .standard
+    ) {
+        self.value = severity.rank * sensitivity.rank(in: classifications)
     }
 
     public var level: RiskLevel {

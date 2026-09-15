@@ -280,7 +280,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         name: nameById[component.id] ?? component.technologyId.value,
                         technologyId: component.technologyId.value,
                         categoryId: lookup.findById(component.technologyId)?.category.value ?? "",
-                        sensitivityLabel: component.effectiveSensitivity.label,
+                        sensitivityLabel: component.effectiveSensitivity.label(in: catalogue.classifications()),
                         zoneName: zoneByComponent[component.id]??.displayName,
                         assetNames: component.assets.map(\.name),
                         privilegeLabel: component.runsAs.label

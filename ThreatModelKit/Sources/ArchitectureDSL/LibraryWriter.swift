@@ -25,6 +25,15 @@ struct LibraryWriter {
 
         // The taxonomy a library adds comes before what names it, so a reader
         // meets the word before the technology or the threat that uses it.
+        for level in source.classifications {
+            body.append("classification \(quoted(level.id)) {")
+            var attributes: [(String, String)] = [("name", quoted(level.label))]
+            if let colour = level.colour { attributes.append(("colour", quoted(colour))) }
+            body += indent(aligned(attributes))
+            body.append("}")
+            body.append("")
+        }
+
         for entry in source.categories { body += taxonomyBlock("category", entry) }
         for entry in source.severities { body += taxonomyBlock("severity", entry) }
         for entry in source.strides { body += taxonomyBlock("stride", entry) }

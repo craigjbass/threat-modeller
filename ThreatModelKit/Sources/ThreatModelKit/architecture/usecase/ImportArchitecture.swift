@@ -112,6 +112,28 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             }
         )
 
+        // A classification word the project's scheme does not hold is worth
+        // saying. The diagram is still drawn: the word states something the
+        // team means, and a threat scored against an unknown word ranks at
+        // the least the scheme holds rather than refusing the file.
+        let scheme = catalogue.classifications()
+        var unknownClassifications: [Diagnostic] = []
+        var saidAbout: Set<String> = []
+        for component in source.everyComponent {
+            for word in [component.data] + component.assets.map(\.data)
+            where scheme.holds(word) == false && saidAbout.insert(word).inserted {
+                unknownClassifications.append(
+                    Diagnostic(
+                        severity: .warning,
+                        line: 1,
+                        column: 1,
+                        message: "data is \"\(word)\"; this project holds "
+                            + scheme.levels.map { "\"\($0.id)\"" }.joined(separator: ", ")
+                    )
+                )
+            }
+        }
+
         // The file already states which zone holds which component, so the
         // membership is read rather than derived from a layout.
         var zoneByComponent: [String: String] = [:]
@@ -125,12 +147,12 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     id: ComponentId(component.id),
                     technologyId: TechnologyId(component.technologyId),
                     position: positions[component.id] ?? Point(x: 0, y: 0),
-                    sensitivity: DataSensitivity(rawValue: component.data) ?? .internalData,
+                    sensitivity: DataSensitivity(component.data),
                     customName: component.name,
                     threatsDisabled: component.raisesThreats == false,
                     runsAs: PrivilegeLevel(rawValue: component.runsAs) ?? .default,
                     assets: component.assets.map {
-                        Asset(name: $0.name, sensitivity: DataSensitivity(rawValue: $0.data) ?? .internalData)
+                        Asset(name: $0.name, sensitivity: DataSensitivity($0.data))
                     },
                     shape: component.shape.flatMap(DiagramShape.init(rawValue:)),
                     zoneId: zoneByComponent[component.id].map(ZoneId.init)
@@ -247,6 +269,7 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
 
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         var warnings = read.warnings + statusWarnings + toleranceWarnings
+            + unknownClassifications
         for component in source.everyComponent
         where lookup.findById(TechnologyId(component.technologyId)) == nil {
             warnings.append(

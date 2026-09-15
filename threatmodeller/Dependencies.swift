@@ -102,7 +102,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func setComponentProperties() -> SetComponentPropertiesUseCase {
-        SetComponentProperties(models: models)
+        SetComponentProperties(models: models, catalogue: catalogue)
     }
 
     /// Where the layout search says how it is going. The project session
@@ -394,6 +394,10 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func resizeZone() -> ResizeZoneUseCase {
         ResizeZone(models: models)
+    }
+
+    func listClassifications() -> ListClassificationsUseCase {
+        ListClassifications(catalogue: catalogue)
     }
 
     func listCategories() -> ListCategoriesUseCase {

@@ -48,14 +48,20 @@ public enum SetComponentPropertiesResponse: Equatable, Sendable {
 /// writes what the user sees, and the model takes it or refuses it whole.
 public struct SetComponentProperties: SetComponentPropertiesUseCase {
     private let models: ThreatModelGateway
+    /// The scheme in use, so a word this project does not hold is refused.
+    private let catalogue: TechnologyCatalogue
 
-    public init(models: ThreatModelGateway) {
+    public init(models: ThreatModelGateway, catalogue: TechnologyCatalogue) {
         self.models = models
+        self.catalogue = catalogue
     }
 
     public func execute(_ request: SetComponentPropertiesRequest) -> SetComponentPropertiesResponse {
         let componentId = ComponentId(request.componentId)
-        guard let sensitivity = DataSensitivity(rawValue: request.sensitivity) else {
+        guard let sensitivity = DataSensitivity.validated(
+            request.sensitivity,
+            in: catalogue.classifications()
+        ) else {
             return .unknownSensitivity
         }
         guard let runsAs = PrivilegeLevel(rawValue: request.runsAs) else {

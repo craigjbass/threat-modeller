@@ -67,7 +67,7 @@ struct SetConnectionPropertiesTests {
         _ = SetConnectionProperties(models: models).execute(
             SetConnectionPropertiesRequest(connectionId: "a->b", kind: "file", description: nil)
         )
-        _ = SetComponentProperties(models: models).execute(
+        _ = SetComponentProperties(models: models, catalogue: CatalogueFixture.catalogue()).execute(
             SetComponentPropertiesRequest(
                 componentId: "a",
                 name: nil,

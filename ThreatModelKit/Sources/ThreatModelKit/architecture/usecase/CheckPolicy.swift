@@ -176,7 +176,7 @@ public struct CheckPolicy: CheckPolicyUseCase {
                 elements.append(
                     PolicyRules.Element(
                         id: component.id,
-                        sensitivity: DataSensitivity(rawValue: component.data ?? "") ?? .internalData,
+                        sensitivity: DataSensitivity(component.data ?? "internal"),
                         zone: NetworkZone(rawValue: zone.kind)
                     )
                 )
@@ -186,7 +186,7 @@ public struct CheckPolicy: CheckPolicyUseCase {
             elements.append(
                 PolicyRules.Element(
                     id: component.id,
-                    sensitivity: DataSensitivity(rawValue: component.data ?? "") ?? .internalData,
+                    sensitivity: DataSensitivity(component.data ?? "internal"),
                     zone: nil
                 )
             )

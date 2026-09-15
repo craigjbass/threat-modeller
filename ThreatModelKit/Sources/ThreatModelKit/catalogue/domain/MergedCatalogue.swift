@@ -47,6 +47,13 @@ public struct MergedCatalogue: TechnologyCatalogue {
         )
     }
 
+    /// The scheme the first library that states one states, or the standard
+    /// four. Two libraries that state a scheme is a fault `LoadLibraries`
+    /// reports, and the first one read stands.
+    public func classifications() -> ClassificationScheme {
+        store.all().compactMap(\.classifications).first ?? .standard
+    }
+
     /// Every threat the catalogue holds and every threat the libraries add,
     /// in one read, with the library overrides applied.
     public func everyThreat() -> [Threat] {

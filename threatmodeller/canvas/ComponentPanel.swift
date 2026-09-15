@@ -9,13 +9,6 @@ struct ComponentPanel: View {
     let session: ThreatModelSession
     let component: ViewedComponent
 
-    private static let sensitivities = [
-        ("public", "Public"),
-        ("internal", "Internal"),
-        ("confidential", "Confidential"),
-        ("restricted", "Restricted")
-    ]
-
     /// The empty tag is Auto: the derivation decides.
     private static let shapes = [
         ("", "Auto"),
@@ -76,7 +69,9 @@ struct ComponentPanel: View {
             .accessibilityIdentifier("component-shape")
 
             Picker("Sensitivity", selection: sensitivity) {
-                ForEach(Self.sensitivities, id: \.0) { Text($0.1).tag($0.0) }
+                ForEach(session.classificationChoices, id: \.id) {
+                    Text($0.label).tag($0.id)
+                }
             }
             .labelsHidden()
             .frame(width: 160)

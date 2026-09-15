@@ -21,6 +21,9 @@ public struct LibrarySource: Equatable, Sendable {
     public let strides: [SourceTaxonomyEntry]
     /// What this library changes about a threat the catalogue already holds.
     public let overrides: [SourceLibraryOverride]
+    /// The classification levels this library states, least sensitive first.
+    /// Empty leaves the standard four.
+    public let classifications: [SourceClassification]
 
     public init(
         label: String,
@@ -33,7 +36,8 @@ public struct LibrarySource: Equatable, Sendable {
         categories: [SourceTaxonomyEntry] = [],
         severities: [SourceTaxonomyEntry] = [],
         strides: [SourceTaxonomyEntry] = [],
-        overrides: [SourceLibraryOverride] = []
+        overrides: [SourceLibraryOverride] = [],
+        classifications: [SourceClassification] = []
     ) {
         self.label = label
         self.displayName = displayName
@@ -46,6 +50,21 @@ public struct LibrarySource: Equatable, Sendable {
         self.severities = severities
         self.strides = strides
         self.overrides = overrides
+        self.classifications = classifications
+    }
+}
+
+/// One level of a classification scheme a library states.
+public struct SourceClassification: Equatable, Sendable {
+    public let id: String
+    public let label: String
+    /// The colour a chip is painted, as a hex string, or nil.
+    public let colour: String?
+
+    public init(id: String, label: String, colour: String? = nil) {
+        self.id = id
+        self.label = label
+        self.colour = colour
     }
 }
 

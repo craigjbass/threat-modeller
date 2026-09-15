@@ -36,9 +36,15 @@ public protocol TechnologyCatalogue: Sendable {
     /// technology and ask for its threats, which is 277 reads of the
     /// catalogue for one list.
     func everyThreat() -> [Threat]
+    /// How this project names the sensitivity of what a component holds. The
+    /// standard four unless a library states its own.
+    func classifications() -> ClassificationScheme
 }
 
 public extension TechnologyCatalogue {
+    /// The standard four, for a catalogue no library sits over.
+    func classifications() -> ClassificationScheme { .standard }
+
     /// A catalogue no library sits over changes nothing.
     func overrides() -> [ThreatId: ThreatOverride] { [:] }
 

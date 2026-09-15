@@ -213,6 +213,9 @@ public extension ResolvedThreat {
 public struct ThreatResolver {
     private let model: ThreatModel
     private let catalogue: TechnologyCatalogue
+    /// How this project names the sensitivity of what a component holds. The
+    /// score reads the level's position in it.
+    private var classifications: ClassificationScheme { catalogue.classifications() }
     private let lookup: TechnologyLookup
     /// The actors this system faces, resolved once. Spec section 4.5: the
     /// model's own actors answer first and the catalogue's answer second.
@@ -289,7 +292,11 @@ public struct ThreatResolver {
                     graph: graph,
                     sensitivityById: sensitivityById
                 )
-                let base = RiskScore(severity: chosen.severity, sensitivity: sensitivity)
+                let base = RiskScore(
+                    severity: chosen.severity,
+                    sensitivity: sensitivity,
+                    classifications: classifications
+                )
                 let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard zoned.value > 0 else { continue }
                 let controls = componentControls(
@@ -377,7 +384,11 @@ public struct ThreatResolver {
                     overrideKey: overrideKey,
                     sourceId: "connection:\(connection.id.value)"
                 )
-                let base = RiskScore(severity: chosen.severity, sensitivity: sensitivity)
+                let base = RiskScore(
+                    severity: chosen.severity,
+                    sensitivity: sensitivity,
+                    classifications: classifications
+                )
                 let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard zoned.value > 0 else { continue }
                 // Spec section 5.3: a link always uses the threat's own
@@ -441,7 +452,11 @@ public struct ThreatResolver {
                     overrideKey: overrideKey,
                     sourceId: "zone:\(zone.id.value)"
                 )
-                let base = RiskScore(severity: chosen.severity, sensitivity: .internalData)
+                let base = RiskScore(
+                    severity: chosen.severity,
+                    sensitivity: .internalData,
+                    classifications: classifications
+                )
                 let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
                 guard zoned.value > 0 else { continue }
                 let controls = sharedControls(for: threat, keyedBy: ControlIdentity.zoneControl)

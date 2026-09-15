@@ -682,6 +682,13 @@ final class ThreatModelSession {
         }
     }
 
+    /// How this project names the sensitivity of what a component holds. The
+    /// standard four unless a library states its own scheme.
+    var classificationChoices: [(id: String, label: String)] {
+        useCases.listClassifications().execute(ListClassificationsRequest()).classifications
+            .map { (id: $0.id, label: $0.label) }
+    }
+
     /// What the technology editor offers as a category, taken from the
     /// taxonomy, so a category nothing is in yet is still offered.
     var categoryChoices: [(id: String, label: String)] {

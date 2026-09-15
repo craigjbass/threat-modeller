@@ -19,9 +19,6 @@ struct ArchitectureParser {
     private static let networks: Set<String> = [
         "generic", "vpc", "subnet", "on-premises", "dmz", "management", "data"
     ]
-    private static let sensitivities: Set<String> = [
-        "public", "internal", "confidential", "restricted"
-    ]
     private static let flowKinds: Set<String> = ["network", "ipc", "file", "syscall", "human"]
     private static let boundaries: Set<String> = ["network", "privilege"]
     private static let privilegeLevels: Set<String> = ["user", "admin", "root", "system", "kernel"]
@@ -438,7 +435,12 @@ struct ArchitectureParser {
             case "data":
                 let token = current
                 data = parseTextAttribute() ?? data
-                expectVocabulary(data, Self.sensitivities, field: "data", at: token)
+                // A classification word belongs to the project's scheme, and
+                // a library states that scheme, which the parser has never
+                // read. `ImportArchitecture` says what the scheme does not
+                // hold, the way `LoadLibraries` says what the taxonomy does
+                // not hold.
+                _ = data
             case "threats": raisesThreats = parseBooleanAttribute() ?? true
             case "runs_as":
                 let token = current
@@ -484,7 +486,12 @@ struct ArchitectureParser {
             case "data":
                 let token = current
                 data = parseTextAttribute() ?? data
-                expectVocabulary(data, Self.sensitivities, field: "data", at: token)
+                // A classification word belongs to the project's scheme, and
+                // a library states that scheme, which the parser has never
+                // read. `ImportArchitecture` says what the scheme does not
+                // hold, the way `LoadLibraries` says what the taxonomy does
+                // not hold.
+                _ = data
             default:
                 record("an asset holds data, not \"\(current.text)\"")
                 skipAttribute()

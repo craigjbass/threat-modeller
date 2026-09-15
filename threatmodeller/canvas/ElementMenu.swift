@@ -50,13 +50,6 @@ struct ElementMenu {
         static let selectAll = Shortcut(key: "a", modifiers: .command)
     }
 
-    private static let sensitivities = [
-        ("public", "Public"),
-        ("internal", "Internal"),
-        ("confidential", "Confidential"),
-        ("restricted", "Restricted")
-    ]
-
     private static let privileges = [
         ("user", "User"),
         ("admin", "Administrator"),
@@ -121,10 +114,13 @@ struct ElementMenu {
             .submenu(
                 id: "context-component-sensitivity",
                 title: "Sensitivity",
-                rows: Self.sensitivities.map { id, label in
-                    .item(id: "context-component-sensitivity-\(id)", title: label) {
+                rows: session.classificationChoices.map { level in
+                    .item(
+                        id: "context-component-sensitivity-\(level.id)",
+                        title: level.label
+                    ) {
                         guard let component else { return }
-                        write(component, sensitivityId: id)
+                        write(component, sensitivityId: level.id)
                     }
                 }
             ),

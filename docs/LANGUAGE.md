@@ -513,7 +513,7 @@ The label is the component's identifier.
 | --- | --- | --- | --- |
 | `technology` | string | a technology identifier | **required** |
 | `name` | string | any | the technology's name |
-| `data` | string | `public`, `internal`, `confidential`, `restricted` | `internal` |
+| `data` | string | the project's classification scheme, which is `public`, `internal`, `confidential`, `restricted` unless a library states its own (section 6) | `internal` |
 | `runs_as` | string | `user`, `admin`, `root`, `system`, `kernel` | `user` |
 | `shape` | string | `actor`, `process`, `store` | the derived shape |
 | `threats` | boolean | `true`, `false` | `true` |
@@ -1302,6 +1302,29 @@ library "acme" {
 }
 ```
 
+A `classification` block states one level of a classification scheme, and the
+order the blocks appear in is the scheme: the first level is the least
+sensitive and the last is the most. A project whose library states a scheme
+takes those words for a component's `data`, for an asset's `data` and for the
+chips the palette draws.
+
+**Scoring reads the position, not the id.**
+
+    rank  = the level's position in the scheme, counting from 1
+    score = the threat's severity rank × the data's rank
+
+A team whose scheme is `official`, `official-sensitive`, `secret` and
+`top-secret` scores `secret` at 3, because it sits third, the same as
+`confidential` in the standard scheme: a critical threat (severity rank 4) on
+`secret` data scores 4 × 3 = 12. A five level scheme scores its top level at 5,
+so the same threat scores 4 × 5 = 20.
+
+A word the project's scheme does not hold is a warning naming the words it
+does hold, and it ranks 1: an unknown word never inflates a score. Two
+libraries that state a scheme give a warning naming both, and the first one
+read stands. A project that reads no such library keeps `public`, `internal`,
+`confidential` and `restricted`, and scores as it always has.
+
 An `override` block changes what the catalogue says about a threat the
 catalogue already holds: its severity, its likelihood, its description or its
 controls. A block states what it changes and nothing else, and a control list
@@ -1339,6 +1362,7 @@ LibraryFile  = LibraryBlock ;
 LibraryBlock = "library" String "{" { LibraryEntry } "}" ;
 LibraryEntry = "name"      "=" String
              | "catalogue" "=" String
+             | ClassificationBlock
              | TaxonomyBlock
              | TechnologyBlock
              | ThreatBlock
@@ -1346,6 +1370,9 @@ LibraryEntry = "name"      "=" String
              | ThreatActorBlock ;
 
 TaxonomyBlock = ( "category" | "severity" | "stride" ) String "{" "name" "=" String "}" ;
+
+ClassificationBlock = "classification" String "{" "name" "=" String
+                      [ "colour" "=" String ] "}" ;
 
 ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
 ThreatEntry = "name"         "=" String

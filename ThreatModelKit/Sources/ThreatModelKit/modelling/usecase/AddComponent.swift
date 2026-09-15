@@ -39,7 +39,10 @@ public struct AddComponent: AddComponentUseCase {
         guard lookup.findById(technologyId) != nil else {
             return .unknownTechnology
         }
-        guard let sensitivity = DataSensitivity(rawValue: request.sensitivity) else {
+        guard let sensitivity = DataSensitivity.validated(
+            request.sensitivity,
+            in: catalogue.classifications()
+        ) else {
             return .unknownSensitivity
         }
 

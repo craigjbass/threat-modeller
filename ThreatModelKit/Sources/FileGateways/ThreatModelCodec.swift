@@ -461,7 +461,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             technologyId: TechnologyId(json.technologyId),
             position: Point(x: json.x, y: json.y),
             sensitivity: try value(
-                DataSensitivity(rawValue: json.sensitivity),
+                DataSensitivity(json.sensitivity),
                 field: "sensitivity",
                 raw: json.sensitivity
             ),
@@ -471,7 +471,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             assets: (json.assets ?? []).map {
                 Asset(
                     name: $0.name,
-                    sensitivity: DataSensitivity(rawValue: $0.sensitivity) ?? .internalData
+                    sensitivity: DataSensitivity($0.sensitivity)
                 )
             },
             shape: try optionalShape(from: json.shape),

@@ -120,6 +120,20 @@ public struct LoadLibraries: LoadLibrariesUseCase {
             // Two libraries that declare one word of the taxonomy is a fault
             // a person fixes in one of the two files, so the warning names
             // both libraries. The first one read stands.
+            if library.classifications != nil,
+               let other = libraries.first(where: { $0.classifications != nil }) {
+                warnings.append(
+                    Diagnostic(
+                        severity: .warning,
+                        line: 1,
+                        column: 1,
+                        message: "the library \"\(other.label)\" and the library "
+                            + "\"\(library.label)\" both state a classification scheme; "
+                            + "the one \"\(other.label)\" states stands"
+                    )
+                )
+            }
+
             warnings += Self.clashes(of: library, against: libraries)
             libraries.append(library)
         }

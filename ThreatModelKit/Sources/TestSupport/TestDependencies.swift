@@ -113,7 +113,7 @@ public final class TestDependencies: UseCaseFactory {
     }
 
     public func setComponentProperties() -> SetComponentPropertiesUseCase {
-        SetComponentProperties(models: models)
+        SetComponentProperties(models: models, catalogue: catalogue)
     }
 
     public func layOutModel() -> LayOutModelUseCase {
@@ -396,6 +396,10 @@ public final class TestDependencies: UseCaseFactory {
 
     public func resizeZone() -> ResizeZoneUseCase {
         ResizeZone(models: models)
+    }
+
+    public func listClassifications() -> ListClassificationsUseCase {
+        ListClassifications(catalogue: catalogue)
     }
 
     public func listCategories() -> ListCategoriesUseCase {

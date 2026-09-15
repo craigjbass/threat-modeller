@@ -43,6 +43,7 @@ struct LibraryParser {
         var severities: [SourceTaxonomyEntry] = []
         var strides: [SourceTaxonomyEntry] = []
         var overrides: [SourceLibraryOverride] = []
+        var classifications: [SourceClassification] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -68,6 +69,8 @@ struct LibraryParser {
                 if let entry = parseTaxonomyEntry("the stride category's identifier") {
                     strides.append(entry)
                 }
+            case "classification":
+                if let level = parseClassification() { classifications.append(level) }
             case "override":
                 if let override = parseOverride() { overrides.append(override) }
             case "threat_actor":
@@ -82,7 +85,8 @@ struct LibraryParser {
             default:
                 record(
                     "a library holds name, catalogue, technology, threat, mitigation, "
-                        + "threat_actor, category, severity, stride and override, not "
+                        + "threat_actor, category, severity, stride, override and "
+                        + "classification, not "
                         + "\"\(current.text)\""
                 )
                 skipToNextBlock()
@@ -101,8 +105,32 @@ struct LibraryParser {
             categories: categories,
             severities: severities,
             strides: strides,
-            overrides: overrides
+            overrides: overrides,
+            classifications: classifications
         )
+    }
+
+    /// One level of a classification scheme. The order the file states is the
+    /// scheme: the first is the least sensitive.
+    private mutating func parseClassification() -> SourceClassification? {
+        advance()
+        guard let id = expect(.string, "the level's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var label: String?
+        var colour: String?
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": label = parseTextAttribute()
+            case "colour": colour = parseTextAttribute()
+            default:
+                record("a classification holds name and colour, not \"\(current.text)\"")
+                skipToNextBlock()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        return SourceClassification(id: id.text, label: label ?? id.text, colour: colour)
     }
 
     /// What this library changes about a threat the catalogue already holds.

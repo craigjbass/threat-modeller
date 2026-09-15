@@ -19,6 +19,9 @@ public struct Library: Equatable, Sendable {
     /// What this library changes about a threat the catalogue already holds,
     /// by that threat's id.
     public let overrides: [ThreatId: ThreatOverride]
+    /// The classification scheme this library states, or nil when it states
+    /// none and the standard four stand.
+    public let classifications: ClassificationScheme?
 
     public init(
         label: String,
@@ -30,7 +33,8 @@ public struct Library: Equatable, Sendable {
         categories: [ServiceCategory] = [],
         severities: [ThreatSeverity] = [],
         strides: [StrideCategory] = [],
-        overrides: [ThreatId: ThreatOverride] = [:]
+        overrides: [ThreatId: ThreatOverride] = [:],
+        classifications: ClassificationScheme? = nil
     ) {
         self.label = label
         self.provider = provider
@@ -42,6 +46,7 @@ public struct Library: Equatable, Sendable {
         self.severities = severities
         self.strides = strides
         self.overrides = overrides
+        self.classifications = classifications
     }
 }
 
@@ -311,7 +316,15 @@ public extension Library {
                 categories: ownCategories,
                 severities: ownSeverities,
                 strides: ownStrides,
-                overrides: overrides
+                overrides: overrides,
+                classifications: source.classifications.isEmpty
+                    ? nil
+                    : ClassificationScheme(
+                        levels: source.classifications.map {
+                            Classification(id: $0.id, label: $0.label, colour: $0.colour)
+                        },
+                        libraryLabel: source.displayName ?? source.label
+                    )
             ),
             []
         )
