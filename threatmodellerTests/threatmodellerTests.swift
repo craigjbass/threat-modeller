@@ -9,8 +9,12 @@ import TestSupport
 /// break a delivery-mechanism test.
 @MainActor
 struct ThreatModelSessionTests {
+    /// The pasteboard this suite copies to, so no test writes to the
+    /// machine's own.
+    private let clipboard = FakeClipboard()
+
     private func session() -> ThreatModelSession {
-        ThreatModelSession(useCases: TestDependencies())
+        ThreatModelSession(useCases: TestDependencies(), clipboard: clipboard)
     }
 
     @Test func loadsThePaletteOnLaunch() {

@@ -14,6 +14,8 @@ import ThreatModelKit
 @Observable
 final class ThreatModelSession {
     private let useCases: UseCaseFactory
+    /// Where a copy goes and where a paste comes from.
+    private let clipboard: Clipboard
 
     private(set) var palette: [ListedProvider] = []
     /// What the canvas draws. Spec section 9 calls this the canvas snapshot.
@@ -80,8 +82,9 @@ final class ThreatModelSession {
     /// coordinates. A drag from the palette uses the drop point instead.
     static let defaultDropPoint = (x: 80.0, y: 80.0)
 
-    init(useCases: UseCaseFactory) {
+    init(useCases: UseCaseFactory, clipboard: Clipboard = SystemClipboard()) {
         self.useCases = useCases
+        self.clipboard = clipboard
         threatChoices = useCases.listThreatChoices().execute(ListThreatChoicesRequest()).threats
         refresh()
     }
@@ -515,11 +518,11 @@ final class ThreatModelSession {
         }
     }
 
-    /// The pasteboard is an IO mechanism, so it lives here and not in the core.
-    /// The payload is a string, so any other application can read it.
+    /// The pasteboard is an IO mechanism, so it lives behind a gateway and not
+    /// in the core. The payload is a string, so any other application can read
+    /// it.
     func putOnClipboard(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        clipboard.put(text: text)
     }
 
     /// Returns the new technology's identifier, or nil when the model refused
@@ -771,6 +774,77 @@ final class ThreatModelSession {
     /// What the picture should draw, for the delivery mechanism's renderer.
     func imageArea() -> ExportModelAsImageResponse {
         useCases.exportModelAsImage().execute(ExportModelAsImageRequest())
+    }
+
+    /// Puts a picture of the diagram on the clipboard, as PNG and as PDF.
+    ///
+    /// With elements named, the picture holds those elements and the flows
+    /// between them, cropped to their bounds with a margin. With none named,
+    /// it holds the whole diagram, the same area the image export writes.
+    /// It answers false when the model holds nothing to draw.
+    @discardableResult
+    func copyDiagramAsImage(componentIds: [String] = [], zoneIds: [String] = []) -> Bool {
+        let whole = imageArea()
+        let picked = Set(componentIds)
+        let pickedZones = Set(zoneIds)
+
+        var drawn = canvas
+        var area = whole
+
+        if picked.isEmpty == false || pickedZones.isEmpty == false {
+            let components = canvas.components.filter { picked.contains($0.id) }
+            let zones = canvas.zones.filter { pickedZones.contains($0.id) }
+            guard let rect = SelectionBounds.rect(
+                components: components.map {
+                    ($0.x, $0.y, Component.size.width, Component.size.height)
+                },
+                zones: zones.map { ($0.x, $0.y, $0.width, $0.height) }
+            ) else { return false }
+
+            drawn = ViewThreatModelResponse(
+                name: canvas.name,
+                components: components,
+                connections: canvas.connections.filter {
+                    picked.contains($0.sourceComponentId) && picked.contains($0.targetComponentId)
+                },
+                zones: zones
+            )
+            area = ExportModelAsImageResponse(
+                fileName: whole.fileName,
+                x: rect.minX,
+                y: rect.minY,
+                width: rect.width,
+                height: rect.height,
+                isEmpty: false
+            )
+        }
+
+        guard area.isEmpty == false else {
+            errorMessage = "There is nothing on the diagram to copy."
+            return false
+        }
+
+        do {
+            let renderer = CanvasImageRenderer()
+            let png = try renderer.png(
+                of: drawn,
+                risks: elementRisks,
+                guards: elementGuards,
+                area: area
+            )
+            let pdf = try renderer.pdf(
+                of: drawn,
+                risks: elementRisks,
+                guards: elementGuards,
+                area: area
+            )
+            clipboard.put(png: png, pdf: pdf)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = "The picture could not be drawn: \(String(describing: error))"
+            return false
+        }
     }
 
     /// Said when an export could not be written.
@@ -1042,7 +1116,7 @@ final class ThreatModelSession {
     }
 
     private func clipboardText() -> String? {
-        NSPasteboard.general.string(forType: .string)
+        clipboard.text()
     }
 
     /// Spec section 2: the delivery mechanism calls `AssessThreatModel`

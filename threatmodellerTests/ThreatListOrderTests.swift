@@ -415,7 +415,10 @@ struct PasteboardRoutingTests {
     /// The canvas half of the routing: copying a selection puts the clipboard
     /// text on the pasteboard, and pasting puts the elements back.
     @Test func theCanvasCopiesAndPastesItsElements() throws {
-        let session = ThreatModelSession(useCases: TestDependencies())
+        let session = ThreatModelSession(
+            useCases: TestDependencies(),
+            clipboard: FakeClipboard()
+        )
         session.add(technologyId: "aws-ec2", x: 0, y: 0)
         let placed = try #require(session.canvas.components.first)
 

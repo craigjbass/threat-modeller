@@ -655,6 +655,9 @@ from anywhere.
   command line prints.
 - A save message and a report message show in the toolbar, where the load stage
   shows, and clear themselves after four seconds.
+- *Edit ▸ Copy as Image* (`Shift+Cmd+C`) puts the diagram on the clipboard as
+  PNG and as PDF. With elements selected it copies those elements and the
+  flows between them, cropped to their bounds.
 - A component's technology is changed in the component bar. The component
   keeps its id, its name, its place, its zone and its flows. An answer on a
   threat the new technology no longer raises goes with it, and the diagnostics

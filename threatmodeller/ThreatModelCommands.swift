@@ -152,6 +152,19 @@ struct ThreatModelCommands: Commands {
             }
             .keyboardShortcut("a", modifiers: .command)
 
+            // The picture, where a person can paste it, rather than a file
+            // they have to find and drag.
+            Button("Copy as Image") {
+                guard let session, let canvas else { return }
+                session.copyDiagramAsImage(
+                    componentIds: Array(canvas.selectedComponentIds),
+                    zoneIds: Array(canvas.selectedZoneIds)
+                )
+            }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+            .disabled(session == nil)
+            .accessibilityIdentifier("copy-as-image")
+
             Button("Duplicate") {
                 guard let session, let canvas else { return }
                 withSelection { componentIds, zoneIds in
