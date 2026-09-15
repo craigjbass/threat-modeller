@@ -6,7 +6,8 @@
 public enum MarkdownProtectionDependencies {
     public static func lines(
         _ dependencies: [ReportProtectionDependency],
-        pictures: [String: String] = [:]
+        pictures: [String: String] = [:],
+        diagrams: [String: String] = [:]
     ) -> [String] {
         guard dependencies.isEmpty == false else { return [] }
 
@@ -14,7 +15,10 @@ public enum MarkdownProtectionDependencies {
         for dependency in dependencies {
             lines.append("### \(dependency.protectorName)")
             lines.append("")
-            if let fileName = pictures[dependency.protectorId] {
+            if let diagram = diagrams[dependency.protectorId] {
+                lines += Markdown.fenced(diagram, as: "mermaid")
+                lines.append("")
+            } else if let fileName = pictures[dependency.protectorId] {
                 lines.append("![What \(dependency.protectorName) protects](\(fileName))")
                 lines.append("")
             }

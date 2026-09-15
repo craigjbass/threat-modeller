@@ -39,7 +39,7 @@ struct ReportExporterTests {
         #expect(
             written == [
                 "Untitled.hcl", "Untitled.html", "Untitled.json", "Untitled.md",
-                "Untitled.pdf", "Untitled.png"
+                "Untitled.mmd", "Untitled.pdf", "Untitled.png"
             ]
         )
         #expect(session.errorMessage == nil)

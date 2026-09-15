@@ -1,0 +1,10 @@
+flowchart LR
+  subgraph app["App zone"]
+    api["API"]
+  end
+  subgraph data["Data zone"]
+    db[("Ledger #quot;main#quot;")]
+  end
+  attacker(["Attacker"])
+  attacker -->|"Network"| api
+  api -->|"Local IPC"| db

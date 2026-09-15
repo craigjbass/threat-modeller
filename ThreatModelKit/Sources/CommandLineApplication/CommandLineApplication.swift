@@ -74,6 +74,7 @@ public struct CommandLineApplication {
         var unknownFormat: String?
         var formatWord: String?
         var wantsStandardOutput = false
+        var diagramLanguage: String?
         var commits = ReadRiskHistory.defaultCommits
 
         var flagless: [String] = []
@@ -106,6 +107,15 @@ public struct CommandLineApplication {
                 pictures.insert(.svg)
             case "--png":
                 pictures.insert(.png)
+            case "--mermaid":
+                pictures.insert(.mermaid)
+            case "--dot":
+                pictures.insert(.dot)
+            case "--d2":
+                pictures.insert(.d2)
+            case "--diagram":
+                index += 1
+                diagramLanguage = index < words.count ? words[index] : nil
             case "--html":
                 wantsHtml = true
             case "--stdout":
@@ -168,6 +178,7 @@ public struct CommandLineApplication {
             return report(
                 root: root,
                 into: into,
+                diagramLanguage: diagramLanguage,
                 wantsHtml: wantsHtml,
                 isQuiet: isQuiet,
                 commits: commits,
@@ -1044,12 +1055,21 @@ public struct CommandLineApplication {
     private func report(
         root: String,
         into: String?,
+        diagramLanguage: String?,
         wantsHtml: Bool,
         isQuiet: Bool,
         commits: Int = ReadRiskHistory.defaultCommits,
         output: (String) -> Void
     ) -> Int32 {
-        forEachSystem(root: root, output: output) { system, useCases in
+        if let diagramLanguage, diagramLanguage != TextDiagramWriter.Language.mermaid.rawValue {
+            output(
+                "threatmodeller: there is no report diagram language"
+                    + " \"\(diagramLanguage)\"; this application writes mermaid"
+            )
+            return ExitCode.didNotParse.rawValue
+        }
+
+        return forEachSystem(root: root, output: output) { system, useCases in
             guard let architectureText = read(system.architecturePath, output) else {
                 return .fileFault
             }
@@ -1174,12 +1194,26 @@ public struct CommandLineApplication {
                 stem: system.name
             )
 
-            let threatPictures = Dictionary(
-                uniqueKeysWithValues: pictures.map { ($0.key, $0.fileName) }
-            )
-            let controlPictures = Dictionary(
-                uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) }
-            )
+            // A report written in a diagram language holds the diagram
+            // itself, so a wiki renders it and no image file sits beside the
+            // report.
+            let wantsText = diagramLanguage != nil
+            let threatDiagrams = wantsText
+                ? ThreatDiagrams.mermaidTexts(of: drawn, for: report.rollups.topResidual)
+                : [:]
+            let controlDiagrams = wantsText
+                ? ThreatDiagrams.controlMermaidTexts(
+                    of: drawn,
+                    for: report.protectionDependencies
+                )
+                : [:]
+
+            let threatPictures = wantsText
+                ? [:]
+                : Dictionary(uniqueKeysWithValues: pictures.map { ($0.key, $0.fileName) })
+            let controlPictures = wantsText
+                ? [:]
+                : Dictionary(uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) })
             // The graph is written beside the report, the way the threat
             // pictures are, and only when the history holds enough to draw.
             let chart = RiskOverTimeChart.svg(of: historyRead.rows)
@@ -1190,6 +1224,8 @@ public struct CommandLineApplication {
                     ExportModelAsMarkdownRequest(
                         threatPictures: threatPictures,
                         controlPictures: controlPictures,
+                        threatDiagrams: threatDiagrams,
+                        controlDiagrams: controlDiagrams,
                         riskOverTimePicture: chartFileName,
                         history: historyRead.rows,
                         historyTruncated: historyRead.truncated,
@@ -1209,7 +1245,8 @@ public struct CommandLineApplication {
                 }
             }
 
-            for picture in pictures {
+            // A report holding the diagrams needs no picture beside it.
+            for picture in (wantsText ? [] : pictures) {
                 do {
                     try projects.write(picture.svg, to: beside + picture.fileName)
                 } catch {
@@ -1217,7 +1254,7 @@ public struct CommandLineApplication {
                     return .fileFault
                 }
             }
-            for picture in controls {
+            for picture in (wantsText ? [] : controls) {
                 do {
                     try projects.write(picture.svg, to: beside + picture.fileName)
                 } catch {
@@ -1282,6 +1319,20 @@ public struct CommandLineApplication {
     public enum DiagramFormat: String, Sendable, CaseIterable {
         case svg
         case png
+        case mermaid
+        case dot
+        case d2
+
+        /// The extension a file of this format takes. Mermaid writes `.mmd`,
+        /// which is what an editor and a wiki read.
+        var fileExtension: String {
+            TextDiagramWriter.Language(rawValue: rawValue)?.fileExtension ?? rawValue
+        }
+
+        /// The language this format writes, or nil for a picture.
+        var language: TextDiagramWriter.Language? {
+            TextDiagramWriter.Language(rawValue: rawValue)
+        }
     }
 
     /// Writes every system as a picture.
@@ -1441,21 +1492,20 @@ public struct CommandLineApplication {
 
             let canvas = useCases.viewThreatModel().execute(ViewThreatModelRequest())
             let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
-            let drawing = DiagramBuilder.drawing(
-                of: DiagramBuilder.Model(
-                    components: canvas.components,
-                    connections: canvas.connections,
-                    zones: canvas.zones,
-                    risks: ElementRiskRollup.byElement(
-                        assessment.threats,
-                        levelOrder: assessment.severities.map(\.id)
-                    ),
-                    guards: EdgeGuards.byElement(assessment.threats)
-                )
+            let drawn = DiagramBuilder.Model(
+                components: canvas.components,
+                connections: canvas.connections,
+                zones: canvas.zones,
+                risks: ElementRiskRollup.byElement(
+                    assessment.threats,
+                    levelOrder: assessment.severities.map(\.id)
+                ),
+                guards: EdgeGuards.byElement(assessment.threats)
             )
+            let drawing = DiagramBuilder.drawing(of: drawn)
 
             for format in formats.sorted(by: { $0.rawValue < $1.rawValue }) {
-                let name = "\(system.name).\(format.rawValue)"
+                let name = "\(system.name).\(format.fileExtension)"
                 let path = into.map { ProjectConvention.path($0, name) }
                     ?? ProjectConvention.path(
                         String(system.architecturePath.dropLast(system.name.count + 5)),
@@ -1477,6 +1527,17 @@ public struct CommandLineApplication {
                     }
                     do {
                         try projects.write(bytes: bytes, to: path)
+                    } catch {
+                        output("threatmodeller: \(Self.described(error))")
+                        return .fileFault
+                    }
+                case .mermaid, .dot, .d2:
+                    guard let language = format.language else { return .fileFault }
+                    do {
+                        try projects.write(
+                            TextDiagramWriter.text(of: drawn, in: language),
+                            to: path
+                        )
                     } catch {
                         output("threatmodeller: \(Self.described(error))")
                         return .fileFault
@@ -1806,6 +1867,10 @@ public struct CommandLineApplication {
       --html                write the report as one page as well, pictures and all
       --svg                 draw as SVG, which every build writes
       --png                 draw as PNG, which only a macOS build writes
+      --mermaid             draw as Mermaid text, which a wiki renders
+      --dot                 draw as Graphviz DOT text
+      --d2                  draw as D2 text
+      --diagram <language>  report writes the diagram as text: mermaid
       --catalogue <dir>     read the threat catalogue from this directory
       --tolerance <level>   a likelihood finding answers a threat up to this level
       --format <name>       plain, github or json; check, compile and format read it.

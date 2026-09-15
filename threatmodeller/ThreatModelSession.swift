@@ -778,6 +778,24 @@ final class ThreatModelSession {
         return (Data(response.json.utf8), response.fileName)
     }
 
+    /// The diagram as Mermaid text, which a wiki renders and a reviewer
+    /// reads in a diff.
+    func mermaidExport() -> (data: Data, fileName: String) {
+        let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+        let drawn = DiagramBuilder.Model(
+            components: canvas.components,
+            connections: canvas.connections,
+            zones: canvas.zones,
+            risks: ElementRiskRollup.byElement(
+                assessment.threats,
+                levelOrder: assessment.severities.map(\.id)
+            ),
+            guards: EdgeGuards.byElement(assessment.threats)
+        )
+        let text = TextDiagramWriter.mermaid(of: drawn)
+        return (Data(text.utf8), "\(FileNaming.stem(from: canvas.name)).mmd")
+    }
+
     func threatclExport() -> (data: Data, fileName: String) {
         let response = useCases.exportModelAsThreatcl().execute(ExportModelAsThreatclRequest())
         return (Data(response.hcl.utf8), response.fileName)

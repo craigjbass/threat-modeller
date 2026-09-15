@@ -47,6 +47,49 @@ public enum ThreatDiagrams {
         }
     }
 
+    /// The same pictures, written as Mermaid text rather than as SVG, keyed
+    /// the way the report files a picture. A report written with these holds
+    /// the diagram itself, so a wiki renders it with no image file beside it.
+    public static func mermaidTexts(
+        of model: DiagramBuilder.Model,
+        for threats: [ReportThreat]
+    ) -> [String: String] {
+        var texts: [String: String] = [:]
+        for threat in threats {
+            guard let focused = focus(
+                model,
+                on: threat.sourceId,
+                titled: "\(threat.sourceName) — \(threat.name)"
+            ) else { continue }
+            texts["\(threat.threatId)@\(threat.sourceId)"] =
+                TextDiagramWriter.mermaid(of: focused)
+        }
+        return texts
+    }
+
+    /// The control pictures as Mermaid text, by the control's protector id.
+    public static func controlMermaidTexts(
+        of model: DiagramBuilder.Model,
+        for dependencies: [ReportProtectionDependency]
+    ) -> [String: String] {
+        var texts: [String: String] = [:]
+        for dependency in dependencies {
+            let covers = Dictionary(
+                uniqueKeysWithValues: dependency.answeredByElementId.map {
+                    ("component:\($0.key)", $0.value)
+                }
+            )
+            guard let drawn = protecting(
+                model,
+                by: dependency.protectorId,
+                covers: covers,
+                titled: title(of: dependency)
+            ) else { continue }
+            texts[dependency.protectorId] = TextDiagramWriter.mermaid(of: drawn)
+        }
+        return texts
+    }
+
     /// A picture of one control: what it protects.
     public struct ControlPicture: Equatable, Sendable {
         public let protectorId: String

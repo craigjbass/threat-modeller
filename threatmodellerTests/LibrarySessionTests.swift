@@ -177,7 +177,11 @@ struct LibraryFetchCancelTests {
 
     @Test func cancelStopsAFetchThatIsWaiting() async throws {
         let (session, useCases) = aProject()
-        useCases.libraryFetcher.waits = 5
+        // A backstop, not a delay: the fetch answers as soon as Cancel
+        // arrives. It is long because a loaded machine can hold the main
+        // actor for seconds, and a fetch that runs out of wait answers with
+        // the files.
+        useCases.libraryFetcher.waits = 120
 
         let fetch = Task { await session.add(repository: "/elements", tag: "v1.0.0") }
         // The window redraws while the fetch waits, so the session answers.
@@ -192,7 +196,11 @@ struct LibraryFetchCancelTests {
 
     @Test func aCancelledFetchWritesNoLibraryAndNoLockEntry() async throws {
         let (session, useCases) = aProject()
-        useCases.libraryFetcher.waits = 5
+        // A backstop, not a delay: the fetch answers as soon as Cancel
+        // arrives. It is long because a loaded machine can hold the main
+        // actor for seconds, and a fetch that runs out of wait answers with
+        // the files.
+        useCases.libraryFetcher.waits = 120
 
         let fetch = Task { await session.add(repository: "/elements", tag: "v1.0.0") }
         while session.isWorking == false { await Task.yield() }

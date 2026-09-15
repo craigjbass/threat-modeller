@@ -317,3 +317,107 @@ struct ExportModelAsDataTests {
         #expect(project.text(at: "/work/threatmodel/payments.json") != nil)
     }
 }
+
+@Suite("Drawing the diagram as text a wiki renders")
+struct TextDiagramVerbTests {
+    private let project = InMemoryProject(root: "/work")
+
+    private let payments = """
+    system "Payments" {
+      zone "app" {
+        kind = "private"
+
+        component "api" {
+          technology = "aws-ec2"
+          data       = "confidential"
+        }
+      }
+
+      component "attacker" {
+        technology = "actor-attacker"
+      }
+
+      flow attacker -> api
+    }
+
+    """
+
+    private func run(_ words: String...) -> (code: Int32, lines: [String]) {
+        var lines: [String] = []
+        let code = CommandLineApplication(
+            projects: project,
+            catalogue: { CatalogueFixture.catalogue() }
+        )
+        .run(arguments: ["threatmodeller"] + words, output: { lines.append($0) })
+        return (code, lines)
+    }
+
+    private func aProject() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+    }
+
+    @Test func drawWritesMermaidBesideTheSvg() throws {
+        aProject()
+
+        #expect(run("draw", "/work", "--svg", "--mermaid").code == 0)
+
+        #expect(project.text(at: "/work/threatmodel/payments.svg") != nil)
+        let mermaid = try #require(project.text(at: "/work/threatmodel/payments.mmd"))
+        #expect(mermaid.hasPrefix("flowchart LR"))
+        #expect(mermaid.contains("subgraph app"))
+    }
+
+    @Test func drawWritesGraphvizAndD2() throws {
+        aProject()
+
+        #expect(run("draw", "/work", "--dot", "--d2").code == 0)
+
+        let dot = try #require(project.text(at: "/work/threatmodel/payments.dot"))
+        #expect(dot.hasPrefix("digraph {"))
+        let d2 = try #require(project.text(at: "/work/threatmodel/payments.d2"))
+        #expect(d2.contains("shape: rectangle"))
+    }
+
+    @Test func twoRunsWriteTheSameBytes() throws {
+        aProject()
+
+        _ = run("draw", "/work", "--mermaid")
+        let first = try #require(project.text(at: "/work/threatmodel/payments.mmd"))
+        _ = run("draw", "/work", "--mermaid")
+        let second = try #require(project.text(at: "/work/threatmodel/payments.mmd"))
+
+        #expect(first == second)
+    }
+
+    /// A wiki renders the report with no image file beside it.
+    @Test func theReportHoldsTheDiagramItself() throws {
+        aProject()
+
+        #expect(run("report", "/work", "--diagram", "mermaid", "--commits", "0").code == 0)
+
+        let report = try #require(project.text(at: "/work/threatmodel/payments.md"))
+        #expect(report.contains("```mermaid"))
+        #expect(report.contains("flowchart LR"))
+        #expect(report.contains("![") == false)
+        #expect(project.text(at: "/work/threatmodel/payments-threat-1.svg") == nil)
+    }
+
+    @Test func theReportStillWritesThePicturesWhenNobodyAsksForText() throws {
+        aProject()
+
+        #expect(run("report", "/work", "--commits", "0").code == 0)
+
+        let report = try #require(project.text(at: "/work/threatmodel/payments.md"))
+        #expect(report.contains("```mermaid") == false)
+        #expect(report.contains("!["))
+    }
+
+    @Test func theReportRefusesALanguageItDoesNotWrite() {
+        aProject()
+
+        let run = self.run("report", "/work", "--diagram", "plantuml")
+
+        #expect(run.code != 0)
+        #expect(run.lines.contains { $0.contains("there is no report diagram language") })
+    }
+}

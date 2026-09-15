@@ -1,0 +1,9 @@
+app: "App zone" {
+  api: "API" { shape: rectangle }
+}
+data: "Data zone" {
+  db: "Ledger \"main\"" { shape: cylinder }
+}
+attacker: "Attacker" { shape: person }
+attacker -> app.api: "Network"
+app.api -> data.db: "Local IPC"

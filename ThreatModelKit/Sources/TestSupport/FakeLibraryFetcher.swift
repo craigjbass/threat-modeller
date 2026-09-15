@@ -35,8 +35,14 @@ public final class FakeLibraryFetcher: LibraryFetching, @unchecked Sendable {
         tagsByRepository[repository] = tags
     }
 
-    /// How long a fetch waits before it answers, so a test can press Cancel
-    /// while one is in flight. Zero means it answers at once.
+    /// How long a fetch waits for a Cancel before it answers. Zero means it
+    /// answers at once.
+    ///
+    /// It is a backstop, not a delay a test measures: the fetch answers the
+    /// moment `cancel()` arrives, and the number only stops a fetch nobody
+    /// cancels from waiting for ever. Set it well above anything a loaded
+    /// machine takes to reach the Cancel, because a fetch that runs out of
+    /// wait answers with the files and the test then sees no cancellation.
     ///
     /// A test writes it on one thread and `fetch` reads it on another, so the
     /// lock carries it across. Reading it without the lock let a fetch see

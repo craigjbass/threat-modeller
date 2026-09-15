@@ -13,6 +13,12 @@ public struct ExportModelAsMarkdownRequest: Equatable, Sendable {
     /// The picture drawn for each control, by file name, keyed by the id of
     /// the component the protection comes from.
     public let controlPictures: [String: String]
+    /// The diagram of each top residual threat, as text a wiki renders, keyed
+    /// the way `threatPictures` is keyed. A threat that states one writes the
+    /// diagram itself rather than a link to an image file.
+    public let threatDiagrams: [String: String]
+    /// The diagram of each control, as text, by the control's protector id.
+    public let controlDiagrams: [String: String]
     /// The file the caller wrote the risk-over-time graph to, relative to the
     /// report, or nil when it drew none.
     public let riskOverTimePicture: String?
@@ -25,6 +31,8 @@ public struct ExportModelAsMarkdownRequest: Equatable, Sendable {
     public init(
         threatPictures: [String: String] = [:],
         controlPictures: [String: String] = [:],
+        threatDiagrams: [String: String] = [:],
+        controlDiagrams: [String: String] = [:],
         riskOverTimePicture: String? = nil,
         history: [RiskHistoryRow] = [],
         historyTruncated: Bool = false,
@@ -32,6 +40,8 @@ public struct ExportModelAsMarkdownRequest: Equatable, Sendable {
     ) {
         self.threatPictures = threatPictures
         self.controlPictures = controlPictures
+        self.threatDiagrams = threatDiagrams
+        self.controlDiagrams = controlDiagrams
         self.riskOverTimePicture = riskOverTimePicture
         self.history = history
         self.historyTruncated = historyTruncated
@@ -103,7 +113,8 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         )
         lines += MarkdownThreatPictures.lines(
             report.rollups.topResidual,
-            pictures: request.threatPictures
+            pictures: request.threatPictures,
+            diagrams: request.threatDiagrams
         )
         lines += MarkdownMethodology.lines(report.methodology)
         lines += MarkdownFindings.lines(report.findings, toleranceLabel: report.toleranceLabel)
@@ -112,7 +123,8 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         lines += MarkdownAttackTrees.lines(report.attackTrees, routes: report.attackPathCount)
         lines += MarkdownProtectionDependencies.lines(
             report.protectionDependencies,
-            pictures: request.controlPictures
+            pictures: request.controlPictures,
+            diagrams: request.controlDiagrams
         )
         lines += MarkdownRecommendations.lines(report.recommendations)
         lines += MarkdownAcceptedRisks.lines(report.acceptedRisks)
@@ -242,6 +254,17 @@ enum Markdown {
     /// the severity decision, a compensating control and a recommendation
     /// all write their sources the same way. A value starting `http://` or
     /// `https://` renders as a link; any other text renders as it stands.
+    /// A fenced block, in the language named. The text keeps every line as
+    /// it stands, so a diagram a reader edits reads back the way they wrote
+    /// it.
+    static func fenced(_ text: String, as language: String) -> [String] {
+        var lines = ["```\(language)"]
+        lines += text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        if text.hasSuffix("\n") { lines.removeLast() }
+        lines.append("```")
+        return lines
+    }
+
     static func sourceLines(_ sources: [String]) -> [String] {
         sources.map { source in
             let isLink = source.hasPrefix("http://") || source.hasPrefix("https://")

@@ -1,0 +1,15 @@
+digraph {
+  rankdir=LR;
+  node [fontname="Helvetica"];
+  subgraph cluster_app {
+    label="App zone";
+    api [label="API", shape=box];
+  }
+  subgraph cluster_data {
+    label="Data zone";
+    db [label="Ledger \"main\"", shape=cylinder];
+  }
+  attacker [label="Attacker", shape=ellipse];
+  attacker -> api [label="Network"];
+  api -> db [label="Local IPC"];
+}

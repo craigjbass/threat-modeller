@@ -413,7 +413,15 @@ raised on, everything one hop from it, and the zones those sit in, each zone
 cut to what the picture still shows.
 
 `draw` writes SVG by default. `--svg` and `--png` say which to write, and both
-may be given. SVG is written by the package itself, so every build writes it,
+may be given. `--mermaid`, `--dot` and `--d2` write the diagram as text
+instead: `<system>.mmd`, `<system>.dot` and `<system>.d2`, each with the zones
+as subgraphs, the components in their own shape and the flows stating their
+kind. Text is what a wiki renders, a pipeline draws and a reviewer diffs, and
+two runs on one model write the same bytes.
+
+`report --diagram mermaid` writes the diagrams into the report itself, as
+fenced `mermaid` blocks in place of the image links, so a GitHub wiki renders
+the report with no image file beside it. SVG is written by the package itself, so every build writes it,
 including the static Linux one. PNG needs a drawing engine, which only a macOS
 build has; a Linux build says so rather than writing a broken file.
 
