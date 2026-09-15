@@ -12,6 +12,7 @@ struct ReportExporter {
     enum Kind: String, CaseIterable {
         case markdown
         case html
+        case json
         case threatcl
         case pdf
         case image
@@ -20,6 +21,7 @@ struct ReportExporter {
             switch self {
             case .markdown: "Export as Markdown\u{2026}"
             case .html: "Export as HTML\u{2026}"
+            case .json: "Export as JSON\u{2026}"
             case .threatcl: "Export as threatcl\u{2026}"
             case .pdf: "Export as PDF\u{2026}"
             case .image: "Export as Image\u{2026}"
@@ -30,6 +32,7 @@ struct ReportExporter {
             switch self {
             case .markdown: UTType(filenameExtension: "md") ?? .plainText
             case .html: .html
+            case .json: .json
             case .threatcl: UTType(filenameExtension: "hcl") ?? .plainText
             case .pdf: .pdf
             case .image: .png
@@ -60,6 +63,8 @@ struct ReportExporter {
             session.markdownExport()
         case .html:
             session.htmlExport()
+        case .json:
+            session.jsonExport()
         case .threatcl:
             session.threatclExport()
         case .pdf:

@@ -770,6 +770,14 @@ final class ThreatModelSession {
         return (Data(page.html.utf8), page.fileName)
     }
 
+    /// The assessed model as data another program reads. The same use case
+    /// the executable's `export` verb runs, so a file written from the window
+    /// and a file written from a build hold the same shape.
+    func jsonExport() -> (data: Data, fileName: String) {
+        let response = useCases.exportModelAsJson().execute(ExportModelAsJsonRequest())
+        return (Data(response.json.utf8), response.fileName)
+    }
+
     func threatclExport() -> (data: Data, fileName: String) {
         let response = useCases.exportModelAsThreatcl().execute(ExportModelAsThreatclRequest())
         return (Data(response.hcl.utf8), response.fileName)

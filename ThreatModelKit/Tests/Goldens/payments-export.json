@@ -1,0 +1,415 @@
+{
+  "acceptedRisks" : [
+
+  ],
+  "assets" : [
+    {
+      "carriedBy" : [
+
+      ],
+      "classification" : "Restricted",
+      "description" : "",
+      "heldBy" : [
+        "EC2"
+      ],
+      "id" : "card-numbers",
+      "name" : "Card numbers",
+      "owner" : "Payments team",
+      "worstOpenScore" : 13,
+      "worstOpenThreat" : "Credential Theft"
+    }
+  ],
+  "assumptions" : [
+    {
+      "label" : "network-segmented",
+      "text" : "The VPC has no route to the internet."
+    }
+  ],
+  "components" : [
+    {
+      "assetNames" : [
+
+      ],
+      "categoryId" : "compute",
+      "id" : "api",
+      "name" : "EC2",
+      "privilege" : "User",
+      "sensitivity" : "Restricted",
+      "technologyId" : "aws-ec2",
+      "zoneName" : "Private Zone"
+    }
+  ],
+  "exclusions" : [
+    {
+      "label" : "the card network",
+      "rationale" : "Another team owns it.",
+      "text" : "This model does not cover the card network."
+    }
+  ],
+  "flows" : [
+
+  ],
+  "leverage" : [
+
+  ],
+  "recommendations" : [
+
+  ],
+  "schemaVersion" : "1.0.0",
+  "summary" : {
+    "byControlStatus" : [
+      {
+        "count" : 6,
+        "label" : "Not implemented"
+      }
+    ],
+    "byLevel" : [
+      {
+        "count" : 1,
+        "label" : "Critical"
+      },
+      {
+        "count" : 0,
+        "label" : "High"
+      },
+      {
+        "count" : 2,
+        "label" : "Medium"
+      },
+      {
+        "count" : 2,
+        "label" : "Low"
+      }
+    ],
+    "byStride" : [
+      {
+        "count" : 1,
+        "label" : "Spoofing"
+      },
+      {
+        "count" : 2,
+        "label" : "Tampering"
+      },
+      {
+        "count" : 0,
+        "label" : "Repudiation"
+      },
+      {
+        "count" : 0,
+        "label" : "Information Disclosure"
+      },
+      {
+        "count" : 1,
+        "label" : "Denial of Service"
+      },
+      {
+        "count" : 1,
+        "label" : "Elevation of Privilege"
+      }
+    ],
+    "controlsOffered" : 6,
+    "controlsRecorded" : 0,
+    "exclusions" : 1,
+    "hardDependencies" : 0,
+    "openByImpact" : [
+      {
+        "count" : 2,
+        "label" : "Confidentiality"
+      },
+      {
+        "count" : 3,
+        "label" : "Integrity"
+      },
+      {
+        "count" : 2,
+        "label" : "Availability"
+      }
+    ],
+    "totalThreats" : 5,
+    "unansweredThreats" : 5
+  },
+  "system" : {
+    "authors" : [
+
+    ],
+    "catalogueTag" : "v0.0.0",
+    "links" : [
+
+    ],
+    "name" : "Payments",
+    "owner" : "Payments team",
+    "repositories" : [
+
+    ],
+    "riskTolerance" : "Low"
+  },
+  "thirdParties" : [
+    {
+      "assetNames" : [
+        "Card numbers"
+      ],
+      "description" : "",
+      "id" : "stripe",
+      "kind" : "SaaS",
+      "name" : "Stripe",
+      "payingCustomer" : false,
+      "provides" : [
+        "EC2"
+      ],
+      "uptime" : "Degraded",
+      "uptimeNotes" : ""
+    }
+  ],
+  "threats" : [
+    {
+      "answeredUpstreamBy" : [
+
+      ],
+      "assetsAtRisk" : [
+        "Card numbers"
+      ],
+      "compensating" : [
+
+      ],
+      "controls" : [
+        {
+          "description" : "Enforce IMDSv2 to block SSRF-based credential theft",
+          "isImplemented" : false,
+          "status" : "Not implemented"
+        },
+        {
+          "description" : "Use IAM roles with minimal permissions",
+          "isImplemented" : false,
+          "status" : "Not implemented"
+        }
+      ],
+      "description" : "Attacker steals credentials to impersonate a principal",
+      "id" : "credential-theft",
+      "impacts" : [
+        "Confidentiality"
+      ],
+      "inherentScore" : 13,
+      "isOpen" : true,
+      "likelihood" : "Commodity",
+      "mitreTechniqueIds" : [
+        "T1552"
+      ],
+      "name" : "Credential Theft",
+      "performedBy" : [
+
+      ],
+      "reducedBy" : [
+
+      ],
+      "riskLevel" : "critical",
+      "riskScore" : 13,
+      "severity" : "Critical",
+      "sourceId" : "component:api",
+      "sourceKind" : "Component",
+      "sourceName" : "EC2",
+      "stride" : [
+        "Spoofing"
+      ]
+    },
+    {
+      "answeredUpstreamBy" : [
+
+      ],
+      "assetsAtRisk" : [
+        "Card numbers"
+      ],
+      "compensating" : [
+
+      ],
+      "controls" : [
+        {
+          "description" : "Scan configuration continuously",
+          "isImplemented" : false,
+          "status" : "Not implemented"
+        }
+      ],
+      "description" : "Insecure defaults or drift leave the service exposed",
+      "id" : "misconfiguration",
+      "impacts" : [
+        "Integrity"
+      ],
+      "inherentScore" : 6,
+      "isOpen" : true,
+      "likelihood" : "Commodity",
+      "mitreTechniqueIds" : [
+
+      ],
+      "name" : "Misconfiguration",
+      "performedBy" : [
+
+      ],
+      "reducedBy" : [
+
+      ],
+      "riskLevel" : "medium",
+      "riskScore" : 6,
+      "severity" : "Medium",
+      "sourceId" : "component:api",
+      "sourceKind" : "Component",
+      "sourceName" : "EC2",
+      "stride" : [
+        "Tampering"
+      ]
+    },
+    {
+      "answeredUpstreamBy" : [
+
+      ],
+      "assetsAtRisk" : [
+
+      ],
+      "compensating" : [
+
+      ],
+      "controls" : [
+        {
+          "description" : "Segment the network and restrict east-west traffic",
+          "isImplemented" : false,
+          "status" : "Not implemented"
+        }
+      ],
+      "description" : "Attacker pivots between resources inside the network zone",
+      "id" : "lateral-movement",
+      "impacts" : [
+        "Confidentiality",
+        "Integrity",
+        "Availability"
+      ],
+      "inherentScore" : 5,
+      "isOpen" : true,
+      "likelihood" : "Commodity",
+      "mitreTechniqueIds" : [
+
+      ],
+      "name" : "Lateral Movement",
+      "performedBy" : [
+
+      ],
+      "reducedBy" : [
+
+      ],
+      "riskLevel" : "medium",
+      "riskScore" : 5,
+      "severity" : "High",
+      "sourceId" : "zone:app",
+      "sourceKind" : "Zone",
+      "sourceName" : "Private Zone",
+      "stride" : [
+        "Elevation of Privilege"
+      ]
+    },
+    {
+      "answeredUpstreamBy" : [
+
+      ],
+      "assetsAtRisk" : [
+        "Card numbers"
+      ],
+      "compensating" : [
+
+      ],
+      "controls" : [
+        {
+          "description" : "Apply rate limits",
+          "isImplemented" : false,
+          "status" : "Not implemented"
+        }
+      ],
+      "description" : "Attacker exhausts capacity to deny availability",
+      "id" : "dos-attack",
+      "impacts" : [
+        "Availability"
+      ],
+      "inherentScore" : 3,
+      "isOpen" : true,
+      "likelihood" : "Commodity",
+      "mitreTechniqueIds" : [
+
+      ],
+      "name" : "Denial of Service",
+      "performedBy" : [
+
+      ],
+      "reducedBy" : [
+
+      ],
+      "riskLevel" : "low",
+      "riskScore" : 3,
+      "severity" : "Low",
+      "sourceId" : "component:api",
+      "sourceKind" : "Component",
+      "sourceName" : "EC2",
+      "stride" : [
+        "Denial of Service"
+      ]
+    },
+    {
+      "answeredUpstreamBy" : [
+
+      ],
+      "assetsAtRisk" : [
+
+      ],
+      "compensating" : [
+
+      ],
+      "controls" : [
+        {
+          "description" : "Scan configuration continuously",
+          "isImplemented" : false,
+          "status" : "Not implemented"
+        }
+      ],
+      "description" : "Insecure defaults or drift leave the service exposed",
+      "id" : "misconfiguration",
+      "impacts" : [
+        "Integrity"
+      ],
+      "inherentScore" : 3,
+      "isOpen" : true,
+      "likelihood" : "Commodity",
+      "mitreTechniqueIds" : [
+
+      ],
+      "name" : "Misconfiguration",
+      "performedBy" : [
+
+      ],
+      "reducedBy" : [
+
+      ],
+      "riskLevel" : "low",
+      "riskScore" : 3,
+      "severity" : "Medium",
+      "sourceId" : "zone:app",
+      "sourceKind" : "Zone",
+      "sourceName" : "Private Zone",
+      "stride" : [
+        "Tampering"
+      ]
+    }
+  ],
+  "useCases" : [
+    {
+      "label" : "take-a-payment",
+      "text" : "A customer pays for a basket."
+    }
+  ],
+  "zones" : [
+    {
+      "boundary" : "Network Boundary",
+      "componentIds" : [
+        "api"
+      ],
+      "name" : "Private Zone",
+      "networkType" : "Generic Network",
+      "networkZone" : "Private Zone",
+      "riskReductionPercent" : 20
+    }
+  ]
+}

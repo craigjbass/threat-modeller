@@ -112,6 +112,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         ExportModelAsHtml(markdown: exportModelAsMarkdown())
     }
 
+    func exportModelAsJson() -> ExportModelAsJsonUseCase {
+        ExportModelAsJson(reports: buildThreatModelReport())
+    }
+
+    func exportModelAsOtm() -> ExportModelAsOtmUseCase {
+        ExportModelAsOtm(reports: buildThreatModelReport())
+    }
+
     func setComponentProperties() -> SetComponentPropertiesUseCase {
         SetComponentProperties(models: models, catalogue: catalogue)
     }

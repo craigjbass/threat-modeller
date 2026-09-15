@@ -1,0 +1,257 @@
+{
+  "components" : [
+    {
+      "id" : "api",
+      "name" : "EC2",
+      "parent" : {
+        "trustZone" : "private-zone"
+      },
+      "tags" : [
+        "aws-ec2",
+        "Restricted",
+        "User"
+      ],
+      "type" : "compute"
+    }
+  ],
+  "dataflows" : [
+
+  ],
+  "mitigations" : [
+    {
+      "attributes" : {
+        "status" : "Not implemented",
+        "threat" : "credential-theft@component:api"
+      },
+      "description" : "",
+      "id" : "credential-theft-enforce-imdsv2-to-block-ssrf-based-credential-theft",
+      "name" : "Enforce IMDSv2 to block SSRF-based credential theft",
+      "riskReduction" : 0
+    },
+    {
+      "attributes" : {
+        "status" : "Not implemented",
+        "threat" : "credential-theft@component:api"
+      },
+      "description" : "",
+      "id" : "credential-theft-use-iam-roles-with-minimal-permissions",
+      "name" : "Use IAM roles with minimal permissions",
+      "riskReduction" : 0
+    },
+    {
+      "attributes" : {
+        "status" : "Not implemented",
+        "threat" : "misconfiguration@component:api"
+      },
+      "description" : "",
+      "id" : "misconfiguration-scan-configuration-continuously",
+      "name" : "Scan configuration continuously",
+      "riskReduction" : 0
+    },
+    {
+      "attributes" : {
+        "status" : "Not implemented",
+        "threat" : "lateral-movement@zone:app"
+      },
+      "description" : "",
+      "id" : "lateral-movement-segment-the-network-and-restrict-east-west-traffic",
+      "name" : "Segment the network and restrict east-west traffic",
+      "riskReduction" : 0
+    },
+    {
+      "attributes" : {
+        "status" : "Not implemented",
+        "threat" : "dos-attack@component:api"
+      },
+      "description" : "",
+      "id" : "dos-attack-apply-rate-limits",
+      "name" : "Apply rate limits",
+      "riskReduction" : 0
+    },
+    {
+      "attributes" : {
+        "status" : "Not implemented",
+        "threat" : "misconfiguration@zone:app"
+      },
+      "description" : "",
+      "id" : "misconfiguration-scan-configuration-continuously",
+      "name" : "Scan configuration continuously",
+      "riskReduction" : 0
+    }
+  ],
+  "otmVersion" : "0.2.0",
+  "project" : {
+    "id" : "Payments",
+    "name" : "Payments",
+    "owner" : "Payments team"
+  },
+  "representations" : [
+    {
+      "id" : "Payments-diagram",
+      "name" : "Payments data-flow diagram",
+      "type" : "diagram"
+    }
+  ],
+  "threats" : [
+    {
+      "attributes" : {
+        "assetsAtRisk" : [
+          "Card numbers"
+        ],
+        "element" : "EC2",
+        "isOpen" : true,
+        "mitreTechniqueIds" : [
+          "T1552"
+        ],
+        "raisedBy" : "Component",
+        "severity" : "Critical"
+      },
+      "categories" : [
+        "Spoofing"
+      ],
+      "cwes" : [
+
+      ],
+      "description" : "Attacker steals credentials to impersonate a principal",
+      "id" : "credential-theft@component:api",
+      "name" : "Credential Theft",
+      "risk" : {
+        "impact" : "Confidentiality",
+        "inherentScore" : 13,
+        "level" : "critical",
+        "likelihood" : "Commodity",
+        "score" : 13
+      }
+    },
+    {
+      "attributes" : {
+        "assetsAtRisk" : [
+          "Card numbers"
+        ],
+        "element" : "EC2",
+        "isOpen" : true,
+        "mitreTechniqueIds" : [
+
+        ],
+        "raisedBy" : "Component",
+        "severity" : "Medium"
+      },
+      "categories" : [
+        "Tampering"
+      ],
+      "cwes" : [
+
+      ],
+      "description" : "Insecure defaults or drift leave the service exposed",
+      "id" : "misconfiguration@component:api",
+      "name" : "Misconfiguration",
+      "risk" : {
+        "impact" : "Integrity",
+        "inherentScore" : 6,
+        "level" : "medium",
+        "likelihood" : "Commodity",
+        "score" : 6
+      }
+    },
+    {
+      "attributes" : {
+        "assetsAtRisk" : [
+
+        ],
+        "element" : "Private Zone",
+        "isOpen" : true,
+        "mitreTechniqueIds" : [
+
+        ],
+        "raisedBy" : "Zone",
+        "severity" : "High"
+      },
+      "categories" : [
+        "Elevation of Privilege"
+      ],
+      "cwes" : [
+
+      ],
+      "description" : "Attacker pivots between resources inside the network zone",
+      "id" : "lateral-movement@zone:app",
+      "name" : "Lateral Movement",
+      "risk" : {
+        "impact" : "Confidentiality, Integrity, Availability",
+        "inherentScore" : 5,
+        "level" : "medium",
+        "likelihood" : "Commodity",
+        "score" : 5
+      }
+    },
+    {
+      "attributes" : {
+        "assetsAtRisk" : [
+          "Card numbers"
+        ],
+        "element" : "EC2",
+        "isOpen" : true,
+        "mitreTechniqueIds" : [
+
+        ],
+        "raisedBy" : "Component",
+        "severity" : "Low"
+      },
+      "categories" : [
+        "Denial of Service"
+      ],
+      "cwes" : [
+
+      ],
+      "description" : "Attacker exhausts capacity to deny availability",
+      "id" : "dos-attack@component:api",
+      "name" : "Denial of Service",
+      "risk" : {
+        "impact" : "Availability",
+        "inherentScore" : 3,
+        "level" : "low",
+        "likelihood" : "Commodity",
+        "score" : 3
+      }
+    },
+    {
+      "attributes" : {
+        "assetsAtRisk" : [
+
+        ],
+        "element" : "Private Zone",
+        "isOpen" : true,
+        "mitreTechniqueIds" : [
+
+        ],
+        "raisedBy" : "Zone",
+        "severity" : "Medium"
+      },
+      "categories" : [
+        "Tampering"
+      ],
+      "cwes" : [
+
+      ],
+      "description" : "Insecure defaults or drift leave the service exposed",
+      "id" : "misconfiguration@zone:app",
+      "name" : "Misconfiguration",
+      "risk" : {
+        "impact" : "Integrity",
+        "inherentScore" : 3,
+        "level" : "low",
+        "likelihood" : "Commodity",
+        "score" : 3
+      }
+    }
+  ],
+  "trustZones" : [
+    {
+      "description" : "Private Zone, Generic Network",
+      "id" : "private-zone",
+      "name" : "Private Zone",
+      "risk" : {
+        "trustRating" : 20
+      }
+    }
+  ]
+}

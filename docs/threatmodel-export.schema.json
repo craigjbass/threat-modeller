@@ -1,0 +1,378 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/craigjbass/threat-modeller/docs/threatmodel-export.schema.json",
+  "title": "Craig's Threat Modeller export",
+  "description": "The assessed model as data. `threatmodeller export --format json` writes one file of this shape per system. Keys are written in alphabetical order, so two exports of one model are the same bytes.",
+  "type": "object",
+  "required": [
+    "acceptedRisks",
+    "assets",
+    "assumptions",
+    "components",
+    "exclusions",
+    "flows",
+    "leverage",
+    "recommendations",
+    "schemaVersion",
+    "summary",
+    "system",
+    "threats",
+    "thirdParties",
+    "useCases",
+    "zones"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "The version of this schema the file was written against. It goes up when a key changes meaning or leaves.",
+      "const": "1.0.0"
+    },
+    "system": {
+      "type": "object",
+      "required": ["authors", "links", "name", "repositories", "riskTolerance"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "owner": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "authors": { "type": "array", "items": { "type": "string" } },
+        "version": { "type": ["string", "null"] },
+        "created": { "type": ["string", "null"], "description": "YYYY-MM-DD" },
+        "reviewed": { "type": ["string", "null"], "description": "YYYY-MM-DD" },
+        "catalogueTag": { "type": ["string", "null"] },
+        "riskTolerance": { "type": "string" },
+        "links": { "type": "array", "items": { "type": "string" } },
+        "repositories": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "byControlStatus",
+        "byLevel",
+        "byStride",
+        "controlsOffered",
+        "controlsRecorded",
+        "exclusions",
+        "hardDependencies",
+        "openByImpact",
+        "totalThreats",
+        "unansweredThreats"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "totalThreats": { "type": "integer" },
+        "unansweredThreats": {
+          "type": "integer",
+          "description": "How many threats hold no answered control and no compensating control."
+        },
+        "controlsOffered": { "type": "integer" },
+        "controlsRecorded": { "type": "integer" },
+        "byLevel": { "$ref": "#/$defs/counts" },
+        "byStride": { "$ref": "#/$defs/counts" },
+        "byControlStatus": { "$ref": "#/$defs/counts" },
+        "openByImpact": { "$ref": "#/$defs/counts" },
+        "exclusions": { "type": "integer" },
+        "hardDependencies": {
+          "type": "integer",
+          "description": "How many third parties this system cannot run without."
+        }
+      }
+    },
+    "zones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["boundary", "componentIds", "name", "networkType", "networkZone"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "networkZone": { "type": "string" },
+          "networkType": { "type": "string" },
+          "boundary": { "type": "string" },
+          "componentIds": { "type": "array", "items": { "type": "string" } },
+          "riskReductionPercent": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assetNames", "categoryId", "id", "name", "privilege", "sensitivity", "technologyId"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "technologyId": { "type": "string" },
+          "categoryId": { "type": "string" },
+          "sensitivity": { "type": "string" },
+          "privilege": { "type": "string" },
+          "zoneName": { "type": ["string", "null"] },
+          "assetNames": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "sourceName", "targetName"],
+        "additionalProperties": false,
+        "properties": {
+          "sourceName": { "type": "string" },
+          "targetName": { "type": "string" },
+          "kind": { "type": "string" },
+          "description": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["carriedBy", "classification", "description", "heldBy", "id", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "classification": { "type": "string" },
+          "description": { "type": "string" },
+          "owner": { "type": ["string", "null"] },
+          "heldBy": { "type": "array", "items": { "type": "string" } },
+          "carriedBy": { "type": "array", "items": { "type": "string" } },
+          "worstOpenThreat": { "type": ["string", "null"] },
+          "worstOpenScore": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "thirdParties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assetNames", "description", "id", "kind", "name", "payingCustomer", "provides", "uptime", "uptimeNotes"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "kind": { "type": "string" },
+          "payingCustomer": { "type": "boolean" },
+          "uptime": { "type": "string", "enum": ["None", "Degraded", "Hard", "Operational"] },
+          "uptimeNotes": { "type": "string" },
+          "owner": { "type": ["string", "null"] },
+          "link": { "type": ["string", "null"] },
+          "provides": { "type": "array", "items": { "type": "string" } },
+          "assetNames": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "text": { "type": "string" },
+          "owner": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "useCases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "rationale", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "text": { "type": "string" },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+    "threats": {
+      "type": "array",
+      "description": "Worst residual score first, then by source, the way the report orders them.",
+      "items": {
+        "type": "object",
+        "required": [
+          "answeredUpstreamBy",
+          "assetsAtRisk",
+          "compensating",
+          "controls",
+          "description",
+          "id",
+          "impacts",
+          "inherentScore",
+          "isOpen",
+          "likelihood",
+          "mitreTechniqueIds",
+          "name",
+          "performedBy",
+          "reducedBy",
+          "riskLevel",
+          "riskScore",
+          "severity",
+          "sourceId",
+          "sourceKind",
+          "sourceName",
+          "stride"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "severity": { "type": "string" },
+          "riskScore": { "type": "integer", "minimum": 1, "maximum": 16 },
+          "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "inherentScore": {
+            "type": "integer",
+            "description": "The score before the controls, the compensating controls and the upstream mitigations."
+          },
+          "isOpen": {
+            "type": "boolean",
+            "description": "True when no control carries an answer and no compensating control stands."
+          },
+          "stride": { "type": "array", "items": { "type": "string" } },
+          "impacts": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["Confidentiality", "Integrity", "Availability"] }
+          },
+          "assetsAtRisk": { "type": "array", "items": { "type": "string" } },
+          "mitreTechniqueIds": { "type": "array", "items": { "type": "string" } },
+          "performedBy": { "type": "array", "items": { "type": "string" } },
+          "likelihood": { "type": "string" },
+          "likelihoodRationale": { "type": ["string", "null"] },
+          "sourceId": {
+            "type": "string",
+            "description": "component:<id>, connection:<id> or zone:<id>."
+          },
+          "sourceKind": { "type": "string", "enum": ["Component", "Connection", "Zone"] },
+          "sourceName": { "type": "string" },
+          "controls": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["description", "isImplemented", "status"],
+              "additionalProperties": false,
+              "properties": {
+                "description": { "type": "string" },
+                "status": { "type": "string" },
+                "isImplemented": { "type": "boolean" },
+                "evidence": { "type": ["string", "null"] }
+              }
+            }
+          },
+          "compensating": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "rationale", "reducesRiskBy", "sources"],
+              "additionalProperties": false,
+              "properties": {
+                "label": { "type": "string" },
+                "reducesRiskBy": { "type": "integer" },
+                "rationale": { "type": "string" },
+                "evidence": { "type": ["string", "null"] },
+                "sources": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "answeredUpstreamBy": { "type": "array", "items": { "type": "string" } },
+          "reducedBy": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["riskScore", "sourceId", "sourceName", "sources", "text", "threatId", "threatName"],
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string" },
+          "note": { "type": ["string", "null"] },
+          "threatId": { "type": "string" },
+          "threatName": { "type": "string" },
+          "sourceId": { "type": "string" },
+          "sourceName": { "type": "string" },
+          "riskScore": { "type": "integer" },
+          "governance": { "type": ["string", "null"] },
+          "sources": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "leverage": {
+      "type": "array",
+      "description": "What a team could do, by the residual points it removes, worst first.",
+      "items": {
+        "type": "object",
+        "required": ["label", "removes", "sources", "text", "threatsMoved", "totalResidual", "worstAfter", "worstBefore"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "text": { "type": "string" },
+          "note": { "type": ["string", "null"] },
+          "blockedBy": { "type": ["string", "null"] },
+          "governance": { "type": ["string", "null"] },
+          "removes": { "type": "integer" },
+          "totalResidual": { "type": "integer" },
+          "threatsMoved": { "type": "integer" },
+          "worstBefore": { "type": "integer" },
+          "worstAfter": { "type": "integer" },
+          "sources": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "acceptedRisks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["control", "isOverdue", "owner", "rationale", "riskScore", "sourceName", "threatName"],
+        "additionalProperties": false,
+        "properties": {
+          "threatName": { "type": "string" },
+          "sourceName": { "type": "string" },
+          "riskScore": { "type": "integer" },
+          "control": { "type": "string" },
+          "owner": { "type": "string" },
+          "acceptedOn": { "type": ["string", "null"] },
+          "reviewBy": { "type": ["string", "null"] },
+          "rationale": { "type": "string" },
+          "isOverdue": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["count", "label"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "count": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

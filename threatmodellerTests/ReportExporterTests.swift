@@ -38,7 +38,8 @@ struct ReportExporterTests {
         let written = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
         #expect(
             written == [
-                "Untitled.hcl", "Untitled.html", "Untitled.md", "Untitled.pdf", "Untitled.png"
+                "Untitled.hcl", "Untitled.html", "Untitled.json", "Untitled.md",
+                "Untitled.pdf", "Untitled.png"
             ]
         )
         #expect(session.errorMessage == nil)

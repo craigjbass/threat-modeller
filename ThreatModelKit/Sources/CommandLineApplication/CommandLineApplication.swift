@@ -72,6 +72,8 @@ public struct CommandLineApplication {
         var wantsHtml = false
         var machineOutput = MachineOutput.plain
         var unknownFormat: String?
+        var formatWord: String?
+        var wantsStandardOutput = false
         var commits = ReadRiskHistory.defaultCommits
 
         var flagless: [String] = []
@@ -94,6 +96,7 @@ public struct CommandLineApplication {
             case "--format":
                 index += 1
                 let named = index < words.count ? words[index] : ""
+                formatWord = named
                 if let format = MachineOutput.named(named) {
                     machineOutput = format
                 } else {
@@ -105,6 +108,8 @@ public struct CommandLineApplication {
                 pictures.insert(.png)
             case "--html":
                 wantsHtml = true
+            case "--stdout":
+                wantsStandardOutput = true
             case "-o":
                 index += 1
                 if index < words.count { flagless.append("-o:" + words[index]) }
@@ -114,6 +119,11 @@ public struct CommandLineApplication {
             index += 1
         }
         words = flagless
+
+        // `export` reads `--format` as the shape it writes, not as the shape a
+        // diagnostic takes, so a word this list does not hold is its own
+        // fault to report.
+        if words.first == "export" { unknownFormat = nil }
 
         if let unknownFormat {
             output(
@@ -166,6 +176,16 @@ public struct CommandLineApplication {
         case "draw":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return draw(root: root, into: into, wants: pictures, isQuiet: isQuiet, output: output)
+        case "export":
+            let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
+            return export(
+                root: root,
+                into: into,
+                format: formatWord ?? ExportFormat.json.rawValue,
+                wantsStandardOutput: wantsStandardOutput,
+                isQuiet: isQuiet,
+                output: output
+            )
         case "help", "--help", "-h":
             output(Self.usage)
             return ExitCode.success.rawValue
@@ -1269,6 +1289,116 @@ public struct CommandLineApplication {
     /// SVG is written by this package, so it works wherever the tool runs. PNG
     /// needs a drawing engine, which only Apple's platforms supply here, so a
     /// Linux build says so rather than writing nothing.
+    /// The shapes `export` writes.
+    enum ExportFormat: String, CaseIterable {
+        case json
+        case otm
+
+        static var names: String {
+            allCases.map(\.rawValue).joined(separator: "|")
+        }
+    }
+
+    /// Writes the assessed model as data another program reads.
+    ///
+    /// `--stdout` writes one system to standard output, so a pipeline reads it
+    /// without a temporary directory. A project holding more than one system
+    /// then says so rather than running the two together.
+    private func export(
+        root: String,
+        into: String?,
+        format: String,
+        wantsStandardOutput: Bool,
+        isQuiet: Bool,
+        output: (String) -> Void
+    ) -> Int32 {
+        guard let shape = ExportFormat(rawValue: format) else {
+            output(
+                "threatmodeller: there is no export format \"\(format)\";"
+                    + " this application writes \(ExportFormat.names)"
+            )
+            return ExitCode.didNotParse.rawValue
+        }
+
+        var written = 0
+        let code = forEachSystem(root: root, output: output) { system, useCases in
+            guard let architectureText = read(system.architecturePath, output) else {
+                return .fileFault
+            }
+
+            let imported = useCases.importArchitecture()
+                .execute(
+                    ImportArchitectureRequest(
+                        text: architectureText,
+                        attackTreeText: treeText(of: system),
+                        parts: system.isSplit ? Self.parts(of: system, projects: projects) : [],
+                        directoryName: system.isSplit ? system.name : nil,
+                        attackTreeTexts: system.isSplit
+                            ? Self.treeTexts(of: system, projects: projects)
+                            : []
+                    )
+                )
+            guard case .imported = imported else {
+                guard case .refused(let diagnostics) = imported else { return .didNotParse }
+                for diagnostic in diagnostics {
+                    output(diagnostic.described(in: system.architecturePath))
+                }
+                return .didNotParse
+            }
+
+            if projects.exists(path: system.controlsPath),
+               let controlsText = try? projects.read(path: system.controlsPath) {
+                _ = useCases.applyControlAnswers()
+                    .execute(ApplyControlAnswersRequest(text: controlsText))
+            }
+
+            if let policyText = policyText(root: root) {
+                _ = useCases.applyPolicy().execute(ApplyPolicyRequest(text: policyText))
+            }
+
+            // The file is named after the system's own file, the way the
+            // report is, so a project's files sort together.
+            let text: String
+            let fileName: String
+            switch shape {
+            case .json:
+                text = useCases.exportModelAsJson().execute(ExportModelAsJsonRequest()).json
+                fileName = "\(system.name).json"
+            case .otm:
+                text = useCases.exportModelAsOtm().execute(ExportModelAsOtmRequest()).json
+                fileName = "\(system.name).otm.json"
+            }
+
+            if wantsStandardOutput {
+                written += 1
+                guard written == 1 else {
+                    output(
+                        "threatmodeller: this project holds more than one system,"
+                            + " so --stdout writes none; name one root or drop the flag"
+                    )
+                    return .didNotParse
+                }
+                output(text.hasSuffix("\n") ? String(text.dropLast()) : text)
+                return .success
+            }
+
+            let path = into.map { ProjectConvention.path($0, fileName) }
+                ?? ProjectConvention.path(
+                    String(system.architecturePath.dropLast(system.name.count + 5)),
+                    fileName
+                )
+            do {
+                try projects.write(text, to: path)
+            } catch {
+                output("threatmodeller: \(Self.described(error))")
+                return .fileFault
+            }
+            if isQuiet == false { output("wrote \(path)") }
+            return .success
+        }
+        return code
+    }
+
     private func draw(
         root: String,
         into: String?,
@@ -1652,6 +1782,7 @@ public struct CommandLineApplication {
       threatmodeller history [<root>]  say what the model scored at each sampled commit
       threatmodeller report  [<root>]  write every .md report
       threatmodeller draw    [<root>]  write every diagram as a picture
+      threatmodeller export  [<root>]  write every model as data another program reads
       threatmodeller format  [<root>]  rewrite every .arch, .attacktree and .lib file
                                        in the canonical shape
       threatmodeller help              show this text
@@ -1677,7 +1808,9 @@ public struct CommandLineApplication {
       --png                 draw as PNG, which only a macOS build writes
       --catalogue <dir>     read the threat catalogue from this directory
       --tolerance <level>   a likelihood finding answers a threat up to this level
-      --format <name>       plain, github or json; check, compile and format read it
+      --format <name>       plain, github or json; check, compile and format read it.
+                            export reads json or otm, the shape it writes
+      --stdout              export writes one system to standard output
       --commits <n>         how many commits history samples, newest first
       -q, --quiet           say nothing about a file that did not change
       -f, --force           remove a library a system still names

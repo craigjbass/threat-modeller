@@ -400,6 +400,7 @@ threatmodeller check   [<root>]              # says what has no answer
 threatmodeller history [<root>]              # says what the model scored at each commit
 threatmodeller report  [<root>] [-o <dir>]   # writes every .md report and its diagrams
 threatmodeller draw    [<root>] [-o <dir>]   # writes every diagram as SVG or PNG
+threatmodeller export  [<root>] [-o <dir>]   # writes every model as data another program reads
 threatmodeller format  [<root>]                # rewrites every .arch, .attacktree and .lib file
 threatmodeller library <operation> …         # manages the shared element libraries
 threatmodeller help                          # shows the usage text
@@ -423,6 +424,38 @@ likelihood findings" above); `<level>` is `low`, `medium`, `high` or
 `critical`. `-q` or `--quiet` says nothing about a file that did not change.
 `-f` or `--force` removes a library a system still names. `--format <name>`
 picks the shape `check`, `compile` and `format` write; see below.
+
+### Exporting the assessed model as data
+
+`threatmodeller export` writes one file per system, holding the system's
+facts, its zones, components, flows, assets, third parties, assumptions,
+scope, every threat with its score, its level, its answers and its controls,
+the recommendations, the leverage, the accepted risks and the summary counts.
+
+```
+threatmodeller export .                      # one <system>.json beside each .arch file
+threatmodeller export . --format otm         # one <system>.otm.json, the Open Threat Model shape
+threatmodeller export . --stdout             # one system to standard output
+```
+
+The shape is stated in [`docs/threatmodel-export.schema.json`](docs/threatmodel-export.schema.json),
+and each file states the schema version it was written against. Keys are
+written in alphabetical order, so two exports of one model are the same bytes
+and a file committed to a repository changes only when the model changes.
+
+The open critical threats, from a pipeline:
+
+```sh
+threatmodeller export . --stdout | jq -r '.threats[] | select(.isOpen and .riskLevel == "critical") | "\(.riskScore)\t\(.name)\t\(.sourceName)"'
+```
+
+`--format otm` writes an Open Threat Model file instead. That schema carries a
+project, trust zones, components, dataflows, threats and mitigations, and
+[`docs/OTM-MAPPING.md`](docs/OTM-MAPPING.md) states what this model becomes in
+it and what it leaves behind.
+
+The window writes the same file: **File → Export as JSON…** runs the same use
+case.
 
 ### Governance: who carries an accepted risk
 
@@ -790,6 +823,10 @@ and undo takes it back.
   Linux build.
 - [The application design](docs/superpowers/specs/2026-09-07-native-macos-threat-modeller-design.md) —
   the canvas, the sidebar, the catalogue and the scoring.
+- [The export schema](docs/threatmodel-export.schema.json) — the shape
+  `threatmodeller export --format json` writes.
+- [The Open Threat Model export](docs/OTM-MAPPING.md) — what this model becomes
+  in that schema.
 - [Running the tests](docs/TESTING.md)
 - [Releasing](docs/RELEASING.md)
 - [`docs/superpowers/specs/`](docs/superpowers/specs/) — every design spec, and the

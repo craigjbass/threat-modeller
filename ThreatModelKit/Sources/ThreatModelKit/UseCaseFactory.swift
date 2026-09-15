@@ -21,6 +21,8 @@ public protocol UseCaseFactory: Sendable {
     func buildThreatModelReport() -> BuildThreatModelReportUseCase
     func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase
     func exportModelAsHtml() -> ExportModelAsHtmlUseCase
+    func exportModelAsJson() -> ExportModelAsJsonUseCase
+    func exportModelAsOtm() -> ExportModelAsOtmUseCase
     func exportModelAsThreatcl() -> ExportModelAsThreatclUseCase
     func exportModelAsImage() -> ExportModelAsImageUseCase
     func setComponentProperties() -> SetComponentPropertiesUseCase

@@ -120,6 +120,14 @@ public final class TestDependencies: UseCaseFactory {
         ExportModelAsHtml(markdown: exportModelAsMarkdown())
     }
 
+    public func exportModelAsJson() -> ExportModelAsJsonUseCase {
+        ExportModelAsJson(reports: buildThreatModelReport())
+    }
+
+    public func exportModelAsOtm() -> ExportModelAsOtmUseCase {
+        ExportModelAsOtm(reports: buildThreatModelReport())
+    }
+
     public func setComponentProperties() -> SetComponentPropertiesUseCase {
         SetComponentProperties(models: models, catalogue: catalogue)
     }

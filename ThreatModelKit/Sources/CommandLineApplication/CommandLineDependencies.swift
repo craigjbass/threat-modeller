@@ -108,4 +108,12 @@ struct CommandLineDependencies {
     func exportModelAsHtml() -> ExportModelAsHtmlUseCase {
         ExportModelAsHtml(markdown: exportModelAsMarkdown())
     }
+
+    func exportModelAsJson() -> ExportModelAsJsonUseCase {
+        ExportModelAsJson(reports: buildThreatModelReport())
+    }
+
+    func exportModelAsOtm() -> ExportModelAsOtmUseCase {
+        ExportModelAsOtm(reports: buildThreatModelReport())
+    }
 }

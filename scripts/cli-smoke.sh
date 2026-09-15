@@ -77,6 +77,17 @@ tm report "$work/sample"
 test -f "$work/sample/threatmodel/payments.md"
 head -20 "$work/sample/threatmodel/payments.md"
 
+step "export writes the model as data"
+tm export "$work/sample"
+test -f "$work/sample/threatmodel/payments.json"
+grep -q '"schemaVersion"' "$work/sample/threatmodel/payments.json"
+tm export "$work/sample" --format otm
+grep -q '"otmVersion"' "$work/sample/threatmodel/payments.otm.json"
+# The output goes to a file first: `grep -q` closes a pipe as soon as it
+# matches, and the writer then dies of SIGPIPE.
+tm export "$work/sample" --stdout > "$work/sample/stdout.json"
+grep -q '"threats"' "$work/sample/stdout.json"
+
 step "format refuses a file that does not parse"
 mkdir -p "$work/broken/threatmodel"
 printf 'system "P" {\n  zone "z" { kind = "secret" }\n}\n' \
