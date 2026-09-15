@@ -52,6 +52,24 @@ final class RecentProjects {
         return URL(fileURLWithPath: entry.path, isDirectory: true)
     }
 
+    /// True when the directory this entry names is still there. It forgets
+    /// nothing: the menu dims a row it cannot open, and drops it on the next
+    /// record.
+    func exists(_ entry: RecentProject) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: entry.path, isDirectory: &isDirectory)
+            && isDirectory.boolValue
+    }
+
+    /// The project the application would reopen at launch, or nil when the
+    /// list is empty.
+    func mostRecent() -> RecentProject? { list().first }
+
+    /// Empties the list. The Clear Menu item calls it.
+    func clear() {
+        defaults.removeObject(forKey: Self.key)
+    }
+
     private func forget(path: String) {
         defaults.set(storedRows().filter { $0["path"] as? String != path }, forKey: Self.key)
     }

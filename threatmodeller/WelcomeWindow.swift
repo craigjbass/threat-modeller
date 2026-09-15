@@ -13,6 +13,8 @@ struct WelcomeWindow: View {
     /// Runs the same open panel the File menu runs.
     let openProject: () -> Void
     let openRecentProject: (RecentProject) -> Void
+    /// Where the launch setting is kept. A test gives its own.
+    var defaults: UserDefaults = .standard
 
     var body: some View {
         VStack(spacing: 18) {
@@ -92,6 +94,13 @@ struct WelcomeWindow: View {
         .accessibilityIdentifier(identifier)
     }
 
+    private var reopensLastProject: Binding<Bool> {
+        Binding(
+            get: { defaults.bool(forKey: LaunchChoice.reopenKey) },
+            set: { defaults.set($0, forKey: LaunchChoice.reopenKey) }
+        )
+    }
+
     @ViewBuilder
     private var recentList: some View {
         let projects = recents.list()
@@ -115,6 +124,13 @@ struct WelcomeWindow: View {
                     }
                 }
                 .frame(height: 130)
+
+                // Off until a person turns it on: a launch that opens the
+                // last project surprises somebody who wanted the welcome
+                // window.
+                Toggle("Reopen the last project at launch", isOn: reopensLastProject)
+                    .toggleStyle(.checkbox)
+                    .accessibilityIdentifier("reopen-last-project")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("welcome-recent")

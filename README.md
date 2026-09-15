@@ -655,6 +655,11 @@ from anywhere.
   command line prints.
 - A save message and a report message show in the toolbar, where the load stage
   shows, and clear themselves after four seconds.
+- *File ▸ Open Recent* lists the last ten projects, newest first, each with
+  its name and its path, and dims one whose folder is gone. *Clear Menu*
+  empties it. The welcome window holds *Reopen the last project at launch*,
+  which is off until a person turns it on; a path on the command line opens
+  that project whatever the setting says.
 - *Edit ▸ Copy as Image* (`Shift+Cmd+C`) puts the diagram on the clipboard as
   PNG and as PDF. With elements selected it copies those elements and the
   flows between them, cropped to their bounds.

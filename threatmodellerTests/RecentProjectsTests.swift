@@ -100,4 +100,98 @@ struct RecentProjectsTests {
         #expect(store.resolve(entry) == nil)
         #expect(store.list().isEmpty)
     }
+
+    @Test func saysWhetherARowStillOpens() {
+        let store = aStore(named: "exists")
+        let url = aDirectory("exists")
+        store.record(url: url)
+        let there = store.list()[0]
+
+        #expect(store.exists(there))
+        #expect(store.exists(RecentProject(path: "/no/such/project", name: "gone")) == false)
+    }
+
+    @Test func clearMenuEmptiesTheList() {
+        let store = aStore(named: "clear")
+        store.record(url: aDirectory("clear"))
+
+        store.clear()
+
+        #expect(store.list().isEmpty)
+    }
+
+    @Test func namesTheProjectAReopenWouldOpen() {
+        let store = aStore(named: "most-recent")
+        store.record(url: aDirectory("first"))
+        store.record(url: aDirectory("second"))
+
+        #expect(store.mostRecent()?.name == "second")
+    }
+}
+
+/// What the application opens at launch.
+@Suite("The launch choice")
+struct LaunchChoiceTests {
+    @Test func opensTheWelcomeWindowWhileTheSettingIsOff() {
+        #expect(
+            LaunchChoice.choose(
+                commandLinePath: nil,
+                reopensLastProject: false,
+                lastProject: "/work",
+                exists: { _ in true }
+            ) == .welcome
+        )
+    }
+
+    @Test func opensTheLastProjectWhenTheSettingIsOn() {
+        #expect(
+            LaunchChoice.choose(
+                commandLinePath: nil,
+                reopensLastProject: true,
+                lastProject: "/work",
+                exists: { _ in true }
+            ) == .project(path: "/work")
+        )
+    }
+
+    @Test func opensTheWelcomeWindowWhenTheLastProjectIsGone() {
+        #expect(
+            LaunchChoice.choose(
+                commandLinePath: nil,
+                reopensLastProject: true,
+                lastProject: "/work",
+                exists: { _ in false }
+            ) == .welcome
+        )
+    }
+
+    @Test func aPathOnTheCommandLineWinsOverTheSetting() {
+        #expect(
+            LaunchChoice.choose(
+                commandLinePath: "/named",
+                reopensLastProject: false,
+                lastProject: "/work",
+                exists: { _ in true }
+            ) == .project(path: "/named")
+        )
+        #expect(
+            LaunchChoice.choose(
+                commandLinePath: "/named",
+                reopensLastProject: true,
+                lastProject: "/work",
+                exists: { _ in true }
+            ) == .project(path: "/named")
+        )
+    }
+
+    @Test func opensTheWelcomeWindowWhenNothingWasEverOpened() {
+        #expect(
+            LaunchChoice.choose(
+                commandLinePath: nil,
+                reopensLastProject: true,
+                lastProject: nil,
+                exists: { _ in true }
+            ) == .welcome
+        )
+    }
 }

@@ -66,11 +66,28 @@ struct ThreatModellerApp: App {
     private let project: ProjectSession? = {
         guard let useCases = try? Dependencies() else { return nil }
         let session = ProjectSession(useCases: useCases)
-        // A path on the command line opens a project at launch. The interface
-        // test uses it, because an open panel cannot be driven from one.
-        if let root = ProjectLaunchArgument.path() { session.reopen(root: root) }
+        // A path on the command line opens a project at launch, and so does
+        // the setting that carries a person on where they left off.
+        let recents = RecentProjects()
+        let choice = LaunchChoice.choose(
+            commandLinePath: ProjectLaunchArgument.path(),
+            reopensLastProject: UserDefaults.standard.bool(forKey: LaunchChoice.reopenKey),
+            lastProject: recents.mostRecent()?.path,
+            exists: { path in recents.exists(RecentProject(path: path, name: "")) }
+        )
+        if case .project(let root) = choice { session.reopen(root: root) }
         return session
     }()
+
+    /// What the application opens at launch.
+    private var launchChoice: LaunchChoice {
+        LaunchChoice.choose(
+            commandLinePath: ProjectLaunchArgument.path(),
+            reopensLastProject: UserDefaults.standard.bool(forKey: LaunchChoice.reopenKey),
+            lastProject: recents.mostRecent()?.path,
+            exists: { path in recents.exists(RecentProject(path: path, name: "")) }
+        )
+    }
 
     var body: some Scene {
         // First in the body, so macOS opens this window at launch.
@@ -81,7 +98,15 @@ struct ThreatModellerApp: App {
                 openProject: { openProject() },
                 openRecentProject: { entry in openRecent(entry) }
             )
-            .onAppear { appDelegate.openSystemFile = { url in openSystemFile(url) } }
+            .onAppear {
+                appDelegate.openSystemFile = { url in openSystemFile(url) }
+                // The project is already open by now, so the welcome window
+                // steps aside and the project window comes forward.
+                if case .project = launchChoice {
+                    openWindow(id: Self.projectWindowId)
+                    dismissWindow(id: Self.welcomeWindowId)
+                }
+            }
         }
         .windowResizability(.contentSize)
 
@@ -98,6 +123,22 @@ struct ThreatModellerApp: App {
                 Button("Open Project\u{2026}") { openProject() }
                     .keyboardShortcut("o", modifiers: [.command, .option])
                     .disabled(project == nil)
+
+                // A person who works in one project opens it from here rather
+                // than through the panel every morning.
+                Menu("Open Recent") {
+                    ForEach(recents.list()) { entry in
+                        Button(entry.name + " \u{2014} " + entry.path) { openRecent(entry) }
+                            .disabled(recents.exists(entry) == false)
+                            .accessibilityIdentifier("recent-" + entry.name)
+                    }
+
+                    Divider()
+
+                    Button("Clear Menu") { recents.clear() }
+                        .accessibilityIdentifier("clear-recents")
+                }
+                .accessibilityIdentifier("open-recent")
 
                 Button("Synchronise Project System") { project?.saveNow() }
                     .keyboardShortcut("s", modifiers: [.command, .option])
