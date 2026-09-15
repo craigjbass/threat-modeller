@@ -117,13 +117,17 @@ struct CanvasView: View {
     private var content: some View {
         ZStack(alignment: .topLeading) {
             ForEach(session.canvas.zones, id: \.id) { zone in
-                let rect = CanvasHitTest.rect(for: zone, drag: canvas.zoneDrag)
+                let rect = CanvasHitTest.rect(
+                    for: zone,
+                    drag: canvas.zoneDrag,
+                    movingWith: canvas.selectedZoneIds
+                )
                 ZoneView(
                     zone: zone,
                     risk: session.elementRisks["zone:\(zone.id)"],
                     size: rect.size,
                     isSelected: canvas.isSelected(zoneId: zone.id),
-                    onSelect: { canvas.select(zoneId: zone.id) },
+                    onSelect: { canvas.select(zoneId: zone.id, addingToSelection: $0) },
                     onDragChanged: { gestures.zoneDragChanged(zone.id, handle: $0, translation: $1) },
                     onDragEnded: { gestures.zoneDragEnded(zone.id, handle: $0, translation: $1) },
                     isEditingName: canvas.isEditingName(.zone(zone.id)),

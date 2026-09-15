@@ -20,4 +20,12 @@ nonisolated enum MarqueeSelection {
     static func selected(in rect: CGRect, from boxes: [(id: String, box: ComponentBox)]) -> [String] {
         boxes.filter { rect.intersects($0.box.rect) }.map(\.id)
     }
+
+    /// The identifiers of every zone the rectangle holds whole, in the order
+    /// given. A zone counts only when the rectangle covers all of it: a
+    /// marquee drawn inside a zone gathers the nodes in that zone, and does
+    /// not take the zone itself with them.
+    static func selectedZones(in rect: CGRect, from zones: [(id: String, rect: CGRect)]) -> [String] {
+        zones.filter { rect.contains($0.rect) }.map(\.id)
+    }
 }

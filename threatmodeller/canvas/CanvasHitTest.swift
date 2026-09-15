@@ -73,10 +73,15 @@ nonisolated enum CanvasHitTest {
     /// Where a zone is drawn, with a move or resize in flight applied.
     static func rect(
         for zone: ViewedZone,
-        drag: (zoneId: String, handle: ZoneHandle?, translation: CGSize)?
+        drag: (zoneId: String, handle: ZoneHandle?, translation: CGSize)?,
+        movingWith zoneIds: Set<String> = []
     ) -> CGRect {
         let box = ZoneBox(zone: zone)
-        guard let drag, drag.zoneId == zone.id else { return box.rect }
+        guard let drag else { return box.rect }
+        // A move carries every zone in `zoneIds` with it, so a group of zones
+        // draws where the whole group is going. A resize moves one zone only.
+        let carried = drag.handle == nil && zoneIds.contains(zone.id)
+        guard drag.zoneId == zone.id || carried else { return box.rect }
         guard let handle = drag.handle else {
             return box.rect.offsetBy(dx: drag.translation.width, dy: drag.translation.height)
         }

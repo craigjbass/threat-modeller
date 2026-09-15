@@ -642,6 +642,15 @@ from anywhere.
   as PDF…* and *Export as Image…* write the architecture or the canvas in
   those formats. Only the Markdown export is the project's report; the other
   three exist only from this menu.
+- Several zones are worked on at once. A shift-click adds a zone to the
+  selection and a marquee takes every zone it covers whole, so a drag on any
+  selected zone's header moves the group, and one undo takes the whole move
+  back. Two zones that overlap need an order: *Edit ▸ Bring Zone to Front*
+  (`Cmd+Option+]`) and *Send Zone to Back* (`Cmd+Option+[`) set it, and the
+  `.arch` file writes the zones in that order.
+- A name field and a percent slider write one change when the edit ends, not
+  one per keystroke and not one per slider step, so one undo takes back the
+  whole edit.
 - The **Pathway Mitigations panel**, in the sidebar, is where a user turns
   stage 4 of "Scoring" on: a master toggle, then, per mitigation, an enable
   switch, a mode (lower the score, or remove the threat outright) and, in

@@ -13,6 +13,10 @@ struct PathwayMitigationsPanel: View {
 
     @State private var isExpanded: Bool
 
+    /// The drag in flight on each mitigation's slider, by mitigation id. A
+    /// mitigation with no drag in flight stands at the model's own value.
+    @State private var dragging: [String: DeferredEdit<Double>] = [:]
+
     /// `isExpanded` is a parameter so a preview can draw the expanded panel.
     /// A preview cannot press the header, and the expanded panel is the state
     /// the layout fault appears in.
@@ -118,24 +122,40 @@ struct PathwayMitigationsPanel: View {
 
                     if mitigation.mode == "reduce" {
                         HStack(spacing: 8) {
+                            // The slider writes when the drag ends, not at
+                            // every step: one drag is one change and one
+                            // undo, and the number follows the thumb.
                             Slider(
                                 value: Binding(
-                                    get: { Double(mitigation.reductionPercent) },
+                                    get: {
+                                        (dragging[mitigation.id] ?? DeferredEdit<Double>())
+                                            .shown(Double(mitigation.reductionPercent))
+                                    },
                                     set: {
-                                        session.setPathwayMitigation(
-                                            id: mitigation.id,
-                                            isEnabled: mitigation.isEnabled,
-                                            mode: mitigation.mode,
-                                            reductionPercent: Int($0.rounded())
-                                        )
+                                        var edit = dragging[mitigation.id] ?? DeferredEdit<Double>()
+                                        edit.edit($0)
+                                        dragging[mitigation.id] = edit
                                     }
                                 ),
                                 in: 0...100,
-                                step: 5
+                                step: 5,
+                                onEditingChanged: { editing in
+                                    guard editing == false else { return }
+                                    var edit = dragging[mitigation.id] ?? DeferredEdit<Double>()
+                                    let picked = edit.end(from: Double(mitigation.reductionPercent))
+                                    dragging[mitigation.id] = nil
+                                    guard let picked else { return }
+                                    session.setPathwayMitigation(
+                                        id: mitigation.id,
+                                        isEnabled: mitigation.isEnabled,
+                                        mode: mitigation.mode,
+                                        reductionPercent: Int(picked.rounded())
+                                    )
+                                }
                             )
                             .frame(maxWidth: 180)
                             .accessibilityIdentifier("pathway-\(mitigation.id)-percent")
-                            Text("\(mitigation.reductionPercent)%")
+                            Text("\(Int((dragging[mitigation.id] ?? DeferredEdit<Double>()).shown(Double(mitigation.reductionPercent)).rounded()))%")
                                 .font(.caption2.monospacedDigit())
                         }
                     }

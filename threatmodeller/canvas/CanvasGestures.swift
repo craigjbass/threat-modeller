@@ -50,7 +50,7 @@ struct CanvasGestures {
             ) {
                 canvas.select(connectionId: connectionId, addingToSelection: false)
             } else if let zoneId = CanvasHitTest.zone(under: point, zones: session.canvas.zones) {
-                canvas.select(zoneId: zoneId)
+                canvas.select(zoneId: zoneId, addingToSelection: false)
             } else {
                 canvas.clearSelection()
             }
@@ -143,12 +143,20 @@ struct CanvasGestures {
 
     private func commitMarquee() {
         if let rect = canvas.marqueeRect {
-            canvas.select(componentIds: MarqueeSelection.selected(
-                in: rect,
-                from: session.canvas.components.map {
-                    (id: $0.id, box: ComponentBox(x: $0.x, y: $0.y))
-                }
-            ))
+            canvas.select(
+                componentIds: MarqueeSelection.selected(
+                    in: rect,
+                    from: session.canvas.components.map {
+                        (id: $0.id, box: ComponentBox(x: $0.x, y: $0.y))
+                    }
+                ),
+                zoneIds: MarqueeSelection.selectedZones(
+                    in: rect,
+                    from: session.canvas.zones.map {
+                        (id: $0.id, rect: CGRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height))
+                    }
+                )
+            )
         }
         canvas.marquee = nil
     }
@@ -202,7 +210,11 @@ struct CanvasGestures {
     // MARK: zones
 
     func zoneDragChanged(_ zoneId: String, handle: ZoneHandle?, translation: CGSize) {
-        canvas.select(zoneId: zoneId)
+        // A drag on a zone already in the selection moves the whole selection.
+        // A drag on any other zone selects that one first.
+        if canvas.isSelected(zoneId: zoneId) == false {
+            canvas.select(zoneId: zoneId, addingToSelection: false)
+        }
         canvas.zoneDrag = (
             zoneId: zoneId,
             handle: handle,
@@ -219,13 +231,23 @@ struct CanvasGestures {
         // appeared.
         guard canvas.zoneDrag?.zoneId == zoneId else { return }
         guard let zone = session.canvas.zones.first(where: { $0.id == zoneId }) else { return }
+        let shift = canvas.transform.modelDistance(translation)
+
+        // A drag on a header moves every selected zone, as one change. A drag
+        // on a grip resizes the one zone the grip belongs to.
+        let moving = session.canvas.zones.filter { canvas.isSelected(zoneId: $0.id) }
+        if handle == nil && moving.count > 1 {
+            session.moveZones(
+                moving.map {
+                    ZoneMove(zoneId: $0.id, x: $0.x + shift.width, y: $0.y + shift.height)
+                }
+            )
+            return
+        }
+
         let rect = CanvasHitTest.rect(
             for: zone,
-            drag: (
-                zoneId: zoneId,
-                handle: handle,
-                translation: canvas.transform.modelDistance(translation)
-            )
+            drag: (zoneId: zoneId, handle: handle, translation: shift)
         )
         session.resizeZone(
             zoneId,
@@ -234,6 +256,16 @@ struct CanvasGestures {
             width: rect.width,
             height: rect.height
         )
+    }
+
+    /// Puts the selected zones at the front or at the back of the drawing
+    /// order. With no zone selected it changes nothing.
+    func reorderSelectedZones(_ placement: ZonePlacement) {
+        let zoneIds = session.canvas.zones
+            .filter { canvas.isSelected(zoneId: $0.id) }
+            .map(\.id)
+        guard zoneIds.isEmpty == false else { return }
+        session.reorderZones(zoneIds, placement: placement)
     }
 
     // MARK: commands

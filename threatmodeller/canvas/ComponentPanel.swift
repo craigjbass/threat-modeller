@@ -46,10 +46,13 @@ struct ComponentPanel: View {
 
     private var controls: some View {
         HStack(alignment: .center, spacing: 16) {
-            TextField("Name", text: name)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 200)
-                .accessibilityIdentifier("component-name")
+            DeferredTextField(
+                title: "Name",
+                text: component.customName ?? "",
+                width: 200,
+                identifier: "component-name",
+                commit: { write(name: $0) }
+            )
 
             Picker("Shape", selection: shape) {
                 ForEach(Self.shapes, id: \.0) { Text(label(forShape: $0.0, $0.1)).tag($0.0) }
@@ -115,9 +118,6 @@ struct ComponentPanel: View {
         return "Auto \u{2014} \(derived)"
     }
 
-    private var name: Binding<String> {
-        Binding(get: { component.customName ?? "" }, set: { write(name: $0) })
-    }
 
     private var sensitivity: Binding<String> {
         Binding(get: { component.sensitivityId }, set: { write(sensitivity: $0) })

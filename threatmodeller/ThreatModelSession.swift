@@ -300,6 +300,34 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// Moves every named zone as one change, so one undo takes the whole
+    /// move back.
+    func moveZones(_ moves: [ZoneMove]) {
+        switch useCases.moveZones().execute(MoveZonesRequest(moves: moves)) {
+        case .moved:
+            errorMessage = nil
+        case .unknownZone:
+            errorMessage = "That zone is no longer on the model."
+        }
+
+        refresh()
+    }
+
+    /// Puts the named zones at the front or at the back of the drawing order,
+    /// which decides which zone draws over which.
+    func reorderZones(_ zoneIds: [String], placement: ZonePlacement) {
+        switch useCases.reorderZones().execute(
+            ReorderZonesRequest(zoneIds: zoneIds, placement: placement)
+        ) {
+        case .reordered:
+            errorMessage = nil
+        case .unknownZone:
+            errorMessage = "That zone is no longer on the model."
+        }
+
+        refresh()
+    }
+
     func removeZone(_ zoneId: String) {
         switch useCases.removeZone().execute(RemoveZoneRequest(zoneId: zoneId)) {
         case .removed:

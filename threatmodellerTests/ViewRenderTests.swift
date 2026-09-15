@@ -451,7 +451,7 @@ struct ViewRenderTests {
                 risk: nil,
                 size: CGSize(width: 400, height: 300),
                 isSelected: true,
-                onSelect: {},
+                onSelect: { _ in },
                 onDragChanged: { _, _ in },
                 onDragEnded: { _, _ in },
                 isEditingName: true
@@ -682,7 +682,7 @@ struct ViewRenderTests {
                 ),
                 size: CGSize(width: 400, height: 300),
                 isSelected: false,
-                onSelect: {},
+                onSelect: { _ in },
                 onDragChanged: { _, _ in },
                 onDragEnded: { _, _ in }
             ),

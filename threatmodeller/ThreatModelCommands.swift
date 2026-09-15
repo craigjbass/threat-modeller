@@ -159,7 +159,25 @@ struct ThreatModelCommands: Commands {
                 .keyboardShortcut("r", modifiers: [.command, .shift])
                 .disabled(session?.rowsOutOfOrder ?? 0 == 0)
 
+            Divider()
+
+            // Two zones that overlap need an order a person can state,
+            // because the zone drawn last takes the click.
+            Button("Bring Zone to Front") { reorderZones(.front) }
+                .keyboardShortcut("]", modifiers: [.command, .option])
+                .disabled(canvas?.selectedZoneIds.isEmpty != false)
+                .accessibilityIdentifier("bring-zone-to-front")
+
+            Button("Send Zone to Back") { reorderZones(.back) }
+                .keyboardShortcut("[", modifiers: [.command, .option])
+                .disabled(canvas?.selectedZoneIds.isEmpty != false)
+                .accessibilityIdentifier("send-zone-to-back")
         }
+    }
+
+    private func reorderZones(_ placement: ZonePlacement) {
+        guard let session, let canvas else { return }
+        CanvasGestures(session: session, canvas: canvas).reorderSelectedZones(placement)
     }
 
     private var hasSelection: Bool {

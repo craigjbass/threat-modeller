@@ -103,18 +103,27 @@ final class CanvasState {
     }
 
     /// The result of a marquee drag. It replaces the whole selection.
-    func select(componentIds: [String]) {
+    func select(componentIds: [String], zoneIds: [String] = []) {
         selectedComponentIds = Set(componentIds)
         selectedConnectionIds = []
-        selectedZoneIds = []
+        selectedZoneIds = Set(zoneIds)
     }
 
-    /// One zone at a time. The panel edits a single zone, and a zone is a
-    /// container rather than a thing to gather into a group.
-    func select(zoneId: String) {
+    /// A plain click selects only that zone. A shift-click adds it, or removes
+    /// it when it is already selected, so several zones move and are deleted
+    /// together.
+    func select(zoneId: String, addingToSelection: Bool = false) {
         selectedComponentIds = []
         selectedConnectionIds = []
-        selectedZoneIds = [zoneId]
+        guard addingToSelection else {
+            selectedZoneIds = [zoneId]
+            return
+        }
+        if selectedZoneIds.contains(zoneId) {
+            selectedZoneIds.remove(zoneId)
+        } else {
+            selectedZoneIds.insert(zoneId)
+        }
     }
 
     /// Selects exactly what is named. Used by Select All and by what a paste

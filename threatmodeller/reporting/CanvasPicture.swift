@@ -55,7 +55,7 @@ nonisolated struct CanvasPicture: View {
             risk: risks["zone:\(zone.id)"],
             size: CGSize(width: zone.width, height: zone.height),
             isSelected: false,
-            onSelect: {},
+            onSelect: { _ in },
             onDragChanged: { _, _ in },
             onDragEnded: { _, _ in }
         )

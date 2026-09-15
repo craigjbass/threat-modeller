@@ -22,7 +22,7 @@ struct ZoneView: View {
     /// the header and the grips all follow the pointer.
     let size: CGSize
     let isSelected: Bool
-    let onSelect: () -> Void
+    let onSelect: (_ addingToSelection: Bool) -> Void
     let onDragChanged: (_ handle: ZoneHandle?, _ translation: CGSize) -> Void
     let onDragEnded: (_ handle: ZoneHandle?, _ translation: CGSize) -> Void
     /// True while this zone's name is being edited in place. A picture of the
@@ -132,7 +132,12 @@ struct ZoneView: View {
         .padding(.horizontal, 12)
         .frame(width: size.width, height: ZoneBox.headerHeight, alignment: .leading)
         .contentShape(Rectangle())
-        .onTapGesture { onSelect() }
+        // Shift adds the zone to the selection, so several zones move and
+        // are deleted together.
+        .gesture(
+            SpatialTapGesture().modifiers(.shift).onEnded { _ in onSelect(true) }
+                .exclusively(before: SpatialTapGesture().onEnded { _ in onSelect(false) })
+        )
         .gesture(
             DragGesture(minimumDistance: 3, coordinateSpace: .named("canvas"))
                 .onChanged { onDragChanged(nil, $0.translation) }

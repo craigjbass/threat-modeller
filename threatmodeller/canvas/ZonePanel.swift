@@ -9,6 +9,9 @@ struct ZonePanel: View {
     let session: ThreatModelSession
     let zone: ViewedZone
 
+    /// The drag in flight on the reduction slider, if there is one.
+    @State private var reduction = DeferredEdit<Double>()
+
     private static let kinds = [("private", "Private"), ("public", "Public")]
     private static let boundaries = [("network", "Network"), ("privilege", "Privilege")]
     private static let networkTypes = [
@@ -34,10 +37,13 @@ struct ZonePanel: View {
 
     private var controls: some View {
         HStack(alignment: .center, spacing: 16) {
-            TextField("Name", text: name)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 180)
-                .accessibilityIdentifier("zone-name")
+            DeferredTextField(
+                title: "Name",
+                text: zone.customName ?? "",
+                width: 180,
+                identifier: "zone-name",
+                commit: { write(name: $0) }
+            )
 
             Picker("Kind", selection: kind) {
                 ForEach(Self.kinds, id: \.0) { Text($0.1).tag($0.0) }
@@ -70,10 +76,27 @@ struct ZonePanel: View {
 
             if zone.riskReductionEnabled && zone.networkZoneId == "private" {
                 HStack(spacing: 6) {
-                    Slider(value: reductionPercent, in: 0...100, step: 5)
-                        .frame(width: 140)
-                        .accessibilityIdentifier("zone-reduction-percent")
-                    Text("\(zone.riskReductionPercent)%")
+                    // The slider writes when the drag ends, not at every
+                    // step: a drag across the range is one change and one
+                    // undo, and the number beside it follows the thumb.
+                    Slider(
+                        value: Binding(
+                            get: { reduction.shown(Double(zone.riskReductionPercent)) },
+                            set: { reduction.edit($0) }
+                        ),
+                        in: 0...100,
+                        step: 5,
+                        onEditingChanged: { editing in
+                            guard editing == false else { return }
+                            guard let picked = reduction.end(
+                                from: Double(zone.riskReductionPercent)
+                            ) else { return }
+                            write(percent: Int(picked.rounded()))
+                        }
+                    )
+                    .frame(width: 140)
+                    .accessibilityIdentifier("zone-reduction-percent")
+                    Text("\(Int(reduction.shown(Double(zone.riskReductionPercent)).rounded()))%")
                         .monospacedDigit()
                         .frame(width: 42, alignment: .trailing)
                 }
@@ -113,9 +136,6 @@ struct ZonePanel: View {
         )
     }
 
-    private var name: Binding<String> {
-        Binding(get: { zone.customName ?? "" }, set: { write(name: $0) })
-    }
 
     private var kind: Binding<String> {
         Binding(get: { zone.networkZoneId }, set: { write(kind: $0) })
@@ -131,12 +151,5 @@ struct ZonePanel: View {
 
     private var reductionEnabled: Binding<Bool> {
         Binding(get: { zone.riskReductionEnabled }, set: { write(enabled: $0) })
-    }
-
-    private var reductionPercent: Binding<Double> {
-        Binding(
-            get: { Double(zone.riskReductionPercent) },
-            set: { write(percent: Int($0.rounded())) }
-        )
     }
 }
