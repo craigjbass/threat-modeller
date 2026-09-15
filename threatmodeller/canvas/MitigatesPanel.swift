@@ -31,7 +31,7 @@ struct MitigatesPanel: View {
         ScrollView(.horizontal) {
             controls
         }
-        .scrollIndicators(.automatic)
+        .scrollIndicators(.never)
         .background(.bar)
         .sheet(isPresented: $isWriting) {
             writingSheet

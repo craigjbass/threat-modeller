@@ -24,7 +24,7 @@ struct ConnectionPanel: View {
         ScrollView(.horizontal) {
             controls
         }
-        .scrollIndicators(.automatic)
+        .scrollIndicators(.never)
         .background(.bar)
     }
 
