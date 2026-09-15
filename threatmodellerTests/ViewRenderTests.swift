@@ -746,6 +746,29 @@ struct ViewRenderTests {
         )
     }
 
+    /// The window states the ATT&CK data this machine holds, and states so
+    /// when it holds none.
+    @Test func drawsTheAboutWindowWithItsAttackData() async {
+        expectDrawn(
+            AboutWindow(
+                catalogue: ViewCatalogueVersionResponse(
+                    repository: "threat-catalogue",
+                    tag: "v1.0.1",
+                    technologyCount: 277
+                ),
+                attack: .held(
+                    tag: "v18.1",
+                    groups: 189,
+                    techniques: 823,
+                    writtenAt: Date(timeIntervalSince1970: 1_700_000_000)
+                )
+            ),
+            width: 520,
+            height: 480,
+            "the about window with the attack data"
+        )
+    }
+
     @Test func drawsTheAboutWindowOfAReleasedBuild() async {
         expectDrawn(
             AboutWindow(

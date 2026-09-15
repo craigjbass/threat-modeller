@@ -209,6 +209,32 @@ struct AttackSyncTests {
         #expect(app.attackData.read(fileName: AttackDataLocation.groupsFileName) == held)
     }
 
+    // MARK: what the machine holds
+
+    /// The About window and anything else can ask what this machine holds:
+    /// the tag, the counts, and when the data was written.
+    @Test func viewSaysWhatTheMachineHolds() {
+        let app = app()
+        _ = app.synchroniseAttack().execute(SynchroniseAttackRequest(root: "/work"))
+
+        #expect(
+            app.viewAttackData().execute(ViewAttackDataRequest())
+                == .held(
+                    tag: AttackRelease.default,
+                    groups: 2,
+                    techniques: 2,
+                    writtenAt: app.attackData.now
+                )
+        )
+    }
+
+    @Test func viewSaysWhenTheMachineHoldsNothing() {
+        #expect(
+            TestDependencies().viewAttackData().execute(ViewAttackDataRequest())
+                == .nothingHeld
+        )
+    }
+
     // MARK: the verify
 
     @Test func verifySaysTheDataMatchesTheLockFile() {

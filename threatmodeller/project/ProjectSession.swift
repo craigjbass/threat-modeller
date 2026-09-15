@@ -73,20 +73,32 @@ final class ProjectSession {
     /// holds geometry and nothing else, because that is all the search knows.
     private(set) var formingDiagram: LayOutModelResponse?
 
-    /// The stages of opening a project, in the order they run.
+    /// What a load can be doing. The first four are the stages of opening a
+    /// project, in the order they run. A synchronise is its own stage, not a
+    /// step of opening.
     enum LoadingStage: String, CaseIterable {
         case readingTheProject
         case loadingLibraries
         case drawingTheSystem
         case scoringTheThreats
+        case synchronisingAttack
 
-        /// What to say about this stage, to a person.
+        /// The stages of opening a project, for the "Step n of m" line.
+        static let openingStages: [LoadingStage] = [
+            .readingTheProject, .loadingLibraries, .drawingTheSystem, .scoringTheThreats
+        ]
+
+        /// What to say about this stage, to a person. `curl` reports no
+        /// progress to this application, so the synchronise states its size
+        /// instead of a percentage.
         var says: String {
             switch self {
             case .readingTheProject: "Reading the project\u{2026}"
             case .loadingLibraries: "Loading the libraries\u{2026}"
             case .drawingTheSystem: "Laying the diagram out\u{2026}"
             case .scoringTheThreats: "Scoring the threats\u{2026}"
+            case .synchronisingAttack:
+                "Synchronising ATT&CK, about \(AttackRelease.bundleBytes / 1_000_000) MB\u{2026}"
             }
         }
     }
@@ -545,10 +557,13 @@ final class ProjectSession {
         coalescer.schedule { [weak self] in self?.saveNow() }
     }
 
-    /// What a synchronise will do, for the question the window asks first.
+    /// What a synchronise will do and what the data is for, for the question
+    /// the window asks first.
     var attackSynchroniseQuestion: String {
         let tag = attackTag
         return "Download MITRE ATT&CK \(tag) from \(AttackRelease.address(of: tag))? "
+            + "It gives each technique in the report its name, and it lists the MITRE "
+            + "groups a project can face as threat actors. "
             + "That is about \(AttackRelease.bundleBytes / 1_000_000) MB, and it is written to "
             + "this machine, not to the project."
     }
@@ -565,7 +580,7 @@ final class ProjectSession {
     func synchroniseAttack(tag: String? = nil) async {
         guard let root else { return }
         errorMessage = nil
-        loading = .readingTheProject
+        loading = .synchronisingAttack
         defer { loading = nil }
 
         let useCases = self.useCases
@@ -582,8 +597,18 @@ final class ProjectSession {
             reload()
         case .notAProject(let reason), .cannotDownload(let reason),
              .cannotExtract(let reason), .cannotWrite(let reason):
-            errorMessage = reason
+            // An error stays until a person dismisses it. `say` clears itself,
+            // and a person who looked away must still find the failure.
+            errorMessage = "ATT&CK was not synchronised: \(reason). "
+                + "The data on this machine is unchanged. "
+                + "Fix the cause and press Synchronise ATT&CK to try again."
         }
+    }
+
+    /// The ATT&CK data this machine holds: the tag, the counts, and when it
+    /// was written. The About window states it at any time.
+    var attackHolding: ViewAttackDataResponse {
+        useCases.viewAttackData().execute(ViewAttackDataRequest())
     }
 
     /// The libraries this project reads, each with its repository and its tag.
@@ -823,7 +848,10 @@ final class ProjectSession {
         "catalogue-drift:\(drift.fileName):\(drift.stated)->\(drift.inUse)"
     }
 
+    /// Takes the notice off the screen: the diagnostics and the error with
+    /// them. An error never clears itself, so this is how one goes.
     func dismissDiagnostics() {
         diagnostics = []
+        errorMessage = nil
     }
 }

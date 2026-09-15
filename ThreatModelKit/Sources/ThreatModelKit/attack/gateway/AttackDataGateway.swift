@@ -1,3 +1,5 @@
+import Foundation
+
 /// Reads and writes the ATT&CK data on this machine.
 ///
 /// One port, so the window and the executable read the same directory, and
@@ -11,6 +13,9 @@ public protocol AttackDataGateway: Sendable {
     /// The gateway writes to a temporary name and moves the file into place,
     /// so a half-written file never becomes the data.
     func write(_ text: String, fileName: String) throws
+    /// When one file was last written, or nil when it is not there. The
+    /// About window states it beside what the machine holds.
+    func modified(fileName: String) -> Date?
     /// Where the data sits, for a message a person reads.
     var directory: String { get }
 }

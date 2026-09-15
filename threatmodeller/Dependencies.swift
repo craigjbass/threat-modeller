@@ -476,6 +476,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         VerifyAttack(projects: projects, data: attackData)
     }
 
+    func viewAttackData() -> ViewAttackDataUseCase {
+        ViewAttackData(data: attackData)
+    }
+
     func listThreatActorsInUse() -> ListThreatActorsInUseUseCase {
         ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors)
     }

@@ -184,6 +184,14 @@ public enum AttackFiles {
         return text + "\n"
     }
 
+    /// The release a data file states, or nil when the text is not one.
+    private struct ReleaseDocument: Codable { let release: String }
+
+    public static func release(from text: String) -> String? {
+        guard let data = text.data(using: .utf8) else { return nil }
+        return (try? JSONDecoder().decode(ReleaseDocument.self, from: data))?.release
+    }
+
     /// The groups a `groups.json` holds.
     public static func groups(from text: String) -> [AttackGroup] {
         guard let data = text.data(using: .utf8),

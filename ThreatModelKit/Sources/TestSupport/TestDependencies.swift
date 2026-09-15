@@ -480,6 +480,10 @@ public final class TestDependencies: UseCaseFactory {
         VerifyAttack(projects: project, data: attackData)
     }
 
+    public func viewAttackData() -> ViewAttackDataUseCase {
+        ViewAttackData(data: attackData)
+    }
+
     public func listThreatActorsInUse() -> ListThreatActorsInUseUseCase {
         ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors)
     }

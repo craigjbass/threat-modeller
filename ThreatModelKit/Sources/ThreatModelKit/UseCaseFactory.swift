@@ -97,6 +97,7 @@ public protocol UseCaseFactory: Sendable {
     func removeAttackTree() -> RemoveAttackTreeUseCase
     func synchroniseAttack() -> SynchroniseAttackUseCase
     func verifyAttack() -> VerifyAttackUseCase
+    func viewAttackData() -> ViewAttackDataUseCase
     func listThreatActorsInUse() -> ListThreatActorsInUseUseCase
     /// The ATT&CK release this project states, or the one this application
     /// offers when it states none.

@@ -16,6 +16,12 @@ public struct FileSystemAttackData: AttackDataGateway {
         try? String(contentsOfFile: "\(directory)/\(fileName)", encoding: .utf8)
     }
 
+    public func modified(fileName: String) -> Date? {
+        let attributes = try? FileManager.default
+            .attributesOfItem(atPath: "\(directory)/\(fileName)")
+        return attributes?[.modificationDate] as? Date
+    }
+
     public func write(_ text: String, fileName: String) throws {
         try FileManager.default.createDirectory(
             atPath: directory,

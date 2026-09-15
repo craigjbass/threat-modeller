@@ -219,7 +219,7 @@ struct ProjectWindow: View {
 
     /// What a load is doing. Opening a large model takes long enough that a
     /// still window reads as a broken one, so the window says the stage it is
-    /// in and which stage that is of the four.
+    /// in and, when it is opening the project, which step that is of the four.
     private func loadingNotice(_ stage: ProjectSession.LoadingStage) -> some View {
         VStack(spacing: 14) {
             // The shape of the diagram as the layout search last had it, so a
@@ -339,8 +339,12 @@ struct ProjectWindow: View {
     }
 
     private func stepOf(_ stage: ProjectSession.LoadingStage) -> String {
-        let stages = ProjectSession.LoadingStage.allCases
-        return "Step \((stages.firstIndex(of: stage) ?? 0) + 1) of \(stages.count)"
+        // A synchronise is not a step of opening the project.
+        let stages = ProjectSession.LoadingStage.openingStages
+        guard let index = stages.firstIndex(of: stage) else {
+            return "The window says here when it finishes or fails."
+        }
+        return "Step \(index + 1) of \(stages.count)"
     }
 
     /// A file changed on disk and this application did not redraw, because

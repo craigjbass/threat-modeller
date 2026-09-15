@@ -62,6 +62,85 @@ struct AttackSynchroniseTests {
         return (session, useCases)
     }
 
+    /// While it runs the window says a synchronise is running, with its size,
+    /// and not "Reading the project\u{2026}".
+    @Test func whileItRunsTheWindowSaysSo() async {
+        let (session, useCases) = await aProject()
+        useCases.attackDownloader.hold()
+
+        let running = Task { await session.synchroniseAttack() }
+        while session.loading == nil { await Task.yield() }
+
+        #expect(session.loading == .synchronisingAttack)
+        #expect(session.loading?.says.contains("ATT&CK") == true)
+        #expect(session.loading?.says.contains("53 MB") == true)
+
+        useCases.attackDownloader.release()
+        await running.value
+        // A synchronise that worked starts a reload, and the reload has
+        // stages of its own, so the test waits it out.
+        await session.settle()
+        #expect(session.loading == nil)
+    }
+
+    /// What the machine holds is readable at any time, not for four seconds.
+    @Test func whatTheMachineHoldsIsReadableAtAnyTime() async {
+        let (session, useCases) = await aProject()
+        #expect(session.attackHolding == .nothingHeld)
+
+        await session.synchroniseAttack()
+
+        #expect(
+            session.attackHolding
+                == .held(
+                    tag: AttackRelease.default,
+                    groups: 1,
+                    techniques: 1,
+                    writtenAt: useCases.attackData.now
+                )
+        )
+    }
+
+    /// A failed synchronise stays on screen after the message wait ends, and
+    /// goes when a person dismisses it.
+    @Test func aFailedSynchroniseStaysUntilDismissed() async {
+        let useCases = TestDependencies()
+        useCases.project.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
+        useCases.attackDownloader.refuse(
+            .curlIsNotInstalled,
+            at: AttackRelease.address(of: AttackRelease.default)
+        )
+        let timer = FakeCoalescer()
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults(),
+            messageTimer: timer
+        )
+        await session.open(root: "/work")
+
+        await session.synchroniseAttack()
+
+        // The failure states what to do about it.
+        #expect(session.errorMessage?.contains("try again") == true)
+        // The wait that clears a message ends, and the failure is still there.
+        timer.fire()
+        #expect(session.errorMessage != nil)
+
+        session.dismissDiagnostics()
+        #expect(session.errorMessage == nil)
+    }
+
+    /// The question states what the data is for, not only its size.
+    @Test func theQuestionStatesWhatTheDataIsFor() async {
+        let (session, _) = await aProject()
+
+        let question = session.attackSynchroniseQuestion
+
+        #expect(question.contains("technique"))
+        #expect(question.contains("threat actors"))
+    }
+
     /// The question states the tag, the address and the size.
     @Test func theQuestionStatesWhatItWillDo() async {
         let (session, _) = await aProject()

@@ -14,6 +14,9 @@ struct AboutWindow: View {
     /// The libraries the open project reads, each with its repository and its
     /// tag. Empty means the project reads none, and the window says so.
     var libraries: [ListedLibrary] = []
+    /// The ATT&CK data this machine holds, or nil when nothing could ask.
+    /// `.nothingHeld` and nil both mean the machine holds none.
+    var attack: ViewAttackDataResponse?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -90,6 +93,32 @@ struct AboutWindow: View {
                     destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!
                 )
                 .font(.caption)
+
+                // What this machine holds after a synchronise, readable at
+                // any time and not for four seconds in the toolbar.
+                Text("MITRE ATT&CK")
+                    .font(.headline)
+                    .padding(.top, 6)
+                if case .held(let tag, let groups, let techniques, let writtenAt)? = attack {
+                    Text("\(tag) \u{2014} \(groups) groups, \(techniques) techniques")
+                        .font(.callout)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("about-attack")
+                    if let writtenAt {
+                        Text("Written \(writtenAt.formatted(date: .abbreviated, time: .shortened))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("about-attack-written")
+                    }
+                } else {
+                    Text(
+                        "This machine holds no ATT&CK data. "
+                            + "Synchronise ATT&CK in the project window to download it."
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("about-no-attack")
+                }
             }
 
             Divider()
@@ -105,7 +134,7 @@ struct AboutWindow: View {
             Spacer(minLength: 0)
         }
         .padding(24)
-        .frame(width: 460, height: 400)
+        .frame(width: 460, height: 480)
         .accessibilityIdentifier("about-window")
     }
 }
