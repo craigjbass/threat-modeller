@@ -22,6 +22,16 @@ struct ThreatModelSampleBrowserKey: FocusedValueKey {
     typealias Value = ShowSampleBrowser
 }
 
+/// The menu shows and hides the palette, which the columns own, so it carries
+/// the action rather than the state.
+struct TogglePalette {
+    let toggle: () -> Void
+}
+
+struct ThreatModelPaletteKey: FocusedValueKey {
+    typealias Value = TogglePalette
+}
+
 /// The project in the front window, for the items that act on a project
 /// rather than on the drawn model.
 struct ProjectSessionKey: FocusedValueKey {
@@ -44,6 +54,11 @@ extension FocusedValues {
         set { self[ThreatModelSampleBrowserKey.self] = newValue }
     }
 
+    var threatModelPalette: TogglePalette? {
+        get { self[ThreatModelPaletteKey.self] }
+        set { self[ThreatModelPaletteKey.self] = newValue }
+    }
+
     var projectSession: ProjectSession? {
         get { self[ProjectSessionKey.self] }
         set { self[ProjectSessionKey.self] = newValue }
@@ -58,6 +73,7 @@ struct ThreatModelCommands: Commands {
     @FocusedValue(\.threatModelSession) private var session
     @FocusedValue(\.threatModelCanvas) private var canvas
     @FocusedValue(\.threatModelSampleBrowser) private var sampleBrowser
+    @FocusedValue(\.threatModelPalette) private var palette
     @FocusedValue(\.projectSession) private var project
 
     var body: some Commands {
@@ -111,6 +127,14 @@ struct ThreatModelCommands: Commands {
         // The View menu. Laying the diagram out again is how a person gets a
         // picture back after an hour of dragging one by hand.
         CommandMenu("View") {
+            // The standard sidebar button writes to the split view's own
+            // visibility. This item writes the same state, so a person has a
+            // menu item and a key for it as well as the button.
+            Button("Show or Hide Palette") { palette?.toggle() }
+                .keyboardShortcut("s", modifiers: [.command, .control])
+                .disabled(palette == nil)
+                .accessibilityIdentifier("toggle-palette")
+
             Button("Lay Out Diagram") {
                 guard let project else { return }
                 Task { await project.layOutDiagram() }

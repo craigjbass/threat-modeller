@@ -21,8 +21,20 @@ struct ProjectColumns: View {
 
     @State private var isSampleBrowserOpen = false
 
+    /// Which columns the architecture stage shows. The window holds it, so
+    /// the sidebar button, the menu item and the key all write one state.
+    private var columns: Binding<NavigationSplitViewVisibility> {
+        Binding(
+            get: { project.paletteColumns },
+            set: { project.paletteColumns = $0 }
+        )
+    }
+
     var body: some View {
-        columns
+        stageColumns
+            .focusedSceneValue(\.threatModelPalette, TogglePalette {
+                project.togglePalette()
+            })
             .focusedSceneValue(\.threatModelSampleBrowser, ShowSampleBrowser {
                 isSampleBrowserOpen = true
             })
@@ -32,10 +44,10 @@ struct ProjectColumns: View {
     }
 
     @ViewBuilder
-    private var columns: some View {
+    private var stageColumns: some View {
         switch stage {
         case .architecture:
-            NavigationSplitView {
+            NavigationSplitView(columnVisibility: columns) {
                 PaletteView(session: session, canvas: canvas, project: project)
                     .navigationSplitViewColumnWidth(min: 220, ideal: 260)
             } content: {
@@ -88,5 +100,22 @@ struct ProjectColumns: View {
             model: session,
             liftedBy: canvas.selectionPanelHeight
         )
+    }
+}
+
+
+/// Which columns the palette sits in, and what the toggle does to them.
+///
+/// `NavigationSplitViewVisibility` states more than two states, and a person
+/// pressing a toggle means one thing: show the palette, or hide it. This says
+/// what each state becomes.
+nonisolated enum PaletteColumn {
+    static func toggled(_ visibility: NavigationSplitViewVisibility) -> NavigationSplitViewVisibility {
+        visibility == .detailOnly ? .all : .detailOnly
+    }
+
+    /// True while the palette is on screen.
+    static func isShowing(_ visibility: NavigationSplitViewVisibility) -> Bool {
+        visibility != .detailOnly
     }
 }

@@ -856,6 +856,9 @@ from anywhere.
   as PDF…* and *Export as Image…* write the architecture or the canvas in
   those formats. Only the Markdown export is the project's report; the other
   three exist only from this menu.
+- *View ▸ Show or Hide Palette*, Control-Command-S, and the window's own
+  sidebar button all show and hide the palette; the window holds the one state
+  all three write.
 - The stage picker, *Synchronise* and *Generate Report* float over the diagram
   in one panel at the bottom middle of the canvas column. When a selection
   panel is shown the floating panel moves above it. *Auto Sync* is a setting,

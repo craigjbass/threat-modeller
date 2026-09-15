@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 import ThreatModelKit
 
 /// Holds which project is open, which system is drawn, and what the last read
@@ -12,9 +13,19 @@ final class ProjectSession {
     /// The composition root this session runs on. The project window reads it
     /// to build the Libraries sheet's own session over the same root.
     let useCases: UseCaseFactory
+    /// Which columns the architecture stage shows. The standard sidebar
+    /// button writes to the split view's own visibility, and a split view
+    /// that holds none has nothing for the button to change, so the window
+    /// holds it here and the button, the menu item and the key all write it.
+    var paletteColumns: NavigationSplitViewVisibility = .all
     private let watcher: ProjectWatching
     private let defaults: UserDefaults
     private let coalescer: ChangeCoalescing
+    /// Shows the palette, or hides it.
+    func togglePalette() {
+        paletteColumns = PaletteColumn.toggled(paletteColumns)
+    }
+
     /// Waits out `messageDuration` and then clears the message. A test gives
     /// its own, runs the work at once, and never waits.
     private let messageTimer: ChangeCoalescing
