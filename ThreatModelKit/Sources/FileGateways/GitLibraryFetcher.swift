@@ -18,8 +18,13 @@ public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @un
     /// rather than by the timer.
     private var wasCancelled = false
 
-    public init(timeout: TimeInterval = 60) {
+    /// What reads a plain address. A public index is read this way rather
+    /// than cloned, because a clone over HTTPS asks for a username.
+    private let downloader: AttackDownloading
+
+    public init(timeout: TimeInterval = 60, downloader: AttackDownloading = CurlDownloader()) {
         self.timeout = timeout
+        self.downloader = downloader
     }
 
     /// Stops the `git` in flight. A fetch that is not running stops nothing.
@@ -69,6 +74,19 @@ public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @un
     /// than every `.lib`. Nothing in the clone is run.
     public func fetchIndex(repository: String) throws -> String {
         try refuseAFlag(repository)
+
+        // A public index is one file behind a plain address. Reading it that
+        // way needs no credential, and a window with no terminal can never
+        // answer the username a clone over HTTPS asks for.
+        if let address = LibraryIndex.rawAddress(of: repository) {
+            do {
+                return String(decoding: try downloader.download(from: address), as: UTF8.self)
+            } catch {
+                // A private repository serves nothing plainly, so the clone
+                // below still stands: it uses the access a person has.
+                if repository.hasPrefix("https://") == false { throw error }
+            }
+        }
 
         let clone = FileManager.default.temporaryDirectory
             .appendingPathComponent("threatmodeller-index-\(UUID().uuidString)")

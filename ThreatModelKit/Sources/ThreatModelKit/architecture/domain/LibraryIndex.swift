@@ -55,6 +55,35 @@ public enum LibraryIndex {
         }
     }
 
+    /// The address the index file itself sits at, for a repository a person
+    /// may read without a credential, or nil for one this cannot state.
+    ///
+    /// Cloning a public index over HTTPS makes `git` ask for a username, and
+    /// a window with no terminal cannot answer it. The file behind a public
+    /// GitHub or GitLab repository is served plainly, so it is read plainly.
+    /// Anything else — a private host, an ssh address — still goes through
+    /// `git`, which uses the access a person already has.
+    public static func rawAddress(of repository: String) -> String? {
+        let trimmed = repository.hasSuffix(".git")
+            ? String(repository.dropLast(4))
+            : repository
+        let stripped = trimmed.hasSuffix("/") ? String(trimmed.dropLast()) : trimmed
+
+        for (prefix, shape) in [
+            ("https://github.com/", "https://raw.githubusercontent.com/%@/HEAD/\(fileName)"),
+            ("https://gitlab.com/", "https://gitlab.com/%@/-/raw/HEAD/\(fileName)")
+        ] {
+            guard stripped.hasPrefix(prefix) else { continue }
+            let path = String(stripped.dropFirst(prefix.count))
+            // Owner and repository, and nothing deeper: a path with more
+            // parts is not a repository's root.
+            let parts = path.split(separator: "/").map(String.init)
+            guard parts.count == 2, parts.allSatisfy({ $0.isEmpty == false }) else { return nil }
+            return shape.replacingOccurrences(of: "%@", with: parts.joined(separator: "/"))
+        }
+        return nil
+    }
+
     /// What the index holds, in the order it states them.
     public static func read(_ text: String) throws -> [IndexedLibrary] {
         guard let data = text.data(using: .utf8),

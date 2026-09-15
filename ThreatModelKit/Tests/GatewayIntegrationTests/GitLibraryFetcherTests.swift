@@ -109,3 +109,85 @@ struct GitLibraryFetcherTests {
         }
     }
 }
+
+/// A downloader a test fills by hand, so nothing reaches a server.
+private final class FakeDownloader: AttackDownloading, @unchecked Sendable {
+    private let lock = NSLock()
+    private var bytesByAddress: [String: Data] = [:]
+    private var askedValue: [String] = []
+
+    /// Every address this downloader was asked for, in order.
+    var asked: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return askedValue
+    }
+
+    func put(_ text: String, at address: String) {
+        lock.lock()
+        bytesByAddress[address] = Data(text.utf8)
+        lock.unlock()
+    }
+
+    func download(from address: String) throws -> Data {
+        lock.lock()
+        askedValue.append(address)
+        let bytes = bytesByAddress[address]
+        lock.unlock()
+        guard let bytes else {
+            throw AttackDownloadFault.cannotRead(reason: "nothing is at \(address)")
+        }
+        return bytes
+    }
+}
+
+/// Reading a public index needs no credential, which is what a window with no
+/// terminal can answer.
+@Suite("Reading a library index")
+struct GitLibraryIndexTests {
+    private let index = """
+    {
+      "version": 1,
+      "libraries": [
+        {"label": "acme", "name": "Acme", "repository": "https://github.com/acme/elements"}
+      ]
+    }
+
+    """
+
+    @Test func readsAPublicIndexFromItsPlainAddressRatherThanCloningIt() throws {
+        let downloader = FakeDownloader()
+        downloader.put(
+            index,
+            at: "https://raw.githubusercontent.com/craigjbass/threat-modeller-index/HEAD/index.json"
+        )
+        let fetcher = GitLibraryFetcher(downloader: downloader)
+
+        let text = try fetcher.fetchIndex(
+            repository: "https://github.com/craigjbass/threat-modeller-index"
+        )
+
+        #expect(try LibraryIndex.read(text).map(\.label) == ["acme"])
+        #expect(downloader.asked.count == 1)
+    }
+
+    /// A private repository serves nothing plainly, so the clone still
+    /// stands: it uses the access a person already has.
+    @Test func fallsBackToGitWhenNothingIsServedPlainly() throws {
+        let fetcher = GitLibraryFetcher(timeout: 20, downloader: FakeDownloader())
+
+        #expect(throws: (any Error).self) {
+            try fetcher.fetchIndex(repository: "https://github.com/acme/no-such-index-12345")
+        }
+    }
+
+    /// An ssh address is never read plainly.
+    @Test func readsAnSshAddressWithGit() {
+        let downloader = FakeDownloader()
+        let fetcher = GitLibraryFetcher(timeout: 5, downloader: downloader)
+
+        _ = try? fetcher.fetchIndex(repository: "git@github.com:acme/index.git")
+
+        #expect(downloader.asked.isEmpty)
+    }
+}
