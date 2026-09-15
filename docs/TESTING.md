@@ -20,6 +20,29 @@ covered is now split between `threatmodellerTests/ViewRenderTests.swift`, which
 draws each view with `ImageRenderer` and reads the pixels back, and the session
 tests, which state what each control does.
 
+## What covers the canvas gestures
+
+Six gestures move the model: node drag, marquee selection, connection drawing,
+zone move, zone resize and undo. `threatmodellerTests/CanvasGestureTests.swift`
+covers all six. Each test calls what the gesture's `onChanged` and `onEnded`
+call, with the numbers SwiftUI reports, so the code under test is the code the
+gesture runs. `threatmodellerTests/ZoneSelectionTests.swift` covers the same
+gestures over a group of zones.
+
+**Why nothing presses the mouse.** A synthetic `NSEvent` does not reach a
+SwiftUI gesture. Measured: a `CanvasView` in an `NSWindow`, laid out, with
+`leftMouseDown` and `leftMouseUp` sent to the window at the middle of a node's
+drawn rectangle, left `canvas.selectedComponentIds` empty. `NSHostingView` also
+publishes no accessibility children in process, so no test can find a node by
+its identifier and read its frame that way. Driving the pointer needs macOS
+Automation Mode, which the next section states this machine will not enable.
+
+Carry-forward item 27 asked whether a node far from the origin selects where it
+draws. `aNodeFarFromTheOriginIsFoundWhereItDraws` walks the chain a tap walks —
+view point, `CanvasTransform.modelPoint`, `CanvasHitTest.component` — for a node
+at (4200, 3100) with the canvas panned and zoomed, and
+`aClickPastTheDrawnEdgeOfAFarNodeFindsNothing` states the edge.
+
 ## If interface journeys are ever wanted again
 
 They need Automation Mode, and this machine asks for authentication every time

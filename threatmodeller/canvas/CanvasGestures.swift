@@ -120,7 +120,7 @@ struct CanvasGestures {
                 if canvas.isDrawingZone {
                     commitDraftZone()
                 } else {
-                    commitMarquee()
+                    endMarqueeDrag()
                 }
             }
     }
@@ -141,7 +141,9 @@ struct CanvasGestures {
         }
     }
 
-    private func commitMarquee() {
+    /// Ends a marquee drag. Internal so a test can walk the drag without
+    /// SwiftUI's gesture plumbing.
+    func endMarqueeDrag() {
         if let rect = canvas.marqueeRect {
             canvas.select(
                 componentIds: MarqueeSelection.selected(
