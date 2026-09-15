@@ -9,6 +9,8 @@ struct ProjectWindow: View {
     let session: ProjectSession
 
     @State private var isShowingDiagnostics = false
+    /// True while the question about downloading ATT&CK is on screen.
+    @State private var isAskingAboutAttack = false
     @State private var isShowingLibraries = false
     @State private var isShowingHistory = false
     @State private var canvas = CanvasState()
@@ -57,6 +59,15 @@ struct ProjectWindow: View {
                     )
                 }
             }
+        }
+        .alert("Synchronise MITRE ATT&CK", isPresented: $isAskingAboutAttack) {
+            Button("Download") {
+                isAskingAboutAttack = false
+                Task { await session.synchroniseAttack() }
+            }
+            Button("Cancel", role: .cancel) { isAskingAboutAttack = false }
+        } message: {
+            Text(session.attackSynchroniseQuestion)
         }
         .sheet(isPresented: $isShowingDiagnostics) {
             DiagnosticsSheet(
@@ -157,6 +168,16 @@ struct ProjectWindow: View {
                 }
                 .disabled(session.root == nil)
                 .accessibilityIdentifier("libraries")
+            }
+
+            // The one control in this window that reaches a network, and it
+            // asks before it starts.
+            ToolbarItem {
+                Button("Synchronise ATT&CK", systemImage: "arrow.down.circle") {
+                    isAskingAboutAttack = true
+                }
+                .disabled(session.root == nil)
+                .accessibilityIdentifier("synchronise-attack")
             }
 
             // Auto Sync is a setting, not a verb, so it sits with the other

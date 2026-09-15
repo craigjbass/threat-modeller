@@ -8,6 +8,9 @@ import ThreatModelKit
 /// that grows a new need is a build failure rather than a surprise at run time.
 struct CommandLineDependencies {
     let catalogue: TechnologyCatalogue
+    /// The ATT&CK groups on this machine, so a report reads a technique's
+    /// name beside its id.
+    var mitre: MitreActorSource?
     let architectureSources: ArchitectureSourceGateway
     let controlsSources: ControlsSourceGateway
     let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
@@ -82,7 +85,12 @@ struct CommandLineDependencies {
     }
 
     func buildThreatModelReport() -> BuildThreatModelReportUseCase {
-        BuildThreatModelReport(models: models, catalogue: catalogue, clock: clock)
+        BuildThreatModelReport(
+            models: models,
+            catalogue: catalogue,
+            clock: clock,
+            mitre: mitre
+        )
     }
 
     func viewThreatModel() -> ViewThreatModelUseCase {

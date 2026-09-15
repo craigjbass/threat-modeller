@@ -27,6 +27,11 @@ public struct CommandLineApplication {
     private let libraries: LibrarySourceGateway
     private let history: GitHistoryGateway
     private let fetcher: LibraryFetching
+    /// Where the ATT&CK data sits on this machine, and what fetches it.
+    private let attackData: AttackDataGateway
+    private let downloader: AttackDownloading
+    /// The groups on this machine, read the first time a verb asks.
+    private let mitreActors: MitreActorSource
     /// Built once a catalogue is known, which is only when a verb needs one.
     private let makeCatalogue: () throws -> TechnologyCatalogue
 
@@ -38,8 +43,13 @@ public struct CommandLineApplication {
         libraries: LibrarySourceGateway = HclLibrarySource(),
         history: GitHistoryGateway = GitHistory(),
         fetcher: LibraryFetching = GitLibraryFetcher(),
+        attackData: AttackDataGateway = FileSystemAttackData(),
+        downloader: AttackDownloading = CurlDownloader(),
         catalogue: @escaping () throws -> TechnologyCatalogue = { try BundledTechnologyCatalogue() }
     ) {
+        self.attackData = attackData
+        self.downloader = downloader
+        mitreActors = MitreActorSource(data: attackData)
         self.projects = projects
         self.architecture = architecture
         self.controls = controls
@@ -137,6 +147,10 @@ public struct CommandLineApplication {
             return self.history(root: root, commits: commits, as: machineOutput, output: output)
         case "library":
             return library(words: Array(words.dropFirst()), isForced: isForced, output: output)
+        case "attack":
+            return attack(words: Array(words.dropFirst()), output: output)
+        case "actors":
+            return actors(words: Array(words.dropFirst()), output: output)
         case "report":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return report(
@@ -285,6 +299,120 @@ public struct CommandLineApplication {
             output("threatmodeller: \(Self.described(error))")
             return false
         }
+    }
+
+    // MARK: attack
+
+    /// `threatmodeller attack sync [<tag>]` and `threatmodeller attack verify`.
+    ///
+    /// The words after the verb are the tag and the root, in either order: a
+    /// tag reads as a version and everything else is the root.
+    private func attack(words: [String], output: (String) -> Void) -> Int32 {
+        let verb = words.first ?? ""
+        let rest = words.dropFirst().filter { $0.hasPrefix("-") == false }
+        let root = rest.first { TagVersion($0) == nil } ?? "."
+        switch verb {
+        case "sync":
+            // A tag reads `v19.2` or `19.2`; anything else in the words is the
+            // root, which the caller has already read.
+            let tag = rest.first { TagVersion($0) != nil }
+            let wanted = tag ?? AttackRelease.default
+            // A person typed the verb, so it says what it will do and does it.
+            output(
+                "threatmodeller: downloading ATT&CK \(wanted) from "
+                    + "\(AttackRelease.address(of: wanted)), about "
+                    + "\(AttackRelease.bundleBytes / 1_000_000) MB"
+            )
+            let response = SynchroniseAttack(
+                projects: projects,
+                data: attackData,
+                downloader: downloader
+            ).execute(SynchroniseAttackRequest(root: root, tag: tag))
+
+            switch response {
+            case .synchronised(let tag, let groups, let techniques):
+                output("threatmodeller: ATT&CK \(tag): \(groups) groups, \(techniques) techniques")
+                output("threatmodeller: written to \(attackData.directory)")
+                return ExitCode.success.rawValue
+            case .notAProject(let reason):
+                output("threatmodeller: \(reason)")
+                return ExitCode.fileFault.rawValue
+            case .cannotDownload(let reason), .cannotExtract(let reason), .cannotWrite(let reason):
+                output("threatmodeller: \(reason)")
+                return ExitCode.fileFault.rawValue
+            }
+        case "verify":
+            switch VerifyAttack(projects: projects, data: attackData)
+                .execute(VerifyAttackRequest(root: root)) {
+            case .matches(let tag):
+                output("threatmodeller: ATT&CK \(tag) matches \(AttackLock.fileName)")
+                return ExitCode.success.rawValue
+            case .noLockFile:
+                output(
+                    "threatmodeller: this project states no ATT&CK release; "
+                        + "run threatmodeller attack sync"
+                )
+                return ExitCode.success.rawValue
+            case .notSynchronised(let tag):
+                output(
+                    "threatmodeller: this machine holds no ATT&CK data; "
+                        + "run threatmodeller attack sync \(tag)"
+                )
+                return ExitCode.unanswered.rawValue
+            case .doesNotMatch(let tag, let fileName):
+                output(
+                    "threatmodeller: \(fileName) is not the file ATT&CK \(tag) states; "
+                        + "run threatmodeller attack sync \(tag)"
+                )
+                return ExitCode.unanswered.rawValue
+            case .notAProject(let reason):
+                output("threatmodeller: \(reason)")
+                return ExitCode.fileFault.rawValue
+            }
+        default:
+            output("threatmodeller: attack holds sync and verify, not \"\(verb)\"")
+            return ExitCode.didNotParse.rawValue
+        }
+    }
+
+    // MARK: actors
+
+    /// `threatmodeller actors list [--mitre] [<root>]`.
+    private func actors(words: [String], output: (String) -> Void) -> Int32 {
+        let verb = words.first ?? ""
+        guard verb == "list" else {
+            output("threatmodeller: actors holds list, not \"\(verb)\"")
+            return ExitCode.didNotParse.rawValue
+        }
+
+        let catalogue: TechnologyCatalogue
+        do {
+            catalogue = try makeCatalogue()
+        } catch {
+            output("threatmodeller: \(Self.described(error))")
+            return ExitCode.fileFault.rawValue
+        }
+
+        let listed = ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors)
+            .execute(
+                ListThreatActorsInUseRequest(mitreOnly: words.contains("--mitre"))
+            )
+
+        guard listed.actors.isEmpty == false else {
+            output(
+                "threatmodeller: this machine holds no ATT&CK data; "
+                    + "run threatmodeller attack sync"
+            )
+            return ExitCode.success.rawValue
+        }
+
+        for actor in listed.actors {
+            output(
+                "\(actor.id)  \(actor.name)  \(actor.capabilityLabel)  "
+                    + "\(actor.threatsPerformed) threats"
+            )
+        }
+        return ExitCode.success.rawValue
     }
 
     /// The trees beside a system, or nil when the project holds no such file.
@@ -1088,6 +1216,7 @@ public struct CommandLineApplication {
         for system in layout.systems {
             let useCases = CommandLineDependencies(
                 catalogue: merged,
+                mitre: mitreActors,
                 architectureSources: architecture,
                 controlsSources: controls,
                 history: history
@@ -1330,6 +1459,10 @@ public struct CommandLineApplication {
       threatmodeller library list [<root>]                    say what this project holds
       threatmodeller library verify [<root>]                  check the files against the lock file
       threatmodeller library outdated [<root>]                say which libraries have a newer tag
+
+      threatmodeller attack sync [<tag>] [<root>]             download and extract MITRE ATT&CK
+      threatmodeller attack verify [<root>]                   check this machine against the lock file
+      threatmodeller actors list [--mitre] [<root>]           say what actors this project may face
 
     Options:
       -o <dir>              write the reports into this directory

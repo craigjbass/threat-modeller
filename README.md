@@ -183,6 +183,10 @@ threatmodeller library remove <label> [<root>]          # delete a library and i
 threatmodeller library list [<root>]                    # say what this project holds
 threatmodeller library verify [<root>]                  # check the files against the lock file
 threatmodeller library outdated [<root>]                # say which libraries have a newer tag
+
+threatmodeller attack sync [<tag>] [<root>]             # download and extract MITRE ATT&CK
+threatmodeller attack verify [<root>]                   # check this machine against the lock file
+threatmodeller actors list [--mitre] [<root>]           # say what actors this project may face
 ```
 
 `add` writes the files into `threatmodel/library/` and writes
@@ -728,6 +732,15 @@ from anywhere.
   `index.json`, read only when a person presses the button. A machine with no
   network says so, and adding by repository and tag still works. See
   [the library index design](docs/superpowers/specs/2026-09-15-library-index-design.md).
+- *Synchronise ATT&CK* in the toolbar downloads the MITRE Enterprise matrix
+  onto this machine and asks first, stating the tag, the address and the size.
+  Nothing MITRE ships in the application: the data sits in
+  `~/Library/Application Support/threatmodeller/attack` on macOS and in
+  `$XDG_DATA_HOME/threatmodeller/attack` on Linux, and the project commits only
+  `mitre.lock.json`. `threatmodeller attack sync` and `attack verify` do the
+  same from the command line, and `actors list --mitre` says which groups touch
+  this model. See
+  [the synchronise design](docs/superpowers/specs/2026-09-15-mitre-attack-synchronise-design.md).
 - The About window lists the libraries the open project reads, each with its
   repository and its tag, under the catalogue line.
 - *Libraries* opens a sheet listing the shared element libraries the project

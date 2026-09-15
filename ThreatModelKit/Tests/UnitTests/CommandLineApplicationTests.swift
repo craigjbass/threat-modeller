@@ -586,6 +586,152 @@ struct CommandLineApplicationTests {
         #expect(report.contains("| system_requires_owner | the file states an owner | no"))
     }
 
+    // MARK: attack and actors
+
+    /// A small STIX bundle, the shape `AttackSyncTests` states.
+    private static let bundle = """
+    {
+      "type": "bundle",
+      "objects": [
+        {
+          "type": "intrusion-set",
+          "id": "intrusion-set--1",
+          "name": "FIN7",
+          "external_references": [
+            { "source_name": "mitre-attack", "external_id": "G0046" }
+          ]
+        },
+        {
+          "type": "attack-pattern",
+          "id": "attack-pattern--1",
+          "name": "Phishing",
+          "kill_chain_phases": [
+            { "kill_chain_name": "mitre-attack", "phase_name": "initial-access" }
+          ],
+          "external_references": [
+            { "source_name": "mitre-attack", "external_id": "T1566" }
+          ]
+        },
+        {
+          "type": "relationship",
+          "relationship_type": "uses",
+          "source_ref": "intrusion-set--1",
+          "target_ref": "attack-pattern--1"
+        }
+      ]
+    }
+    """
+
+    private let attackData = InMemoryAttackData()
+    private let downloader = FakeAttackDownloader()
+
+    private func runAttack(_ words: String...) -> (code: Int32, lines: [String]) {
+        var lines: [String] = []
+        let code = CommandLineApplication(
+            projects: project,
+            attackData: attackData,
+            downloader: downloader,
+            catalogue: { CatalogueFixture.catalogue() }
+        )
+        .run(arguments: ["threatmodeller"] + words, output: { lines.append($0) })
+        return (code, lines)
+    }
+
+    @Test func attackSyncDownloadsExtractsAndWritesTheLockFile() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        downloader.put(
+            Data(Self.bundle.utf8),
+            at: AttackRelease.address(of: AttackRelease.default)
+        )
+
+        let result = runAttack("attack", "sync", "/work")
+
+        #expect(result.code == 0)
+        #expect(result.lines.contains { $0.contains("1 groups, 1 techniques") })
+        #expect(attackData.read(fileName: AttackDataLocation.groupsFileName) != nil)
+        #expect(project.text(at: "/work/threatmodel/\(AttackLock.fileName)") != nil)
+    }
+
+    /// It states the tag, the address and the size before it starts.
+    @Test func attackSyncSaysWhatItWillDo() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        downloader.put(
+            Data(Self.bundle.utf8),
+            at: AttackRelease.address(of: AttackRelease.default)
+        )
+
+        let result = runAttack("attack", "sync", "/work")
+
+        let said = result.lines.joined(separator: "\n")
+        #expect(said.contains(AttackRelease.default))
+        #expect(said.contains("attack-stix-data"))
+        #expect(said.contains("MB"))
+    }
+
+    @Test func attackVerifyMakesNoNetworkCall() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        downloader.put(
+            Data(Self.bundle.utf8),
+            at: AttackRelease.address(of: AttackRelease.default)
+        )
+        _ = runAttack("attack", "sync", "/work")
+        let downloadsAfterSync = downloader.downloads.count
+
+        let result = runAttack("attack", "verify", "/work")
+
+        #expect(result.code == 0)
+        #expect(result.lines.contains { $0.contains("matches") })
+        #expect(downloader.downloads.count == downloadsAfterSync)
+    }
+
+    @Test func attackVerifySaysWhenThisMachineHoldsNoData() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        project.put(
+            """
+            {
+              "bundle" : "enterprise-attack/enterprise-attack-19.2.json",
+              "files" : { "groups.json" : "0" },
+              "repository" : "mitre-attack/attack-stix-data",
+              "tag" : "v19.2"
+            }
+            """,
+            at: "/work/threatmodel/\(AttackLock.fileName)"
+        )
+
+        let result = runAttack("attack", "verify", "/work")
+
+        #expect(result.code == 1)
+        #expect(result.lines.contains { $0.contains("attack sync v19.2") })
+    }
+
+    @Test func actorsListStatesEachActorAndWhatItPerforms() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = runAttack("actors", "list", "/work")
+
+        #expect(result.code == 0)
+        #expect(result.lines.contains { $0.contains("threats") })
+    }
+
+    @Test func actorsListWithMitreSaysToSynchroniseWhenNothingIsThere() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = runAttack("actors", "list", "--mitre", "/work")
+
+        #expect(result.lines.contains { $0.contains("attack sync") })
+    }
+
+    /// Nothing but a synchronise reaches the network.
+    @Test func compilingAndReportingReachNoNetwork() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        _ = runAttack("compile", "/work")
+        _ = runAttack("check", "/work")
+        _ = runAttack("report", "/work")
+
+        #expect(downloader.downloads.isEmpty)
+    }
+
     // MARK: the library file
 
     private static let untidyLibrary = """

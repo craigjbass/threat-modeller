@@ -1,7 +1,17 @@
 # The MITRE ATT&CK import — design
 
 Date: 2026-09-13
-Status: approved for planning
+Status: **superseded on 2026-09-15** by
+`2026-09-15-mitre-attack-synchronise-design.md`.
+
+WARNING: this document states that a maintainer runs a script and that the
+extracted files ship inside the application. That is no longer what the
+application does. The application synchronises ATT&CK on the person's own
+machine, nothing MITRE ships in the release and nothing MITRE is committed to
+this repository. Sections 2, 5.1, 5.2, 5.3, 6.1, 6.2, 6.4, 7 and 8 still state
+what the data holds, what is dropped, the shape of each file, the group to
+actor mapping, the lazy load, the report line and the CLI: the new design
+points at them rather than restating them.
 
 ## 1. Why
 

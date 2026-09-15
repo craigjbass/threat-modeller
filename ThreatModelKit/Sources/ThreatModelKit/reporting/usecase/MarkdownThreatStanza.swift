@@ -62,8 +62,12 @@ public enum MarkdownThreatStanza {
         if threat.mitreTechniqueIds.isEmpty == false {
             // Each id is a link, so the Markdown and the page built from it
             // both take a reader to the technique.
-            let linked = threat.mitreTechniqueIds.map {
-                "[\($0)](\(MitreLink.address(of: $0)))"
+            let linked = threat.mitreTechniqueIds.map { id -> String in
+                let link = "[\(id)](\(MitreLink.address(of: id)))"
+                // The name comes from the ATT&CK data on this machine. A
+                // machine that has not synchronised prints the bare id.
+                guard let said = threat.mitreTechniqueNames[id] else { return link }
+                return "\(link) \(said)"
             }
             lines.append("- MITRE ATT&CK: \(linked.joined(separator: ", "))")
         }

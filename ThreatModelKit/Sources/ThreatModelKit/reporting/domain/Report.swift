@@ -532,6 +532,10 @@ public struct ReportThreat: Equatable, Sendable {
     public let riskLevel: String
     public let strideLabels: [String]
     public let mitreTechniqueIds: [String]
+    /// What each technique is called and its first tactic, by technique id,
+    /// from the ATT&CK data on this machine. A machine that has not
+    /// synchronised holds none, and the report prints bare ids.
+    public let mitreTechniqueNames: [String: String]
     /// The faced threat actors that perform this threat, by name. Empty when
     /// the system faces nobody who performs it.
     public let performedByLabels: [String]
@@ -594,6 +598,7 @@ public struct ReportThreat: Equatable, Sendable {
         riskLevel: String,
         strideLabels: [String],
         mitreTechniqueIds: [String],
+        mitreTechniqueNames: [String: String] = [:],
         performedByLabels: [String] = [],
         likelihoodReason: String = LikelihoodSource.catalogue(.commodity).reason,
         scoreBeforeTree: Int? = nil,
@@ -628,6 +633,7 @@ public struct ReportThreat: Equatable, Sendable {
         self.riskLevel = riskLevel
         self.strideLabels = strideLabels
         self.mitreTechniqueIds = mitreTechniqueIds
+        self.mitreTechniqueNames = mitreTechniqueNames
         self.performedByLabels = performedByLabels
         self.likelihoodReason = likelihoodReason
         self.scoreBeforeTree = scoreBeforeTree

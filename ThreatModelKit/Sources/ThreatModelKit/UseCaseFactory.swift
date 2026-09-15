@@ -83,6 +83,14 @@ public protocol UseCaseFactory: Sendable {
     /// What fetches a library, so the window can stop a fetch in flight.
     var fetcher: LibraryFetching { get }
     func readLibraryIndex() -> ReadLibraryIndexUseCase
+    func synchroniseAttack() -> SynchroniseAttackUseCase
+    func verifyAttack() -> VerifyAttackUseCase
+    func listThreatActorsInUse() -> ListThreatActorsInUseUseCase
+    /// The ATT&CK release this project states, or the one this application
+    /// offers when it states none.
+    func attackTag(root: String) -> String
+    /// Reads the ATT&CK data again, after a synchronise wrote it.
+    func forgetAttackData()
     func moveZones() -> MoveZonesUseCase
     func reorderZones() -> ReorderZonesUseCase
     func setZoneProperties() -> SetZonePropertiesUseCase

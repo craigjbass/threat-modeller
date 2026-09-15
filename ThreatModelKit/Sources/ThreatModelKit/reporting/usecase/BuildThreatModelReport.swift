@@ -41,15 +41,21 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
     /// The day a review date is measured against. No report reads the wall
     /// clock on its own.
     private let clock: Clock
+    /// The ATT&CK data on this machine, so a technique line reads a name
+    /// beside its id. Nil, or a machine that has not synchronised, prints
+    /// bare ids.
+    private let mitre: MitreActorSource?
 
     public init(
         models: ThreatModelGateway,
         catalogue: TechnologyCatalogue,
-        clock: Clock = SystemClock()
+        clock: Clock = SystemClock(),
+        mitre: MitreActorSource? = nil
     ) {
         self.models = models
         self.catalogue = catalogue
         self.clock = clock
+        self.mitre = mitre
     }
 
     public func execute(_ request: BuildThreatModelReportRequest) -> BuildThreatModelReportResponse {
@@ -58,6 +64,18 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         let assessment = AssessThreatModel(models: models, catalogue: catalogue)
             .execute(AssessThreatModelRequest())
+
+        // What each technique is called, read once. A machine that has not
+        // synchronised holds none and the report prints bare ids.
+        var techniqueNames: [String: String] = [:]
+        if let mitre {
+            for id in Set(assessment.threats.flatMap { $0.mitreTechniques.map(\.id) }) {
+                guard let technique = mitre.technique(id) else { continue }
+                techniqueNames[id] = technique.tactics.first.map {
+                    "\(technique.name) (\($0))"
+                } ?? technique.name
+            }
+        }
         let summary = SummariseRisk(models: models, catalogue: catalogue)
             .execute(SummariseRiskRequest())
         let leverage = AssessLeverage(models: models, catalogue: catalogue)
@@ -117,7 +135,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 strideLabels: assessed.stride.compactMap {
                     taxonomy.strideCategory(id: StrideId($0))?.label
                 },
-                overrides: catalogue.overrides()
+                overrides: catalogue.overrides(),
+                techniqueNames: techniqueNames
             )
         }
 
@@ -381,7 +400,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         tree: BoundAttackTree?,
         compensating: [ReportCompensatingControl],
         strideLabels: [String],
-        overrides: [ThreatId: ThreatOverride] = [:]
+        overrides: [ThreatId: ThreatOverride] = [:],
+        techniqueNames: [String: String] = [:]
     ) -> ReportThreat {
         ReportThreat(
             threatId: assessed.threatId,
@@ -392,6 +412,11 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             riskLevel: assessed.riskLevel,
             strideLabels: strideLabels,
             mitreTechniqueIds: assessed.mitreTechniques.map(\.id),
+            mitreTechniqueNames: Dictionary(
+                uniqueKeysWithValues: assessed.mitreTechniques.compactMap { technique in
+                    techniqueNames[technique.id].map { (technique.id, $0) }
+                }
+            ),
             performedByLabels: assessed.performedByLabels,
             likelihoodReason: assessed.likelihoodReason,
             scoreBeforeTree: tree?.scoreBefore,

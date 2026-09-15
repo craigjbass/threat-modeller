@@ -479,6 +479,47 @@ final class ProjectSession {
         coalescer.schedule { [weak self] in self?.saveNow() }
     }
 
+    /// What a synchronise will do, for the question the window asks first.
+    var attackSynchroniseQuestion: String {
+        let tag = attackTag
+        return "Download MITRE ATT&CK \(tag) from \(AttackRelease.address(of: tag))? "
+            + "That is about \(AttackRelease.bundleBytes / 1_000_000) MB, and it is written to "
+            + "this machine, not to the project."
+    }
+
+    /// The tag a synchronise would take: the one the project states, else the
+    /// one this application offers.
+    var attackTag: String {
+        guard let root else { return AttackRelease.default }
+        return useCases.attackTag(root: root)
+    }
+
+    /// Brings the ATT&CK matrix onto this machine. It runs off the main actor,
+    /// because it downloads about 53 MB.
+    func synchroniseAttack(tag: String? = nil) async {
+        guard let root else { return }
+        errorMessage = nil
+        loading = .readingTheProject
+        defer { loading = nil }
+
+        let useCases = self.useCases
+        let response = await Task.detached {
+            useCases.synchroniseAttack().execute(
+                SynchroniseAttackRequest(root: root, tag: tag)
+            )
+        }.value
+
+        switch response {
+        case .synchronised(let tag, let groups, let techniques):
+            say("ATT&CK \(tag): \(groups) groups, \(techniques) techniques")
+            useCases.forgetAttackData()
+            reload()
+        case .notAProject(let reason), .cannotDownload(let reason),
+             .cannotExtract(let reason), .cannotWrite(let reason):
+            errorMessage = reason
+        }
+    }
+
     /// The libraries this project reads, each with its repository and its tag.
     /// The About window states them under the catalogue line.
     var libraries: [ListedLibrary] {

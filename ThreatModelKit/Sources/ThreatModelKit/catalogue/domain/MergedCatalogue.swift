@@ -5,10 +5,14 @@
 public struct MergedCatalogue: TechnologyCatalogue {
     private let base: TechnologyCatalogue
     private let store: LibraryStore
+    /// The ATT&CK groups on this machine, read the first time something asks
+    /// for one. Nil in a build that holds no data directory.
+    private let mitre: MitreActorSource?
 
-    public init(base: TechnologyCatalogue, store: LibraryStore) {
+    public init(base: TechnologyCatalogue, store: LibraryStore, mitre: MitreActorSource? = nil) {
         self.base = base
         self.store = store
+        self.mitre = mitre
     }
 
     /// The base catalogue, then every library technology whose id the base
@@ -144,6 +148,11 @@ public struct MergedCatalogue: TechnologyCatalogue {
 
     /// The base catalogue's actors, then every actor the libraries define. An
     /// id the base catalogue already holds keeps the base catalogue's actor.
+    /// The base catalogue's actors, then every actor the libraries define.
+    ///
+    /// WARNING: the ATT&CK groups are not here. Reading them parses a file on
+    /// the machine, and a project that faces no group must pay nothing.
+    /// `findActor` reads them, for an id that names one.
     public func threatActors() -> [ThreatActor] {
         var seen: Set<ThreatActorId> = []
         var actors: [ThreatActor] = []
@@ -154,8 +163,17 @@ public struct MergedCatalogue: TechnologyCatalogue {
         return actors
     }
 
+    /// Every ATT&CK group on this machine, as an actor. Reading them parses
+    /// `groups.json`, so only a caller that wants them asks.
+    public func mitreActors() -> [ThreatActor] { mitre?.actors() ?? [] }
+
     public func findActor(_ id: ThreatActorId) -> ThreatActor? {
-        threatActors().first { $0.id == id }
+        // An id that names an ATT&CK group is what makes this machine parse
+        // `groups.json`, and nothing else does.
+        if id.value.hasPrefix(MitreActorSource.prefix) {
+            return mitre?.actors().first { $0.id == id }
+        }
+        return threatActors().first { $0.id == id }
     }
 
     /// The base catalogue's faults, then every fault a library adds.

@@ -13,7 +13,7 @@ public final class TestDependencies: UseCaseFactory {
     /// The last resolution, kept so one change runs the resolver once.
     private let resolutions = ThreatResolutionCache()
     /// The fixture catalogue and the open project's libraries, read as one.
-    private var catalogue: TechnologyCatalogue { MergedCatalogue(base: base, store: libraries) }
+    private var catalogue: TechnologyCatalogue { MergedCatalogue(base: base, store: libraries, mitre: mitreActors) }
     private let models: ThreatModelGateway
     /// The store, so a test can state domain facts a use case does not yet
     /// write. Every other test goes through the use cases.
@@ -45,6 +45,7 @@ public final class TestDependencies: UseCaseFactory {
     public var time: FixedClock { clock }
 
     public init() {
+        mitreActors = MitreActorSource(data: attackData)
         self.base = CatalogueFixture.catalogue()
         self.models = InMemoryThreatModelGateway()
         self.ids = SequentialIdentityGenerator()
@@ -103,7 +104,12 @@ public final class TestDependencies: UseCaseFactory {
     }
 
     public func buildThreatModelReport() -> BuildThreatModelReportUseCase {
-        BuildThreatModelReport(models: models, catalogue: catalogue, clock: clock)
+        BuildThreatModelReport(
+            models: models,
+            catalogue: catalogue,
+            clock: clock,
+            mitre: mitreActors
+        )
     }
 
     public func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
@@ -403,6 +409,40 @@ public final class TestDependencies: UseCaseFactory {
     /// The index this root wires, so a test states what an index holds and
     /// no test reaches a server.
     public let libraryIndex = FakeLibraryIndex()
+
+    /// The ATT&CK data this root wires, so a test states what a machine
+    /// holds and nothing reaches a network.
+    public let attackData = InMemoryAttackData()
+    public let attackDownloader = FakeAttackDownloader()
+    /// The groups on the machine, read the first time something asks.
+    public let mitreActors: MitreActorSource
+
+    public func attackTag(root: String) -> String {
+        guard let layout = try? project.discover(root: root),
+              let text = try? project.read(
+                  path: ProjectConvention.path(layout.directory, AttackLock.fileName)
+              ),
+              let lock = AttackLock.read(text) else {
+            return AttackRelease.default
+        }
+        return lock.tag
+    }
+
+    public func forgetAttackData() {
+        mitreActors.forget()
+    }
+
+    public func synchroniseAttack() -> SynchroniseAttackUseCase {
+        SynchroniseAttack(projects: project, data: attackData, downloader: attackDownloader)
+    }
+
+    public func verifyAttack() -> VerifyAttackUseCase {
+        VerifyAttack(projects: project, data: attackData)
+    }
+
+    public func listThreatActorsInUse() -> ListThreatActorsInUseUseCase {
+        ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors)
+    }
 
     public func readLibraryIndex() -> ReadLibraryIndexUseCase {
         ReadLibraryIndex(indexes: libraryIndex)

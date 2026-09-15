@@ -295,7 +295,14 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                         severity: .error,
                         line: 1,
                         column: 1,
-                        message: "this project holds no threat actor called \"\($0.value)\""
+                        // An ATT&CK group nothing holds is a machine that has
+                        // not synchronised, so the message names the step
+                        // rather than only the id.
+                        message: $0.value.hasPrefix(MitreActorSource.prefix)
+                            ? "this project holds no threat actor called \"\($0.value)\"; "
+                                + "run threatmodeller attack sync to bring the ATT&CK groups "
+                                + "onto this machine"
+                            : "this project holds no threat actor called \"\($0.value)\""
                     )
                 }
             )

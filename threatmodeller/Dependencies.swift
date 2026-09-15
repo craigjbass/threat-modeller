@@ -14,7 +14,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     /// The last resolution, kept so one change runs the resolver once.
     private let resolutions = ThreatResolutionCache()
     /// The vendored catalogue and the open project's libraries, read as one.
-    private var catalogue: TechnologyCatalogue { MergedCatalogue(base: base, store: libraries) }
+    private var catalogue: TechnologyCatalogue { MergedCatalogue(base: base, store: libraries, mitre: mitreActors) }
     private let models: ThreatModelGateway
     private let ids: IdentityGenerator
     private let files: ThreatModelFileGateway = ThreatModelCodec()
@@ -37,6 +37,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let clock: Clock = SystemClock()
 
     init() throws {
+        mitreActors = MitreActorSource(data: attackData)
         base = try BundledTechnologyCatalogue()
         models = InMemoryThreatModelGateway()
         ids = UUIDIdentityGenerator()
@@ -95,7 +96,12 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func buildThreatModelReport() -> BuildThreatModelReportUseCase {
-        BuildThreatModelReport(models: models, catalogue: catalogue, clock: clock)
+        BuildThreatModelReport(
+            models: models,
+            catalogue: catalogue,
+            clock: clock,
+            mitre: mitreActors
+        )
     }
 
     func exportModelAsMarkdown() -> ExportModelAsMarkdownUseCase {
@@ -399,6 +405,39 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func resizeZone() -> ResizeZoneUseCase {
         ResizeZone(models: models)
+    }
+
+    /// Where the ATT&CK data sits on this machine, and what fetches it.
+    private let attackData: AttackDataGateway = FileSystemAttackData()
+    private let attackDownloader: AttackDownloading = CurlDownloader()
+    /// The groups on this machine, read the first time something asks.
+    let mitreActors: MitreActorSource
+
+    func attackTag(root: String) -> String {
+        guard let layout = try? projects.discover(root: root),
+              let text = try? projects.read(
+                  path: ProjectConvention.path(layout.directory, AttackLock.fileName)
+              ),
+              let lock = AttackLock.read(text) else {
+            return AttackRelease.default
+        }
+        return lock.tag
+    }
+
+    func forgetAttackData() {
+        mitreActors.forget()
+    }
+
+    func synchroniseAttack() -> SynchroniseAttackUseCase {
+        SynchroniseAttack(projects: projects, data: attackData, downloader: attackDownloader)
+    }
+
+    func verifyAttack() -> VerifyAttackUseCase {
+        VerifyAttack(projects: projects, data: attackData)
+    }
+
+    func listThreatActorsInUse() -> ListThreatActorsInUseUseCase {
+        ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors)
     }
 
     func readLibraryIndex() -> ReadLibraryIndexUseCase {
