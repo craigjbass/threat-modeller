@@ -92,14 +92,21 @@ struct CanvasView: View {
         .safeAreaInset(edge: .bottom) {
             // One panel at a time. A node and a zone are never both the one
             // thing selected.
-            if let pair = selectedPair {
-                MitigatesPanel(session: session, source: pair.source, target: pair.target)
-            } else if let component = selectedComponent {
-                ComponentPanel(session: session, component: component)
-            } else if let zone = selectedZone {
-                ZonePanel(session: session, zone: zone)
-            } else if let connection = selectedConnection {
-                ConnectionPanel(session: session, connection: connection)
+            Group {
+                if let pair = selectedPair {
+                    MitigatesPanel(session: session, source: pair.source, target: pair.target)
+                } else if let component = selectedComponent {
+                    ComponentPanel(session: session, component: component)
+                } else if let zone = selectedZone {
+                    ZonePanel(session: session, zone: zone)
+                } else if let connection = selectedConnection {
+                    ConnectionPanel(session: session, connection: connection)
+                }
+            }
+            // The floating workflow panel floats above this one, so it has to
+            // know how tall this one is.
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                canvas.selectionPanelHeight = height
             }
         }
         .dropDestination(for: String.self) { technologyIds, location in

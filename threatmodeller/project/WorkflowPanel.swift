@@ -1,0 +1,131 @@
+import AppKit
+import SwiftUI
+
+/// The stage picker and the two verbs, floating over the diagram.
+///
+/// The controls act on the diagram, so they sit on it rather than in a band
+/// across the window. The panel fits its content: five controls do not need
+/// the window's width.
+///
+/// Auto Sync is not here. It is a setting, not a verb, so it sits in the
+/// toolbar beside Libraries.
+struct WorkflowPanel: View {
+    /// How far the panel floats above the bottom edge of the column.
+    static let bottomMargin: CGFloat = 16
+    /// The gap the panel keeps above a selection panel.
+    static let gapAboveSelectionPanel: CGFloat = 12
+
+    let session: ProjectSession
+
+    /// The stage the window draws. Every stage keeps this panel, so the stage
+    /// is a view of the work and never a mode a user has to leave.
+    @Binding var stage: WorkStage
+
+    /// How tall the selection panel under the canvas is, or zero when no
+    /// selection panel is shown. The panel floats above it.
+    var liftedBy: CGFloat = 0
+
+    /// How much room the panel needs under the canvas, so nothing the canvas
+    /// draws hides under it. `WindowLayoutTests` measures the panel and states
+    /// this number is at least its height.
+    static let reservedHeight: CGFloat = 72
+
+    var body: some View {
+        row
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .modifier(PanelBackground())
+            // A click, a drag or a drop on the panel stops here. Without a
+            // shape the gaps between the controls fall through to the canvas.
+            .contentShape(.capsule)
+            // A technology dropped on the panel is not a technology dropped
+            // on the diagram, so the drop stops here and places nothing.
+            .dropDestination(for: String.self) { _, _ in false }
+            .padding(.bottom, lift)
+            .animation(.easeOut(duration: 0.2), value: liftedBy)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Workflow")
+            .accessibilityIdentifier("workflow-bar")
+    }
+
+    /// Where the panel draws inside a column, given how big the panel is and
+    /// how tall the selection panel under it is.
+    ///
+    /// The view draws this with `.overlay(alignment: .bottom)` and a bottom
+    /// padding. A test reads the same rule, so a change to the padding changes
+    /// what the test measures.
+    static func rect(in bounds: CGRect, panelSize: CGSize, liftedBy: CGFloat) -> CGRect {
+        // With a selection panel under it the panel keeps the gap above that
+        // panel. With none it keeps the margin from the bottom edge.
+        let bottom = bounds.maxY - (liftedBy > 0 ? liftedBy + gapAboveSelectionPanel : bottomMargin)
+        return CGRect(
+            x: bounds.midX - panelSize.width / 2,
+            y: bottom - panelSize.height,
+            width: panelSize.width,
+            height: panelSize.height
+        )
+    }
+
+    /// Where a selection panel of that height draws: along the bottom edge of
+    /// the column, the full width.
+    static func selectionPanelRect(in bounds: CGRect, height: CGFloat) -> CGRect {
+        CGRect(x: bounds.minX, y: bounds.maxY - height, width: bounds.width, height: height)
+    }
+
+    private var lift: CGFloat {
+        liftedBy > 0 ? liftedBy + Self.gapAboveSelectionPanel : Self.bottomMargin
+    }
+
+    private var row: some View {
+        HStack(spacing: 12) {
+            Picker("Stage", selection: $stage) {
+                ForEach(WorkStage.allCases) { stage in
+                    Label(stage.label, systemImage: stage.systemImage).tag(stage)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.large)
+            .fixedSize()
+            .accessibilityIdentifier("stage")
+
+            Divider()
+                .frame(height: 20)
+
+            Button {
+                session.saveNow()
+            } label: {
+                Label("Synchronise", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .controlSize(.large)
+            .disabled(session.chosenSystem == nil)
+            .accessibilityIdentifier("synchronise")
+
+            Button {
+                session.compileReport()
+            } label: {
+                Label("Generate Report", systemImage: "doc.text")
+            }
+            .controlSize(.large)
+            .disabled(session.chosenSystem == nil)
+            .accessibilityIdentifier("generate-report")
+        }
+    }
+}
+
+/// What the panel is drawn on.
+///
+/// Glass over a dark zone and glass over a light one both read, because the
+/// material takes its contrast from what is behind it. A person who asks for
+/// less transparency gets a solid material instead, and every label stays
+/// readable.
+private struct PanelBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
+            content.background(.regularMaterial, in: .capsule)
+                .overlay(Capsule().strokeBorder(.separator))
+        } else {
+            content.glassEffect(.regular, in: .capsule)
+        }
+    }
+}

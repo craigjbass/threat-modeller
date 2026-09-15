@@ -16,6 +16,11 @@ final class CanvasState {
     private(set) var selectedConnectionIds: Set<String> = []
     private(set) var selectedZoneIds: Set<String> = []
 
+    /// How tall the selection panel under the canvas is, or zero while no
+    /// selection panel is shown. The floating workflow panel reads it and
+    /// floats above it, so the two never cover each other.
+    var selectionPanelHeight: CGFloat = 0
+
     /// True while the next background drag draws a zone rather than a marquee.
     private(set) var isDrawingZone = false
     /// Which element's name is being edited in place, or nil.

@@ -70,7 +70,12 @@ struct AnalystFlowTests {
     private func columns(_ stage: WorkStage, of project: ProjectSession) throws -> Int {
         let model = try #require(project.model)
         return columnCount(
-            of: ProjectColumns(project: project, session: model, canvas: CanvasState(), stage: stage)
+            of: ProjectColumns(
+                project: project,
+                session: model,
+                canvas: CanvasState(),
+                stage: .constant(stage)
+            )
         )
     }
 

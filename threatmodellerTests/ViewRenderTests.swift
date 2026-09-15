@@ -184,14 +184,36 @@ struct ViewRenderTests {
         expectDrawn(ProjectWindow(session: session), "the project window after the example")
     }
 
-    // MARK: the workflow bar
+    // MARK: the floating workflow panel
 
-    @Test func drawsTheWorkflowBar() async throws {
+    @Test func drawsTheFloatingWorkflowPanel() async throws {
         let session = await aDrawnProject()
 
-        let bar = try #require(draw(WorkflowBar(session: session, stage: .constant(.architecture)), width: 900, height: 90))
+        let panel = try #require(
+            draw(
+                WorkflowPanel(session: session, stage: .constant(.architecture)),
+                width: 900,
+                height: 120
+            )
+        )
 
-        #expect(hasContent(bar))
+        #expect(hasContent(panel))
+    }
+
+    /// The panel floats above a selection panel, so the two never cover each
+    /// other. Each of the four selection panels is a different height.
+    @Test func drawsTheFloatingPanelLiftedAboveASelectionPanel() async throws {
+        let session = await aDrawnProject()
+
+        let lifted = try #require(
+            draw(
+                WorkflowPanel(session: session, stage: .constant(.architecture), liftedBy: 60),
+                width: 900,
+                height: 200
+            )
+        )
+
+        #expect(hasContent(lifted))
     }
 
     // MARK: the Libraries sheet
@@ -289,18 +311,18 @@ struct ViewRenderTests {
         #expect(hasContent(sheet))
     }
 
-    /// The message is in the toolbar now, and the bar draws one line whether a
-    /// message is set or not, so the canvas below it never moves.
-    @Test func drawsTheSameOneLineBarWithAMessageAndWithout() async throws {
+    /// The message is in the toolbar, and the floating panel is the same size
+    /// whether a message is set or not, so nothing on the canvas moves.
+    @Test func drawsTheSamePanelWithAMessageAndWithout() async throws {
         let session = await aDrawnProject()
-        let bar = WorkflowBar(session: session, stage: .constant(.architecture))
-        let quiet = NSHostingView(rootView: bar).fittingSize.height
+        let panel = WorkflowPanel(session: session, stage: .constant(.architecture))
+        let quiet = NSHostingView(rootView: panel).fittingSize
 
         session.compileReport()
 
         #expect(session.lastActionMessage?.hasPrefix("Report: ") == true)
-        #expect(NSHostingView(rootView: bar).fittingSize.height == quiet)
-        let drawn = try #require(draw(bar, width: 900, height: 90))
+        #expect(NSHostingView(rootView: panel).fittingSize == quiet)
+        let drawn = try #require(draw(panel, width: 900, height: 120))
         #expect(hasContent(drawn))
     }
 

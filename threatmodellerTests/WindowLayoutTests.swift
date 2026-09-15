@@ -85,17 +85,93 @@ struct WindowLayoutTests {
     /// columns still take the whole window, so a bar drawn that way covers the
     /// top of the palette and of the threat sidebar, and no scroll brings that
     /// top back into view.
-    @Test func keepsTheWorkflowBarAboveTheColumns() async throws {
+    @Test func keepsTheNoticesAboveTheColumns() async throws {
         let window = laidOut(ProjectWindow(session: await aDrawnProject()))
         let content = try #require(window.contentView)
         let columns = try #require(self.columns(in: content))
-        let bar = try #require(chrome(in: content, outside: columns))
+        let bar = chrome(in: content, outside: columns)
 
-        let columnsTop = columns.convert(columns.bounds, to: nil).maxY
+        // With no notice to show there is no chrome at all, which is the
+        // point of the floating panel: the columns take the whole window.
+        if let bar {
+            let columnsTop = columns.convert(columns.bounds, to: nil).maxY
+            #expect(
+                bar.minY >= columnsTop,
+                "the chrome sits at \(bar.minY)…\(bar.maxY) and the columns reach \(columnsTop)"
+            )
+        }
+    }
 
-        #expect(
-            bar.minY >= columnsTop,
-            "the chrome sits at \(bar.minY)…\(bar.maxY) and the columns reach \(columnsTop)"
+    /// The floating panel sits above whichever selection panel is shown, so
+    /// the two never cover each other. Each panel is measured at the width the
+    /// canvas column has.
+    @Test func theFloatingPanelNeverCoversASelectionPanel() async throws {
+        let model = ThreatModelSession(useCases: TestDependencies())
+        model.add(technologyId: "aws-ec2", x: 0, y: 0)
+        model.add(technologyId: "aws-rds", x: 400, y: 0)
+        let components = model.canvas.components
+        model.connect(
+            sourceComponentId: components[0].id,
+            targetComponentId: components[1].id
         )
+        let connection = try #require(model.canvas.connections.first)
+        _ = model.addZone(x: 0, y: 0, width: 400, height: 300)
+        let zone = try #require(model.canvas.zones.first)
+
+        let panels: [(String, AnyView)] = [
+            ("component", AnyView(ComponentPanel(session: model, component: components[0]))),
+            ("zone", AnyView(ZonePanel(session: model, zone: zone))),
+            ("connection", AnyView(ConnectionPanel(session: model, connection: connection))),
+            (
+                "mitigates",
+                AnyView(
+                    MitigatesPanel(
+                        session: model,
+                        source: components[0],
+                        target: components[1]
+                    )
+                )
+            )
+        ]
+
+        let column = CGRect(x: 0, y: 0, width: 700, height: 800)
+        let project = await aDrawnProject()
+        let floating = NSHostingView(
+            rootView: WorkflowPanel(session: project, stage: .constant(.architecture))
+        ).fittingSize
+
+        for (name, panel) in panels {
+            let hosting = NSHostingView(rootView: panel)
+            hosting.frame = NSRect(x: 0, y: 0, width: column.width, height: 0)
+            let height = hosting.fittingSize.height
+            #expect(height > 0, "the \(name) panel measured no height")
+
+            let selection = WorkflowPanel.selectionPanelRect(in: column, height: height)
+            let above = WorkflowPanel.rect(in: column, panelSize: floating, liftedBy: height)
+
+            #expect(
+                above.intersects(selection) == false,
+                "the floating panel at \(above) covers the \(name) panel at \(selection)"
+            )
+            #expect(
+                selection.minY - above.maxY == WorkflowPanel.gapAboveSelectionPanel,
+                "the gap above the \(name) panel is \(selection.minY - above.maxY)"
+            )
+        }
+
+        // With no selection panel the floating panel returns to the margin.
+        let alone = WorkflowPanel.rect(in: column, panelSize: floating, liftedBy: 0)
+        #expect(column.maxY - alone.maxY == WorkflowPanel.bottomMargin)
+    }
+
+    /// The canvas keeps room under it for the panel, so a node at the bottom
+    /// of the model is never hidden by it.
+    @Test func theCanvasKeepsRoomUnderItForTheFloatingPanel() async throws {
+        let project = await aDrawnProject()
+        let floating = NSHostingView(
+            rootView: WorkflowPanel(session: project, stage: .constant(.architecture))
+        ).fittingSize
+
+        #expect(WorkflowPanel.reservedHeight >= floating.height)
     }
 }

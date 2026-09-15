@@ -642,6 +642,12 @@ from anywhere.
   as PDF…* and *Export as Image…* write the architecture or the canvas in
   those formats. Only the Markdown export is the project's report; the other
   three exist only from this menu.
+- The stage picker, *Synchronise* and *Generate Report* float over the diagram
+  in one panel at the bottom middle of the canvas column. When a selection
+  panel is shown the floating panel moves above it. *Auto Sync* is a setting,
+  not a verb, so it sits in the toolbar beside *Libraries*.
+- A save message and a report message show in the toolbar, where the load stage
+  shows, and clear themselves after four seconds.
 - Several zones are worked on at once. A shift-click adds a zone to the
   selection and a marquee takes every zone it covers whole, so a drag on any
   selected zone's header moves the group, and one undo takes the whole move

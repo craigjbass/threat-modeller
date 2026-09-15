@@ -35,7 +35,7 @@ struct ProjectWindow: View {
                         project: session,
                         session: model,
                         canvas: canvas,
-                        stage: stage
+                        stage: $stage
                     )
                         .focusedSceneValue(\.threatModelSession, model)
                         .focusedSceneValue(\.threatModelCanvas, canvas)
@@ -140,6 +140,20 @@ struct ProjectWindow: View {
                 }
                 .disabled(session.root == nil)
                 .accessibilityIdentifier("libraries")
+            }
+
+            // Auto Sync is a setting, not a verb, so it sits with the other
+            // window-wide controls rather than on the floating panel with the
+            // two verbs.
+            ToolbarItem {
+                Toggle("Auto Sync", isOn: autoSync)
+                    .toggleStyle(.checkbox)
+                    .help(
+                        "Save the .arch and .controls files when you change "
+                            + "the model, and redraw the diagram when those "
+                            + "files change on disk."
+                    )
+                    .accessibilityIdentifier("auto-sync")
             }
         }
     }
@@ -250,9 +264,15 @@ struct ProjectWindow: View {
         session.startWriting(.empty(systemName: newSystemName))
     }
 
+    private var autoSync: Binding<Bool> {
+        Binding(
+            get: { session.isAutoSyncOn },
+            set: { session.isAutoSyncOn = $0 }
+        )
+    }
+
     private var chrome: some View {
         VStack(spacing: 0) {
-            WorkflowBar(session: session, stage: $stage)
             filesChangedNotice
             catalogueDriftNotice
             diagnosticsNotice
