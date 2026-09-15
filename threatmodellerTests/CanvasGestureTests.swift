@@ -354,3 +354,72 @@ struct CanvasGestureTests {
         )
     }
 }
+
+/// The zoom commands the View menu runs.
+@MainActor
+@Suite("Zooming from the View menu")
+struct CanvasZoomCommandTests {
+    private func drawn() -> (ThreatModelSession, CanvasState, CanvasGestures) {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        let canvas = CanvasState()
+        canvas.visibleSize = CGSize(width: 1000, height: 800)
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 2000, y: 1200)
+        return (session, canvas, CanvasGestures(session: session, canvas: canvas))
+    }
+
+    @Test func zoomToFitPutsTheWholeDiagramInTheView() {
+        let (session, canvas, gestures) = drawn()
+
+        gestures.zoomToFit()
+
+        let picture = try! #require(
+            SelectionBounds.rect(
+                components: session.canvas.components.map {
+                    ($0.x, $0.y, Component.size.width, Component.size.height)
+                },
+                zones: session.canvas.zones.map { ($0.x, $0.y, $0.width, $0.height) }
+            )
+        )
+        let topLeft = canvas.transform.viewPoint(picture.origin)
+        let bottomRight = canvas.transform.viewPoint(
+            CGPoint(x: picture.maxX, y: picture.maxY)
+        )
+        #expect(topLeft.x >= -0.001)
+        #expect(bottomRight.x <= canvas.visibleSize.width + 0.001)
+    }
+
+    @Test func zoomToSelectionFitsWhatIsSelected() {
+        let (session, canvas, gestures) = drawn()
+        let far = session.canvas.components[1]
+        canvas.select(componentId: far.id, addingToSelection: false)
+
+        gestures.zoomToSelection()
+
+        // The far node's middle sits in the middle of the view.
+        let middle = canvas.transform.viewPoint(
+            CGPoint(x: far.x + Component.size.width / 2, y: far.y + Component.size.height / 2)
+        )
+        #expect(abs(middle.x - canvas.visibleSize.width / 2) < 1)
+        #expect(abs(middle.y - canvas.visibleSize.height / 2) < 1)
+    }
+
+    @Test func zoomToSelectionWithNothingSelectedChangesNothing() {
+        let (_, canvas, gestures) = drawn()
+        let before = canvas.transform
+
+        gestures.zoomToSelection()
+
+        #expect(canvas.transform == before)
+    }
+
+    @Test func actualSizeGoesBackToOneHundredPerCent() {
+        let (_, canvas, gestures) = drawn()
+        gestures.zoomAStep(in: true)
+        #expect(canvas.transform.percentage == 125)
+
+        gestures.zoomToActualSize()
+
+        #expect(canvas.transform.percentage == 100)
+    }
+}

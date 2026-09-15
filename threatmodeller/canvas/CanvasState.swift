@@ -25,6 +25,10 @@ final class CanvasState {
     /// on the diagram calls it. Nil in a window that has no stages.
     var showStage: ((WorkStage) -> Void)?
 
+    /// How big the visible canvas is. Zoom to Fit needs it, and the canvas
+    /// reports it as it lays out.
+    var visibleSize: CGSize = .zero
+
     /// True while a pan is in flight, so the pointer shows a closed hand.
     var isPanning = false
 

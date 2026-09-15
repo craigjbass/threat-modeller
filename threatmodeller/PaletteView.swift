@@ -12,10 +12,25 @@ struct PaletteView: View {
     /// nil when no sheet is open, .some(nil) for a new technology, and
     /// .some(id) to change one.
     @State private var editing: EditedTechnology?
+    /// What a person typed in the search field.
+    @State private var searchText = ""
+    /// The technology the keyboard is on, or nil.
+    @State private var selected: String?
+
+    /// The palette, narrowed by what a person typed.
+    private var shown: [ListedProvider] {
+        PaletteSearch.narrow(session.palette, to: searchText)
+    }
+
+    /// True while a search is on, so every category with a match is open and
+    /// nothing matching stays hidden.
+    private var isSearching: Bool {
+        searchText.trimmingCharacters(in: .whitespaces).isEmpty == false
+    }
 
     var body: some View {
-        List {
-            ForEach(session.palette, id: \.id) { provider in
+        List(selection: $selected) {
+            ForEach(shown, id: \.id) { provider in
                 Section(provider.displayName) {
                     ForEach(provider.categories, id: \.id) { category in
                         CategoryDisclosure(
@@ -23,11 +38,20 @@ struct PaletteView: View {
                             category: category,
                             session: session,
                             canvas: canvas,
+                            isSearching: isSearching,
                             edit: { editing = EditedTechnology(value: $0) }
                         )
                     }
                 }
             }
+        }
+        .searchable(text: $searchText, placement: .sidebar, prompt: "Search technologies")
+        // Return places what the arrow keys picked, so the palette has a
+        // keyboard path from end to end.
+        .onKeyPress(.return) {
+            guard let selected else { return .ignored }
+            session.addAtDefaultPoint(technologyId: selected)
+            return .handled
         }
         .navigationTitle("Technologies")
         // A `safeAreaInset` draws over the scrolled content and paints
@@ -72,9 +96,14 @@ private struct CategoryDisclosure: View {
     let category: ListedCategory
     let session: ThreatModelSession
     let canvas: CanvasState
+    /// True while a person is searching. Every category with a match is open
+    /// then, whatever it was before, and it goes back afterwards.
+    let isSearching: Bool
     let edit: (String) -> Void
 
     @State private var isExpanded = false
+
+    private var isOpen: Bool { isSearching || isExpanded }
 
     var body: some View {
         Group {
@@ -82,7 +111,7 @@ private struct CategoryDisclosure: View {
                 isExpanded.toggle()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    Image(systemName: isOpen ? "chevron.down" : "chevron.right")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .frame(width: 10)
@@ -94,7 +123,7 @@ private struct CategoryDisclosure: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("category-\(providerId)-\(category.id)")
 
-            if isExpanded {
+            if isOpen {
                 ForEach(category.technologies, id: \.id) { technology in
                     TechnologyRow(
                         technology: technology,
@@ -104,6 +133,7 @@ private struct CategoryDisclosure: View {
                         edit: edit
                     )
                     .padding(.leading, 16)
+                    .tag(technology.id)
                 }
             }
         }
@@ -135,6 +165,7 @@ struct TechnologyRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .help(Self.hover(over: technology))
         .accessibilityIdentifier("technology-\(technology.id)")
         .draggable(technology.id) {
             Text(technology.name)
@@ -160,6 +191,14 @@ struct TechnologyRow: View {
         } message: {
             Text(Self.question(name: technology.name, components: componentsUsingIt))
         }
+    }
+
+    /// What hovering a technology says: what it is, and what it brings.
+    static func hover(over technology: ListedTechnology) -> String {
+        let threats = technology.threatCount == 1
+            ? "1 threat"
+            : "\(technology.threatCount) threats"
+        return "\(technology.description)\n\nRaises \(threats)."
     }
 
     /// How many components on the diagram use this technology.

@@ -57,7 +57,12 @@ public enum MarkdownThreatStanza {
             lines.append("- STRIDE: \(threat.strideLabels.joined(separator: ", "))")
         }
         if threat.mitreTechniqueIds.isEmpty == false {
-            lines.append("- MITRE ATT&CK: \(threat.mitreTechniqueIds.joined(separator: ", "))")
+            // Each id is a link, so the Markdown and the page built from it
+            // both take a reader to the technique.
+            let linked = threat.mitreTechniqueIds.map {
+                "[\($0)](\(MitreLink.address(of: $0)))"
+            }
+            lines.append("- MITRE ATT&CK: \(linked.joined(separator: ", "))")
         }
         if threat.performedByLabels.isEmpty == false {
             lines.append("- Performed by: \(threat.performedByLabels.joined(separator: ", "))")

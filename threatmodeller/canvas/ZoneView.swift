@@ -129,6 +129,7 @@ struct ZoneView: View {
                             RiskPalette.background(forLevelId: risk.highestLevelId ?? "")
                         )
                     )
+                    .help(HoverText.badge(risk))
                     .accessibilityIdentifier("zone-open-threats-\(zone.id)")
             }
             Spacer(minLength: 0)
@@ -136,6 +137,7 @@ struct ZoneView: View {
         .padding(.horizontal, 12)
         .frame(width: size.width, height: ZoneBox.headerHeight, alignment: .leading)
         .contentShape(Rectangle())
+        .help(HoverText.zone(zone, risk: risk))
         // Shift adds the zone to the selection, so several zones move and
         // are deleted together.
         .gesture(

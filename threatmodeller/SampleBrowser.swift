@@ -37,6 +37,8 @@ struct SampleBrowser: View {
             }
             .frame(minHeight: 220)
 
+            preview
+
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
@@ -51,7 +53,76 @@ struct SampleBrowser: View {
             }
         }
         .padding(16)
-        .frame(width: 480, height: 360)
+        .frame(width: 480, height: 620)
+    }
+
+    /// The diagram of the highlighted sample, drawn from the sample's own
+    /// document. A sample that cannot be read says so, and the browser stays
+    /// usable.
+    @ViewBuilder
+    private var preview: some View {
+        if let chosenId {
+            if let drawn = session.samplePicture(chosenId) {
+                let picture = CanvasHitTest.contentRect(
+                    components: drawn.components,
+                    zones: drawn.zones
+                )
+                CanvasPicture(
+                    components: drawn.components,
+                    connections: drawn.connections,
+                    zones: drawn.zones,
+                    risks: [:],
+                    guards: [:],
+                    origin: picture.origin,
+                    size: picture.size
+                )
+                .scaleEffect(
+                    Self.previewScale(of: picture.size),
+                    anchor: .topLeading
+                )
+                .frame(width: Self.previewSize.width, height: Self.previewSize.height, alignment: .topLeading)
+                .clipped()
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color.secondary.opacity(0.25), lineWidth: 1)
+                )
+                .accessibilityIdentifier("sample-preview-\(chosenId)")
+            } else {
+                Text("This example could not be read.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(
+                        width: Self.previewSize.width,
+                        height: Self.previewSize.height,
+                        alignment: .center
+                    )
+                    .accessibilityIdentifier("sample-preview-unreadable")
+            }
+        } else {
+            Text("Pick an example to see it.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(
+                    width: Self.previewSize.width,
+                    height: Self.previewSize.height,
+                    alignment: .center
+                )
+                .accessibilityIdentifier("sample-preview-none")
+        }
+    }
+
+    /// How big the picture is drawn.
+    static let previewSize = CGSize(width: 448, height: 200)
+
+    /// The scale that fits a picture of that size in the preview.
+    static func previewScale(of size: CGSize) -> CGFloat {
+        guard size.width > 0, size.height > 0 else { return 1 }
+        return min(
+            previewSize.width / size.width,
+            previewSize.height / size.height,
+            1
+        )
     }
 
     private func open(_ sampleId: String) {

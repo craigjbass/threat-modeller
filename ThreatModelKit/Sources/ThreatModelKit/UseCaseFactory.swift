@@ -76,6 +76,7 @@ public protocol UseCaseFactory: Sendable {
     func resizeZone() -> ResizeZoneUseCase
     func changeComponentTechnology() -> ChangeComponentTechnologyUseCase
     func arrangeDiagram() -> ArrangeDiagramUseCase
+    func previewSampleModel() -> PreviewSampleModelUseCase
     func moveZones() -> MoveZonesUseCase
     func reorderZones() -> ReorderZonesUseCase
     func setZoneProperties() -> SetZonePropertiesUseCase

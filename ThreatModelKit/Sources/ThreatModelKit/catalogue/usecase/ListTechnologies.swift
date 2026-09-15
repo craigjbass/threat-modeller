@@ -44,11 +44,15 @@ public struct ListedTechnology: Equatable, Sendable {
     public let id: String
     public let name: String
     public let description: String
+    /// How many threats this technology raises. The palette states it, so a
+    /// person reads what a technology brings before they place it.
+    public let threatCount: Int
 
-    public init(id: String, name: String, description: String) {
+    public init(id: String, name: String, description: String, threatCount: Int = 0) {
         self.id = id
         self.name = name
         self.description = description
+        self.threatCount = threatCount
     }
 }
 
@@ -79,7 +83,12 @@ public struct ListTechnologies: ListTechnologiesUseCase {
                     technologies: members
                         .sorted { $0.name.caseInsensitiveCompare($1.name) == .orderedAscending }
                         .map {
-                            ListedTechnology(id: $0.id.value, name: $0.name, description: $0.description)
+                            ListedTechnology(
+                                id: $0.id.value,
+                                name: $0.name,
+                                description: $0.description,
+                                threatCount: lookup.threatsFor(technologyId: $0.id).count
+                            )
                         }
                 )
             }

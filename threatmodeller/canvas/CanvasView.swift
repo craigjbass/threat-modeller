@@ -67,7 +67,7 @@ struct CanvasView: View {
         // A GeometryReader takes the space the split view offers and never
         // reports its children's size back up. Without it the drawing layer,
         // which is thousands of points across, sizes the whole window.
-        GeometryReader { _ in
+        GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
                 Color(nsColor: .textBackgroundColor)
                     .contentShape(Rectangle())
@@ -101,6 +101,9 @@ struct CanvasView: View {
 
                 canvasToolbar
             }
+            // Zoom to Fit needs to know how much room there is.
+            .onAppear { canvas.visibleSize = geometry.size }
+            .onChange(of: geometry.size) { _, size in canvas.visibleSize = size }
         }
         .coordinateSpace(.named("canvas"))
         .clipped()

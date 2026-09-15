@@ -657,8 +657,41 @@ struct ViewRenderTests {
         expectDrawn(
             SampleBrowser(session: aModel(), canvas: CanvasState()),
             width: 480,
-            height: 360,
+            height: 620,
             "the samples browser"
+        )
+    }
+
+    /// The browser draws the diagram of the sample a person picked.
+    @Test func drawsTheSamplesBrowserWithASampleHighlighted() async throws {
+        let session = aModel()
+        let sample = try #require(session.samples.first)
+        let drawn = try #require(session.samplePicture(sample.id))
+        let picture = CanvasHitTest.contentRect(
+            components: drawn.components,
+            zones: drawn.zones
+        )
+
+        expectDrawn(
+            CanvasPicture(
+                components: drawn.components,
+                connections: drawn.connections,
+                zones: drawn.zones,
+                risks: [:],
+                guards: [:],
+                origin: picture.origin,
+                size: picture.size
+            )
+            .scaleEffect(SampleBrowser.previewScale(of: picture.size), anchor: .topLeading)
+            .frame(
+                width: SampleBrowser.previewSize.width,
+                height: SampleBrowser.previewSize.height,
+                alignment: .topLeading
+            )
+            .background(Color(nsColor: .textBackgroundColor)),
+            width: SampleBrowser.previewSize.width,
+            height: SampleBrowser.previewSize.height,
+            "the sample preview"
         )
     }
 

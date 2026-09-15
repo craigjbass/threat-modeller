@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 import CoreGraphics
 import Testing
 import ThreatModelKit
@@ -128,5 +129,34 @@ struct ClipboardTests {
         session.copySelection(componentIds: [placed.id], zoneIds: [])
 
         #expect(clipboard.text()?.isEmpty == false)
+    }
+}
+
+/// What a threat card offers a reader.
+@MainActor
+@Suite("The threat card's links")
+struct ThreatCardLinkTests {
+    private func aThreat() -> AssessedThreat? {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        return session.threats.first
+    }
+
+    @Test func copyThreatIdPutsTheIdOnTheClipboard() throws {
+        let threat = try #require(aThreat())
+        let clipboard = FakeClipboard()
+
+        // What the menu item calls.
+        clipboard.put(text: threat.threatId)
+
+        #expect(clipboard.text() == threat.threatId)
+    }
+
+    @Test func aTechniqueLinksToWhereItIsWrittenUp() {
+        #expect(
+            MitreLink.address(of: "T1550.001")
+                == "https://attack.mitre.org/techniques/T1550/001/"
+        )
+        #expect(URL(string: MitreLink.address(of: "T1078")) != nil)
     }
 }

@@ -392,4 +392,49 @@ struct CanvasGestures {
     func zoom(by factor: CGFloat, about viewPoint: CGPoint) {
         canvas.transform = canvas.transform.zoomed(by: factor, about: viewPoint)
     }
+
+    /// One press of Zoom In or Zoom Out. The point under the middle of the
+    /// visible canvas stays where it is.
+    func zoomAStep(in closer: Bool) {
+        canvas.transform = canvas.transform.zoomedAboutTheCentre(
+            by: closer ? CanvasTransform.zoomStep : 1 / CanvasTransform.zoomStep,
+            of: canvas.visibleSize
+        )
+    }
+
+    func zoomToActualSize() {
+        canvas.transform = canvas.transform.atActualSize(in: canvas.visibleSize)
+    }
+
+    /// Fits the whole diagram in the visible canvas.
+    ///
+    /// It fits what the model draws, not `CanvasHitTest.contentRect`: that
+    /// rectangle is the drawing layer, which keeps a thousand points of room
+    /// past the farthest element so a node can always be dragged further out.
+    /// Fitting it would show mostly empty canvas.
+    func zoomToFit() {
+        guard let rect = SelectionBounds.rect(
+            components: session.canvas.components.map {
+                ($0.x, $0.y, Component.size.width, Component.size.height)
+            },
+            zones: session.canvas.zones.map { ($0.x, $0.y, $0.width, $0.height) }
+        ) else { return }
+
+        canvas.transform = canvas.transform.fitting(rect, in: canvas.visibleSize)
+    }
+
+    /// Fits what is selected in the visible canvas. With nothing selected it
+    /// changes nothing.
+    func zoomToSelection() {
+        let components = session.canvas.components.filter { canvas.isSelected(componentId: $0.id) }
+        let zones = session.canvas.zones.filter { canvas.isSelected(zoneId: $0.id) }
+        guard let rect = SelectionBounds.rect(
+            components: components.map {
+                ($0.x, $0.y, Component.size.width, Component.size.height)
+            },
+            zones: zones.map { ($0.x, $0.y, $0.width, $0.height) }
+        ) else { return }
+
+        canvas.transform = canvas.transform.fitting(rect, in: canvas.visibleSize)
+    }
 }

@@ -119,6 +119,49 @@ struct ThreatModelCommands: Commands {
             .disabled(project?.model == nil)
             .accessibilityIdentifier("lay-out-diagram")
 
+            Button("Zoom In") { zoom { $0.zoomAStep(in: true) } }
+                .keyboardShortcut("=", modifiers: .command)
+                .disabled(canvas == nil)
+                .accessibilityIdentifier("zoom-in-command")
+
+            Button("Zoom Out") { zoom { $0.zoomAStep(in: false) } }
+                .keyboardShortcut("-", modifiers: .command)
+                .disabled(canvas == nil)
+                .accessibilityIdentifier("zoom-out-command")
+
+            Button("Actual Size") { zoom { $0.zoomToActualSize() } }
+                .keyboardShortcut("0", modifiers: .command)
+                .disabled(canvas == nil)
+                .accessibilityIdentifier("actual-size")
+
+            Button("Zoom to Fit") { zoom { $0.zoomToFit() } }
+                .keyboardShortcut("9", modifiers: .command)
+                .disabled(canvas == nil)
+                .accessibilityIdentifier("zoom-to-fit")
+
+            Button("Zoom to Selection") { zoom { $0.zoomToSelection() } }
+                .disabled(hasSelection == false)
+                .accessibilityIdentifier("zoom-to-selection")
+
+            Divider()
+
+            Button("Architecture") { canvas?.showStage?(.architecture) }
+                .keyboardShortcut("1", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-architecture")
+
+            Button("Threats") { canvas?.showStage?(.threats) }
+                .keyboardShortcut("2", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-threats")
+
+            Button("Controls") { canvas?.showStage?(.controls) }
+                .keyboardShortcut("3", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-controls")
+
+            Divider()
+
             Button("Lay Out Selection") {
                 guard let project, let canvas else { return }
                 Task {
@@ -232,6 +275,12 @@ struct ThreatModelCommands: Commands {
                 .disabled(canvas?.selectedZoneIds.isEmpty != false)
                 .accessibilityIdentifier("send-zone-to-back")
         }
+    }
+
+    /// Runs one of the canvas's zoom commands on the front window.
+    private func zoom(_ act: (CanvasGestures) -> Void) {
+        guard let session, let canvas else { return }
+        act(CanvasGestures(session: session, canvas: canvas))
     }
 
     private func reorderZones(_ placement: ZonePlacement) {

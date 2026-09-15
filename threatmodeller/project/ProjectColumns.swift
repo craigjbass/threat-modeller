@@ -84,6 +84,8 @@ struct ProjectColumns: View {
         WorkflowPanel(
             session: project,
             stage: $stage,
+            canvas: canvas,
+            model: session,
             liftedBy: canvas.selectionPanelHeight
         )
     }

@@ -398,6 +398,10 @@ public final class TestDependencies: UseCaseFactory {
         ResizeZone(models: models)
     }
 
+    public func previewSampleModel() -> PreviewSampleModelUseCase {
+        PreviewSampleModel(samples: samples, files: files, catalogue: catalogue)
+    }
+
     public func arrangeDiagram() -> ArrangeDiagramUseCase {
         ArrangeDiagram(models: models, catalogue: catalogue, layout: layOutModel())
     }

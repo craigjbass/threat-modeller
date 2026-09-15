@@ -72,6 +72,7 @@ struct ComponentNodeView: View {
         .opacity(isOutOfScope ? 0.45 : 1)
         .frame(width: ComponentBox.slotSize.width)
         .contentShape(Rectangle())
+        .help(HoverText.node(component, zoneName: zoneName, risk: risk))
         .onHover { isHovering = $0 }
         // Without an explicit element SwiftUI reports the node's texts
         // separately, and the identifier lands on each of them instead of the
@@ -147,6 +148,7 @@ struct ComponentNodeView: View {
             )
             .overlay(Capsule().strokeBorder(outlineColour, lineWidth: 1))
             .position(x: footprint.maxX, y: footprint.minY)
+            .help(HoverText.badge(risk))
             .accessibilityIdentifier("node-open-threats-\(component.id)")
     }
 

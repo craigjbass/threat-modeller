@@ -37,6 +37,51 @@ nonisolated struct CanvasTransform: Equatable {
         CGSize(width: viewDistance.width / zoom, height: viewDistance.height / zoom)
     }
 
+    /// One press of Zoom In. Zoom Out is one press of its reciprocal.
+    static let zoomStep: CGFloat = 1.25
+
+    /// The room a fit keeps around the picture.
+    static let fitMargin: CGFloat = 40
+
+    /// Zooms about the middle of the visible canvas, so the thing a person is
+    /// looking at stays where they are looking.
+    func zoomedAboutTheCentre(by factor: CGFloat, of size: CGSize) -> CanvasTransform {
+        zoomed(by: factor, about: CGPoint(x: size.width / 2, y: size.height / 2))
+    }
+
+    /// The zoom that puts the picture at its own size, with the point under
+    /// the middle of the visible canvas left where it is.
+    func atActualSize(in size: CGSize) -> CanvasTransform {
+        zoomedAboutTheCentre(by: 1 / zoom, of: size)
+    }
+
+    /// The transform that fits a rectangle of the model into the visible
+    /// canvas, with a margin, and puts the middle of that rectangle in the
+    /// middle of the view.
+    ///
+    /// A rectangle of nothing, or a view of nothing, leaves the transform as
+    /// it is: there is nothing to fit.
+    func fitting(_ rect: CGRect, in size: CGSize, margin: CGFloat = fitMargin) -> CanvasTransform {
+        guard rect.width > 0, rect.height > 0, size.width > 0, size.height > 0 else { return self }
+
+        let room = CGSize(
+            width: max(size.width - margin * 2, 1),
+            height: max(size.height - margin * 2, 1)
+        )
+        let fitted = Self.clamp(min(room.width / rect.width, room.height / rect.height))
+
+        return CanvasTransform(
+            pan: CGSize(
+                width: size.width / 2 - rect.midX * fitted,
+                height: size.height / 2 - rect.midY * fitted
+            ),
+            zoom: fitted
+        )
+    }
+
+    /// What the zoom reads as, for the control that states it.
+    var percentage: Int { Int((zoom * 100).rounded()) }
+
     func panned(by translation: CGSize) -> CanvasTransform {
         CanvasTransform(
             pan: CGSize(width: pan.width + translation.width, height: pan.height + translation.height),

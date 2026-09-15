@@ -32,7 +32,7 @@ struct MarkdownFindingsTests {
         #expect(text.contains("It can happen."))
         #expect(text.contains("- Severity: Critical"))
         #expect(text.contains("- STRIDE: Tampering"))
-        #expect(text.contains("- MITRE ATT&CK: T1195"))
+        #expect(text.contains("- MITRE ATT&CK: [T1195](https://attack.mitre.org/techniques/T1195/)"))
         #expect(text.contains("- [ ] Pin hashes \u{2014} Not implemented"))
     }
 

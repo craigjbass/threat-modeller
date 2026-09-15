@@ -655,6 +655,20 @@ from anywhere.
   command line prints.
 - A save message and a report message show in the toolbar, where the load stage
   shows, and clear themselves after four seconds.
+- The View menu holds *Zoom In* (`Cmd+=`), *Zoom Out* (`Cmd+-`), *Actual Size*
+  (`Cmd+0`), *Zoom to Fit* (`Cmd+9`), *Zoom to Selection*, and the three stages
+  (`Cmd+1`, `Cmd+2`, `Cmd+3`). The floating panel states the zoom, and a click
+  on it opens the same items.
+- The palette has a search field. Typed words narrow the technologies by name
+  and by description, and every category with a match opens. The arrow keys
+  move the selection and Return places it.
+- Hovering states what a thing is: a palette row states its description and how
+  many threats it raises, a node states its technology, its zone and how much
+  is open on it, and a badge names the three worst open threats.
+- The examples browser draws the diagram of the example a person picks, from
+  that example's own document.
+- A MITRE technique on a threat card is a link, and the card's menu holds
+  *Copy Threat Id*. The report writes the same link.
 - *View ▸ Lay Out Diagram* (`Shift+Cmd+L`) lays the drawn model out again and
   moves every component and every zone to the result, as one undoable change.
   *Lay Out Selection* (`Cmd+Option+L`) does the same for what is selected and

@@ -66,4 +66,85 @@ struct CanvasTransformTests {
         #expect(transform.pan == CGSize(width: 15, height: 7))
         #expect(transform.zoom == 1)
     }
+
+    // MARK: the View menu's zooms
+
+    @Test func aStepInAndAStepOutLeaveTheCentreWhereItWas() {
+        let view = CGSize(width: 1000, height: 600)
+        let middle = CGPoint(x: 500, y: 300)
+        let transform = CanvasTransform(pan: CGSize(width: 120, height: -40), zoom: 1)
+
+        let closer = transform.zoomedAboutTheCentre(by: CanvasTransform.zoomStep, of: view)
+        let back = closer.zoomedAboutTheCentre(by: 1 / CanvasTransform.zoomStep, of: view)
+
+        #expect(closer.zoom == CanvasTransform.zoomStep)
+        #expect(abs(closer.modelPoint(middle).x - transform.modelPoint(middle).x) < 0.001)
+        #expect(abs(closer.modelPoint(middle).y - transform.modelPoint(middle).y) < 0.001)
+        #expect(abs(back.zoom - transform.zoom) < 0.001)
+    }
+
+    @Test func actualSizeGoesBackToOneAndKeepsTheCentre() {
+        let view = CGSize(width: 800, height: 600)
+        let middle = CGPoint(x: 400, y: 300)
+        let transform = CanvasTransform(pan: CGSize(width: -200, height: -100), zoom: 2)
+
+        let actual = transform.atActualSize(in: view)
+
+        #expect(actual.zoom == 1)
+        #expect(abs(actual.modelPoint(middle).x - transform.modelPoint(middle).x) < 0.001)
+        #expect(abs(actual.modelPoint(middle).y - transform.modelPoint(middle).y) < 0.001)
+    }
+
+    @Test func aFitPutsTheWholeRectangleInTheViewWithItsMargin() {
+        let view = CGSize(width: 1000, height: 800)
+        let picture = CGRect(x: 200, y: 100, width: 2000, height: 1000)
+
+        let fitted = CanvasTransform().fitting(picture, in: view)
+
+        // The picture is 2000 wide in a view 1000 wide less two 40 point
+        // margins, so the zoom is 920/2000.
+        #expect(abs(fitted.zoom - 0.46) < 0.001)
+        let drawn = CGRect(
+            x: fitted.viewPoint(CGPoint(x: picture.minX, y: picture.minY)).x,
+            y: fitted.viewPoint(CGPoint(x: picture.minX, y: picture.minY)).y,
+            width: picture.width * fitted.zoom,
+            height: picture.height * fitted.zoom
+        )
+        #expect(drawn.minX >= CanvasTransform.fitMargin - 0.001)
+        #expect(drawn.maxX <= view.width - CanvasTransform.fitMargin + 0.001)
+        #expect(abs(drawn.midY - view.height / 2) < 0.001)
+    }
+
+    @Test func aFitOfNothingChangesNothing() {
+        let transform = CanvasTransform(pan: CGSize(width: 5, height: 5), zoom: 2)
+
+        #expect(
+            transform.fitting(CGRect.zero, in: CGSize(width: 800, height: 600)) == transform
+        )
+        #expect(
+            transform.fitting(
+                CGRect(x: 0, y: 0, width: 100, height: 100),
+                in: .zero
+            ) == transform
+        )
+    }
+
+    @Test func aFitNeverGoesPastTheZoomLimits() {
+        let view = CGSize(width: 800, height: 600)
+
+        let tiny = CanvasTransform().fitting(
+            CGRect(x: 0, y: 0, width: 100_000, height: 100_000),
+            in: view
+        )
+        let huge = CanvasTransform().fitting(CGRect(x: 0, y: 0, width: 4, height: 4), in: view)
+
+        #expect(tiny.zoom == CanvasTransform.minimumZoom)
+        #expect(huge.zoom == CanvasTransform.maximumZoom)
+    }
+
+    @Test func statesTheZoomAsAPercentage() {
+        #expect(CanvasTransform(zoom: 1).percentage == 100)
+        #expect(CanvasTransform(zoom: 0.5).percentage == 50)
+        #expect(CanvasTransform(zoom: 1.25).percentage == 125)
+    }
 }

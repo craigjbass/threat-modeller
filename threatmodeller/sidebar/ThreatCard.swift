@@ -15,6 +15,10 @@ struct ThreatCard: View {
     let onOverride: (_ severityId: String) -> Void
     let onClearOverride: () -> Void
 
+    /// Puts the threat's id on the clipboard, so a person can name it in a
+    /// file or a ticket. A test gives its own.
+    var clipboard: Clipboard = SystemClipboard()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             header
@@ -25,9 +29,16 @@ struct ThreatCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             ForEach(threat.mitreTechniques, id: \.id) { technique in
-                Text("\(technique.id) · \(technique.name) · \(technique.tactic)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // The id is a link, so a reader reaches the technique without
+                // copying the id and typing the address by hand.
+                HStack(spacing: 4) {
+                    Link(technique.id, destination: URL(string: MitreLink.address(of: technique.id))!)
+                        .font(.caption)
+                        .accessibilityIdentifier("mitre-\(technique.id)")
+                    Text("· \(technique.name) · \(technique.tactic)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             // Read only. A person who wants a different actor set edits the
@@ -63,6 +74,10 @@ struct ThreatCard: View {
             RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25), lineWidth: 1)
         )
         .accessibilityIdentifier("threat-card-\(threat.threatId)#\(threat.source.id)")
+        .contextMenu {
+            Button("Copy Threat Id") { clipboard.put(text: threat.threatId) }
+                .accessibilityIdentifier("copy-threat-id")
+        }
     }
 
     /// Who carries an accepted risk, and when they read it again. Read only:

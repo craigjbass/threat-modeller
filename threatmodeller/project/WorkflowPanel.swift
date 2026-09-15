@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ThreatModelKit
 
 /// The stage picker and the two verbs, floating over the diagram.
 ///
@@ -20,6 +21,12 @@ struct WorkflowPanel: View {
     /// The stage the window draws. Every stage keeps this panel, so the stage
     /// is a view of the work and never a mode a user has to leave.
     @Binding var stage: WorkStage
+
+    /// The canvas the zoom control acts on, or nil in a stage that draws no
+    /// diagram.
+    var canvas: CanvasState?
+    /// The model the zoom control reads, so Zoom to Fit knows the picture.
+    var model: ThreatModelSession?
 
     /// How tall the selection panel under the canvas is, or zero when no
     /// selection panel is shown. The panel floats above it.
@@ -109,7 +116,30 @@ struct WorkflowPanel: View {
             .controlSize(.large)
             .disabled(session.chosenSystem == nil)
             .accessibilityIdentifier("generate-report")
+
+            if let canvas, let model {
+                Divider()
+                    .frame(height: 20)
+
+                zoom(canvas: canvas, model: model)
+            }
         }
+    }
+
+    /// What the zoom is, and the way to change it.
+    private func zoom(canvas: CanvasState, model: ThreatModelSession) -> some View {
+        let gestures = CanvasGestures(session: model, canvas: canvas)
+        return Menu("\(canvas.transform.percentage)%") {
+            Button("Zoom In") { gestures.zoomAStep(in: true) }
+            Button("Zoom Out") { gestures.zoomAStep(in: false) }
+            Button("Actual Size") { gestures.zoomToActualSize() }
+            Button("Zoom to Fit") { gestures.zoomToFit() }
+            Button("Zoom to Selection") { gestures.zoomToSelection() }
+                .disabled(canvas.hasSelection == false)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityIdentifier("zoom-percentage")
     }
 }
 

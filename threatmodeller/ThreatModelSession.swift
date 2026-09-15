@@ -1025,6 +1025,15 @@ final class ThreatModelSession {
 
     /// Puts an example in front of the user. One change, so one undo takes it
     /// back.
+    /// The picture of one example, or nil when it cannot be read. Nothing on
+    /// screen changes: the browser draws this beside the sample's name.
+    func samplePicture(_ sampleId: String) -> ViewThreatModelResponse? {
+        guard case .drawn(let drawn) = useCases.previewSampleModel().execute(
+            PreviewSampleModelRequest(sampleId: sampleId)
+        ) else { return nil }
+        return drawn
+    }
+
     func loadSample(_ sampleId: String) {
         switch useCases.loadSampleModel().execute(LoadSampleModelRequest(sampleId: sampleId)) {
         case .loaded:
