@@ -33,7 +33,7 @@ struct ComponentPanel: View {
         ScrollView(.horizontal) {
             controls
         }
-        .scrollIndicators(.never)
+        .scrollIndicators(.automatic)
         .background(.bar)
     }
 

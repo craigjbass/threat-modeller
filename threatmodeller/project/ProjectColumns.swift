@@ -54,7 +54,10 @@ struct ProjectColumns: View {
                 diagram
             } detail: {
                 AssumptionsPanel(session: session)
-                    .navigationSplitViewColumnWidth(min: 280, ideal: 360)
+                    // The cap keeps the spare width with the canvas: without
+                    // it, closing the palette widens this column and squeezes
+                    // the canvas to its minimum.
+                    .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
             }
         case .threats:
             // A plain split, not a `NavigationSplitView`. A sidebar column

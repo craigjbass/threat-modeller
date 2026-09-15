@@ -25,6 +25,20 @@ struct MitigatesPanel: View {
     }
 
     var body: some View {
+        // The controls scroll sideways, the way the component panel's do: two
+        // long component names push the buttons past a squeezed column's
+        // edge, under the neighbouring column.
+        ScrollView(.horizontal) {
+            controls
+        }
+        .scrollIndicators(.automatic)
+        .background(.bar)
+        .sheet(isPresented: $isWriting) {
+            writingSheet
+        }
+    }
+
+    private var controls: some View {
         HStack(spacing: 12) {
             Text("\(protector.name) lowers threats on \(protected.name)")
                 .font(.callout)
@@ -59,15 +73,15 @@ struct MitigatesPanel: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.bar)
-        .sheet(isPresented: $isWriting) {
-            MitigatesSheet(
-                session: session,
-                protector: protector,
-                protected: protected,
-                existing: existing
-            )
-        }
         .accessibilityIdentifier("mitigates-panel")
+    }
+
+    private var writingSheet: some View {
+        MitigatesSheet(
+            session: session,
+            protector: protector,
+            protected: protected,
+            existing: existing
+        )
     }
 }

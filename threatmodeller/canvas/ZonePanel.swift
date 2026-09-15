@@ -31,7 +31,7 @@ struct ZonePanel: View {
         ScrollView(.horizontal) {
             controls
         }
-        .scrollIndicators(.never)
+        .scrollIndicators(.automatic)
         .background(.bar)
     }
 

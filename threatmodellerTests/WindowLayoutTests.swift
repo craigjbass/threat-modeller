@@ -35,6 +35,32 @@ struct WindowLayoutTests {
         return session
     }
 
+    /// A project with two components and a flow, so every selection panel has
+    /// something to show.
+    private func aFlowProject() async -> ProjectSession {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" {
+                technology = "aws-ec2"
+                data       = "confidential"
+              }
+              component "db" {
+                technology = "aws-rds"
+                data       = "confidential"
+              }
+              flow api -> db
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
+        await session.open(root: "/work")
+        return session
+    }
+
     /// A window holding the view, laid out.
     private func laidOut(_ view: some View) -> NSWindow {
         let hosting = NSHostingView(rootView: view)
@@ -227,4 +253,112 @@ struct WindowLayoutTests {
 
         #expect(WorkflowPanel.reservedHeight >= floating.height)
     }
+
+    /// The columns never cover the selection panel. Each panel scrolls its
+    /// controls inside the canvas column, so nothing draws under the
+    /// assumptions column, even when the closed palette leaves the canvas
+    /// narrow and the selected element's row is wider than the column.
+    @Test func theColumnsNeverCoverTheSelectionPanel() async throws {
+        let project = await aFlowProject()
+        project.paletteColumns = .doubleColumn
+        let model = try #require(project.model)
+        let components = model.canvas.components
+        _ = model.addZone(x: 0, y: 0, width: 200, height: 150)
+        let zone = try #require(model.canvas.zones.first)
+        let connection = try #require(model.canvas.connections.first)
+
+        let selections: [(String, (CanvasState) -> Void)] = [
+            ("component", { $0.select(componentId: components[0].id, addingToSelection: false) }),
+            ("connection", { $0.select(connectionId: connection.id, addingToSelection: false) }),
+            ("zone", { $0.select(componentIds: [], zoneIds: [zone.id]) }),
+            ("mitigates", { $0.select(componentIds: [components[0].id, components[1].id]) })
+        ]
+
+        for (name, select) in selections {
+            let canvas = CanvasState()
+            select(canvas)
+            let window = laidOut(
+                ProjectColumns(
+                    project: project,
+                    session: model,
+                    canvas: canvas,
+                    stage: .constant(.architecture)
+                ),
+                width: 940
+            )
+            let content = try #require(window.contentView)
+            let split = try #require(columns(in: content))
+            let pane = split.arrangedSubviews[1].convert(
+                split.arrangedSubviews[1].bounds, to: nil
+            )
+            let detail = split.arrangedSubviews[2].convert(
+                split.arrangedSubviews[2].bounds, to: nil
+            )
+            let panelView = try #require(
+                selectionPanel(in: split.arrangedSubviews[1]),
+                "no \(name) panel in the canvas column"
+            )
+            let panel = panelView.convert(panelView.bounds, to: nil)
+
+            #expect(panel.width > 0, "the \(name) panel measured no width")
+            #expect(
+                panel.maxX <= pane.maxX + 0.5,
+                "the \(name) panel at \(panel) leaves its column \(pane)"
+            )
+            #expect(
+                panel.intersects(detail) == false,
+                "the assumptions column at \(detail) covers the \(name) panel at \(panel)"
+            )
+        }
+    }
+
+    /// Closing the palette widens the canvas, not the assumptions: the detail
+    /// column stops at its stated cap.
+    @Test func closingThePaletteWidensTheCanvasNotTheAssumptions() async throws {
+        let project = await aFlowProject()
+        project.paletteColumns = .doubleColumn
+        let model = try #require(project.model)
+        let window = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: CanvasState(),
+                stage: .constant(.architecture)
+            ),
+            width: 1200
+        )
+        let content = try #require(window.contentView)
+        let split = try #require(columns(in: content))
+        let canvasPane = split.arrangedSubviews[1].frame.width
+        let detailPane = split.arrangedSubviews[2].frame.width
+
+        #expect(detailPane <= 480, "the assumptions column took \(detailPane)")
+        #expect(canvasPane >= 700, "the canvas got \(canvasPane) of 1200")
+    }
+
+    /// The selection panel: the one scroller the canvas column holds.
+    private func selectionPanel(in view: NSView) -> NSScrollView? {
+        if let scroll = view as? NSScrollView { return scroll }
+        for child in view.subviews {
+            if let found = selectionPanel(in: child) { return found }
+        }
+        return nil
+    }
+
+    private func laidOut(_ view: some View, width: Double) -> NSWindow {
+        let hosting = NSHostingView(rootView: view)
+        hosting.frame = NSRect(x: 0, y: 0, width: width, height: 700)
+        let window = NSWindow(
+            contentRect: hosting.frame,
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hosting
+        hosting.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        hosting.layoutSubtreeIfNeeded()
+        return window
+    }
+
 }

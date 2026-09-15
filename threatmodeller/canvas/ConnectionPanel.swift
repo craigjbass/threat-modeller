@@ -18,6 +18,17 @@ struct ConnectionPanel: View {
     ]
 
     var body: some View {
+        // The controls scroll sideways, the way the component panel's do: the
+        // row is wider than a squeezed canvas column, and a row that does not
+        // scroll draws its trailing controls under the neighbouring column.
+        ScrollView(.horizontal) {
+            controls
+        }
+        .scrollIndicators(.automatic)
+        .background(.bar)
+    }
+
+    private var controls: some View {
         HStack(alignment: .center, spacing: 16) {
             Picker("Kind", selection: kind) {
                 ForEach(Self.kinds, id: \.0) { Text($0.1).tag($0.0) }
@@ -55,7 +66,6 @@ struct ConnectionPanel: View {
         }
         .padding(.horizontal, CanvasView.windowEdgeMargin)
         .padding(.vertical, 8)
-        .background(.bar)
     }
 
     /// What the menu reads when it is closed.
