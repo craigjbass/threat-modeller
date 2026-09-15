@@ -18,14 +18,29 @@ public enum SaveSystemResponse: Equatable, Sendable {
     case cannotWrite(reason: String)
 }
 
-/// Writes the model on screen back to the architecture file it came from.
+/// Writes the model on screen back to the files it came from.
+///
+/// A split system is written file by file: the save re-reads the files as they
+/// are on disk, takes which file each block came from, and writes each file
+/// again. Only a file whose text changed is written.
+///
+/// WARNING: a save reads the files at that moment. A person who moves a block
+/// between two files while the application is open gets the move they made.
 public struct SaveSystem: SaveSystemUseCase {
     private let projects: ProjectSourceGateway
     private let exports: ExportArchitectureUseCase
+    /// Reads the files again, to take the origins. Nil writes one file, which
+    /// is what a flat system needs.
+    private let sources: ArchitectureSourceGateway?
 
-    public init(projects: ProjectSourceGateway, exports: ExportArchitectureUseCase) {
+    public init(
+        projects: ProjectSourceGateway,
+        exports: ExportArchitectureUseCase,
+        sources: ArchitectureSourceGateway? = nil
+    ) {
         self.projects = projects
         self.exports = exports
+        self.sources = sources
     }
 
     public func execute(_ request: SaveSystemRequest) -> SaveSystemResponse {
@@ -35,11 +50,31 @@ public struct SaveSystem: SaveSystemUseCase {
                 return .noSuchSystem
             }
 
-            try projects.write(
-                exports.execute(ExportArchitectureRequest()).text,
-                to: system.architecturePath
+            guard system.isSplit, let sources else {
+                try projects.write(
+                    exports.execute(ExportArchitectureRequest()).text,
+                    to: system.architecturePath
+                )
+                return .saved(architecturePath: system.architecturePath)
+            }
+
+            let held = system.architecturePaths.compactMap { path in
+                (try? projects.read(path: path)).map { SourcePart(file: path, text: $0) }
+            }
+            let read = sources.read(held, named: system.name)
+
+            let written = exports.execute(
+                ExportArchitectureRequest(
+                    origins: read.origins,
+                    headerFile: system.headerPath
+                )
             )
-            return .saved(architecturePath: system.architecturePath)
+            for part in written.parts {
+                let already = try? projects.read(path: part.file)
+                guard already != part.text else { continue }
+                try projects.write(part.text, to: part.file)
+            }
+            return .saved(architecturePath: system.headerPath)
         } catch {
             return .cannotWrite(reason: String(describing: error))
         }

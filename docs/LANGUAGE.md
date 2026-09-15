@@ -229,6 +229,91 @@ Two further rules:
 - **A comma in a string list is optional.** The parser reads `["a" "b"]` and
   `["a", "b"]` as the same list. The writer always writes the commas.
 
+## 3.1 The project layout
+
+A project is a directory. `threatmodel/` holds the systems, or the project root
+does when there is no `threatmodel` directory.
+
+A system takes one of two shapes.
+
+**A flat system is one file of each kind**, paired by stem:
+
+```
+threatmodel/
+  payments.arch
+  payments.controls
+  payments.attacktree
+  payments.governance
+  payments.md
+```
+
+**A split system is a directory**, named after the system, holding one
+directory per kind. The directory name states the extension it holds:
+
+```
+threatmodel/
+  payments/
+    arch/payments.arch        the header file
+    arch/edge.arch            a part file
+    arch/ledger.arch          a part file
+    controls/payments.controls
+    controls/edge.controls
+    attacktree/edge.attacktree
+    payments.md               the report
+```
+
+A project holds both shapes at once. `library/` is the shared library
+directory, so no system takes that name.
+
+**The header file** holds the `system "<name>" { … }` block, and states
+`catalogue`, `risk_tolerance`, `owner`, `faces`, `requires_evidence_above` and
+every `assumption`, because those are facts of the system and not of a file.
+
+**A part file** holds `technology`, `zone`, `component`, `flow` and `mitigates`
+blocks at the top level and no `system` block.
+
+| Fault | Message |
+| --- | --- |
+| no file holds a `system` block | `the system "<name>" holds no file with a system block` |
+| two files hold one | `the system "<name>" states a system block twice: <first> and <second>` |
+| the label and the directory differ | a warning: `the directory is "<directory>" and the system block says "<label>"`, and the label wins |
+
+**The merge.** The `.arch` files read in file-name order, and the blocks of the
+first file come first. A system holds one namespace across every one of its
+files: a flow in one file may name a component another file declares, and an
+identifier declared twice is a fault naming both files.
+
+| Check | Message |
+| --- | --- |
+| a technology or a zone declared twice | `"<id>" is declared twice: <first> and <second>` |
+| a component declared twice | `the component "<id>" is declared twice: <first> and <second>` |
+| an assumption declared twice | `the assumption "<label>" is declared twice: <first> and <second>` |
+| a flow that names nothing | `the flow starts at "<id>", which this system does not declare` |
+
+Every fault names the file it is in, so a build log reads
+`arch/edge.arch:12:5: error: …`.
+
+**The answers mirror the architecture by stem.** `arch/edge.arch` pairs with
+`controls/edge.controls`, and an answer goes to the file that mirrors the
+architecture file the element it answers came from. An answer whose element
+nothing declares any more stays where it is, as a `stale` block.
+`.attacktree` files mirror the same way.
+
+**Writing back.** A save reads the files as they are on disk, takes which file
+each block came from, and writes each file whose text changed. A block a person
+adds in the application goes into the header file.
+
+`threatmodeller split <system>` moves a flat system into the directory form. It
+moves files and writes no new content, so a person reads the diff and sees
+moves. It divides no file: a person divides a file by cutting blocks into a new
+`.arch` file, and the merge joins them again.
+
+**What the layout refuses.** Nested subprojects: `payments/cards/arch/` is not a
+system, and a person who wants a tree writes `payments-cards`. A flow that names
+a component another system declares: a system is the unit of scoring, of the
+diagram and of the report. A `.lib` file inside a subproject: libraries stay
+project-wide.
+
 ## 4. The architecture language
 
 A `.arch` file states the architecture: the technologies, the zones, the

@@ -1,21 +1,54 @@
-/// One system a project holds: the architecture file, and the two files that
-/// take its name.
+import Foundation
+
+/// One system a project holds: its architecture files, its answers and its
+/// report.
+///
+/// A flat system is one file of each kind, which is what a project holds
+/// today. A split system is a directory: its `arch` directory holds the
+/// architecture files, its `controls` directory holds the answers, and its
+/// `attacktree` directory holds the trees. Either way the system keeps one
+/// name, one namespace, one diagram and one report.
 public struct ProjectSystem: Equatable, Sendable {
-    /// The file stem, which is what a user picks in the systems list.
+    /// The file stem, or the directory name, which is what a user picks in
+    /// the systems list.
     public let name: String
-    public let architecturePath: String
-    /// The answers. It may not exist yet.
-    public let controlsPath: String
+    /// Every architecture file of this system, by file name, sorted. The
+    /// order decides declaration order, which decides the picture.
+    public let architecturePaths: [String]
+    /// The file that holds the `system` block. A flat system's header file is
+    /// its one architecture file.
+    public let headerPath: String
+    /// The answers. A file may not exist yet.
+    public let controlsPaths: [String]
+    /// The attack trees a person wrote. A file may not exist: a system that
+    /// states no tree holds none.
+    public let attackTreePaths: [String]
     /// The report. It is written, not read.
     public let reportPath: String
-    /// The attack trees a person wrote for this system. The file may not
-    /// exist: a system that states no tree holds no such file.
-    public let attackTreePath: String
     /// Who carries each accepted risk and who does each piece of planned work.
     /// The file may not exist: `compile` writes it only when the system
     /// accepts a control, holds a recommendation or declares an action.
     public let governancePath: String
 
+    public init(
+        name: String,
+        architecturePaths: [String],
+        headerPath: String,
+        controlsPaths: [String],
+        attackTreePaths: [String],
+        reportPath: String,
+        governancePath: String
+    ) {
+        self.name = name
+        self.architecturePaths = architecturePaths
+        self.headerPath = headerPath
+        self.controlsPaths = controlsPaths
+        self.attackTreePaths = attackTreePaths
+        self.reportPath = reportPath
+        self.governancePath = governancePath
+    }
+
+    /// A flat system: one file of each kind, named by the stem.
     public init(
         name: String,
         architecturePath: String,
@@ -24,12 +57,74 @@ public struct ProjectSystem: Equatable, Sendable {
         attackTreePath: String,
         governancePath: String
     ) {
-        self.name = name
-        self.architecturePath = architecturePath
-        self.controlsPath = controlsPath
-        self.reportPath = reportPath
-        self.attackTreePath = attackTreePath
-        self.governancePath = governancePath
+        self.init(
+            name: name,
+            architecturePaths: [architecturePath],
+            headerPath: architecturePath,
+            controlsPaths: [controlsPath],
+            attackTreePaths: [attackTreePath],
+            reportPath: reportPath,
+            governancePath: governancePath
+        )
+    }
+
+    /// True when this system is a directory of files rather than one file.
+    public var isSplit: Bool { architecturePaths.count > 1 || headerPath.contains("/arch/") }
+
+    /// The one architecture file a caller that reads one file reads. It is the
+    /// header file, which is the whole of a flat system.
+    public var architecturePath: String { headerPath }
+
+    /// The controls file that mirrors the header file.
+    public var controlsPath: String {
+        controlsPaths.first { Self.stem(of: $0) == Self.stem(of: headerPath) }
+            ?? controlsPaths.first
+            ?? controlsPath(mirroring: headerPath)
+    }
+
+    /// The attack tree file that mirrors the header file.
+    public var attackTreePath: String {
+        attackTreePaths.first { Self.stem(of: $0) == Self.stem(of: headerPath) }
+            ?? attackTreePaths.first
+            ?? treePath(mirroring: headerPath)
+    }
+
+    /// The attack tree file that mirrors an architecture file.
+    public func treePath(mirroring architecturePath: String) -> String {
+        guard isSplit else {
+            return Self.beside(architecturePath, ProjectConvention.attackTreeExtension)
+        }
+        let stem = Self.stem(of: architecturePath)
+        let directory = (architecturePath as NSString).deletingLastPathComponent
+        let subproject = (directory as NSString).deletingLastPathComponent
+        return ProjectConvention.path(
+            ProjectConvention.path(subproject, ProjectConvention.attackTreeExtension),
+            "\(stem).\(ProjectConvention.attackTreeExtension)"
+        )
+    }
+
+    /// The controls file an element declared in that architecture file is
+    /// answered in. A controls file mirrors an architecture file by stem.
+    public func controlsPath(mirroring architecturePath: String) -> String {
+        let stem = Self.stem(of: architecturePath)
+        if let held = controlsPaths.first(where: { Self.stem(of: $0) == stem }) { return held }
+        guard isSplit else {
+            return Self.beside(architecturePath, ProjectConvention.controlsExtension)
+        }
+        let directory = (architecturePath as NSString).deletingLastPathComponent
+        let subproject = (directory as NSString).deletingLastPathComponent
+        return ProjectConvention.path(
+            ProjectConvention.path(subproject, ProjectConvention.controlsExtension),
+            "\(stem).\(ProjectConvention.controlsExtension)"
+        )
+    }
+
+    static func stem(of path: String) -> String {
+        ((path as NSString).lastPathComponent as NSString).deletingPathExtension
+    }
+
+    private static func beside(_ path: String, _ fileExtension: String) -> String {
+        "\((path as NSString).deletingPathExtension).\(fileExtension)"
     }
 }
 

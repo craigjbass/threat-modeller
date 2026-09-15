@@ -17,9 +17,10 @@ struct DiagnosticsSheet: View {
         NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
     }
 
-    /// Every row as the command line prints it.
+    /// Every row as the command line prints it. A fault that names its own
+    /// file, which a split system's faults do, names that file.
     var lines: [String] {
-        diagnostics.map { "\(path ?? fileName):\($0.line):\($0.column): \($0.message)" }
+        diagnostics.map { "\($0.file ?? path ?? fileName):\($0.line):\($0.column): \($0.message)" }
     }
 
     var body: some View {
@@ -70,7 +71,10 @@ struct DiagnosticsSheet: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(diagnostic.message)
-                    Text("\(fileName), line \(diagnostic.line), column \(diagnostic.column)")
+                    Text(
+                        "\(diagnostic.file ?? fileName), line \(diagnostic.line), "
+                            + "column \(diagnostic.column)"
+                    )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -7,10 +7,38 @@ public struct ImportArchitectureRequest: Equatable, Sendable {
     /// The `.attacktree` file beside the architecture, or nil when the project
     /// holds none.
     public let attackTreeText: String?
+    /// Every architecture file of one system, when the system is split across
+    /// files. Empty means the one `text` above, which is a flat system.
+    public let parts: [SourcePart]
+    /// The name the directory gives a split system, for the message that
+    /// names a header whose label differs.
+    public let directoryName: String?
+    /// Every `.attacktree` file of a split system. Empty means the one
+    /// `attackTreeText` above.
+    public let attackTreeTexts: [String]
 
-    public init(text: String, attackTreeText: String? = nil) {
+    public init(
+        text: String,
+        attackTreeText: String? = nil,
+        parts: [SourcePart] = [],
+        directoryName: String? = nil,
+        attackTreeTexts: [String] = []
+    ) {
         self.text = text
         self.attackTreeText = attackTreeText
+        self.parts = parts
+        self.directoryName = directoryName
+        self.attackTreeTexts = attackTreeTexts
+    }
+
+    /// Every architecture file this request states, as parts.
+    public var everyPart: [SourcePart] {
+        parts.isEmpty ? [SourcePart(file: "", text: text)] : parts
+    }
+
+    /// Every attack tree file this request states.
+    public var everyAttackTreeText: [String] {
+        attackTreeTexts.isEmpty ? [attackTreeText].compactMap { $0 } : attackTreeTexts
     }
 }
 
@@ -55,7 +83,10 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
     }
 
     public func execute(_ request: ImportArchitectureRequest) -> ImportArchitectureResponse {
-        let read = sources.read(request.text)
+        // A split system is several files, merged into one source with one
+        // namespace. A flat system is the one-file case and reads exactly
+        // what it read before.
+        let read = sources.read(request.everyPart, named: request.directoryName)
         guard let source = read.source, read.hasErrors == false else {
             return .refused(diagnostics: read.diagnostics)
         }
@@ -64,12 +95,12 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
         // importing one reads both. A tree file that does not parse refuses
         // the whole import: half a model states a route nobody can check.
         var attackTrees: [SourceAttackTree] = []
-        if let treeText = request.attackTreeText, treeText.isEmpty == false {
+        for treeText in request.everyAttackTreeText where treeText.isEmpty == false {
             let treeRead = attackTreeSources.read(treeText)
             guard let treeSource = treeRead.source, treeRead.hasErrors == false else {
                 return .refused(diagnostics: treeRead.diagnostics)
             }
-            attackTrees = treeSource.trees
+            attackTrees += treeSource.trees
         }
 
         // The layout holds no catalogue, and measures the picture it drew, so

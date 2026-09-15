@@ -24,7 +24,14 @@ struct ArchitectureParser {
     private static let privilegeLevels: Set<String> = ["user", "admin", "root", "system", "kernel"]
     private static let diagramShapes: Set<String> = ["actor", "process", "store"]
 
-    mutating func parse() -> ArchitectureRead {
+    /// `allowsPart` is true only when the caller is reading the files of one
+    /// system. A file read on its own must still state a `system` block.
+    mutating func parse(allowsPart: Bool = false) -> ArchitectureRead {
+        // A file that opens with anything but `system` is a part of a split
+        // system: it states blocks and no header. The merge decides whether
+        // the system it belongs to holds a header at all.
+        if allowsPart, current.text != "system" { return parsePart() }
+
         guard let system = parseSystem() else {
             return ArchitectureRead(source: nil, diagnostics: diagnostics)
         }
@@ -35,13 +42,40 @@ struct ArchitectureParser {
         )
     }
 
+    /// A file of a split system that holds no `system` block.
+    ///
+    /// It reads the same blocks a system block holds, at the top level. The
+    /// source it answers states no system name, and the merge takes the name
+    /// from the header file.
+    private mutating func parsePart() -> ArchitectureRead {
+        guard let part = parseBlocks(named: MergedArchitecture.headerlessName) else {
+            return ArchitectureRead(source: nil, diagnostics: diagnostics)
+        }
+        // The cross-file checks run over the merged source, so a part is not
+        // checked on its own for a flow that names another file's component.
+        checkWithinOneFile(part)
+        return ArchitectureRead(
+            source: diagnostics.contains { $0.severity == .error } ? nil : part,
+            diagnostics: diagnostics
+        )
+    }
+
     // MARK: the blocks
 
     private mutating func parseSystem() -> ArchitectureSource? {
         guard expectKeyword("system") else { return nil }
         guard let name = expect(.string, "the system's name") else { return nil }
         guard expect(.leftBrace, "{") != nil else { return nil }
+        return parseBlocks(named: name.text, insideABlock: true)
+    }
 
+    /// The blocks a system holds. `insideABlock` is true for a `system` block,
+    /// which ends at its closing brace, and false for a part file, which ends
+    /// at the end of the file.
+    private mutating func parseBlocks(
+        named name: String,
+        insideABlock: Bool = false
+    ) -> ArchitectureSource? {
         var catalogueTag: String?
         var technologies: [SourceTechnology] = []
         var zones: [SourceZone] = []
@@ -55,7 +89,7 @@ struct ArchitectureParser {
         var owner: String?
         var threatActors: [SourceThreatActor] = []
 
-        while current.kind != .rightBrace && current.kind != .endOfFile {
+        while current.kind != .endOfFile && (insideABlock == false || current.kind != .rightBrace) {
             switch current.text {
             case "catalogue":
                 catalogueTag = parseTextAttribute()
@@ -115,12 +149,12 @@ struct ArchitectureParser {
                 skipToNextBlock()
             }
         }
-        _ = expect(.rightBrace, "}")
+        if insideABlock { _ = expect(.rightBrace, "}") }
 
         let checked = checkedActions(on: mitigates, assumptions: assumptions)
 
         return ArchitectureSource(
-            systemName: name.text,
+            systemName: name,
             catalogueTag: catalogueTag,
             technologies: technologies,
             zones: zones,
@@ -671,6 +705,62 @@ struct ArchitectureParser {
     }
 
     // MARK: what the file must hold once it parses
+
+    /// The checks one file can run on its own.
+    ///
+    /// A part file of a split system states a flow that may name a component
+    /// another file declares, so the checks that read one identifier against
+    /// another run over the merged source and not here.
+    private mutating func checkWithinOneFile(_ source: ArchitectureSource) {
+        var seen: Set<String> = []
+        for id in source.technologies.map(\.id) + source.zones.map(\.id) {
+            if seen.insert(id).inserted == false {
+                record("\"\(id)\" is declared twice", at: tokens[0])
+            }
+        }
+
+        var componentIds: Set<String> = []
+        for component in source.everyComponent
+        where componentIds.insert(component.id).inserted == false {
+            record("the component \"\(component.id)\" is declared twice", at: tokens[0])
+        }
+
+        var pairs: Set<String> = []
+        for flow in source.flows {
+            if flow.sourceId == flow.targetId {
+                record(
+                    "the flow \"\(flow.id)\" starts and ends at the same component",
+                    at: tokens[0]
+                )
+            }
+            if pairs.insert(flow.id).inserted == false {
+                record("the flow \"\(flow.id)\" is declared twice", at: tokens[0])
+            }
+        }
+
+        for zone in source.zones where zone.components.isEmpty {
+            record("the zone \"\(zone.id)\" holds no components", at: tokens[0], severity: .warning)
+        }
+
+        var edges: Set<String> = []
+        for edge in source.mitigates {
+            if edge.sourceId == edge.targetId {
+                record(
+                    "the mitigates edge \"\(edge.id)\" starts and ends at the same component",
+                    at: tokens[0]
+                )
+            }
+            if edges.insert(edge.id).inserted == false {
+                record("the mitigates edge \"\(edge.id)\" is declared twice", at: tokens[0])
+            }
+        }
+
+        var labels: Set<String> = []
+        for assumption in source.assumptions
+        where labels.insert(assumption.label).inserted == false {
+            record("the assumption \"\(assumption.label)\" is declared twice", at: tokens[0])
+        }
+    }
 
     private mutating func check(_ source: ArchitectureSource) {
         var seen: Set<String> = []

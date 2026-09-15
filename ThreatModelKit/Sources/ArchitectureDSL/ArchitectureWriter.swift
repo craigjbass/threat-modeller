@@ -13,8 +13,18 @@ struct ArchitectureWriter {
     }
 
     func write(_ source: ArchitectureSource) -> String {
+        write(source, asPart: false)
+    }
+
+    /// One file of a split system: the same blocks, at the top level, with no
+    /// `system` block around them.
+    func writePart(_ source: ArchitectureSource) -> String {
+        write(source, asPart: true)
+    }
+
+    private func write(_ source: ArchitectureSource, asPart: Bool) -> String {
         var lines: [String] = []
-        lines.append("system \(quoted(source.systemName)) {")
+        if asPart == false { lines.append("system \(quoted(source.systemName)) {") }
 
         var body: [String] = []
         if let riskTolerance = source.riskTolerance {
@@ -192,8 +202,12 @@ struct ArchitectureWriter {
         }
 
         while body.last == "" { body.removeLast() }
-        lines += indent(body)
-        lines.append("}")
+        if asPart {
+            lines += body
+        } else {
+            lines += indent(body)
+            lines.append("}")
+        }
         return lines.joined(separator: "\n") + "\n"
     }
 

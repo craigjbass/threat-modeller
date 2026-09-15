@@ -586,6 +586,138 @@ struct CommandLineApplicationTests {
         #expect(report.contains("| system_requires_owner | the file states an owner | no"))
     }
 
+    // MARK: a split system
+
+    private static let splitHeader = """
+    system "Payments" {
+      catalogue = "v1.0.0"
+    }
+    """
+
+    private static let splitEdge = """
+    component "waf" {
+      technology = "aws-rds"
+      data       = "internal"
+    }
+    """
+
+    private static let splitLedger = """
+    component "api" {
+      technology = "aws-ec2"
+      data       = "confidential"
+    }
+
+    flow waf -> api
+    """
+
+    private func aSplitProject() {
+        project.put(Self.splitHeader, at: "/work/threatmodel/payments/arch/payments.arch")
+        project.put(Self.splitEdge, at: "/work/threatmodel/payments/arch/edge.arch")
+        project.put(Self.splitLedger, at: "/work/threatmodel/payments/arch/ledger.arch")
+    }
+
+    @Test func compileWritesOneControlsFilePerArchitectureFile() throws {
+        aSplitProject()
+
+        let result = run("compile", "/work")
+
+        #expect(result.code == 0)
+        let edge = try #require(
+            project.text(at: "/work/threatmodel/payments/controls/edge.controls")
+        )
+        let ledger = try #require(
+            project.text(at: "/work/threatmodel/payments/controls/ledger.controls")
+        )
+        // An answer sits in the file that mirrors the architecture file its
+        // element came from.
+        #expect(edge.contains("on component \"waf\""))
+        #expect(edge.contains("on component \"api\"") == false)
+        #expect(ledger.contains("on component \"api\""))
+    }
+
+    @Test func checkReadsEveryFileOfASplitSystem() {
+        aSplitProject()
+        _ = run("compile", "/work")
+
+        let result = run("check", "/work")
+
+        // Nothing is answered yet, so the check fails and names the threats
+        // of both files.
+        #expect(result.code == 1)
+        #expect(result.lines.contains { $0.contains("\"api\"") })
+        #expect(result.lines.contains { $0.contains("\"waf\"") })
+    }
+
+    @Test func reportWritesOneReportInsideTheSubproject() {
+        aSplitProject()
+
+        let result = run("report", "/work")
+
+        #expect(result.code == 0)
+        #expect(project.text(at: "/work/threatmodel/payments/payments.md") != nil)
+    }
+
+    @Test func formatRewritesEveryFileOfASplitSystem() throws {
+        project.put(Self.splitHeader, at: "/work/threatmodel/payments/arch/payments.arch")
+        project.put(
+            "component \"waf\" {\ntechnology = \"aws-waf\"\n}",
+            at: "/work/threatmodel/payments/arch/edge.arch"
+        )
+
+        let result = run("format", "/work")
+
+        #expect(result.code == 0)
+        let written = try #require(
+            project.text(at: "/work/threatmodel/payments/arch/edge.arch")
+        )
+        #expect(written.hasPrefix("component \"waf\" {"))
+        #expect(written.contains("  technology = \"aws-waf\""))
+    }
+
+    @Test func splitMovesAFlatSystemIntoADirectory() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        _ = run("compile", "/work")
+        #expect(project.text(at: "/work/threatmodel/payments.controls") != nil)
+
+        let result = run("split", "payments", "/work")
+
+        #expect(result.code == 0)
+        #expect(project.text(at: "/work/threatmodel/payments/arch/payments.arch") != nil)
+        #expect(project.text(at: "/work/threatmodel/payments/controls/payments.controls") != nil)
+        #expect(project.text(at: "/work/threatmodel/payments.arch") == nil)
+        #expect(project.text(at: "/work/threatmodel/payments.controls") == nil)
+    }
+
+    @Test func splitRefusesASystemThatIsAlreadyADirectory() {
+        aSplitProject()
+
+        let result = run("split", "payments", "/work")
+
+        #expect(result.code == 3)
+        #expect(result.lines.contains { $0.contains("is already a directory") })
+    }
+
+    @Test func splitRefusesASystemTheProjectDoesNotHold() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+
+        let result = run("split", "ledger", "/work")
+
+        #expect(result.code == 3)
+        #expect(result.lines.contains { $0.contains("holds no system called \"ledger\"") })
+    }
+
+    /// A split system reads and writes the same way after a split: the moved
+    /// files compile, and the compile writes beside them.
+    @Test func aSplitSystemCompilesAfterASplit() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        _ = run("split", "payments", "/work")
+
+        let result = run("compile", "/work")
+
+        #expect(result.code == 0)
+        #expect(project.text(at: "/work/threatmodel/payments/controls/payments.controls") != nil)
+    }
+
     // MARK: attack and actors
 
     /// A small STIX bundle, the shape `AttackSyncTests` states.

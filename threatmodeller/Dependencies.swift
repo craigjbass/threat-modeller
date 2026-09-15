@@ -293,7 +293,11 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func saveSystem() -> SaveSystemUseCase {
-        SaveSystem(projects: projects, exports: exportArchitecture())
+        SaveSystem(
+            projects: projects,
+            exports: exportArchitecture(),
+            sources: architectureSources
+        )
     }
 
     func loadLibraries() -> LoadLibrariesUseCase {

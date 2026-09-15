@@ -9,15 +9,37 @@ public struct CompileControlsRequest: Equatable, Sendable {
     /// The trees a person wrote, or nil when the project holds no such file.
     public let attackTreeText: String?
 
+    /// Every architecture file of one system, when the system is split across
+    /// files. Empty means the one `architectureText` above.
+    public let architectureParts: [SourcePart]
+    /// The name the directory gives a split system.
+    public let directoryName: String?
+    /// Every controls file of a split system, by the architecture file each
+    /// one mirrors. Empty means the one `controlsText` above.
+    public let controlsParts: [String: String]
+    /// Every attack tree file of a split system.
+    public let attackTreeTexts: [String]
+
     public init(
         architectureText: String,
         controlsText: String? = nil,
-        attackTreeText: String? = nil
+        attackTreeText: String? = nil,
+        architectureParts: [SourcePart] = [],
+        directoryName: String? = nil,
+        controlsParts: [String: String] = [:],
+        attackTreeTexts: [String] = []
     ) {
         self.architectureText = architectureText
         self.controlsText = controlsText
         self.attackTreeText = attackTreeText
+        self.architectureParts = architectureParts
+        self.directoryName = directoryName
+        self.controlsParts = controlsParts
+        self.attackTreeTexts = attackTreeTexts
     }
+
+    /// True when this request states a system split across files.
+    public var isSplit: Bool { architectureParts.isEmpty == false }
 }
 
 public enum CompileControlsResponse: Equatable, Sendable {
@@ -33,6 +55,12 @@ public enum CompileControlsResponse: Equatable, Sendable {
         warnings: [Diagnostic]
     )
     case refused(diagnostics: [Diagnostic])
+
+    /// The one text a compile wrote, or nil when it was refused.
+    public var text: String? {
+        guard case .compiled(let text, _, _, _, _, _, _) = self else { return nil }
+        return text
+    }
 }
 
 /// Writes every threat the architecture raises into a file a person fills in.
@@ -76,7 +104,10 @@ public struct CompileControls: CompileControlsUseCase {
         ).execute(
             ImportArchitectureRequest(
                 text: request.architectureText,
-                attackTreeText: request.attackTreeText
+                attackTreeText: request.attackTreeText,
+                parts: request.architectureParts,
+                directoryName: request.directoryName,
+                attackTreeTexts: request.attackTreeTexts
             )
         )
 
@@ -89,7 +120,13 @@ public struct CompileControls: CompileControlsUseCase {
 
         var existing: ControlsSource?
         var applyWarnings: [Diagnostic] = []
-        if let controlsText = request.controlsText, controlsText.isEmpty == false {
+        // A split system's answers sit in one file per architecture file. They
+        // are read as one set here, and written back to the file that mirrors
+        // the architecture file each element came from.
+        let controlsText = request.isSplit
+            ? ControlsSourceMerge.text(of: request.controlsParts, sources: controlsSources)
+            : request.controlsText
+        if let controlsText, controlsText.isEmpty == false {
             let read = controlsSources.read(controlsText)
             guard let source = read.source, read.hasErrors == false else {
                 return .refused(diagnostics: read.diagnostics)

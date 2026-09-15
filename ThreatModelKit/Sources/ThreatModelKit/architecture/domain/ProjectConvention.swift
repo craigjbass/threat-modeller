@@ -20,7 +20,66 @@ public enum ProjectConvention {
     public static let defaultLibraryIndex = "https://github.com/craigjbass/threat-modeller-index"
     public static let libraryExtension = "lib"
 
-    /// The systems a directory holds, by name, sorted.
+    /// The directory inside a subproject that holds each kind of file. The
+    /// name states the extension: `arch` holds `.arch`.
+    public static func kindDirectory(_ fileExtension: String) -> String { fileExtension }
+
+    /// The systems a project directory holds: the flat ones its files state
+    /// and the split ones its subdirectories state.
+    ///
+    /// `subdirectories` names each directory in the project directory, with
+    /// the file names each one holds under each kind directory, keyed by the
+    /// kind directory's name.
+    public static func systems(
+        in directory: String,
+        fileNames: [String],
+        subdirectories: [String: [String: [String]]] = [:]
+    ) -> [ProjectSystem] {
+        let flat = systems(in: directory, fileNames: fileNames)
+
+        let split = subdirectories.compactMap { name, kinds -> ProjectSystem? in
+            // `library` is the shared library directory, so no system takes
+            // that name.
+            guard name != libraryDirectory else { return nil }
+            let architectures = (kinds[architectureExtension] ?? [])
+                .filter { $0.hasSuffix(".\(architectureExtension)") }
+                .sorted()
+            guard architectures.isEmpty == false else { return nil }
+
+            let subproject = path(directory, name)
+            func paths(_ fileExtension: String) -> [String] {
+                (kinds[fileExtension] ?? [])
+                    .filter { $0.hasSuffix(".\(fileExtension)") }
+                    .sorted()
+                    .map { path(path(subproject, kindDirectory(fileExtension)), $0) }
+            }
+
+            let architecturePaths = architectures.map {
+                path(path(subproject, kindDirectory(architectureExtension)), $0)
+            }
+            // The header file is the one named after the system when the
+            // directory holds it, else the first file by name. The merge
+            // states which file holds the `system` block; this is the guess a
+            // reader makes before anything is parsed.
+            let header = architecturePaths.first {
+                ProjectSystem.stem(of: $0) == name
+            } ?? architecturePaths[0]
+
+            return ProjectSystem(
+                name: name,
+                architecturePaths: architecturePaths,
+                headerPath: header,
+                controlsPaths: paths(controlsExtension),
+                attackTreePaths: paths(attackTreeExtension),
+                reportPath: path(subproject, "\(name).\(reportExtension)"),
+                governancePath: path(subproject, "\(name).\(governanceExtension)")
+            )
+        }
+
+        return (flat + split).sorted { $0.name < $1.name }
+    }
+
+    /// The flat systems a directory holds, by name, sorted.
     public static func systems(in directory: String, fileNames: [String]) -> [ProjectSystem] {
         fileNames
             .filter { $0.hasSuffix(".\(architectureExtension)") }
@@ -91,6 +150,22 @@ public enum ProjectConvention {
 
         let directory = file.deletingLastPathComponent
         guard directory.isEmpty == false, directory != "/" else { return nil }
+
+        // A file inside a subproject: `<root>/threatmodel/<system>/arch/edge.arch`.
+        // The directory it sits in names the kind, and the one above it names
+        // the system.
+        let kind = (directory as NSString).lastPathComponent
+        if kind == kindDirectory(fileExtension) {
+            let subproject = (directory as NSString).deletingLastPathComponent
+            let systemName = (subproject as NSString).lastPathComponent
+            let above = (subproject as NSString).deletingLastPathComponent
+            guard systemName.isEmpty == false, above.isEmpty == false else { return nil }
+            let root = (above as NSString).lastPathComponent == conventionDirectoryName
+                ? (above as NSString).deletingLastPathComponent
+                : above
+            guard root.isEmpty == false else { return nil }
+            return (root: root, systemName: systemName)
+        }
 
         let root = (directory as NSString).lastPathComponent == conventionDirectoryName
             ? (directory as NSString).deletingLastPathComponent

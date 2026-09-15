@@ -15,6 +15,14 @@ a fifth:
 | `<name>.md` | the compiler | the report |
 | `library/<name>.lib` | a team, and shared with other teams | technologies, threats and controls every system in the project reads |
 
+A large system is split across files. `threatmodel/<name>/arch/` holds its
+architecture files, `controls/` holds the answers beside them and
+`attacktree/` holds the trees; the files compose into one system with one
+name, one namespace, one diagram and one report. One file holds the `system`
+block and the rest hold blocks. `threatmodeller split <name>` moves a flat
+system into that shape, and
+[the language guide](docs/LANGUAGE.md#31-the-project-layout) states the rules.
+
 The application draws the same files on a canvas. The executable reads them in
 continuous integration, so a pull request that adds a database and answers
 nothing fails the build.
@@ -183,6 +191,8 @@ threatmodeller library remove <label> [<root>]          # delete a library and i
 threatmodeller library list [<root>]                    # say what this project holds
 threatmodeller library verify [<root>]                  # check the files against the lock file
 threatmodeller library outdated [<root>]                # say which libraries have a newer tag
+
+threatmodeller split <system> [<root>]                  # move a flat system into a directory
 
 threatmodeller attack sync [<tag>] [<root>]             # download and extract MITRE ATT&CK
 threatmodeller attack verify [<root>]                   # check this machine against the lock file

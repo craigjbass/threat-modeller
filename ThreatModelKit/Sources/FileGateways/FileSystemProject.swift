@@ -35,10 +35,38 @@ public struct FileSystemProject: ProjectSourceGateway {
             .appendingPathComponent(ProjectConvention.libraryDirectory)
         let libraryNames = (try? manager.contentsOfDirectory(atPath: libraryDirectory)) ?? []
 
+        // One level below the project directory: a directory holding an
+        // `arch` directory is a split system.
+        var subdirectories: [String: [String: [String]]] = [:]
+        for name in names where name != ProjectConvention.libraryDirectory {
+            let subproject = (directory as NSString).appendingPathComponent(name)
+            var isSubdirectory: ObjCBool = false
+            guard manager.fileExists(atPath: subproject, isDirectory: &isSubdirectory),
+                  isSubdirectory.boolValue else { continue }
+
+            var kinds: [String: [String]] = [:]
+            for kind in [
+                ProjectConvention.architectureExtension,
+                ProjectConvention.controlsExtension,
+                ProjectConvention.attackTreeExtension
+            ] {
+                let inside = (subproject as NSString)
+                    .appendingPathComponent(ProjectConvention.kindDirectory(kind))
+                kinds[kind] = (try? manager.contentsOfDirectory(atPath: inside)) ?? []
+            }
+            if kinds[ProjectConvention.architectureExtension]?.isEmpty == false {
+                subdirectories[name] = kinds
+            }
+        }
+
         return ProjectLayout(
             root: root,
             directory: directory,
-            systems: ProjectConvention.systems(in: directory, fileNames: names),
+            systems: ProjectConvention.systems(
+                in: directory,
+                fileNames: names,
+                subdirectories: subdirectories
+            ),
             libraryPaths: ProjectConvention.libraries(
                 in: libraryDirectory,
                 fileNames: libraryNames

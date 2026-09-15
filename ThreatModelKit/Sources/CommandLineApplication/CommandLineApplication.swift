@@ -147,6 +147,8 @@ public struct CommandLineApplication {
             return self.history(root: root, commits: commits, as: machineOutput, output: output)
         case "library":
             return library(words: Array(words.dropFirst()), isForced: isForced, output: output)
+        case "split":
+            return split(words: Array(words.dropFirst()), output: output)
         case "attack":
             return attack(words: Array(words.dropFirst()), output: output)
         case "actors":
@@ -219,6 +221,14 @@ public struct CommandLineApplication {
             }
         }
         for system in layout.systems {
+            // A split system's part files are rewritten too. The header file
+            // is the one the loop below writes.
+            for path in system.architecturePaths where path != system.headerPath {
+                if formatPart(at: path, isQuiet: isQuiet, output: output) == false {
+                    code = .didNotParse
+                }
+            }
+
             let text: String
             do {
                 text = try projects.read(path: system.architecturePath)
@@ -299,6 +309,98 @@ public struct CommandLineApplication {
             output("threatmodeller: \(Self.described(error))")
             return false
         }
+    }
+
+    /// Rewrites one part file of a split system in the canonical shape.
+    ///
+    /// A part holds no `system` block, so it is read as a part and written
+    /// back with its blocks in the order it stated them.
+    private func formatPart(at path: String, isQuiet: Bool, output: (String) -> Void) -> Bool {
+        guard let text = try? projects.read(path: path) else { return false }
+
+        let read = architecture.readPart(text)
+        guard let source = read.source, read.hasErrors == false else {
+            for diagnostic in read.diagnostics { output(diagnostic.described(in: path)) }
+            return false
+        }
+        for diagnostic in read.warnings { output(diagnostic.described(in: path)) }
+
+        let written = architecture.writePart(source)
+        guard written != text else {
+            if isQuiet == false { output("unchanged \(path)") }
+            return true
+        }
+        do {
+            try projects.write(written, to: path)
+            if isQuiet == false { output("formatted \(path)") }
+            return true
+        } catch {
+            output("threatmodeller: \(Self.described(error))")
+            return false
+        }
+    }
+
+    // MARK: split
+
+    /// `threatmodeller split <system> [<root>]` turns one flat system into the
+    /// directory form.
+    ///
+    /// It moves files and writes no new content, so a person reads the diff
+    /// and sees moves.
+    private func split(words: [String], output: (String) -> Void) -> Int32 {
+        let rest = words.filter { $0.hasPrefix("-") == false }
+        guard let name = rest.first else {
+            output("threatmodeller: split takes a system name")
+            return ExitCode.didNotParse.rawValue
+        }
+        let root = rest.count > 1 ? rest[1] : "."
+
+        let layout: ProjectLayout
+        do {
+            layout = try projects.discover(root: root)
+        } catch {
+            output("threatmodeller: \(Self.described(error))")
+            return ExitCode.fileFault.rawValue
+        }
+
+        guard let system = layout.system(named: name) else {
+            output("threatmodeller: this project holds no system called \"\(name)\"")
+            return ExitCode.fileFault.rawValue
+        }
+        guard system.isSplit == false else {
+            output("threatmodeller: the system \"\(name)\" is already a directory")
+            return ExitCode.fileFault.rawValue
+        }
+
+        let subproject = ProjectConvention.path(layout.directory, name)
+        func move(_ from: String, _ fileExtension: String) -> Bool {
+            guard projects.exists(path: from) else { return true }
+            let stem = ((from as NSString).lastPathComponent)
+            let into = ProjectConvention.path(
+                ProjectConvention.path(subproject, ProjectConvention.kindDirectory(fileExtension)),
+                stem
+            )
+            do {
+                try projects.write(try projects.read(path: from), to: into)
+                try projects.delete(path: from)
+                output("moved \(from) to \(into)")
+                return true
+            } catch {
+                output("threatmodeller: \(Self.described(error))")
+                return false
+            }
+        }
+
+        guard move(system.architecturePath, ProjectConvention.architectureExtension),
+              move(system.controlsPath, ProjectConvention.controlsExtension),
+              move(system.attackTreePath, ProjectConvention.attackTreeExtension) else {
+            return ExitCode.fileFault.rawValue
+        }
+
+        // The report is written, not read, and the next `report` writes it
+        // inside the subproject.
+        try? projects.delete(path: system.reportPath)
+        return ExitCode.success.rawValue
     }
 
     // MARK: attack
@@ -415,6 +517,67 @@ public struct CommandLineApplication {
         return ExitCode.success.rawValue
     }
 
+    /// Every architecture file of a system, read.
+    static func parts(of system: ProjectSystem, projects: ProjectSourceGateway) -> [SourcePart] {
+        system.architecturePaths.compactMap { path in
+            (try? projects.read(path: path)).map { SourcePart(file: path, text: $0) }
+        }
+    }
+
+    /// Every controls file of a system, by path.
+    static func controlsTexts(
+        of system: ProjectSystem,
+        projects: ProjectSourceGateway
+    ) -> [String: String] {
+        var held: [String: String] = [:]
+        for path in system.controlsPaths where projects.exists(path: path) {
+            held[path] = (try? projects.read(path: path)) ?? ""
+        }
+        return held
+    }
+
+    /// Every attack tree file of a system, read.
+    static func treeTexts(of system: ProjectSystem, projects: ProjectSourceGateway) -> [String] {
+        system.attackTreePaths
+            .filter { projects.exists(path: $0) }
+            .compactMap { try? projects.read(path: $0) }
+    }
+
+    /// The compiled answers, split into one text per controls file.
+    ///
+    /// An answer goes to the file that mirrors the architecture file the
+    /// element it answers came from.
+    static func routedControls(
+        _ compiled: String,
+        of system: ProjectSystem,
+        parts: [SourcePart],
+        held: [String: String],
+        useCases: CommandLineDependencies
+    ) -> [String: String] {
+        let sources = useCases.controlsSources
+        guard let source = sources.read(compiled).source else { return [:] }
+
+        let merged = useCases.architectureSources.read(parts, named: system.name)
+        let origins = merged.origins
+
+        return ControlsSourceMerge.split(
+            source,
+            sources: sources,
+            held: held,
+            originOf: { answer in
+                switch answer.sourceKind {
+                case "component": origins[.component(answer.sourceId)]
+                case "zone": origins[.zone(answer.sourceId)]
+                case "flow", "connection": origins[.flow(answer.sourceId)]
+                default: nil
+                }
+            },
+            // An answer whose element no file states — a threat on the system
+            // itself — goes with the header file.
+            controlsPathOf: { $0.isEmpty ? system.controlsPath : system.controlsPath(mirroring: $0) }
+        )
+    }
+
     /// The trees beside a system, or nil when the project holds no such file.
     private func treeText(of system: ProjectSystem) -> String? {
         guard projects.exists(path: system.attackTreePath) else { return nil }
@@ -503,11 +666,20 @@ public struct CommandLineApplication {
                 ? try? projects.read(path: system.controlsPath)
                 : nil
 
+            // A split system is several architecture files and one controls
+            // file beside each. It reads as one set and writes back per file.
+            let parts = Self.parts(of: system, projects: projects)
+            let heldControls = Self.controlsTexts(of: system, projects: projects)
+
             let response = useCases.compileControls().execute(
                 CompileControlsRequest(
                     architectureText: architectureText,
                     controlsText: existing,
-                    attackTreeText: treeText(of: system)
+                    attackTreeText: treeText(of: system),
+                    architectureParts: system.isSplit ? parts : [],
+                    directoryName: system.isSplit ? system.name : nil,
+                    controlsParts: system.isSplit ? heldControls : [:],
+                    attackTreeTexts: system.isSplit ? Self.treeTexts(of: system, projects: projects) : []
                 )
             )
             guard case .compiled(let text, let answered, let unanswered, let stale, let staleTrees, _, let warnings) = response else {
@@ -519,7 +691,19 @@ public struct CommandLineApplication {
             }
 
             do {
-                try projects.write(text, to: system.controlsPath)
+                if system.isSplit {
+                    for (path, written) in Self.routedControls(
+                        text,
+                        of: system,
+                        parts: parts,
+                        held: heldControls,
+                        useCases: useCases
+                    ) {
+                        try projects.write(written, to: path)
+                    }
+                } else {
+                    try projects.write(text, to: system.controlsPath)
+                }
             } catch {
                 output("threatmodeller: \(Self.described(error))")
                 return .fileFault
@@ -676,7 +860,17 @@ public struct CommandLineApplication {
                     attackTreeText: treeText(of: system),
                     governanceText: governanceText(of: system),
                     policyText: policyText(root: root),
-                    tolerance: tolerance
+                    tolerance: tolerance,
+                    architectureParts: system.isSplit
+                        ? Self.parts(of: system, projects: projects)
+                        : [],
+                    directoryName: system.isSplit ? system.name : nil,
+                    controlsParts: system.isSplit
+                        ? Self.controlsTexts(of: system, projects: projects)
+                        : [:],
+                    attackTreeTexts: system.isSplit
+                        ? Self.treeTexts(of: system, projects: projects)
+                        : []
                 )
             )
             guard case .checked(
@@ -844,7 +1038,12 @@ public struct CommandLineApplication {
                 .execute(
                     ImportArchitectureRequest(
                         text: architectureText,
-                        attackTreeText: treeText(of: system)
+                        attackTreeText: treeText(of: system),
+                        parts: system.isSplit ? Self.parts(of: system, projects: projects) : [],
+                        directoryName: system.isSplit ? system.name : nil,
+                        attackTreeTexts: system.isSplit
+                            ? Self.treeTexts(of: system, projects: projects)
+                            : []
                     )
                 )
             guard case .imported = imported else {
@@ -1088,7 +1287,12 @@ public struct CommandLineApplication {
                 .execute(
                     ImportArchitectureRequest(
                         text: architectureText,
-                        attackTreeText: treeText(of: system)
+                        attackTreeText: treeText(of: system),
+                        parts: system.isSplit ? Self.parts(of: system, projects: projects) : [],
+                        directoryName: system.isSplit ? system.name : nil,
+                        attackTreeTexts: system.isSplit
+                            ? Self.treeTexts(of: system, projects: projects)
+                            : []
                     )
                 )
             guard case .imported = imported else {
@@ -1459,6 +1663,8 @@ public struct CommandLineApplication {
       threatmodeller library list [<root>]                    say what this project holds
       threatmodeller library verify [<root>]                  check the files against the lock file
       threatmodeller library outdated [<root>]                say which libraries have a newer tag
+
+      threatmodeller split <system> [<root>]                  move a flat system into a directory
 
       threatmodeller attack sync [<tag>] [<root>]             download and extract MITRE ATT&CK
       threatmodeller attack verify [<root>]                   check this machine against the lock file

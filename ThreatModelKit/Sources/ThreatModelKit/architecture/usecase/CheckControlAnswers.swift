@@ -17,6 +17,11 @@ public struct CheckControlAnswersRequest: Equatable, Sendable {
     public let policyText: String?
     /// A risk level that overrides what the architecture file states, or nil.
     public let tolerance: String?
+    /// Every architecture file of a split system, and every controls file.
+    public let architectureParts: [SourcePart]
+    public let directoryName: String?
+    public let controlsParts: [String: String]
+    public let attackTreeTexts: [String]
 
     public init(
         architectureText: String,
@@ -24,8 +29,16 @@ public struct CheckControlAnswersRequest: Equatable, Sendable {
         attackTreeText: String? = nil,
         governanceText: String? = nil,
         policyText: String? = nil,
-        tolerance: String? = nil
+        tolerance: String? = nil,
+        architectureParts: [SourcePart] = [],
+        directoryName: String? = nil,
+        controlsParts: [String: String] = [:],
+        attackTreeTexts: [String] = []
     ) {
+        self.architectureParts = architectureParts
+        self.directoryName = directoryName
+        self.controlsParts = controlsParts
+        self.attackTreeTexts = attackTreeTexts
         self.architectureText = architectureText
         self.controlsText = controlsText
         self.attackTreeText = attackTreeText
@@ -107,7 +120,11 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             CompileControlsRequest(
                 architectureText: request.architectureText,
                 controlsText: request.controlsText,
-                attackTreeText: request.attackTreeText
+                attackTreeText: request.attackTreeText,
+                architectureParts: request.architectureParts,
+                directoryName: request.directoryName,
+                controlsParts: request.controlsParts,
+                attackTreeTexts: request.attackTreeTexts
             )
         )
 

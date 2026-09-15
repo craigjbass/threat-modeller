@@ -23,6 +23,10 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
 
     public func text(at path: String) -> String? { files[path] }
 
+    /// Every path this project holds, for a test that states what was
+    /// written.
+    public var everyPath: [String] { Array(files.keys) }
+
     public func discover(root: String) throws -> ProjectLayout {
         guard directories.contains(root) else {
             throw ProjectError.notADirectory(path: root)
@@ -43,10 +47,32 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
             .filter { (($0 as NSString).deletingLastPathComponent) == libraryDirectory }
             .map { ($0 as NSString).lastPathComponent }
 
+        // One level below the project directory: a directory holding an
+        // `arch` directory is a split system.
+        var subdirectories: [String: [String: [String]]] = [:]
+        for path in files.keys {
+            let kindDirectory = (path as NSString).deletingLastPathComponent
+            let subproject = (kindDirectory as NSString).deletingLastPathComponent
+            guard (subproject as NSString).deletingLastPathComponent == directory else { continue }
+
+            let name = (subproject as NSString).lastPathComponent
+            guard name != ProjectConvention.libraryDirectory else { continue }
+            let kind = (kindDirectory as NSString).lastPathComponent
+            subdirectories[name, default: [:]][kind, default: []]
+                .append((path as NSString).lastPathComponent)
+        }
+        subdirectories = subdirectories.filter {
+            $0.value[ProjectConvention.architectureExtension]?.isEmpty == false
+        }
+
         return ProjectLayout(
             root: root,
             directory: directory,
-            systems: ProjectConvention.systems(in: directory, fileNames: names),
+            systems: ProjectConvention.systems(
+                in: directory,
+                fileNames: names,
+                subdirectories: subdirectories
+            ),
             libraryPaths: ProjectConvention.libraries(
                 in: libraryDirectory,
                 fileNames: libraryNames

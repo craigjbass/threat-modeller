@@ -55,34 +55,42 @@ public struct OpenSystem: OpenSystemUseCase {
             return .cannotRead(reason: String(describing: error))
         }
 
-        let text: String
+        // Every architecture file of the system. A flat system holds one.
+        var parts: [SourcePart] = []
         do {
-            text = try projects.read(path: system.architecturePath)
+            for path in system.architecturePaths {
+                parts.append(SourcePart(file: path, text: try projects.read(path: path)))
+            }
         } catch {
             return .cannotRead(reason: String(describing: error))
         }
 
         // The trees beside the architecture are part of the system, the way
         // the answers are.
-        let attackTreeText = projects.exists(path: system.attackTreePath)
-            ? try? projects.read(path: system.attackTreePath)
-            : nil
+        let attackTreeTexts = system.attackTreePaths
+            .filter { projects.exists(path: $0) }
+            .compactMap { try? projects.read(path: $0) }
 
         switch imports.execute(
-            ImportArchitectureRequest(text: text, attackTreeText: attackTreeText)
+            ImportArchitectureRequest(
+                text: parts.first?.text ?? "",
+                parts: system.isSplit ? parts : [],
+                directoryName: system.isSplit ? system.name : nil,
+                attackTreeTexts: attackTreeTexts
+            )
         ) {
         case .imported(let name, let warnings, let catalogueTag):
             // The answers beside the architecture are part of the system, so
             // opening one reads both.
             var everyWarning = warnings
-            if projects.exists(path: system.controlsPath),
-               let controlsText = try? projects.read(path: system.controlsPath) {
+            for path in system.controlsPaths where projects.exists(path: path) {
+                guard let controlsText = try? projects.read(path: path) else { continue }
                 switch applies.execute(ApplyControlAnswersRequest(text: controlsText)) {
                 case .applied(_, let controlWarnings):
                     everyWarning += controlWarnings
                 case .refused(let diagnostics):
                     return .refused(
-                        fileName: fileName(of: system.controlsPath),
+                        fileName: fileName(of: path),
                         diagnostics: diagnostics
                     )
                 }

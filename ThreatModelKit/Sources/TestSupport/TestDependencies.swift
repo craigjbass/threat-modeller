@@ -327,7 +327,11 @@ public final class TestDependencies: UseCaseFactory {
     }
 
     public func saveSystem() -> SaveSystemUseCase {
-        SaveSystem(projects: projects, exports: exportArchitecture())
+        SaveSystem(
+            projects: projects,
+            exports: exportArchitecture(),
+            sources: architectureSources
+        )
     }
 
     public func adoptCatalogueVersion() -> AdoptCatalogueVersionUseCase {
