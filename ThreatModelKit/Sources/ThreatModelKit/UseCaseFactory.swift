@@ -74,6 +74,8 @@ public protocol UseCaseFactory: Sendable {
     func reverseConnection() -> ReverseConnectionUseCase
     func addZone() -> AddZoneUseCase
     func resizeZone() -> ResizeZoneUseCase
+    func moveZones() -> MoveZonesUseCase
+    func reorderZones() -> ReorderZonesUseCase
     func setZoneProperties() -> SetZonePropertiesUseCase
     func removeZone() -> RemoveZoneUseCase
     func overrideThreatSeverity() -> OverrideThreatSeverityUseCase

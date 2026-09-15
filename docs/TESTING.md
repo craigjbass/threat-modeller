@@ -4,7 +4,14 @@
 cd ThreatModelKit && swift test          # the package: fast, no application
 xcodebuild test -project threatmodeller.xcodeproj \
   -scheme threatmodeller -destination 'platform=macOS'
+scripts/cli-smoke.sh                     # the executable, over real files
 ```
+
+The third command runs the executable over projects it writes in a temporary
+directory, and reads what the executable wrote and what it exited with. The
+Linux job runs that same file, so a smoke test cannot say one thing here and
+another in the job. `THREATMODELLER` names how to run the executable, which is
+how the job runs the script against the static binary.
 
 The second command runs the application tests. There are no interface journeys:
 they needed macOS Automation Mode, which this machine will not enable without

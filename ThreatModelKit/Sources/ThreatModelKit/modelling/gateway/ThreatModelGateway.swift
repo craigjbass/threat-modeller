@@ -59,6 +59,8 @@ public enum ChangeLabel {
     public static let labelConnection = "Label Flow"
     public static let addZone = "Draw Zone"
     public static let resizeZone = "Resize Zone"
+    public static let moveZones = "Move Zone"
+    public static let reorderZones = "Reorder Zones"
     public static let removeZone = "Delete Zone"
     public static let setZoneProperties = "Edit Zone"
     public static let setComponentProperties = "Edit Component"

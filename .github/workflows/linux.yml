@@ -37,172 +37,10 @@ jobs:
         working-directory: ThreatModelKit
         run: swift test
 
-      - name: Format the sample project
-        working-directory: ThreatModelKit
-        run: |
-          mkdir -p /tmp/sample/threatmodel
-          cat > /tmp/sample/threatmodel/payments.arch <<'ARCH'
-          system "Payments" {
-          zone "app" { kind = "private"
-          component "api" { technology = "aws-ec2" } }
-          }
-          ARCH
-          swift run threatmodeller-cli format /tmp/sample
-          cat /tmp/sample/threatmodel/payments.arch
-
-      - name: Compile, check and report the sample project
-        working-directory: ThreatModelKit
-        run: |
-          swift run threatmodeller-cli compile /tmp/sample
-          test -f /tmp/sample/threatmodel/payments.controls
-
-          # Nothing is answered yet, so check must fail the build.
-          set +e
-          swift run threatmodeller-cli check /tmp/sample
-          code=$?
-          set -e
-          test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
-
-          # Answer everything by putting the controls in place, and it must
-          # pass. Accepting them instead is also an answer, and an accepted
-          # risk asks who carries it, which the step below walks.
-          sed -i 's/"not_implemented"/"implemented"/g' /tmp/sample/threatmodel/payments.controls
-          swift run threatmodeller-cli check /tmp/sample
-
-          swift run threatmodeller-cli report /tmp/sample
-          test -f /tmp/sample/threatmodel/payments.md
-          head -20 /tmp/sample/threatmodel/payments.md
-
-      - name: An accepted risk asks who carries it
-        working-directory: ThreatModelKit
-        run: |
-          mkdir -p /tmp/accepted/threatmodel
-          cat > /tmp/accepted/threatmodel/payments.arch <<'ARCH'
-          system "Payments" {
-            component "api" { technology = "aws-ec2" }
-          }
-          ARCH
-          swift run threatmodeller-cli compile /tmp/accepted
-          sed -i 's/"not_implemented"/"accepted"/g' /tmp/accepted/threatmodel/payments.controls
-
-          # A control accepted and governed by nobody fails the build.
-          set +e
-          swift run threatmodeller-cli check /tmp/accepted
-          code=$?
-          set -e
-          test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
-
-          # The two migration steps the README states: compile writes the
-          # governance file, then a person fills in the owner and the date.
-          swift run threatmodeller-cli compile /tmp/accepted
-          test -f /tmp/accepted/threatmodel/payments.governance
-          python3 - <<'FILL'
-          from pathlib import Path
-
-          path = Path("/tmp/accepted/threatmodel/payments.governance")
-          lines = []
-          for line in path.read_text().splitlines():
-              lines.append(line)
-              if line.strip().startswith("accepted \"") and line.strip().endswith("{"):
-                  indent = " " * (len(line) - len(line.lstrip()) + 2)
-                  lines.append(indent + 'owner       = "The Platform Team"')
-                  lines.append(indent + 'accepted_on = "2026-01-01"')
-                  lines.append(indent + 'review_by   = "2099-01-01"')
-          path.write_text("\n".join(lines) + "\n")
-          FILL
-          swift run threatmodeller-cli check /tmp/accepted
-
-      - name: Refuse a file that does not parse
-        working-directory: ThreatModelKit
-        run: |
-          mkdir -p /tmp/broken/threatmodel
-          printf 'system "P" {\n  zone "z" { kind = "secret" }\n}\n' \
-            > /tmp/broken/threatmodel/p.arch
-          set +e
-          swift run threatmodeller-cli format /tmp/broken
-          code=$?
-          set -e
-          test "$code" -eq 2 || { echo "expected exit 2, got $code"; exit 1; }
-
-      - name: Vendor a library, and read it
-        working-directory: ThreatModelKit
-        run: |
-          # A library repository this job builds, so nothing reaches a network.
-          mkdir -p /tmp/elements
-          cat > /tmp/elements/acme.lib <<'LIB'
-          library "acme" {
-            name = "Acme Platform"
-
-            technology "cribl-stream" {
-              name     = "Cribl Stream"
-              category = "monitoring"
-              threats  = ["pipeline-tamper"]
-            }
-
-            threat "pipeline-tamper" {
-              name     = "Pipeline tampering"
-              severity = "high"
-
-              control "Sign pipeline configurations"
-            }
-          }
-          LIB
-          git config --global --add safe.directory /tmp/elements
-          git -C /tmp/elements init --initial-branch=main
-          git -C /tmp/elements add .
-          git -C /tmp/elements -c user.email=a@b.c -c user.name=A commit -m one
-          git -C /tmp/elements tag v1.0.0
-
-          # A project that names the library's technology.
-          mkdir -p /tmp/library-project/threatmodel
-          cat > /tmp/library-project/threatmodel/payments.arch <<'ARCH'
-          system "Payments" {
-            component "ingest" { technology = "acme-cribl-stream" }
-          }
-          ARCH
-
-          swift run threatmodeller-cli library add /tmp/elements v1.0.0 /tmp/library-project
-          test -f /tmp/library-project/threatmodel/library/acme.lib
-          test -f /tmp/library-project/threatmodel/library/library.lock.json
-
-          swift run threatmodeller-cli library verify /tmp/library-project
-          swift run threatmodeller-cli library list /tmp/library-project
-
-          # The library's threat reaches the compiled answers.
-          swift run threatmodeller-cli compile /tmp/library-project
-          grep -q 'acme-pipeline-tamper' /tmp/library-project/threatmodel/payments.controls
-          grep -q 'Sign pipeline configurations' /tmp/library-project/threatmodel/payments.controls
-
-          # A hand edit must fail verify.
-          echo '# edited by hand' >> /tmp/library-project/threatmodel/library/acme.lib
-          set +e
-          swift run threatmodeller-cli library verify /tmp/library-project
-          code=$?
-          set -e
-          test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
-
-          # update puts it back.
-          swift run threatmodeller-cli library update /tmp/library-project
-          swift run threatmodeller-cli library verify /tmp/library-project
-
-          # remove refuses while the system names it.
-          set +e
-          swift run threatmodeller-cli library remove acme /tmp/library-project
-          code=$?
-          set -e
-          test "$code" -eq 1 || { echo "expected exit 1, got $code"; exit 1; }
-          swift run threatmodeller-cli library remove acme --force /tmp/library-project
-
-      - name: Refuse a repository that is not there
-        working-directory: ThreatModelKit
-        run: |
-          mkdir -p /tmp/no-repo/threatmodel
-          printf 'system "P" { }\n' > /tmp/no-repo/threatmodel/p.arch
-          set +e
-          swift run threatmodeller-cli library add /no/such/repository v1.0.0 /tmp/no-repo
-          code=$?
-          set -e
-          test "$code" -eq 4 || { echo "expected exit 4, got $code"; exit 1; }
+      # The smoke test is a file in the repository, not shell in this file,
+      # so the same run happens on a person's machine.
+      - name: Run the executable over a sample project
+        run: ./scripts/cli-smoke.sh
 
       - name: Install the static Linux SDK
         if: ${{ inputs.build-binaries }}
@@ -250,23 +88,14 @@ jobs:
         run: |
           # The container that runs this holds a Swift toolchain, so a dynamic
           # binary would pass by accident. `ldd` proves the file needs nothing.
-          DIR=build/linux/x86_64-swift-linux-musl
+          DIR=$(pwd)/build/linux/x86_64-swift-linux-musl
           BIN="$DIR/threatmodeller"
           ldd "$BIN" 2>&1 | grep -qi "not a dynamic executable" \
             || { echo "the binary is not static:"; ldd "$BIN"; exit 1; }
 
-          # Run real verbs, and read the catalogue from the directory that
-          # ships beside the binary.
-          mkdir -p /tmp/static/threatmodel
-          cat > /tmp/static/threatmodel/p.arch <<'ARCH'
-          system "P" {
-          zone "z" { kind = "private"
-          component "c" { technology = "aws-ec2" } }
-          }
-          ARCH
-          "$BIN" --catalogue "$DIR" format /tmp/static
-          "$BIN" --catalogue "$DIR" compile /tmp/static
-          test -f /tmp/static/threatmodel/p.controls
+          # The same smoke test the built package runs, against the static
+          # binary, reading the catalogue from the directory beside it.
+          THREATMODELLER="$BIN --catalogue $DIR" ./scripts/cli-smoke.sh
 
       - name: Upload the static Linux binaries
         if: ${{ inputs.build-binaries }}

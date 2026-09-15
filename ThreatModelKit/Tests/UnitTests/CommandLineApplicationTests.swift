@@ -628,6 +628,45 @@ struct CommandLineApplicationTests {
         #expect(result.lines.contains { $0.contains("is accepted by nobody") })
     }
 
+    /// The route a person walks when a project starts to accept risk:
+    /// accept, watch `check` fail, compile to write the governance file, fill
+    /// in who carries each risk and when they look at it again, and check
+    /// again. The Linux job used to walk this in shell; it walks here instead,
+    /// where the same run covers macOS and Linux.
+    @Test func checkPassesOnceEveryAcceptedRiskHasAnOwnerAndAReviewDate() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        _ = run("compile", "/work")
+        let compiled = try #require(project.text(at: "/work/threatmodel/payments.controls"))
+        project.put(
+            compiled.replacingOccurrences(of: "\"not_implemented\"", with: "\"accepted\""),
+            at: "/work/threatmodel/payments.controls"
+        )
+        _ = run("compile", "/work")
+        let written = try #require(project.text(at: "/work/threatmodel/payments.governance"))
+
+        project.put(Self.governed(written), at: "/work/threatmodel/payments.governance")
+        let result = run("check", "/work")
+
+        #expect(result.code == 0)
+        #expect(result.lines.contains { $0.contains("is accepted by nobody") } == false)
+    }
+
+    /// Puts an owner and two dates in every `accepted` block of a governance
+    /// file, as a person would.
+    private static func governed(_ text: String) -> String {
+        var lines: [String] = []
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            lines.append(String(line))
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("accepted \""), trimmed.hasSuffix("{") else { continue }
+            let indent = String(repeating: " ", count: line.count - trimmed.count + 2)
+            lines.append(indent + "owner       = \"The Platform Team\"")
+            lines.append(indent + "accepted_on = \"2026-01-01\"")
+            lines.append(indent + "review_by   = \"2099-01-01\"")
+        }
+        return lines.joined(separator: "\n")
+    }
+
     @Test func theToleranceFlagOverridesTheFilesTolerance() throws {
         project.put(
             """

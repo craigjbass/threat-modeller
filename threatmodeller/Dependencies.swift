@@ -392,6 +392,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         ResizeZone(models: models)
     }
 
+    func moveZones() -> MoveZonesUseCase {
+        MoveZones(models: models)
+    }
+
+    func reorderZones() -> ReorderZonesUseCase {
+        ReorderZones(models: models)
+    }
+
     func setZoneProperties() -> SetZonePropertiesUseCase {
         SetZoneProperties(models: models)
     }
