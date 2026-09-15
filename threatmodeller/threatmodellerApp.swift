@@ -185,7 +185,8 @@ struct ThreatModellerApp: App {
             AboutWindow(
                 catalogue: catalogue,
                 libraries: project?.libraries ?? [],
-                attack: project?.attackHolding
+                attack: project?.attackHolding,
+                verify: project?.attackAgreement
             )
         }
         .windowResizability(.contentSize)

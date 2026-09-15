@@ -761,7 +761,8 @@ struct ViewRenderTests {
                     groups: 189,
                     techniques: 823,
                     writtenAt: Date(timeIntervalSince1970: 1_700_000_000)
-                )
+                ),
+                verify: .doesNotMatch(tag: "v18.1", fileName: "groups.json")
             ),
             width: 520,
             height: 480,

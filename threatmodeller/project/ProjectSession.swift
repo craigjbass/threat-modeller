@@ -611,6 +611,13 @@ final class ProjectSession {
         useCases.viewAttackData().execute(ViewAttackDataRequest())
     }
 
+    /// Whether the held data is the data the project's lock file states: the
+    /// answer `threatmodeller attack verify` gives, readable in the window.
+    var attackAgreement: VerifyAttackResponse? {
+        guard let root else { return nil }
+        return useCases.verifyAttack().execute(VerifyAttackRequest(root: root))
+    }
+
     /// The libraries this project reads, each with its repository and its tag.
     /// The About window states them under the catalogue line.
     var libraries: [ListedLibrary] {

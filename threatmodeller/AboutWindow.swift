@@ -17,6 +17,10 @@ struct AboutWindow: View {
     /// The ATT&CK data this machine holds, or nil when nothing could ask.
     /// `.nothingHeld` and nil both mean the machine holds none.
     var attack: ViewAttackDataResponse?
+    /// Whether the held data is the data the project's lock file states: the
+    /// answer `threatmodeller attack verify` gives. Nil means no project is
+    /// open, and the window says nothing about the lock file.
+    var verify: VerifyAttackResponse?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -118,6 +122,36 @@ struct AboutWindow: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("about-no-attack")
+                }
+
+                // The check `threatmodeller attack verify` runs, in the
+                // window, so drifted data is visible here too.
+                switch verify {
+                case .matches?:
+                    Text("Matches \(AttackLock.fileName).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("about-attack-verify")
+                case .doesNotMatch(let tag, let fileName)?:
+                    Text(
+                        "\(fileName) is not the file ATT&CK \(tag) states. "
+                            + "Synchronise ATT&CK to replace it."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("about-attack-verify")
+                case .notSynchronised(let tag)?:
+                    Text("This project states ATT&CK \(tag).")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .accessibilityIdentifier("about-attack-verify")
+                case .noLockFile?:
+                    Text("This project states no ATT&CK release.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("about-attack-verify")
+                case .notAProject?, nil:
+                    EmptyView()
                 }
             }
 
