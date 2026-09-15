@@ -126,21 +126,44 @@ component's centre sits in, and the save path compiles with no layout.
 
 ## 7. The other undelivered item: `brokenBoundaries`
 
-The layout search is still slower than the model it draws:
+**Profiled again on 2026-09-15**, release build, sixty components in one zone
+with fifty-nine flows, sampled for eight seconds with `sample`. The old figure
+in this section is stale: `brokenBoundaries` and `BoundaryCrossings.stretches`
+do not appear in the profile at all. Where the time went:
 
-    10 components  0.040 s
-    20 components  0.191 s
-    30 components  0.488 s
-    40 components  0.805 s
-    60 components  2.047 s
+| Frame | Share of the run |
+| --- | --- |
+| `LayOutModel.fitness(of:in:)` | 52.2% |
+| ` ` `LayOutModel.readability(of:in:curves:)` | 26.0% |
+| ` ` ` ` `CurveCrossing.crossings(_:_:)` | 21.0% |
+| ` ` ` ` `FlowShape.shareAPath(_:_:)` | 18.7% |
+| ` ` `LayOutModel.curves(of:in:)` | 25.5% |
+| ` ` ` ` `FlowRouting.curves(of:)` | 21.0% |
+| `LayOutModel.callouts(of:in:curves:)` | 8.8% |
 
-The last profile of it, before the square root came out of
-`CurveCrossing`, put `brokenBoundaries` at 1.42 s of a 3.04 s load, 46.7%,
-nearly all of it under `BoundaryCrossings.stretches`. Three changes have
-landed since (squared distances, a callout that skips a flow it cannot cover,
-and scoring each plan once), and nothing has profiled it again. Measure it
-before changing it. `docs/TESTING.md` states how, and warns not to measure
-through Xcode's `RunCodeSnippet`.
+The cause under `readability` was sampling. It compares every pair of flows,
+which is 1711 pairs at fifty-nine flows, and both `crosses` and `shareAPath`
+sampled both curves again for every pair: each curve was sampled about a
+hundred times over. `readability` now samples each curve once and drops a pair
+whose boxes do not meet.
+
+The measured curve, before and after that change:
+
+| Components | Before | After |
+| --- | --- | --- |
+| 10 | 0.015 s | 0.010 s |
+| 20 | 0.048 s | 0.025 s |
+| 30 | 0.121 s | 0.061 s |
+| 40 | 0.218 s | 0.106 s |
+| 60 | 0.500 s | 0.238 s |
+
+The curve in the first table of this section (0.040 s to 2.047 s) was measured
+before squared distances, before a callout skipped a flow it cannot cover, and
+before the search scored each plan once. It is four times slower than what this
+build measures, so it is kept only as history.
+
+The next place to look is `FlowRouting.curves`, at 21%, which is the routing
+itself rather than the scoring of it.
 
 ## 8. Testing
 

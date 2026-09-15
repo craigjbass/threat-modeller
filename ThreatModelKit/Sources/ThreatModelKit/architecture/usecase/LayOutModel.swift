@@ -463,6 +463,21 @@ public struct LayOutModel: LayOutModelUseCase {
         var shared = 0
         let flows = request.source.flows
 
+        // Each curve is sampled once, not once per pair it takes part in.
+        // Sixty components draw fifty-nine flows, which is 1711 pairs, and
+        // sampling inside the pair loop sampled each curve about a hundred
+        // times over.
+        var sampled: [Int: [Point]] = [:]
+        var bounds: [Int: Rect] = [:]
+        for index in flows.indices {
+            guard let curve = curves["\(flows[index].sourceId)->\(flows[index].targetId)"] else {
+                continue
+            }
+            let points = CurveCrossing.samples(of: curve, steps: FlowShape.steps)
+            sampled[index] = points
+            bounds[index] = Self.bounds(of: points)
+        }
+
         for first in flows.indices {
             for second in (first + 1) ..< flows.count {
                 let one = flows[first]
@@ -471,16 +486,41 @@ public struct LayOutModel: LayOutModelUseCase {
                       one.sourceId != other.targetId,
                       one.targetId != other.sourceId,
                       one.targetId != other.targetId else { continue }
-                guard let oneCurve = curves["\(one.sourceId)->\(one.targetId)"],
-                      let otherCurve = curves["\(other.sourceId)->\(other.targetId)"]
+                guard let onePoints = sampled[first], let otherPoints = sampled[second],
+                      let oneBox = bounds[first], let otherBox = bounds[second]
                 else { continue }
 
-                if FlowShape.crosses(oneCurve, otherCurve) { crossings += 1 }
-                if FlowShape.shareAPath(oneCurve, otherCurve) { shared += 1 }
+                // Two flows whose boxes do not meet neither cross nor run
+                // together, and most pairs on a large diagram are that.
+                guard Self.meet(oneBox, otherBox, within: FlowShape.sameLine) else { continue }
+
+                if FlowShape.crosses(onePoints, otherPoints) { crossings += 1 }
+                if FlowShape.shareAPath(onePoints, otherPoints) { shared += 1 }
             }
         }
 
         return (tightness, crossings, shared, behindNodes)
+    }
+
+    /// The box a sampled curve fits in.
+    static func bounds(of points: [Point]) -> Rect {
+        guard let first = points.first else { return Rect(x: 0, y: 0, width: 0, height: 0) }
+        var minX = first.x, maxX = first.x, minY = first.y, maxY = first.y
+        for point in points.dropFirst() {
+            minX = min(minX, point.x)
+            maxX = max(maxX, point.x)
+            minY = min(minY, point.y)
+            maxY = max(maxY, point.y)
+        }
+        return Rect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    /// True when the two boxes come within `slack` of each other.
+    static func meet(_ one: Rect, _ other: Rect, within slack: Double) -> Bool {
+        one.origin.x - slack <= other.maxX
+            && other.origin.x - slack <= one.maxX
+            && one.origin.y - slack <= other.maxY
+            && other.origin.y - slack <= one.maxY
     }
 
     /// Where every label goes, and how well it went.

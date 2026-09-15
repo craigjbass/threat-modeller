@@ -236,6 +236,20 @@ Measure it again the way the layout is measured: write a probe under
 `ReadRiskHistory.execute`, run `swift test -c release --filter <the probe>`,
 then remove the probe. Do not measure through Xcode's `RunCodeSnippet`.
 
+## What a layout costs
+
+Measured in a release build on 2026-09-15, by the method the section below
+states, with the components in one zone and one flow between each pair in a
+line:
+
+| Components | Time |
+| --- | --- |
+| 10 | 0.010 s |
+| 20 | 0.025 s |
+| 30 | 0.061 s |
+| 40 | 0.106 s |
+| 60 | 0.238 s |
+
 ## Measuring what a layout costs
 
 `LayOutModel` is the slow part of opening a model. Measure it in the package,

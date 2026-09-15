@@ -72,10 +72,19 @@ public enum FlowShape {
     /// tested against every other pair, and a crossing missed by a few points
     /// changes nothing a reader sees.
     public static func crosses(_ first: FlowCurve, _ second: FlowCurve) -> Bool {
-        CurveCrossing.crosses(
+        crosses(
             CurveCrossing.samples(of: first, steps: steps),
             CurveCrossing.samples(of: second, steps: steps)
         )
+    }
+
+    /// The same question, of two curves already sampled.
+    ///
+    /// A caller comparing every pair of flows samples each curve once and asks
+    /// this, rather than sampling the same curve again for every pair it takes
+    /// part in.
+    public static func crosses(_ first: [Point], _ second: [Point]) -> Bool {
+        CurveCrossing.crosses(first, second)
     }
 
     /// How near two flows have to run to read as one line.
@@ -90,8 +99,14 @@ public enum FlowShape {
     /// stretch are read as one, and a reader following either of them arrives
     /// somewhere the model does not say.
     public static func shareAPath(_ first: FlowCurve, _ second: FlowCurve) -> Bool {
-        let one = CurveCrossing.samples(of: first, steps: steps)
-        let other = CurveCrossing.samples(of: second, steps: steps)
+        shareAPath(
+            CurveCrossing.samples(of: first, steps: steps),
+            CurveCrossing.samples(of: second, steps: steps)
+        )
+    }
+
+    /// The same question, of two curves already sampled.
+    public static func shareAPath(_ one: [Point], _ other: [Point]) -> Bool {
         var together = 0
 
         for point in one {
