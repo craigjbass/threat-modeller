@@ -31,6 +31,10 @@ struct ZoneView: View {
     var onStartEditingName: () -> Void = {}
     var onCommitName: (String) -> Void = { _ in }
     var onCancelName: () -> Void = {}
+    /// What a secondary click offers, and what selects the zone before the
+    /// menu opens. Empty in a picture that takes no clicks.
+    var menu: () -> [ElementMenu.Row] = { [] }
+    var onOpenMenu: () -> Void = {}
 
     /// The zone drawn at the view's own origin, so a grip's position inside
     /// this view does not depend on where the zone sits on the canvas.
@@ -143,6 +147,10 @@ struct ZoneView: View {
                 .onChanged { onDragChanged(nil, $0.translation) }
                 .onEnded { onDragEnded(nil, $0.translation) }
         )
+        .contextMenu {
+            ElementMenuView(rows: menu())
+                .onAppear { onOpenMenu() }
+        }
     }
 
     private var grips: some View {

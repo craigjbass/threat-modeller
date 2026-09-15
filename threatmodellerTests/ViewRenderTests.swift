@@ -184,6 +184,38 @@ struct ViewRenderTests {
         expectDrawn(ProjectWindow(session: session), "the project window after the example")
     }
 
+    // MARK: the context menus
+
+    /// Each of the four menus, drawn. A `contextMenu` cannot be opened by a
+    /// test, so the rows are drawn as the menu draws them.
+    @Test func drawsTheFourContextMenus() async throws {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        let canvas = CanvasState()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 400, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        session.connect(sourceComponentId: ids[0], targetComponentId: ids[1])
+        let flow = try #require(session.canvas.connections.first)
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 400, height: 300))
+        let menu = ElementMenu(session: session, canvas: canvas)
+
+        for (what, rows) in [
+            ("component", menu.component(ids[0])),
+            ("zone", menu.zone(zoneId)),
+            ("connection", menu.connection(flow.id)),
+            ("canvas", menu.background(at: .zero))
+        ] {
+            expectDrawn(
+                VStack(alignment: .leading) { ElementMenuView(rows: rows) }
+                    .padding()
+                    .background(Color(nsColor: .windowBackgroundColor)),
+                width: 320,
+                height: 420,
+                "the \(what) menu"
+            )
+        }
+    }
+
     // MARK: the threats stage
 
     /// The threats stage draws the diagram beside the threat list, with

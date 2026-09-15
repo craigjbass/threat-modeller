@@ -25,6 +25,14 @@ struct CanvasView: View {
         CanvasGestures(session: session, canvas: canvas)
     }
 
+    private var menus: ElementMenu {
+        ElementMenu(session: session, canvas: canvas)
+    }
+
+    /// Where the pointer last was on the canvas, in model coordinates, so the
+    /// background menu's Draw Zone starts where the click landed.
+    @State private var pointerPoint: CGPoint = .zero
+
     /// What the pointer looks like over open canvas.
     private var pointer: PointerStyle? {
         if canvas.isDrawingZone { return .rectSelection }
@@ -72,6 +80,16 @@ struct CanvasView: View {
                     .gesture(gestures.backgroundDoubleTap)
                     .gesture(gestures.backgroundTap)
                     .gesture(gestures.backgroundDrag)
+                    // A secondary click on a flow opens the flow's menu, and
+                    // one on open canvas opens the canvas's own.
+                    .contextMenu {
+                        if let connectionId = gestures.connection(under: pointerPoint) {
+                            ElementMenuView(rows: menus.connection(connectionId))
+                                .onAppear { menus.selectBeforeMenu(connectionId: connectionId) }
+                        } else {
+                            ElementMenuView(rows: menus.background(at: pointerPoint))
+                        }
+                    }
 
                 content
                     .scaleEffect(canvas.transform.zoom, anchor: .topLeading)
@@ -95,7 +113,12 @@ struct CanvasView: View {
         // scroll event, so the canvas reads the events the application gets
         // while the pointer is over it.
         .onContinuousHover { phase in
-            if case .active = phase { isPointerOver = true } else { isPointerOver = false }
+            if case .active(let where_) = phase {
+                isPointerOver = true
+                pointerPoint = canvas.transform.modelPoint(where_)
+            } else {
+                isPointerOver = false
+            }
         }
         .onAppear { startReadingScrollEvents() }
         .onDisappear { stopReadingScrollEvents() }
@@ -181,7 +204,9 @@ struct CanvasView: View {
                     isEditingName: canvas.isEditingName(.zone(zone.id)),
                     onStartEditingName: { canvas.startEditingName(.zone(zone.id)) },
                     onCommitName: { gestures.renameZone(zone.id, to: $0) },
-                    onCancelName: { canvas.stopEditingName() }
+                    onCancelName: { canvas.stopEditingName() },
+                    menu: { menus.zone(zone.id) },
+                    onOpenMenu: { menus.selectBeforeMenu(zoneId: zone.id) }
                 )
                 .position(x: rect.midX, y: rect.midY)
             }
@@ -230,7 +255,9 @@ struct CanvasView: View {
                     isEditingName: canvas.isEditingName(.component(component.id)),
                     onStartEditingName: { canvas.startEditingName(.component(component.id)) },
                     onCommitName: { gestures.renameComponent(component.id, to: $0) },
-                    onCancelName: { canvas.stopEditingName() }
+                    onCancelName: { canvas.stopEditingName() },
+                    menu: { menus.component(component.id) },
+                    onOpenMenu: { menus.selectBeforeMenu(componentId: component.id) }
                 )
                 .position(x: componentBox.centre.x, y: componentBox.centre.y)
             }

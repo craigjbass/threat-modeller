@@ -1061,6 +1061,20 @@ final class ThreatModelSession {
         collapsedGroups = Set(ids)
     }
 
+    /// The element the sidebar shows the threats of, or nil for every
+    /// element. A context menu sets it, and the filter bar clears it.
+    private(set) var focusedElementId: String?
+
+    /// Shows one element's threats, and opens that element's group.
+    func focus(onElementId elementId: String) {
+        focusedElementId = elementId
+        collapsedGroups.remove(elementId)
+    }
+
+    func clearElementFocus() {
+        focusedElementId = nil
+    }
+
     func expandEveryGroup() {
         collapsedGroups = []
     }

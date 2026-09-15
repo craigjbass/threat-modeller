@@ -40,6 +40,9 @@ struct ProjectWindow: View {
                         .focusedSceneValue(\.threatModelSession, model)
                         .focusedSceneValue(\.threatModelCanvas, canvas)
                         .focusedSceneValue(\.projectSession, session)
+                        // A context menu on the diagram takes a person to the
+                        // threats of what they clicked.
+                        .onAppear { canvas.showStage = { stage = $0 } }
                 } else if let loading = session.loading {
                     loadingNotice(loading)
                 } else if session.canInitialise {

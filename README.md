@@ -655,6 +655,12 @@ from anywhere.
   command line prints.
 - A save message and a report message show in the toolbar, where the load stage
   shows, and clear themselves after four seconds.
+- A secondary click opens a menu on the thing under the pointer: a component,
+  a zone, a flow, or open canvas. *Rename…* and *Label…* open the field on the
+  element itself; *Show Threats* and *Show Controls* change the stage and
+  narrow the threat list to that element, which *Show Everything* clears. Cut,
+  Copy, Duplicate and Delete act on the whole selection; every other item acts
+  on the element clicked.
 - *File ▸ Open Recent* lists the last ten projects, newest first, each with
   its name and its path, and dims one whose folder is gone. *Clear Menu*
   empties it. The welcome window holds *Reopen the last project at launch*,

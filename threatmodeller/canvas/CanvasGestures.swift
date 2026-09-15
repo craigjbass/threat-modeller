@@ -71,6 +71,16 @@ struct CanvasGestures {
         }
     }
 
+    /// The flow under a point in model coordinates, hit tested against the
+    /// curves the canvas drew, or nil. A secondary click reads it, the way a
+    /// plain click does.
+    func connection(under point: CGPoint) -> String? {
+        flows.connection(
+            under: point,
+            within: ConnectionPath.hitTolerance / canvas.transform.zoom
+        )
+    }
+
     /// Where a flow's label sits, so the field opens on the flow rather than
     /// at the pointer.
     func calloutRect(of connectionId: String) -> CGRect? {

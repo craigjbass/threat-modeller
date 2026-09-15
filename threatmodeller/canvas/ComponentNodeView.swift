@@ -29,6 +29,10 @@ struct ComponentNodeView: View {
     var onStartEditingName: () -> Void = {}
     var onCommitName: (String) -> Void = { _ in }
     var onCancelName: () -> Void = {}
+    /// What a secondary click offers, and what selects the node before the
+    /// menu opens. Empty in a picture that takes no clicks.
+    var menu: () -> [ElementMenu.Row] = { [] }
+    var onOpenMenu: () -> Void = {}
 
     @State private var isHovering = false
 
@@ -88,6 +92,13 @@ struct ComponentNodeView: View {
                 .onChanged { onDragChanged($0.translation) }
                 .onEnded { onDragEnded($0.translation) }
         )
+        .contextMenu {
+            // The menu opens on the thing under the pointer, so the thing
+            // under the pointer is what is selected.
+            let rows = menu()
+            ElementMenuView(rows: rows)
+                .onAppear { onOpenMenu() }
+        }
     }
 
     private var drawnShape: some View {

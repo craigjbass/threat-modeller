@@ -78,8 +78,21 @@ struct ThreatSidebar: View {
     }
 
     /// The threats the list draws. The summary counts the whole model.
+    ///
+    /// A context menu on the diagram focuses one element, and the list then
+    /// draws that element's threats until a person clears it.
     private var shownThreats: [AssessedThreat] {
-        filter.narrow(session.threats)
+        let threats = session.threats.filter {
+            session.focusedElementId == nil || $0.source.id == session.focusedElementId
+        }
+        return filter.narrow(threats)
+    }
+
+    /// The name of the element the list is narrowed to, or nil.
+    private var focusedElementName: String? {
+        guard let focusedElementId = session.focusedElementId else { return nil }
+        return session.threats.first { $0.source.id == focusedElementId }?.source.displayName
+            ?? focusedElementId
     }
 
     private var hiddenCount: Int {
@@ -180,6 +193,12 @@ struct ThreatSidebar: View {
                     .frame(maxWidth: .infinity)
                 }
                 .scrollPosition(id: $topGroup, anchor: .top)
+                // The element a context menu focused is the one the reader
+                // asked for, so the list starts at its group.
+                .onChange(of: session.focusedElementId) { _, elementId in
+                    guard let elementId else { return }
+                    topGroup = elementId
+                }
             }
         }
         .navigationTitle("Threats")
@@ -200,6 +219,18 @@ struct ThreatSidebar: View {
                     .font(.caption)
                     .accessibilityIdentifier("expand-all-groups")
                 Spacer(minLength: 0)
+            }
+
+            if let focusedElementName {
+                HStack(spacing: 6) {
+                    Text("Showing \(focusedElementName)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Show Everything") { session.clearElementFocus() }
+                        .font(.caption)
+                        .accessibilityIdentifier("clear-element-focus")
+                    Spacer(minLength: 0)
+                }
             }
 
             HStack(spacing: 6) {

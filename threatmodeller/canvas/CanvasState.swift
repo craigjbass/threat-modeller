@@ -21,6 +21,10 @@ final class CanvasState {
     /// floats above it, so the two never cover each other.
     var selectionPanelHeight: CGFloat = 0
 
+    /// Changes the stage the window draws. The window sets it; a context menu
+    /// on the diagram calls it. Nil in a window that has no stages.
+    var showStage: ((WorkStage) -> Void)?
+
     /// True while a pan is in flight, so the pointer shows a closed hand.
     var isPanning = false
 
