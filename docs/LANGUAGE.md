@@ -1524,7 +1524,24 @@ catalogue.
 
 The palette shows one group for each library, beside AWS, Azure and SaaS.
 
-### 6.5 What the parser refuses
+### 6.5 The canonical form
+
+`threatmodeller format` rewrites every `.lib` file the project holds, the way
+it rewrites every `.arch` and `.attacktree` file. The canonical form is the
+architecture file's:
+
+- two-space indentation,
+- the equals signs of one block lined up,
+- one blank line between blocks,
+- an attribute holding its default not written,
+- the taxonomy a library adds first, then the technologies, then the threats,
+  then the mitigations, then the threat actors.
+
+A rewrite of a file already in this shape writes nothing and says
+`unchanged <path>`. A file that does not parse is left as it is, its faults are
+printed as `<path>:<line>:<column>: <message>`, and the verb exits 2.
+
+### 6.6 What the parser refuses
 
 Errors, which stop the project opening:
 

@@ -386,7 +386,7 @@ threatmodeller check   [<root>]              # says what has no answer
 threatmodeller history [<root>]              # says what the model scored at each commit
 threatmodeller report  [<root>] [-o <dir>]   # writes every .md report and its diagrams
 threatmodeller draw    [<root>] [-o <dir>]   # writes every diagram as SVG or PNG
-threatmodeller format  [<root>]              # rewrites every .arch file canonically
+threatmodeller format  [<root>]                # rewrites every .arch, .attacktree and .lib file
 threatmodeller library <operation> …         # manages the shared element libraries
 threatmodeller help                          # shows the usage text
 ```

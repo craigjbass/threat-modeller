@@ -586,6 +586,58 @@ struct CommandLineApplicationTests {
         #expect(report.contains("| system_requires_owner | the file states an owner | no"))
     }
 
+    // MARK: the library file
+
+    private static let untidyLibrary = """
+    library "acme" {
+    name = "Acme Platform"
+    technology "cribl-stream" {
+    name = "Cribl Stream"
+    category = "monitoring"
+    threats = ["pipeline-tamper"]
+    }
+    threat "pipeline-tamper" {
+    name = "Pipeline tampering"
+    severity = "high"
+    control "Sign pipeline configurations"
+    }
+    }
+    """
+
+    @Test func formatRewritesALibraryFile() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        project.put(Self.untidyLibrary, at: "/work/threatmodel/library/acme.lib")
+
+        let result = run("format", "/work")
+
+        #expect(result.code == 0)
+        let written = try #require(project.text(at: "/work/threatmodel/library/acme.lib"))
+        #expect(written.contains("  technology \"cribl-stream\" {"))
+        #expect(result.lines.contains { $0.contains("formatted /work/threatmodel/library/acme.lib") })
+    }
+
+    @Test func formattingALibraryTwiceChangesNothingTheSecondTime() throws {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        project.put(Self.untidyLibrary, at: "/work/threatmodel/library/acme.lib")
+        _ = run("format", "/work")
+        let once = try #require(project.text(at: "/work/threatmodel/library/acme.lib"))
+
+        let result = run("format", "/work")
+
+        #expect(project.text(at: "/work/threatmodel/library/acme.lib") == once)
+        #expect(result.lines.contains { $0.contains("unchanged /work/threatmodel/library/acme.lib") })
+    }
+
+    @Test func formatRefusesALibraryThatDoesNotParse() {
+        project.put(payments, at: "/work/threatmodel/payments.arch")
+        project.put("library \"acme\" { technology }", at: "/work/threatmodel/library/acme.lib")
+
+        let result = run("format", "/work")
+
+        #expect(result.code == 2)
+        #expect(result.lines.contains { $0.contains("/work/threatmodel/library/acme.lib:") })
+    }
+
     // MARK: the governance file
 
     @Test func compileWritesAGovernanceFileForAnAcceptedRisk() throws {

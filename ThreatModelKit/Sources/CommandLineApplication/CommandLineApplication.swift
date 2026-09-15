@@ -189,12 +189,21 @@ public struct CommandLineApplication {
             return ExitCode.fileFault.rawValue
         }
 
-        if layout.systems.isEmpty {
+        if layout.systems.isEmpty && layout.libraryPaths.isEmpty {
             output("threatmodeller: \(layout.directory) holds no .arch files")
             return ExitCode.success.rawValue
         }
 
         var code = ExitCode.success
+
+        // The libraries a project vendors are the project's files too, so
+        // `format` writes them in the canonical shape the way it writes an
+        // architecture file.
+        for path in layout.libraryPaths {
+            if formatLibrary(at: path, isQuiet: isQuiet, output: output) == false {
+                code = .didNotParse
+            }
+        }
         for system in layout.systems {
             let text: String
             do {
@@ -235,6 +244,47 @@ public struct CommandLineApplication {
             }
         }
         return code.rawValue
+    }
+
+    /// Rewrites one `.lib` file in the canonical shape.
+    ///
+    /// False means the file did not parse or could not be written. A file that
+    /// does not parse is left as it is and its diagnostics are printed, the
+    /// way an architecture file is.
+    private func formatLibrary(
+        at path: String,
+        isQuiet: Bool,
+        output: (String) -> Void
+    ) -> Bool {
+        let text: String
+        do {
+            text = try projects.read(path: path)
+        } catch {
+            output("threatmodeller: \(Self.described(error))")
+            return false
+        }
+
+        let read = libraries.read(text)
+        guard let source = read.source, read.hasErrors == false else {
+            for diagnostic in read.diagnostics { output(diagnostic.described(in: path)) }
+            return false
+        }
+        for diagnostic in read.warnings { output(diagnostic.described(in: path)) }
+
+        let written = libraries.write(source)
+        guard written != text else {
+            if isQuiet == false { output("unchanged \(path)") }
+            return true
+        }
+
+        do {
+            try projects.write(written, to: path)
+            if isQuiet == false { output("formatted \(path)") }
+            return true
+        } catch {
+            output("threatmodeller: \(Self.described(error))")
+            return false
+        }
     }
 
     /// The trees beside a system, or nil when the project holds no such file.
@@ -1269,7 +1319,8 @@ public struct CommandLineApplication {
       threatmodeller history [<root>]  say what the model scored at each sampled commit
       threatmodeller report  [<root>]  write every .md report
       threatmodeller draw    [<root>]  write every diagram as a picture
-      threatmodeller format  [<root>]  rewrite every .arch file in the canonical shape
+      threatmodeller format  [<root>]  rewrite every .arch, .attacktree and .lib file
+                                       in the canonical shape
       threatmodeller help              show this text
 
     Shared element libraries:
