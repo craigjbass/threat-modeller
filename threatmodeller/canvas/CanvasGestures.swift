@@ -86,43 +86,73 @@ struct CanvasGestures {
     }
 
     var backgroundDrag: some Gesture {
-        // Command-drag pans; a plain drag draws the marquee. A drag reports the
-        // translation from where it started, so the pan applies the step since
-        // the last change, not the whole translation again.
+        // A plain drag on the background moves the diagram, which is what a
+        // person reaching for a canvas expects. Shift-drag draws the marquee:
+        // there is nothing on empty canvas for a shift to extend, so the key
+        // is free here even though shift-click extends a selection on a node.
+        // A drag while the zone tool is on draws the zone, and never pans.
         DragGesture(minimumDistance: 2, coordinateSpace: .named("canvas"))
-            .modifiers(.command)
-            .onChanged { value in
-                let step = CGSize(
-                    width: value.translation.width - canvas.lastPanTranslation.width,
-                    height: value.translation.height - canvas.lastPanTranslation.height
-                )
-                canvas.lastPanTranslation = value.translation
-                canvas.transform = canvas.transform.panned(by: step)
-            }
-            .onEnded { _ in canvas.lastPanTranslation = .zero }
-            .exclusively(before: marqueeDrag)
+            .modifiers(.shift)
+            .onChanged { marqueeDragChanged(from: $0.startLocation, to: $0.location) }
+            .onEnded { _ in backgroundDragEnded() }
+            .exclusively(before: panDrag)
     }
 
-    private var marqueeDrag: some Gesture {
+    private var panDrag: some Gesture {
         DragGesture(minimumDistance: 2, coordinateSpace: .named("canvas"))
-            .onChanged { value in
-                let corners = (
-                    start: canvas.transform.modelPoint(value.startLocation),
-                    end: canvas.transform.modelPoint(value.location)
-                )
-                if canvas.isDrawingZone {
-                    canvas.zoneDraft = corners
-                } else {
-                    canvas.marquee = corners
-                }
+            .onChanged {
+                panDragChanged(from: $0.startLocation, to: $0.location, by: $0.translation)
             }
-            .onEnded { _ in
-                if canvas.isDrawingZone {
-                    commitDraftZone()
-                } else {
-                    endMarqueeDrag()
-                }
-            }
+            .onEnded { _ in backgroundDragEnded() }
+    }
+
+    /// A shift-drag on the background. Internal so a test can walk the drag
+    /// without SwiftUI's gesture plumbing.
+    func marqueeDragChanged(from start: CGPoint, to end: CGPoint) {
+        let corners = (
+            start: canvas.transform.modelPoint(start),
+            end: canvas.transform.modelPoint(end)
+        )
+        if canvas.isDrawingZone {
+            canvas.zoneDraft = corners
+        } else {
+            canvas.marquee = corners
+        }
+    }
+
+    /// A plain drag on the background. A drag reports the translation from
+    /// where it started, so the pan applies the step since the last change,
+    /// not the whole translation again.
+    func panDragChanged(from start: CGPoint, to end: CGPoint, by translation: CGSize) {
+        guard canvas.isDrawingZone == false else {
+            return marqueeDragChanged(from: start, to: end)
+        }
+        let step = CGSize(
+            width: translation.width - canvas.lastPanTranslation.width,
+            height: translation.height - canvas.lastPanTranslation.height
+        )
+        canvas.lastPanTranslation = translation
+        canvas.transform = canvas.transform.panned(by: step)
+        canvas.isPanning = true
+    }
+
+    /// The end of either background drag.
+    func backgroundDragEnded() {
+        canvas.lastPanTranslation = .zero
+        canvas.isPanning = false
+        if canvas.isDrawingZone {
+            commitDraftZone()
+        } else if canvas.marquee != nil {
+            endMarqueeDrag()
+        }
+    }
+
+    /// A two finger scroll moves the diagram, by the same transform a drag
+    /// moves it by.
+    func scroll(by delta: CGSize) {
+        canvas.transform = canvas.transform.panned(
+            by: CGSize(width: -delta.width, height: -delta.height)
+        )
     }
 
     /// Ends a zone drag. Internal so a test can walk the drag without

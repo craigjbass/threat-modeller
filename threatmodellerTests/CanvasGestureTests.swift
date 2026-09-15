@@ -208,6 +208,104 @@ struct CanvasGestureTests {
         #expect(zone.y == 0)
     }
 
+    // MARK: the background drag
+
+    @Test func aPlainDragOnTheBackgroundMovesTheDiagram() {
+        let (_, canvas, gestures) = drawn()
+
+        gestures.panDragChanged(
+            from: CGPoint(x: 100, y: 100),
+            to: CGPoint(x: 140, y: 130),
+            by: CGSize(width: 40, height: 30)
+        )
+
+        #expect(canvas.transform.pan == CGSize(width: 40, height: 30))
+        #expect(canvas.marquee == nil)
+        #expect(canvas.isPanning)
+    }
+
+    /// A drag reports the whole translation each time, so the pan applies the
+    /// step since the last change and never the whole translation twice.
+    @Test func aPlainDragAppliesEachStepOnce() {
+        let (_, canvas, gestures) = drawn()
+
+        gestures.panDragChanged(
+            from: CGPoint(x: 100, y: 100),
+            to: CGPoint(x: 120, y: 100),
+            by: CGSize(width: 20, height: 0)
+        )
+        gestures.panDragChanged(
+            from: CGPoint(x: 100, y: 100),
+            to: CGPoint(x: 150, y: 100),
+            by: CGSize(width: 50, height: 0)
+        )
+
+        #expect(canvas.transform.pan == CGSize(width: 50, height: 0))
+    }
+
+    @Test func theEndOfAPlainDragStopsThePan() {
+        let (_, canvas, gestures) = drawn()
+        gestures.panDragChanged(
+            from: .zero,
+            to: CGPoint(x: 10, y: 10),
+            by: CGSize(width: 10, height: 10)
+        )
+
+        gestures.backgroundDragEnded()
+
+        #expect(canvas.isPanning == false)
+        #expect(canvas.lastPanTranslation == .zero)
+    }
+
+    @Test func aShiftDragOnTheBackgroundDrawsTheMarqueeAndMovesNothing() {
+        let (_, canvas, gestures, api, _) = twoNodes()
+
+        gestures.marqueeDragChanged(from: CGPoint(x: -20, y: -20), to: CGPoint(x: 300, y: 200))
+        #expect(canvas.marqueeRect != nil)
+        #expect(canvas.transform == CanvasTransform())
+        gestures.backgroundDragEnded()
+
+        #expect(canvas.selectedComponentIds == [api])
+        #expect(canvas.transform == CanvasTransform())
+    }
+
+    @Test func aDragWhileDrawingAZoneDrawsTheZoneAndMovesNothing() {
+        let (session, canvas, gestures) = drawn()
+        canvas.startDrawingZone()
+
+        gestures.panDragChanged(
+            from: CGPoint(x: 0, y: 0),
+            to: CGPoint(x: 400, y: 300),
+            by: CGSize(width: 400, height: 300)
+        )
+
+        #expect(canvas.zoneDraftRect == CGRect(x: 0, y: 0, width: 400, height: 300))
+        #expect(canvas.transform == CanvasTransform())
+        #expect(canvas.isPanning == false)
+
+        gestures.backgroundDragEnded()
+
+        #expect(session.canvas.zones.count == 1)
+        #expect(canvas.isDrawingZone == false)
+    }
+
+    @Test func aTwoFingerScrollMovesTheDiagram() {
+        let (_, canvas, gestures) = drawn()
+
+        gestures.scroll(by: CGSize(width: 30, height: -20))
+
+        #expect(canvas.transform.pan == CGSize(width: -30, height: 20))
+    }
+
+    @Test func aTwoFingerScrollKeepsTheZoom() {
+        let (_, canvas, gestures) = drawn()
+        canvas.transform = CanvasTransform(zoom: 2)
+
+        gestures.scroll(by: CGSize(width: 10, height: 10))
+
+        #expect(canvas.transform.zoom == 2)
+    }
+
     // MARK: a node far from the origin
 
     /// Carry-forward item 27. A tap reports a point in view coordinates, the

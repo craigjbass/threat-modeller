@@ -148,6 +148,16 @@ struct CanvasStateTests {
         #expect(canvas.hasSelection == false)
     }
 
+    /// The pointer shows a closed hand while a pan is in flight, so the state
+    /// says whether one is.
+    @Test func saysWhetherAPanIsInFlight() {
+        let canvas = CanvasState()
+
+        #expect(canvas.isPanning == false)
+        canvas.isPanning = true
+        #expect(canvas.isPanning)
+    }
+
     @Test func cancelsAConnectionDragBeforeItLeavesTheZoneMode() {
         let canvas = CanvasState()
 

@@ -536,7 +536,11 @@ rules and names no gateway.
 - Component drag updates a local offset only; `.onEnded` calls `MoveComponents`
 - Connection drawing: drag from an anchor handle renders a live preview path;
   the drop calls `ConnectComponents`
-- Marquee selection: drag on empty canvas, rectangle intersection
+- Panning: a plain drag on empty canvas moves the diagram, and a two finger
+  scroll moves it as well. Both apply the same transform.
+- Marquee selection: shift-drag on empty canvas, rectangle intersection. A
+  plain drag pans, so the marquee takes the modifier. Nothing on empty canvas
+  is there for a shift to extend, so the key is free here.
 - Zone drawing and resizing: handles on the zone view, commit on release
 
 Canvas geometry — anchor point placement, connection hit-testing, marquee

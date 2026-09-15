@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import ThreatModelKit
 
@@ -14,8 +15,36 @@ struct CanvasView: View {
     let session: ThreatModelSession
     let canvas: CanvasState
 
+    /// True while the pointer is over this canvas, so a scroll anywhere else
+    /// in the application moves nothing here.
+    @State private var isPointerOver = false
+    /// The monitor reading the scroll events, while this canvas is on screen.
+    @State private var scrollMonitor: Any?
+
     private var gestures: CanvasGestures {
         CanvasGestures(session: session, canvas: canvas)
+    }
+
+    /// What the pointer looks like over open canvas.
+    private var pointer: PointerStyle? {
+        if canvas.isDrawingZone { return .rectSelection }
+        return canvas.isPanning ? .grabActive : .grabIdle
+    }
+
+    private func startReadingScrollEvents() {
+        guard scrollMonitor == nil else { return }
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            guard isPointerOver else { return event }
+            gestures.scroll(
+                by: CGSize(width: event.scrollingDeltaX, height: event.scrollingDeltaY)
+            )
+            return nil
+        }
+    }
+
+    private func stopReadingScrollEvents() {
+        if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
+        scrollMonitor = nil
     }
 
     private var boxes: [String: ComponentBox] {
@@ -50,14 +79,26 @@ struct CanvasView: View {
 
                 flowLabelField
 
+                emptyCanvasHint
+
                 canvasToolbar
             }
         }
         .coordinateSpace(.named("canvas"))
         .clipped()
         // SwiftUI has no crosshair pointer; rectSelection is the one macOS
-        // shows while a rectangle is being drawn.
-        .pointerStyle(canvas.isDrawingZone ? .rectSelection : nil)
+        // shows while a rectangle is being drawn. Over open canvas the pointer
+        // is an open hand, and a closed hand while a pan is in flight, because
+        // a plain drag moves the diagram.
+        .pointerStyle(pointer)
+        // A two finger scroll moves the diagram. SwiftUI hands a view no
+        // scroll event, so the canvas reads the events the application gets
+        // while the pointer is over it.
+        .onContinuousHover { phase in
+            if case .active = phase { isPointerOver = true } else { isPointerOver = false }
+        }
+        .onAppear { startReadingScrollEvents() }
+        .onDisappear { stopReadingScrollEvents() }
         .focusable()
         .focusEffectDisabled()
         .onKeyPress(.escape) {
@@ -223,6 +264,27 @@ struct CanvasView: View {
                 x: (rect.midX * canvas.transform.zoom) + canvas.transform.pan.width,
                 y: (rect.midY * canvas.transform.zoom) + canvas.transform.pan.height
             )
+        }
+    }
+
+    /// What a canvas with nothing on it says. It names the three gestures,
+    /// because nothing else on screen does.
+    @ViewBuilder
+    private var emptyCanvasHint: some View {
+        if session.canvas.components.isEmpty && session.canvas.zones.isEmpty {
+            VStack(spacing: 6) {
+                Text("Drag a technology here to start.")
+                    .font(.headline)
+                Text("Drag the background to move the diagram. "
+                    + "Shift-drag to select. Pinch to zoom.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
+            .accessibilityIdentifier("canvas-gestures-hint")
         }
     }
 

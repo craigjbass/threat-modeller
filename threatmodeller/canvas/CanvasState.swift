@@ -21,6 +21,9 @@ final class CanvasState {
     /// floats above it, so the two never cover each other.
     var selectionPanelHeight: CGFloat = 0
 
+    /// True while a pan is in flight, so the pointer shows a closed hand.
+    var isPanning = false
+
     /// True while the next background drag draws a zone rather than a marquee.
     private(set) var isDrawingZone = false
     /// Which element's name is being edited in place, or nil.

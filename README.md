@@ -648,6 +648,10 @@ from anywhere.
   not a verb, so it sits in the toolbar beside *Libraries*.
 - A save message and a report message show in the toolbar, where the load stage
   shows, and clear themselves after four seconds.
+- A plain drag on empty canvas moves the diagram, a two finger scroll moves it
+  as well, shift-drag draws a selection rectangle, and a pinch zooms. The
+  pointer shows an open hand over open canvas and a closed hand while the
+  diagram moves.
 - Several zones are worked on at once. A shift-click adds a zone to the
   selection and a marquee takes every zone it covers whole, so a drag on any
   selected zone's header moves the group, and one undo takes the whole move
