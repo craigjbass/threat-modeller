@@ -101,7 +101,9 @@ struct ProjectWindow: View {
                 .accessibilityIdentifier("system-picker")
             }
 
-            // Declared before Libraries, so it sits to the left of it.
+            // Declared before Libraries, so it sits to the left of it. A load
+            // stage and a save message never show at once: a load is what is
+            // happening now, and a message is what happened.
             ToolbarItem {
                 if let stage = session.loading {
                     HStack(spacing: 8) {
@@ -114,6 +116,12 @@ struct ProjectWindow: View {
                     // Clear of the system picker to its left.
                     .padding(.leading, 16)
                     .accessibilityIdentifier("loading-bar")
+                } else if let message = session.toolbarMessage {
+                    Text(message)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 16)
+                        .accessibilityIdentifier("last-action-message")
                 }
             }
 

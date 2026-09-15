@@ -15,60 +15,53 @@ struct WorkflowBar: View {
     @Binding var stage: WorkStage
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 12) {
-                Picker("Stage", selection: $stage) {
-                    ForEach(WorkStage.allCases) { stage in
-                        Label(stage.label, systemImage: stage.systemImage).tag(stage)
-                    }
+        // One row, always the same height. The save message is in the toolbar,
+        // so nothing here grows a second line and moves the canvas below it.
+        HStack(spacing: 12) {
+            Picker("Stage", selection: $stage) {
+                ForEach(WorkStage.allCases) { stage in
+                    Label(stage.label, systemImage: stage.systemImage).tag(stage)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .controlSize(.large)
-                .fixedSize()
-                .accessibilityIdentifier("stage")
-
-                Divider()
-                    .frame(height: 20)
-
-                Button {
-                    session.saveNow()
-                } label: {
-                    Label("Synchronise", systemImage: "arrow.triangle.2.circlepath")
-                        .frame(minWidth: 130)
-                }
-                .controlSize(.large)
-                .disabled(session.chosenSystem == nil)
-                .accessibilityIdentifier("synchronise")
-
-                Button {
-                    session.compileReport()
-                } label: {
-                    Label("Generate Report", systemImage: "doc.text")
-                        .frame(minWidth: 150)
-                }
-                .controlSize(.large)
-                .disabled(session.chosenSystem == nil)
-                .accessibilityIdentifier("generate-report")
-
-                Spacer(minLength: 8)
-
-                Toggle("Auto Sync", isOn: autoSync)
-                    .toggleStyle(.checkbox)
-                    .help(
-                        "Save the .arch and .controls files when you change "
-                            + "the model, and redraw the diagram when those "
-                            + "files change on disk."
-                    )
-                    .accessibilityIdentifier("auto-sync")
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.large)
+            .fixedSize()
+            .accessibilityIdentifier("stage")
 
-            if let message = session.lastActionMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("last-action-message")
+            Divider()
+                .frame(height: 20)
+
+            Button {
+                session.saveNow()
+            } label: {
+                Label("Synchronise", systemImage: "arrow.triangle.2.circlepath")
+                    .frame(minWidth: 130)
             }
+            .controlSize(.large)
+            .disabled(session.chosenSystem == nil)
+            .accessibilityIdentifier("synchronise")
+
+            Button {
+                session.compileReport()
+            } label: {
+                Label("Generate Report", systemImage: "doc.text")
+                    .frame(minWidth: 150)
+            }
+            .controlSize(.large)
+            .disabled(session.chosenSystem == nil)
+            .accessibilityIdentifier("generate-report")
+
+            Spacer(minLength: 8)
+
+            Toggle("Auto Sync", isOn: autoSync)
+            .toggleStyle(.checkbox)
+            .help(
+                "Save the .arch and .controls files when you change "
+                    + "the model, and redraw the diagram when those "
+                    + "files change on disk."
+            )
+            .accessibilityIdentifier("auto-sync")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

@@ -475,6 +475,58 @@ struct ProjectSessionTests {
         #expect(session.lastActionMessage == "Report: \(session.reportPath ?? "")")
     }
 
+    /// The message is read once and then goes, so the window never says
+    /// "Saved." over a model the person has changed since.
+    @Test func clearsTheMessageWhenTheWaitEnds() async {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        let timer = FakeCoalescer()
+        let session = ProjectSession(
+            useCases: useCases,
+            defaults: aTestDefaults(),
+            messageTimer: timer
+        )
+        await session.open(root: "/work")
+
+        session.compileReport()
+        #expect(session.lastActionMessage != nil)
+        timer.fire()
+
+        #expect(session.lastActionMessage == nil)
+    }
+
+    @Test func aSecondMessageReplacesTheFirstAndStartsTheWaitAgain() async {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        let timer = FakeCoalescer()
+        let session = ProjectSession(
+            useCases: useCases,
+            defaults: aTestDefaults(),
+            messageTimer: timer
+        )
+        await session.open(root: "/work")
+
+        session.compileReport()
+        await session.save()
+
+        #expect(session.lastActionMessage?.hasPrefix("Saved") == true)
+        #expect(timer.scheduledCount == 2)
+        timer.fire()
+        #expect(session.lastActionMessage == nil)
+    }
+
+    /// A load states what is happening now, so it takes the toolbar from a
+    /// message that states what happened.
+    @Test func aLoadStageAndAMessageNeverShowAtOnce() async {
+        let (session, _) = await aProject()
+        await session.open(root: "/work")
+        session.compileReport()
+
+        #expect(session.loading == nil)
+        #expect(session.toolbarMessage == session.lastActionMessage)
+        #expect(session.toolbarMessage != nil)
+    }
+
     @Test func clearsTheMessageWhenAnotherSystemIsPicked() async {
         let (session, _) = await aProject()
         await session.open(root: "/work")

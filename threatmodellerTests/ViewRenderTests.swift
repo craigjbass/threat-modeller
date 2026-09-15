@@ -289,13 +289,54 @@ struct ViewRenderTests {
         #expect(hasContent(sheet))
     }
 
-    @Test func drawsWhatTheLastActionDid() async throws {
+    /// The message is in the toolbar now, and the bar draws one line whether a
+    /// message is set or not, so the canvas below it never moves.
+    @Test func drawsTheSameOneLineBarWithAMessageAndWithout() async throws {
         let session = await aDrawnProject()
+        let bar = WorkflowBar(session: session, stage: .constant(.architecture))
+        let quiet = NSHostingView(rootView: bar).fittingSize.height
+
         session.compileReport()
 
         #expect(session.lastActionMessage?.hasPrefix("Report: ") == true)
-        let bar = try #require(draw(WorkflowBar(session: session, stage: .constant(.architecture)), width: 900, height: 90))
-        #expect(hasContent(bar))
+        #expect(NSHostingView(rootView: bar).fittingSize.height == quiet)
+        let drawn = try #require(draw(bar, width: 900, height: 90))
+        #expect(hasContent(drawn))
+    }
+
+    /// The window draws the message where the load stage draws, and draws it
+    /// no longer once the wait ends.
+    @Test func drawsTheMessageInTheWindowUntilTheWaitEnds() async throws {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" {
+                technology = "aws-ec2"
+                data       = "confidential"
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        let timer = FakeCoalescer()
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults(),
+            messageTimer: timer
+        )
+        await session.open(root: "/work")
+
+        session.compileReport()
+        #expect(session.toolbarMessage != nil)
+        expectDrawn(ProjectWindow(session: session), "the project window with the message")
+
+        timer.fire()
+
+        #expect(session.toolbarMessage == nil)
+        expectDrawn(ProjectWindow(session: session), "the project window after the message")
     }
 
     @Test func drawsTheNoticeWhenTheFilesChangedUnderAnUnsavedModel() async throws {

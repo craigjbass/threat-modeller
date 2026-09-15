@@ -15,6 +15,9 @@ final class ProjectSession {
     private let watcher: ProjectWatching
     private let defaults: UserDefaults
     private let coalescer: ChangeCoalescing
+    /// Waits out `messageDuration` and then clears the message. A test gives
+    /// its own, runs the work at once, and never waits.
+    private let messageTimer: ChangeCoalescing
 
     private(set) var root: String?
     private(set) var directory: String?
@@ -67,8 +70,12 @@ final class ProjectSession {
             }
         }
     }
-    /// What the last save or compile did, for the bar above the diagram.
+    /// What the last save or compile did, for the toolbar. It clears itself
+    /// after `messageDuration`, so the window never says "Saved." over a model
+    /// the person has changed since.
     private(set) var lastActionMessage: String?
+    /// How long a save or report message stays on screen.
+    static let messageDuration = 4.0
     /// True when a file changed on disk and this session did not reload,
     /// because something on screen is unsaved.
     private(set) var hasFilesChangedOnDisk = false
@@ -83,12 +90,14 @@ final class ProjectSession {
         useCases: UseCaseFactory,
         watcher: ProjectWatching = FSEventsProjectWatcher(),
         defaults: UserDefaults = .standard,
-        coalescer: ChangeCoalescing = TimerCoalescer()
+        coalescer: ChangeCoalescing = TimerCoalescer(),
+        messageTimer: ChangeCoalescing = TimerCoalescer(wait: ProjectSession.messageDuration)
     ) {
         self.useCases = useCases
         self.watcher = watcher
         self.defaults = defaults
         self.coalescer = coalescer
+        self.messageTimer = messageTimer
         if defaults.object(forKey: Self.autoSyncKey) == nil {
             defaults.set(true, forKey: Self.autoSyncKey)
         }
@@ -409,7 +418,7 @@ final class ProjectSession {
             diagnostics = warnings
             diagnosticsFileName = "\(systemName).arch"
             errorMessage = nil
-            lastActionMessage = nil
+            clearMessage()
             loading = .scoringTheThreats
             let drawn = ThreatModelSession(useCases: useCases)
             model = drawn
@@ -423,7 +432,7 @@ final class ProjectSession {
             diagnostics = faults
             diagnosticsFileName = fileName
             model = nil
-            lastActionMessage = nil
+            clearMessage()
             savedRevision = 0
             hasFilesChangedOnDisk = false
             errorMessage = "\(fileName) did not parse."
@@ -493,9 +502,9 @@ final class ProjectSession {
         switch merged {
         case .saved(_, _, let unanswered, _):
             unansweredThreats = unanswered
-            lastActionMessage = unanswered == 0
+            say(unanswered == 0
                 ? "Saved."
-                : "Saved. \(unanswered) threats have no answer."
+                : "Saved. \(unanswered) threats have no answer.")
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(systemName)\"."
         case .refused(let faults):
@@ -505,6 +514,29 @@ final class ProjectSession {
         case .cannotWrite(let reason):
             errorMessage = "The answers could not be written: \(reason)"
         }
+    }
+
+    /// What the toolbar says, or nil when it says nothing.
+    ///
+    /// A load stage and a save message never show at once: a load states what
+    /// is happening now, and a message states what happened.
+    var toolbarMessage: String? {
+        loading == nil ? lastActionMessage : nil
+    }
+
+    /// Says what a save or a report just did, and starts the wait that clears
+    /// it. A new message replaces the one on screen and starts the wait again.
+    private func say(_ message: String) {
+        lastActionMessage = message
+        messageTimer.schedule { [weak self] in
+            self?.lastActionMessage = nil
+        }
+    }
+
+    /// Takes the message off the screen now, and drops the wait.
+    private func clearMessage() {
+        messageTimer.cancel()
+        lastActionMessage = nil
     }
 
     /// Writes the Markdown report for the drawn system.
@@ -517,7 +549,7 @@ final class ProjectSession {
         case .written(let path):
             errorMessage = nil
             reportPath = path
-            lastActionMessage = "Report: \(path)"
+            say("Report: \(path)")
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(chosenSystem)\"."
         case .cannotWrite(let reason):
