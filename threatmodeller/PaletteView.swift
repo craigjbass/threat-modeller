@@ -15,48 +15,34 @@ struct PaletteView: View {
     /// nil when no sheet is open, .some(nil) for a new technology, and
     /// .some(id) to change one.
     @State private var editing: EditedTechnology?
-    /// What a person typed in the search field.
-    @State private var searchText = ""
+    /// What a person typed in the search field. A test states one to open the
+    /// palette mid-search.
+    @State private var searchText: String
+
+    init(
+        session: ThreatModelSession,
+        canvas: CanvasState,
+        project: ProjectSession? = nil,
+        searchText: String = ""
+    ) {
+        self.session = session
+        self.canvas = canvas
+        self.project = project
+        _searchText = State(initialValue: searchText)
+    }
     /// The technology the keyboard is on, or nil.
     @State private var selected: String?
 
-    /// The palette, narrowed by what a person typed.
-    private var shown: [ListedProvider] {
-        PaletteSearch.narrow(session.palette, to: searchText)
-    }
-
-    /// True while a search is on, so every category with a match is open and
-    /// nothing matching stays hidden.
-    private var isSearching: Bool {
-        searchText.trimmingCharacters(in: .whitespaces).isEmpty == false
-    }
-
     var body: some View {
-        List(selection: $selected) {
-            ForEach(shown, id: \.id) { provider in
-                Section(provider.displayName) {
-                    ForEach(provider.categories, id: \.id) { category in
-                        CategoryDisclosure(
-                            providerId: provider.id,
-                            category: category,
-                            session: session,
-                            canvas: canvas,
-                            project: project,
-                            isSearching: isSearching,
-                            edit: { editing = EditedTechnology(value: $0) }
-                        )
-                    }
-                }
-            }
-        }
+        PaletteList(
+            session: session,
+            canvas: canvas,
+            project: project,
+            searchText: searchText,
+            selected: $selected,
+            edit: { editing = EditedTechnology(value: $0) }
+        )
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search technologies")
-        // Return places what the arrow keys picked, so the palette has a
-        // keyboard path from end to end.
-        .onKeyPress(.return) {
-            guard let selected else { return .ignored }
-            session.addAtDefaultPoint(technologyId: selected)
-            return .handled
-        }
         .navigationTitle("Technologies")
         // A `safeAreaInset` draws over the scrolled content and paints
         // nothing behind itself, so the rows have to scroll under a bar rather
@@ -82,68 +68,170 @@ struct PaletteView: View {
     }
 }
 
+/// The rows the palette draws, narrowed by what a person typed.
+///
+/// It is its own view so a test drives the narrowing without a search field,
+/// and so the list is diffed in place the way it is while a person types.
+struct PaletteList: View {
+    let session: ThreatModelSession
+    let canvas: CanvasState
+    var project: ProjectSession?
+    let searchText: String
+    @Binding var selected: String?
+    let edit: (String) -> Void
+
+    /// The palette, narrowed by what a person typed.
+    private var shown: [ListedProvider] {
+        PaletteSearch.narrow(session.palette, to: searchText)
+    }
+
+    /// True while a search is on, so every category with a match is open and
+    /// nothing matching stays hidden.
+    private var isSearching: Bool {
+        searchText.trimmingCharacters(in: .whitespaces).isEmpty == false
+    }
+
+    /// Every row the narrowed list holds, so a selection naming a row that
+    /// has left can be dropped.
+    private var shownIds: Set<String> {
+        Set(PaletteSearch.technologies(of: shown).map(\.id))
+    }
+
+    /// Which categories a person has opened. It lives here rather than in
+    /// each row, because a row that leaves the list must not take the state
+    /// with it. A test states the set to open the palette part way.
+    @State var openCategories: Set<String> = []
+
+    var body: some View {
+        List(selection: $selected) {
+            ForEach(shown, id: \.id) { provider in
+                Section(provider.displayName) {
+                    // One flat sequence of identified rows, never a `Group`
+                    // holding a conditional. AppKit constrains a section's
+                    // header to its first row, and a row sequence whose
+                    // structure changes under it left the two in different
+                    // hierarchies: `NSGenericException: Unable to activate
+                    // constraint … no common ancestor`.
+                    ForEach(rows(of: provider), id: \.id) { row in
+                        switch row.kind {
+                        case .category(let category):
+                            CategoryRow(
+                                providerId: provider.id,
+                                category: category,
+                                isOpen: isOpen(provider.id, category.id),
+                                toggle: { toggle(provider.id, category.id) }
+                            )
+                        case .technology(let technology, let providerId):
+                            TechnologyRow(
+                                technology: technology,
+                                session: session,
+                                canvas: canvas,
+                                project: project,
+                                isDefinedByThisModel:
+                                    providerId == CustomTechnology.provider.value,
+                                edit: edit
+                            )
+                            .padding(.leading, 16)
+                            .tag(technology.id)
+                        }
+                    }
+                }
+            }
+        }
+        // A list keeps a selection by its row's key. A narrowing that takes
+        // that row away leaves the list holding a key nothing draws, so the
+        // selection is dropped as the rows go.
+        .onChange(of: searchText) { _, _ in
+            if let selected, shownIds.contains(selected) == false { self.selected = nil }
+        }
+        // Return places what the arrow keys picked, so the palette has a
+        // keyboard path from end to end.
+        .onKeyPress(.return) {
+            guard let selected else { return .ignored }
+            session.addAtDefaultPoint(technologyId: selected)
+            return .handled
+        }
+    }
+
+    /// Every row one provider draws: each category, and under an open one its
+    /// technologies.
+    private func rows(of provider: ListedProvider) -> [PaletteRow] {
+        provider.categories.flatMap { category -> [PaletteRow] in
+            let header = PaletteRow(
+                id: "category:\(provider.id):\(category.id)",
+                kind: .category(category)
+            )
+            guard isOpen(provider.id, category.id) else { return [header] }
+            return [header] + category.technologies.map { technology in
+                PaletteRow(
+                    id: "technology:\(provider.id):\(category.id):\(technology.id)",
+                    kind: .technology(technology, provider.id)
+                )
+            }
+        }
+    }
+
+    /// True while a category shows its technologies. Every category with a
+    /// match is open while a search is on, and goes back afterwards.
+    private func isOpen(_ providerId: String, _ categoryId: String) -> Bool {
+        isSearching || openCategories.contains("\(providerId):\(categoryId)")
+    }
+
+    private func toggle(_ providerId: String, _ categoryId: String) {
+        let key = "\(providerId):\(categoryId)"
+        if openCategories.contains(key) {
+            openCategories.remove(key)
+        } else {
+            openCategories.insert(key)
+        }
+    }
+}
+
+/// One row of the palette: a category a person opens, or a technology.
+struct PaletteRow: Identifiable {
+    enum Kind {
+        case category(ListedCategory)
+        case technology(ListedTechnology, String)
+    }
+
+    let id: String
+    let kind: Kind
+}
+
+/// A category's own row.
+///
+/// This does not use `DisclosureGroup`. That control treats a click anywhere
+/// in its label area as a toggle, so a button inside the label toggled the
+/// state a second time and the group never opened. Here one button owns the
+/// toggle and the rows the list draws under it come from the list itself.
+private struct CategoryRow: View {
+    let providerId: String
+    let category: ListedCategory
+    let isOpen: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 6) {
+                Image(systemName: isOpen ? "chevron.down" : "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 10)
+                Text(category.label)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("category-\(providerId)-\(category.id)")
+    }
+}
+
 /// `sheet(item:)` needs something identifiable. A technology being changed is
 /// named by its identifier; a new one has no identifier yet.
 private struct EditedTechnology: Identifiable {
     let value: String?
     var id: String { value ?? "new" }
-}
-
-/// A category row plus its technologies.
-///
-/// This does not use `DisclosureGroup`. That control treats a click anywhere in
-/// its label area as a toggle, so a button inside the label toggled the state a
-/// second time and the group never opened. Here one button owns the toggle and
-/// the rows below appear when it is open.
-private struct CategoryDisclosure: View {
-    let providerId: String
-    let category: ListedCategory
-    let session: ThreatModelSession
-    let canvas: CanvasState
-    let project: ProjectSession?
-    /// True while a person is searching. Every category with a match is open
-    /// then, whatever it was before, and it goes back afterwards.
-    let isSearching: Bool
-    let edit: (String) -> Void
-
-    @State private var isExpanded = false
-
-    private var isOpen: Bool { isSearching || isExpanded }
-
-    var body: some View {
-        Group {
-            Button {
-                isExpanded.toggle()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: isOpen ? "chevron.down" : "chevron.right")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 10)
-                    Text(category.label)
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("category-\(providerId)-\(category.id)")
-
-            if isOpen {
-                ForEach(category.technologies, id: \.id) { technology in
-                    TechnologyRow(
-                        technology: technology,
-                        session: session,
-                        canvas: canvas,
-                        project: project,
-                        isDefinedByThisModel: providerId == CustomTechnology.provider.value,
-                        edit: edit
-                    )
-                    .padding(.leading, 16)
-                    .tag(technology.id)
-                }
-            }
-        }
-    }
 }
 
 /// A technology row. Drag it onto the canvas to place it where it is dropped,
