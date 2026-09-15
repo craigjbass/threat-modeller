@@ -82,7 +82,8 @@ struct ProjectWindow: View {
                     session: LibrarySession(
                         useCases: session.useCases,
                         root: root,
-                        onChange: { session.reload() }
+                        onChange: { session.reload() },
+                        fetcher: session.useCases.fetcher
                     ),
                     dismiss: { isShowingLibraries = false }
                 )

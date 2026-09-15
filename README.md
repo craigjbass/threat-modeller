@@ -722,6 +722,8 @@ from anywhere.
   name, category and description, which catalogue threats it carries, and
   whether it encrypts what crosses it. See "Sharing an element library" below
   for what a custom technology is and how it differs from a library entry.
+- The About window lists the libraries the open project reads, each with its
+  repository and its tag, under the catalogue line.
 - *Libraries* opens a sheet listing the shared element libraries the project
   holds, with their repository, version and whether the files match the lock
   file. *Add…* takes a repository and a version and fetches it; a private
@@ -729,7 +731,11 @@ from anywhere.
   inherits their `ssh-agent`. *Update* and *Remove* act on the selected row, and
   *Remove* asks again when a system still names the library. *Check for updates*
   is the one control that reaches a server without being asked for a change, and
-  a person presses it: nothing checks on its own.
+  a person presses it: nothing checks on its own. A fetch runs off the main
+  thread, and *Cancel Fetch* stops one that is waiting; a cancelled fetch
+  writes no library file and no lock entry. *Check for updates* compares tags
+  as versions, so `v10` is newer than `v9`, and a pre-release is offered only
+  to a project already running one.
 - *Auto Sync* keeps the files and the screen in step both ways. It writes the
   `.arch` file and the `.controls` file when the model changes, half a second
   after the changes stop, and it redraws the diagram when a file changes on

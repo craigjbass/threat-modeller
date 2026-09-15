@@ -35,17 +35,34 @@ final class LibrarySession {
 
     private(set) var libraries: [LibraryRow] = []
     private(set) var errorMessage: String?
-    /// True while a fetch runs. The buttons are off while it is true.
+    /// True while a fetch runs. The buttons are off while it is true, and the
+    /// sheet shows Cancel.
     private(set) var isWorking = false
+    /// What stops a fetch in flight. The sheet's Cancel calls it.
+    private let fetcher: LibraryFetching?
     /// The systems that still name a library a user asked to remove, so the
     /// sheet can ask again. Nil means nothing is waiting on an answer.
     private(set) var removalInUse: [String]?
 
-    init(useCases: UseCaseFactory, root: String, onChange: @escaping () -> Void) {
+    init(
+        useCases: UseCaseFactory,
+        root: String,
+        onChange: @escaping () -> Void,
+        fetcher: LibraryFetching? = nil
+    ) {
         self.useCases = useCases
         self.root = root
         self.onChange = onChange
+        self.fetcher = fetcher
         reload()
+    }
+
+    /// Stops the fetch in flight. A cancelled fetch writes nothing: the
+    /// library and the lock file are written after the files arrive, and they
+    /// never arrive.
+    func cancel() {
+        guard isWorking else { return }
+        fetcher?.cancel()
     }
 
     /// Reads the lock file and the files on disk. It reaches no server, so the
@@ -79,9 +96,18 @@ final class LibrarySession {
         isWorking = true
         defer { isWorking = false }
 
-        switch useCases.addLibrary().execute(
-            AddLibraryRequest(root: root, repository: repository, tag: tag)
-        ) {
+        // A fetch runs `git`, which can wait a minute on a server. It runs off
+        // the main actor, so the window redraws and Cancel answers while it
+        // does.
+        let useCases = self.useCases
+        let root = self.root
+        let response = await Task.detached {
+            useCases.addLibrary().execute(
+                AddLibraryRequest(root: root, repository: repository, tag: tag)
+            )
+        }.value
+
+        switch response {
         case .added:
             reload()
             onChange()
@@ -96,9 +122,15 @@ final class LibrarySession {
         isWorking = true
         defer { isWorking = false }
 
-        switch useCases.updateLibraries().execute(
-            UpdateLibrariesRequest(root: root, label: label)
-        ) {
+        let useCases = self.useCases
+        let root = self.root
+        let response = await Task.detached {
+            useCases.updateLibraries().execute(
+                UpdateLibrariesRequest(root: root, label: label)
+            )
+        }.value
+
+        switch response {
         case .updated:
             reload()
             onChange()

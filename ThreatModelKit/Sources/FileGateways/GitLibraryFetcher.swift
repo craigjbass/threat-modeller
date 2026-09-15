@@ -7,13 +7,28 @@ import ThreatModelKit
 /// `~/.ssh/config`, a credential helper and `~/.gitconfig`. Running `git`
 /// inherits every one of them, so this application re-implements none of it and
 /// holds no credential.
-public struct GitLibraryFetcher: LibraryFetching {
+public final class GitLibraryFetcher: LibraryFetching, @unchecked Sendable {
     /// How long a `git` command may take before it is killed, so a fetch that
     /// never answers does not stop the window.
     private let timeout: TimeInterval
+    private let lock = NSLock()
+    /// The `git` this fetcher is running now, so Cancel can stop it.
+    private var running: Process?
+    /// True when a person pressed Cancel and the child was stopped by that
+    /// rather than by the timer.
+    private var wasCancelled = false
 
     public init(timeout: TimeInterval = 60) {
         self.timeout = timeout
+    }
+
+    /// Stops the `git` in flight. A fetch that is not running stops nothing.
+    public func cancel() {
+        lock.lock()
+        let child = running
+        wasCancelled = true
+        lock.unlock()
+        child?.terminate()
     }
 
     public func fetch(repository: String, tag: String) throws -> [String: String] {
@@ -46,6 +61,26 @@ public struct GitLibraryFetcher: LibraryFetching {
             files[name] = text
         }
         return files
+    }
+
+    /// The newest tag, by version. `git` sorts, so this reads the first line
+    /// of the answer and never sorts thousands of tags itself.
+    public func newestTag(repository: String, wantsPreRelease: Bool) throws -> String? {
+        try refuseAFlag(repository)
+
+        let lines = try run(["ls-remote", "--tags", "--sort=-v:refname", "--", repository])
+            .split(separator: "\n")
+
+        for line in lines {
+            guard let reference = line.split(separator: "\t").last,
+                  reference.hasPrefix("refs/tags/") else { continue }
+            let tag = reference.dropFirst("refs/tags/".count)
+            guard tag.hasSuffix("^{}") == false else { continue }
+            guard let version = TagVersion(String(tag)) else { continue }
+            guard wantsPreRelease || version.isPreRelease == false else { continue }
+            return version.tag
+        }
+        return nil
     }
 
     public func tags(repository: String) throws -> [String] {
@@ -103,6 +138,16 @@ public struct GitLibraryFetcher: LibraryFetching {
         process.standardOutput = output
         process.standardError = errors
 
+        lock.lock()
+        wasCancelled = false
+        running = process
+        lock.unlock()
+        defer {
+            lock.lock()
+            running = nil
+            lock.unlock()
+        }
+
         do {
             try process.run()
         } catch {
@@ -124,6 +169,10 @@ public struct GitLibraryFetcher: LibraryFetching {
         let failure = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         process.waitUntilExit()
 
+        lock.lock()
+        let stoppedByAPerson = wasCancelled
+        lock.unlock()
+        if stoppedByAPerson { throw LibraryFetchFault.cancelled }
         if wasKilled.value { throw LibraryFetchFault.timedOut }
 
         guard process.terminationStatus == 0 else {

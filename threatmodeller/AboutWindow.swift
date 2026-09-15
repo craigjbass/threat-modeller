@@ -11,6 +11,9 @@ struct AboutWindow: View {
     /// What build this is. A test states what the window shows by passing one
     /// rather than by building a bundle.
     var version: AboutVersion = .ofThisBundle
+    /// The libraries the open project reads, each with its repository and its
+    /// tag. Empty means the project reads none, and the window says so.
+    var libraries: [ListedLibrary] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -56,6 +59,25 @@ struct AboutWindow: View {
                     Text("The catalogue could not be loaded.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                }
+
+                // The libraries the project reads, under the catalogue line,
+                // so one window states every source of a threat.
+                Text("Libraries")
+                    .font(.headline)
+                    .padding(.top, 6)
+                if libraries.isEmpty {
+                    Text("This project reads no library.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("about-no-libraries")
+                } else {
+                    ForEach(libraries, id: \.label) { library in
+                        Text("\(library.name) \u{2014} \(library.repository) \(library.tag)")
+                            .font(.callout)
+                            .textSelection(.enabled)
+                            .accessibilityIdentifier("about-library-\(library.label)")
+                    }
                 }
                 Text(
                     "Copyright © 2026 Jack Nelson, licensed under the "

@@ -80,6 +80,8 @@ public protocol UseCaseFactory: Sendable {
     func listCategories() -> ListCategoriesUseCase
     func listClassifications() -> ListClassificationsUseCase
     func moveTechnologyToLibrary() -> MoveTechnologyToLibraryUseCase
+    /// What fetches a library, so the window can stop a fetch in flight.
+    var fetcher: LibraryFetching { get }
     func moveZones() -> MoveZonesUseCase
     func reorderZones() -> ReorderZonesUseCase
     func setZoneProperties() -> SetZonePropertiesUseCase

@@ -37,6 +37,8 @@ public final class TestDependencies: UseCaseFactory {
     /// The fetcher this root wires, so a test states what a repository holds
     /// and no test runs `git`.
     public let libraryFetcher = FakeLibraryFetcher()
+    /// The fetcher this root wires, as the factory states it.
+    public var fetcher: LibraryFetching { libraryFetcher }
     private let samples: SampleModelGateway = FakeSampleModels()
     private let clock = FixedClock()
     /// The clock this root runs on, so an acceptance test can move time.

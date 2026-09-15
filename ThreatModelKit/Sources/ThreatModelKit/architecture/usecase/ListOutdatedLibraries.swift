@@ -69,8 +69,12 @@ public struct ListOutdatedLibraries: ListOutdatedLibrariesUseCase {
 
         let libraries = lock.libraries.map { entry -> OutdatedLibrary in
             do {
-                let tags = try fetcher.tags(repository: entry.repository).sorted()
-                let newest = tags.last
+                // One tag, compared as a version. A pre-release is offered
+                // only to a project already running one.
+                let newest = try fetcher.newestTag(
+                    repository: entry.repository,
+                    wantsPreRelease: TagVersion(entry.tag)?.isPreRelease ?? false
+                )
                 return OutdatedLibrary(
                     label: entry.label,
                     tag: entry.tag,

@@ -28,6 +28,8 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     /// The one place this application runs `git`.
     private let libraryFetcher: LibraryFetching = GitLibraryFetcher()
+    /// The fetcher this root wires, so the Libraries sheet can stop a fetch.
+    var fetcher: LibraryFetching { libraryFetcher }
     private let samples: SampleModelGateway = BundledSampleModels()
     private let clock: Clock = SystemClock()
 

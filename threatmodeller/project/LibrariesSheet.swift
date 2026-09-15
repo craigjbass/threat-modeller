@@ -131,6 +131,14 @@ struct LibrariesSheet: View {
                 ProgressView()
                     .controlSize(.small)
                     .accessibilityIdentifier("library-working")
+
+                // A fetch runs `git`, which waits on a server. A person who
+                // has waited long enough stops it here.
+                Button("Cancel Fetch") { session.cancel() }
+                    // Every other control is off while a fetch runs. This one
+                    // is the way to stop it, so it stays on.
+                    .disabled(false)
+                    .accessibilityIdentifier("cancel-fetch")
             }
 
             Button("Check for Updates") {
@@ -143,6 +151,7 @@ struct LibrariesSheet: View {
                 .keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier("libraries-done")
         }
+        // Cancel answers while a fetch runs; every other control waits.
         .disabled(session.isWorking)
     }
 

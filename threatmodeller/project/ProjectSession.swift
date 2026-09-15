@@ -479,6 +479,15 @@ final class ProjectSession {
         coalescer.schedule { [weak self] in self?.saveNow() }
     }
 
+    /// The libraries this project reads, each with its repository and its tag.
+    /// The About window states them under the catalogue line.
+    var libraries: [ListedLibrary] {
+        guard let root else { return [] }
+        guard case .listed(let libraries) = useCases.listLibraries()
+            .execute(ListLibrariesRequest(root: root)) else { return [] }
+        return libraries
+    }
+
     /// Moves a technology the drawn system defines into a library file this
     /// project holds, so every system in the project reads it and another
     /// project vendors it with `threatmodeller library add`.

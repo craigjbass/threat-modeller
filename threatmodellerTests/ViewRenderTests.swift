@@ -720,6 +720,32 @@ struct ViewRenderTests {
         )
     }
 
+    /// The window states the libraries the project reads, and states so when
+    /// it reads none.
+    @Test func drawsTheAboutWindowWithItsLibraries() async {
+        expectDrawn(
+            AboutWindow(
+                catalogue: ViewCatalogueVersionResponse(
+                    repository: "threat-catalogue",
+                    tag: "v1.0.1",
+                    technologyCount: 277
+                ),
+                libraries: [
+                    ListedLibrary(
+                        label: "acme",
+                        name: "Acme Platform",
+                        repository: "git@example.internal:acme/elements.git",
+                        tag: "v1.2.0",
+                        matchesLock: true
+                    )
+                ]
+            ),
+            width: 520,
+            height: 420,
+            "the about window with a library"
+        )
+    }
+
     @Test func drawsTheAboutWindowOfAReleasedBuild() async {
         expectDrawn(
             AboutWindow(

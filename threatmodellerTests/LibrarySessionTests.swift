@@ -153,3 +153,71 @@ struct LibrarySessionTests {
         #expect(useCases.libraryFetcher.fetched.isEmpty)
     }
 }
+
+/// Stopping a fetch that is waiting on a server.
+@MainActor
+@Suite("Cancelling a library fetch")
+struct LibraryFetchCancelTests {
+    private func aProject() -> (LibrarySession, TestDependencies) {
+        let useCases = TestDependencies()
+        useCases.project.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
+        useCases.libraryFetcher.put(
+            ["acme.lib": "library \"acme\" { name = \"Acme\" }"],
+            repository: "/elements",
+            tag: "v1.0.0"
+        )
+        let session = LibrarySession(
+            useCases: useCases,
+            root: "/work",
+            onChange: {},
+            fetcher: useCases.libraryFetcher
+        )
+        return (session, useCases)
+    }
+
+    @Test func cancelStopsAFetchThatIsWaiting() async throws {
+        let (session, useCases) = aProject()
+        useCases.libraryFetcher.waits = 5
+
+        let fetch = Task { await session.add(repository: "/elements", tag: "v1.0.0") }
+        // The window redraws while the fetch waits, so the session answers.
+        while session.isWorking == false { await Task.yield() }
+        session.cancel()
+        await fetch.value
+
+        #expect(useCases.libraryFetcher.cancels == 1)
+        #expect(session.errorMessage == "the fetch was stopped")
+        #expect(session.isWorking == false)
+    }
+
+    @Test func aCancelledFetchWritesNoLibraryAndNoLockEntry() async throws {
+        let (session, useCases) = aProject()
+        useCases.libraryFetcher.waits = 5
+
+        let fetch = Task { await session.add(repository: "/elements", tag: "v1.0.0") }
+        while session.isWorking == false { await Task.yield() }
+        session.cancel()
+        await fetch.value
+
+        #expect(useCases.project.text(at: "/work/threatmodel/library/acme.lib") == nil)
+        #expect(useCases.project.text(at: "/work/threatmodel/library/library.lock.json") == nil)
+        #expect(session.libraries.isEmpty)
+    }
+
+    @Test func cancelDoesNothingWhileNoFetchRuns() {
+        let (session, useCases) = aProject()
+
+        session.cancel()
+
+        #expect(useCases.libraryFetcher.cancels == 0)
+    }
+
+    @Test func aFetchNobodyCancelsStillArrives() async throws {
+        let (session, useCases) = aProject()
+
+        await session.add(repository: "/elements", tag: "v1.0.0")
+
+        #expect(session.errorMessage == nil)
+        #expect(useCases.project.text(at: "/work/threatmodel/library/acme.lib") != nil)
+    }
+}

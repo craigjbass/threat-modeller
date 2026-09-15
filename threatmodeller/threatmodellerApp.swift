@@ -182,7 +182,7 @@ struct ThreatModellerApp: App {
         .windowResizability(.contentSize)
 
         Window("About Craig's Threat Modeller", id: Self.aboutWindowId) {
-            AboutWindow(catalogue: catalogue)
+            AboutWindow(catalogue: catalogue, libraries: project?.libraries ?? [])
         }
         .windowResizability(.contentSize)
     }
