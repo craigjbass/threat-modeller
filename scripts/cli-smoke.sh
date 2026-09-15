@@ -95,6 +95,18 @@ grep -q '"otmVersion"' "$work/sample/threatmodel/payments.otm.json"
 tm export "$work/sample" --stdout > "$work/sample/stdout.json"
 grep -q '"threats"' "$work/sample/stdout.json"
 
+step "the threatcl export is what threatcl accepts"
+tm export "$work/sample" --format threatcl
+test -f "$work/sample/threatmodel/payments.hcl"
+grep -q '^spec_version = ' "$work/sample/threatmodel/payments.hcl"
+# The binary is run when this machine holds it. A machine without it keeps the
+# golden test in `ExportModelAsThreatclTests`, which states the same file.
+if command -v threatcl > /dev/null 2>&1; then
+    threatcl validate "$work/sample/threatmodel/payments.hcl"
+else
+    echo "threatcl is not on this machine; the golden test stands in"
+fi
+
 step "format refuses a file that does not parse"
 mkdir -p "$work/broken/threatmodel"
 printf 'system "P" {\n  zone "z" { kind = "secret" }\n}\n' \

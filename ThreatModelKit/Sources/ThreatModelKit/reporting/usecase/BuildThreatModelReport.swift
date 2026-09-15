@@ -401,7 +401,11 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         sensitivityLabel: component.effectiveSensitivity.label(in: catalogue.classifications()),
                         zoneName: zoneByComponent[component.id]??.displayName,
                         assetNames: component.assets.map(\.name),
-                        privilegeLabel: component.runsAs.label
+                        privilegeLabel: component.runsAs.label,
+                        shapeId: component.resolvedShape(
+                            providerId: lookup.findById(component.technologyId)?.provider.value ?? "",
+                            categoryId: lookup.findById(component.technologyId)?.category.value ?? ""
+                        ).rawValue
                     )
                 },
                 connections: model.connections.map { connection in

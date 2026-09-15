@@ -37,6 +37,21 @@ jobs:
         working-directory: ThreatModelKit
         run: swift test
 
+      # The threatcl export is checked by threatcl itself. The smoke test
+      # runs the binary when it is on the machine, so this step puts it there.
+      # A machine without it keeps the golden test, which states the same file.
+      - name: Install threatcl
+        continue-on-error: true
+        run: |
+          VERSION=v0.6.9
+          URL="https://github.com/threatcl/threatcl/releases/download/${VERSION}/threatcl_$(echo ${VERSION} | tr -d v)_linux_amd64.tar.gz"
+          if curl -fsSL -o /tmp/threatcl.tar.gz "$URL"; then
+            tar -xzf /tmp/threatcl.tar.gz -C /usr/local/bin threatcl
+            threatcl version || true
+          else
+            echo "threatcl ${VERSION} could not be fetched; the golden test stands in"
+          fi
+
       # The smoke test is a file in the repository, not shell in this file,
       # so the same run happens on a person's machine.
       - name: Run the executable over a sample project

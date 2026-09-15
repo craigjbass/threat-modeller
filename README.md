@@ -434,6 +434,29 @@ likelihood findings" above); `<level>` is `low`, `medium`, `high` or
 `-f` or `--force` removes a library a system still names. `--format <name>`
 picks the shape `check`, `compile` and `format` write; see below.
 
+### The threatcl export
+
+`threatmodeller export --format threatcl` writes the model as
+[threatcl](https://github.com/threatcl/threatcl) HCL, and the window writes the
+same file through *File ▸ Export as threatcl…*. The file is written for
+**spec version 0.8.1**, which release **v0.6.9** of the `threatcl` binary
+reads; the version is pinned in `ExportModelAsThreatcl.specVersion`.
+
+Each named asset becomes an `information_asset`, each use case a `usecase`,
+each exclusion and each assumption an `exclusion`, each third party a
+`third_party_dependency`, each assessed threat a labelled `threat` with its
+`impacts`, its `stride`, its `information_asset_refs`, a `risk` block and one
+`control` block per control, and the diagram one `data_flow_diagram_v2` with
+the zones as `trust_zone` blocks, the components as `process`, `data_store` or
+`external_element` by shape, and the flows as `flow` blocks with `from`, `to`
+and `protocol`. A `diagram` block written in mermaid travels as a `mermaid`
+block.
+
+`threatcl validate` accepts the file. `scripts/cli-smoke.sh` runs the binary
+when the machine holds it, CI installs it for the Linux job, and
+`ExportModelAsThreatclTests` holds the whole file as a golden for a machine
+without it.
+
 ### A team's own report shape
 
 `threatmodeller report --template <file>` renders the report through a

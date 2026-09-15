@@ -520,6 +520,9 @@ public struct ReportComponent: Equatable, Sendable {
     /// The privilege level it runs at: User, Administrator, Root, System or
     /// Kernel.
     public let privilegeLabel: String
+    /// The shape the diagram draws it as: `actor`, `process` or `store`. An
+    /// export that states a kind of element reads it.
+    public let shapeId: String
 
     public init(
         id: String,
@@ -529,7 +532,8 @@ public struct ReportComponent: Equatable, Sendable {
         sensitivityLabel: String,
         zoneName: String?,
         assetNames: [String] = [],
-        privilegeLabel: String = PrivilegeLevel.default.label
+        privilegeLabel: String = PrivilegeLevel.default.label,
+        shapeId: String = DiagramShape.process.rawValue
     ) {
         self.id = id
         self.name = name
@@ -539,6 +543,7 @@ public struct ReportComponent: Equatable, Sendable {
         self.zoneName = zoneName
         self.assetNames = assetNames
         self.privilegeLabel = privilegeLabel
+        self.shapeId = shapeId
     }
 }
 

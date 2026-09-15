@@ -445,7 +445,7 @@ struct ThreatclExportTests {
     @Test func opensWithTheSpecVersionAndOneThreatModelBlock() {
         let hcl = hcl()
 
-        #expect(hcl.hasPrefix("spec_version = \"0.1.6\"\n"))
+        #expect(hcl.hasPrefix("spec_version = \"\(ExportModelAsThreatcl.specVersion)\"\n"))
         #expect(hcl.contains("threatmodel \"Untitled\" {"))
         #expect(hcl.hasSuffix("}\n"))
     }
@@ -457,15 +457,17 @@ struct ThreatclExportTests {
         )
     }
 
-    @Test func writesEachComponentAsAnInformationAsset() {
+    /// The specification states a component as an element of the diagram, and
+    /// an information_asset as a thing of value the model names.
+    @Test func writesEachComponentAsAnElementOfTheDiagram() {
         _ = app.addComponent().execute(
             AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "restricted")
         )
 
         let hcl = hcl()
 
-        #expect(hcl.contains("  information_asset \"EC2\" {"))
-        #expect(hcl.contains("    information_classification = \"Restricted\""))
+        #expect(hcl.contains("  data_flow_diagram_v2 \""))
+        #expect(hcl.contains("    process \"EC2\" {"))
     }
 
     @Test func writesEachThreatAsAThreatBlock() {
@@ -475,12 +477,13 @@ struct ThreatclExportTests {
 
         let hcl = hcl()
 
-        #expect(hcl.contains("  threat {"))
+        #expect(hcl.contains("  threat \""))
         #expect(hcl.contains("    stride = ["))
-        #expect(hcl.contains("    control = \""))
+        #expect(hcl.contains("    control \""))
+        #expect(hcl.contains("      risk_reduction = "))
     }
 
-    @Test func writesEachConnectionAsAUseCase() {
+    @Test func writesEachConnectionAsAFlow() {
         guard case .added(let source) = app.addComponent().execute(
             AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "internal")
         ), case .added(let target) = app.addComponent().execute(
@@ -493,7 +496,10 @@ struct ThreatclExportTests {
             ConnectComponentsRequest(sourceComponentId: source, targetComponentId: target)
         )
 
-        #expect(hcl().contains("  usecase {"))
+        let hcl = hcl()
+        #expect(hcl.contains("    flow \""))
+        #expect(hcl.contains("      from = \"EC2\""))
+        #expect(hcl.contains("      to = \"RDS\""))
     }
 
     @Test func escapesWhatHclWouldReadAsSomethingElse() {

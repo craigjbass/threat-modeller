@@ -1532,6 +1532,7 @@ public struct CommandLineApplication {
     enum ExportFormat: String, CaseIterable {
         case json
         case otm
+        case threatcl
 
         static var names: String {
             allCases.map(\.rawValue).joined(separator: "|")
@@ -1606,6 +1607,10 @@ public struct CommandLineApplication {
             case .otm:
                 text = useCases.exportModelAsOtm().execute(ExportModelAsOtmRequest()).json
                 fileName = "\(system.name).otm.json"
+            case .threatcl:
+                text = useCases.exportModelAsThreatcl()
+                    .execute(ExportModelAsThreatclRequest()).hcl
+                fileName = "\(system.name).hcl"
             }
 
             if wantsStandardOutput {

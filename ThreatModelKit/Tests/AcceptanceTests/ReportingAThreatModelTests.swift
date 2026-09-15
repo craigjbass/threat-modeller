@@ -63,10 +63,13 @@ struct ReportingAThreatModelTests {
 
         #expect(threatcl.fileName == "Payments.hcl")
         #expect(threatcl.hcl.contains("threatmodel \"Payments\" {"))
-        #expect(threatcl.hcl.contains("  information_asset \"EC2\" {"))
-        #expect(threatcl.hcl.contains("  information_asset \"RDS\" {"))
-        #expect(threatcl.hcl.contains("EC2 sends data to RDS"))
-        #expect(threatcl.hcl.contains("  threat {"))
+        // The components are the diagram's own elements, and the flows join
+        // them, the way the threatcl specification states them.
+        #expect(threatcl.hcl.contains("      process \"EC2\" {"))
+        #expect(threatcl.hcl.contains("      data_store \"RDS\" {"))
+        #expect(threatcl.hcl.contains("      from = \"EC2\""))
+        #expect(threatcl.hcl.contains("      to = \"RDS\""))
+        #expect(threatcl.hcl.contains("  threat \""))
     }
 
     @Test func saysWhatThePictureShouldDraw() {
