@@ -214,6 +214,8 @@ public struct CommandLineApplication {
         case "draw":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return draw(root: root, into: into, wants: pictures, isQuiet: isQuiet, output: output)
+        case "lsp":
+            return serveLsp()
         case "mcp":
             return serveMcp(root: root, allowsWrites: allowsWrites, output: output)
         case "import":
@@ -1408,6 +1410,67 @@ public struct CommandLineApplication {
     /// SVG is written by this package, so it works wherever the tool runs. PNG
     /// needs a drawing engine, which only Apple's platforms supply here, so a
     /// Linux build says so rather than writing nothing.
+    /// Speaks the Language Server Protocol over standard input and output.
+    ///
+    /// The protocol frames each message with a `Content-Length` header, so
+    /// this reads that header, reads that many bytes, and writes its answers
+    /// framed the same way.
+    private func serveLsp() -> Int32 {
+        let server = LanguageServer(projects: projects, catalogue: makeCatalogue)
+        let input = FileHandle.standardInput
+        var held = Data()
+
+        while true {
+            // A header ends at a blank line.
+            guard let headerEnd = Self.headerEnd(in: held) else {
+                let read = input.availableData
+                if read.isEmpty { return ExitCode.success.rawValue }
+                held += read
+                continue
+            }
+            let header = String(decoding: held[held.startIndex ..< headerEnd.lowerBound], as: UTF8.self)
+            guard let length = Self.contentLength(of: header) else {
+                held = Data(held[headerEnd.upperBound...])
+                continue
+            }
+            var body = Data(held[headerEnd.upperBound...])
+            while body.count < length {
+                let read = input.availableData
+                if read.isEmpty { return ExitCode.success.rawValue }
+                body += read
+            }
+            let message = String(decoding: body.prefix(length), as: UTF8.self)
+            held = Data(body.dropFirst(length))
+
+            // The frame states the body's length and the body follows the
+            // blank line with nothing between, so this writes the bytes
+            // itself rather than a line at a time.
+            for answer in server.answer(to: message) {
+                let body = Data(answer.utf8)
+                let header = Data("Content-Length: \(body.count)\r\n\r\n".utf8)
+                FileHandle.standardOutput.write(header + body)
+            }
+            if message.contains("\"method\":\"exit\"") { return ExitCode.success.rawValue }
+        }
+    }
+
+    /// Where a message's header ends, which is at the blank line.
+    static func headerEnd(in data: Data) -> Range<Data.Index>? {
+        data.range(of: Data("\r\n\r\n".utf8)) ?? data.range(of: Data("\n\n".utf8))
+    }
+
+    /// How many bytes the body holds, from the header.
+    static func contentLength(of header: String) -> Int? {
+        for line in header.split(separator: "\n") {
+            let parts = line.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2,
+                  parts[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length"
+            else { continue }
+            return Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return nil
+    }
+
     /// Serves the Model Context Protocol over standard input and output.
     ///
     /// One request a line, one answer a line. Every tool runs the verb a
@@ -2179,6 +2242,8 @@ public struct CommandLineApplication {
       threatmodeller draw    [<root>]  write every diagram as a picture
       threatmodeller export  [<root>]  write every model as data another program reads
       threatmodeller list    [<root>]  say what each system holds and what it scores
+      threatmodeller lsp               speak the Language Server Protocol on standard
+                                       input and output
       threatmodeller mcp     [<root>]  serve the Model Context Protocol on standard
                                        input and output
       threatmodeller import terraform [<root>]  draw what a Terraform state holds,

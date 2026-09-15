@@ -95,6 +95,21 @@ grep -q '"otmVersion"' "$work/sample/threatmodel/payments.otm.json"
 tm export "$work/sample" --stdout > "$work/sample/stdout.json"
 grep -q '"threats"' "$work/sample/stdout.json"
 
+step "lsp answers a client"
+# The Language Server Protocol frames each message with its length.
+frame() {
+    printf 'Content-Length: %d\r\n\r\n%s' "${#1}" "$1"
+}
+{
+    frame '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+    frame '{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///p.arch","text":"system \"P\" {\n  zone \"z\" { kind = \"secret\" }\n}\n"}}}'
+    frame '{"jsonrpc":"2.0","method":"exit"}'
+} > "$work/lsp-in.bin"
+tm lsp < "$work/lsp-in.bin" > "$work/lsp-out.bin"
+grep -q 'Content-Length:' "$work/lsp-out.bin"
+grep -q '"documentFormattingProvider"' "$work/lsp-out.bin"
+grep -q 'publishDiagnostics' "$work/lsp-out.bin"
+
 step "mcp answers a client"
 printf '%s\n%s\n' \
     '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \

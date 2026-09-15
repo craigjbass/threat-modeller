@@ -404,6 +404,7 @@ threatmodeller export  [<root>] [-o <dir>]   # writes every model as data anothe
 threatmodeller list    [<root>]              # says what each system holds and what it scores
 threatmodeller import terraform [<root>]    # draws what a Terraform state holds
 threatmodeller mcp     [<root>]              # serves the Model Context Protocol
+threatmodeller lsp                           # speaks the Language Server Protocol
 threatmodeller format  [<root>]                # rewrites every .arch, .attacktree and .lib file
 threatmodeller library <operation> …         # manages the shared element libraries
 threatmodeller help                          # shows the usage text
@@ -497,6 +498,28 @@ The slots and the rules are stated in
 [the report template design](docs/superpowers/specs/2026-09-15-report-template-design.md).
 A project that names no template renders through the shape this application
 ships, which is the report as it has always read.
+
+### Writing the files in an editor
+
+`threatmodeller lsp` speaks the Language Server Protocol over standard input
+and output, framed the way the protocol states. Point an editor at it and the
+four source languages stop being plain text:
+
+- The parser's own diagnostics are published on every change, at the line and
+  the column the parser states.
+- Completion offers the technology ids the catalogue and the libraries hold,
+  the threat ids, the controls the threat above the cursor offers, the zone
+  names, the component ids inside a `flow`, and the attributes of the block
+  the cursor sits in.
+- Hover states a technology's description and the threats it raises, and a
+  `threat` stanza's score and level.
+- Go to definition opens the component a `flow` names, and the technology or
+  threat a `.lib` file declares.
+- Format on request writes the document again through the same writer
+  `threatmodeller format` uses.
+
+An editor extension is a separate piece of work; any editor that speaks the
+protocol reads this server today.
 
 ### Offering the model to an assistant
 
