@@ -50,8 +50,46 @@ public struct MergedCatalogue: TechnologyCatalogue {
     /// The vendored catalogue's version. A library's tag is in the lock file.
     public func version() -> CatalogueVersion { base.version() }
 
-    /// A library adds no category, no severity and no stride category.
-    public func taxonomy() -> Taxonomy { base.taxonomy() }
+    /// The vendored taxonomy, and every word the libraries add to it.
+    ///
+    /// A word the vendored taxonomy already holds stands: the vendored
+    /// catalogue is the common ground, and a library adds to it rather than
+    /// changing what a word already means. Two libraries that declare one id
+    /// is a fault `LoadLibraries` reports, and the first one read stands.
+    public func taxonomy() -> Taxonomy {
+        let base = base.taxonomy()
+        let libraries = store.all()
+
+        var categories = base.categories
+        var severities = base.severities
+        var strides = base.stride
+
+        for library in libraries {
+            for category in library.categories
+            where categories.contains(where: { $0.id == category.id }) == false {
+                categories.append(category)
+            }
+            for stride in library.strides
+            where strides.contains(where: { $0.id == stride.id }) == false {
+                strides.append(stride)
+            }
+            for severity in library.severities
+            where severities.contains(where: { $0.id == severity.id }) == false {
+                // The rank counts on from what the taxonomy already holds, so
+                // a library severity is worse than every vendored one and two
+                // libraries do not fight over one rank.
+                severities.append(
+                    ThreatSeverity(
+                        id: severity.id,
+                        label: severity.label,
+                        rank: severities.count + 1
+                    )
+                )
+            }
+        }
+
+        return Taxonomy(stride: strides, severities: severities, categories: categories)
+    }
 
     public func providers() -> [Provider] {
         base.providers() + store.all().map(\.provider)

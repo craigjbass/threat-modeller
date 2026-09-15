@@ -23,6 +23,12 @@ struct LibraryWriter {
             body.append("")
         }
 
+        // The taxonomy a library adds comes before what names it, so a reader
+        // meets the word before the technology or the threat that uses it.
+        for entry in source.categories { body += taxonomyBlock("category", entry) }
+        for entry in source.severities { body += taxonomyBlock("severity", entry) }
+        for entry in source.strides { body += taxonomyBlock("stride", entry) }
+
         for technology in source.technologies {
             body += technologyBlock(technology)
             body.append("")
@@ -93,6 +99,16 @@ struct LibraryWriter {
         lines += indent(body)
         lines.append("}")
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// One word a library adds to the taxonomy.
+    private func taxonomyBlock(_ kind: String, _ entry: SourceTaxonomyEntry) -> [String] {
+        [
+            "\(kind) \(quoted(entry.id)) {",
+            "  name = \(quoted(entry.label))",
+            "}",
+            ""
+        ]
     }
 
     private func technologyBlock(_ technology: SourceTechnology) -> [String] {

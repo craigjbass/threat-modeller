@@ -101,10 +101,58 @@ public struct LoadLibraries: LoadLibrariesUseCase {
                     diagnostics: built.faults.map { Self.fault($0.message) }
                 )
             }
+
+            // Two libraries that declare one word of the taxonomy is a fault
+            // a person fixes in one of the two files, so the warning names
+            // both libraries. The first one read stands.
+            warnings += Self.clashes(of: library, against: libraries)
             libraries.append(library)
         }
 
         return .loaded(libraries: libraries, warnings: warnings)
+    }
+
+    /// What this library declares that another library already declared.
+    private static func clashes(of library: Library, against others: [Library]) -> [Diagnostic] {
+        var said: [Diagnostic] = []
+
+        func check(_ kind: String, _ id: String, _ owner: String?) {
+            guard let owner else { return }
+            said.append(
+                Diagnostic(
+                    severity: .warning,
+                    line: 1,
+                    column: 1,
+                    message: "the \(kind) \"\(id)\" is declared by the library "
+                        + "\"\(owner)\" and by the library \"\(library.label)\"; "
+                        + "the one \"\(owner)\" states stands"
+                )
+            )
+        }
+
+        for category in library.categories {
+            check(
+                "category",
+                category.id.value,
+                others.first { $0.categories.contains { $0.id == category.id } }?.label
+            )
+        }
+        for severity in library.severities {
+            check(
+                "severity",
+                severity.id,
+                others.first { $0.severities.contains { $0.id == severity.id } }?.label
+            )
+        }
+        for stride in library.strides {
+            check(
+                "stride category",
+                stride.id.value,
+                others.first { $0.strides.contains { $0.id == stride.id } }?.label
+            )
+        }
+
+        return said
     }
 
     /// A fault of the file rather than of one token, so it names the first line.

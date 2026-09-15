@@ -13,6 +13,12 @@ public struct LibrarySource: Equatable, Sendable {
     public let threats: [SourceLibraryThreat]
     public let mitigations: [SourceLibraryMitigation]
     public let threatActors: [SourceThreatActor]
+    /// The categories, the severities and the stride categories this library
+    /// adds to the vendored taxonomy. A team whose domain the vendored
+    /// taxonomy does not name declares it here.
+    public let categories: [SourceTaxonomyEntry]
+    public let severities: [SourceTaxonomyEntry]
+    public let strides: [SourceTaxonomyEntry]
 
     public init(
         label: String,
@@ -21,7 +27,10 @@ public struct LibrarySource: Equatable, Sendable {
         technologies: [SourceTechnology] = [],
         threats: [SourceLibraryThreat] = [],
         mitigations: [SourceLibraryMitigation] = [],
-        threatActors: [SourceThreatActor] = []
+        threatActors: [SourceThreatActor] = [],
+        categories: [SourceTaxonomyEntry] = [],
+        severities: [SourceTaxonomyEntry] = [],
+        strides: [SourceTaxonomyEntry] = []
     ) {
         self.label = label
         self.displayName = displayName
@@ -30,6 +39,21 @@ public struct LibrarySource: Equatable, Sendable {
         self.threats = threats
         self.mitigations = mitigations
         self.threatActors = threatActors
+        self.categories = categories
+        self.severities = severities
+        self.strides = strides
+    }
+}
+
+/// One word a library adds to the taxonomy: a category, a severity or a
+/// stride category. Each is an id and the label a person reads.
+public struct SourceTaxonomyEntry: Equatable, Sendable {
+    public let id: String
+    public let label: String
+
+    public init(id: String, label: String) {
+        self.id = id
+        self.label = label
     }
 }
 

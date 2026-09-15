@@ -39,6 +39,9 @@ struct LibraryParser {
         var threats: [SourceLibraryThreat] = []
         var mitigations: [SourceLibraryMitigation] = []
         var threatActors: [SourceThreatActor] = []
+        var categories: [SourceTaxonomyEntry] = []
+        var severities: [SourceTaxonomyEntry] = []
+        var strides: [SourceTaxonomyEntry] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -52,6 +55,18 @@ struct LibraryParser {
                 if let threat = parseThreat() { threats.append(threat) }
             case "mitigation":
                 if let mitigation = parseMitigation() { mitigations.append(mitigation) }
+            case "category":
+                if let entry = parseTaxonomyEntry("the category's identifier") {
+                    categories.append(entry)
+                }
+            case "severity":
+                if let entry = parseTaxonomyEntry("the severity's identifier") {
+                    severities.append(entry)
+                }
+            case "stride":
+                if let entry = parseTaxonomyEntry("the stride category's identifier") {
+                    strides.append(entry)
+                }
             case "threat_actor":
                 let token = current
                 if let actor = parseThreatActor() {
@@ -63,8 +78,9 @@ struct LibraryParser {
                 }
             default:
                 record(
-                    "a library holds name, catalogue, technology, threat, mitigation and "
-                        + "threat_actor, not \"\(current.text)\""
+                    "a library holds name, catalogue, technology, threat, mitigation, "
+                        + "threat_actor, category, severity and stride, not "
+                        + "\"\(current.text)\""
                 )
                 skipToNextBlock()
             }
@@ -78,8 +94,32 @@ struct LibraryParser {
             technologies: technologies,
             threats: threats,
             mitigations: mitigations,
-            threatActors: threatActors
+            threatActors: threatActors,
+            categories: categories,
+            severities: severities,
+            strides: strides
         )
+    }
+
+    /// One word a library adds to the taxonomy. Every one reads the same:
+    /// an identifier and a name.
+    private mutating func parseTaxonomyEntry(_ what: String) -> SourceTaxonomyEntry? {
+        advance()
+        guard let id = expect(.string, what) else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var label: String?
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": label = parseTextAttribute()
+            default:
+                record("this block holds name, not \"\(current.text)\"")
+                skipToNextBlock()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        return SourceTaxonomyEntry(id: id.text, label: label ?? id.text)
     }
 
     /// The block the architecture language holds, read the same way, so a

@@ -10,6 +10,12 @@ public struct Library: Equatable, Sendable {
     public let threats: [Threat]
     public let pathwayMitigations: [PathwayMitigationDefinition]
     public let threatActors: [ThreatActor]
+    /// What this library adds to the vendored taxonomy: a domain the vendored
+    /// categories do not name, a severity a team words its own way, or a
+    /// stride category their own method holds.
+    public let categories: [ServiceCategory]
+    public let severities: [ThreatSeverity]
+    public let strides: [StrideCategory]
 
     public init(
         label: String,
@@ -17,7 +23,10 @@ public struct Library: Equatable, Sendable {
         technologies: [Technology],
         threats: [Threat],
         pathwayMitigations: [PathwayMitigationDefinition] = [],
-        threatActors: [ThreatActor] = []
+        threatActors: [ThreatActor] = [],
+        categories: [ServiceCategory] = [],
+        severities: [ThreatSeverity] = [],
+        strides: [StrideCategory] = []
     ) {
         self.label = label
         self.provider = provider
@@ -25,6 +34,9 @@ public struct Library: Equatable, Sendable {
         self.threats = threats
         self.pathwayMitigations = pathwayMitigations
         self.threatActors = threatActors
+        self.categories = categories
+        self.severities = severities
+        self.strides = strides
     }
 }
 
@@ -71,6 +83,27 @@ public extension Library {
         taxonomy: Taxonomy
     ) -> (library: Library?, faults: [LibraryBuildFault]) {
         var faults: [LibraryBuildFault] = []
+        // A library's own words count as known: a technology may name a
+        // category this library declares, and a threat a severity it declares.
+        let ownCategories = source.categories.map {
+            ServiceCategory(id: CategoryId($0.id), label: $0.label, presetThreatIds: [])
+        }
+        let ownStrides = source.strides.map { StrideCategory(id: StrideId($0.id), label: $0.label) }
+        let ownSeverities = source.severities.enumerated().map { position, entry in
+            // A library severity ranks above every vendored one: a team that
+            // words its own severity means something the vendored scale does
+            // not hold.
+            ThreatSeverity(
+                id: entry.id,
+                label: entry.label,
+                rank: taxonomy.severities.count + position + 1
+            )
+        }
+        let taxonomy = Taxonomy(
+            stride: taxonomy.stride + ownStrides,
+            severities: taxonomy.severities + ownSeverities,
+            categories: taxonomy.categories + ownCategories
+        )
         let declared = Set(source.threats.map(\.id))
         let declaredTechnologies = Set(source.technologies.map(\.id))
 
@@ -197,7 +230,10 @@ public extension Library {
                 technologies: technologies,
                 threats: threats,
                 pathwayMitigations: mitigations,
-                threatActors: actors
+                threatActors: actors,
+                categories: ownCategories,
+                severities: ownSeverities,
+                strides: ownStrides
             ),
             []
         )

@@ -1247,6 +1247,20 @@ library "acme" {
   name      = "Acme Platform"       # the palette group's title; default is the label
   catalogue = "v1.0.1"              # the catalogue tag this was written against
 
+  # The words this library adds to the taxonomy. A team whose domain the
+  # vendored categories do not name declares it here.
+  category "operational-technology" {
+    name = "Operational Technology"
+  }
+
+  severity "catastrophic" {
+    name = "Catastrophic"
+  }
+
+  stride "safety" {
+    name = "Safety"
+  }
+
   technology "cribl-stream" {
     name        = "Cribl Stream"
     category    = "monitoring"
@@ -1275,6 +1289,15 @@ library "acme" {
 }
 ```
 
+A library's own words are known to that library: a technology names a category
+it declares, and a threat names a severity or a stride category it declares. A
+word the vendored taxonomy already holds stands as the vendored catalogue
+states it: a library adds to the taxonomy and never changes what a word means.
+Two libraries that declare one id give a warning naming both, and the one read
+first stands. A library severity ranks above every vendored severity, because a
+team that words its own severity means something the vendored scale does not
+hold.
+
 ### 6.2 Grammar
 
 ```
@@ -1282,10 +1305,13 @@ LibraryFile  = LibraryBlock ;
 LibraryBlock = "library" String "{" { LibraryEntry } "}" ;
 LibraryEntry = "name"      "=" String
              | "catalogue" "=" String
+             | TaxonomyBlock
              | TechnologyBlock
              | ThreatBlock
              | MitigationBlock
              | ThreatActorBlock ;
+
+TaxonomyBlock = ( "category" | "severity" | "stride" ) String "{" "name" "=" String "}" ;
 
 ThreatBlock = "threat" String "{" { ThreatEntry } "}" ;
 ThreatEntry = "name"         "=" String
