@@ -37,25 +37,50 @@ public final class FakeLibraryFetcher: LibraryFetching, @unchecked Sendable {
 
     /// How long a fetch waits before it answers, so a test can press Cancel
     /// while one is in flight. Zero means it answers at once.
-    public var waits: TimeInterval = 0
+    ///
+    /// A test writes it on one thread and `fetch` reads it on another, so the
+    /// lock carries it across. Reading it without the lock let a fetch see
+    /// zero, answer at once, and finish before Cancel arrived.
+    public var waits: TimeInterval {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return waitsValue
+        }
+        set {
+            lock.lock()
+            waitsValue = newValue
+            lock.unlock()
+        }
+    }
+
+    private var waitsValue: TimeInterval = 0
 
     /// Stops a fetch that is waiting. The waiting fetch then throws.
     public func cancel() {
         lock.lock()
         isCancelled = true
-        cancels += 1
+        cancelsValue += 1
         lock.unlock()
     }
 
-    /// How many times something pressed Cancel.
-    public private(set) var cancels = 0
+    /// How many times something pressed Cancel. Read on the main thread while
+    /// a fetch runs on another, so the lock carries it too.
+    public var cancels: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelsValue
+    }
+
+    private var cancelsValue = 0
     private var isCancelled = false
 
     public func fetch(repository: String, tag: String) throws -> [String: String] {
         if repository.hasPrefix("-") { throw LibraryFetchFault.badRepository(repository) }
 
-        if waits > 0 {
-            let until = Date().addingTimeInterval(waits)
+        let waitsFor = waits
+        if waitsFor > 0 {
+            let until = Date().addingTimeInterval(waitsFor)
             while Date() < until {
                 lock.lock()
                 let stopped = isCancelled
