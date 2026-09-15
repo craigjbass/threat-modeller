@@ -682,13 +682,6 @@ public struct CommandLineApplication {
         return try? projects.read(path: layout.policyPath)
     }
 
-    /// The template this project states for itself, or nil when it states
-    /// none or the policy file does not read.
-    private func projectTemplatePath(root: String) -> String? {
-        guard let text = policyText(root: root) else { return nil }
-        return HclPolicySource().read(text).source?.template
-    }
-
     /// Who carries each accepted risk, or nil when the project holds no such
     /// file.
     private func governanceText(of system: ProjectSystem) -> String? {
@@ -1111,22 +1104,23 @@ public struct CommandLineApplication {
         commits: Int = ReadRiskHistory.defaultCommits,
         output: (String) -> Void
     ) -> Int32 {
-        // The flag wins over the file, the way every other flag does.
+        // One resolution for every writer: the window's report paths read the
+        // template through the same use case.
         var template: ReportTemplate?
-        if let named = templatePath ?? projectTemplatePath(root: root) {
-            let path = named.hasPrefix("/") ? named : ProjectConvention.path(root, named)
-            guard let text = try? projects.read(path: path) else {
-                output("threatmodeller: there is no template at \(path)")
-                return ExitCode.fileFault.rawValue
-            }
-            let read = ReportTemplate.read(text)
-            guard let found = read.template else {
-                for diagnostic in read.diagnostics {
-                    output(diagnostic.described(in: path))
-                }
-                return ExitCode.didNotParse.rawValue
-            }
+        switch ReadReportTemplate(projects: projects, policies: HclPolicySource())
+            .execute(ReadReportTemplateRequest(root: root, statedPath: templatePath)) {
+        case .none:
+            break
+        case .found(let found):
             template = found
+        case .missing(let path):
+            output("threatmodeller: there is no template at \(path)")
+            return ExitCode.fileFault.rawValue
+        case .didNotParse(let path, let diagnostics):
+            for diagnostic in diagnostics {
+                output(diagnostic.described(in: path))
+            }
+            return ExitCode.didNotParse.rawValue
         }
 
         if let diagramLanguage, diagramLanguage != TextDiagramWriter.Language.mermaid.rawValue {

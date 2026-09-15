@@ -177,6 +177,54 @@ struct ReportTemplateTests {
         #expect(report.hasPrefix("# The board's report"))
     }
 
+    /// *Generate Report* runs `CompileSystemReport`. It renders through the
+    /// project's template, so the window and the command line write the same
+    /// file.
+    @Test func theWindowsUseCaseWritesTheReportTheCommandLineWrites() throws {
+        let window = TestDependencies()
+        for held in [project, window.project] {
+            held.put(payments, at: "/work/threatmodel/payments.arch")
+            held.put("policy {\n  template = \"board.md\"\n}\n", at: "/work/threatmodel/policy.hcl")
+            held.put("# The board's report\n\n{{findings}}\n", at: "/work/board.md")
+        }
+        let code = CommandLineApplication(
+            projects: project,
+            attackData: window.attackData,
+            catalogue: { window.catalogueInUse }
+        ).run(arguments: ["threatmodeller", "report", "/work", "--commits", "0"], output: { _ in })
+        #expect(code == 0)
+
+        _ = window.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
+        let written = window.compileSystemReport().execute(
+            CompileSystemReportRequest(root: "/work", systemName: "payments")
+        )
+
+        #expect(written == .written(path: "/work/threatmodel/payments.md"))
+        #expect(
+            window.project.text(at: "/work/threatmodel/payments.md")
+                == project.text(at: "/work/threatmodel/payments.md")
+        )
+    }
+
+    /// A policy naming a template that is not there stops the command line
+    /// run. The window's use case stops the same way and writes nothing.
+    @Test func theWindowsUseCaseStopsWhenTheTemplateIsNotThere() {
+        let window = TestDependencies()
+        window.project.put(payments, at: "/work/threatmodel/payments.arch")
+        window.project.put(
+            "policy {\n  template = \"board.md\"\n}\n",
+            at: "/work/threatmodel/policy.hcl"
+        )
+        _ = window.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
+
+        let written = window.compileSystemReport().execute(
+            CompileSystemReportRequest(root: "/work", systemName: "payments")
+        )
+
+        #expect(written == .cannotWrite(reason: "there is no template at /work/board.md"))
+        #expect(window.project.text(at: "/work/threatmodel/payments.md") == nil)
+    }
+
     /// The flag wins over the file, the way every other flag does.
     @Test func theFlagWinsOverTheFile() throws {
         aProject()

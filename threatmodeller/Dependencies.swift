@@ -324,8 +324,16 @@ nonisolated final class Dependencies: UseCaseFactory {
         )
     }
 
+    func readReportTemplate() -> ReadReportTemplateUseCase {
+        ReadReportTemplate(projects: projects, policies: policySources)
+    }
+
     func compileSystemReport() -> CompileSystemReportUseCase {
-        CompileSystemReport(projects: projects, markdown: exportModelAsMarkdown())
+        CompileSystemReport(
+            projects: projects,
+            templates: readReportTemplate(),
+            markdown: exportModelAsMarkdown()
+        )
     }
 
     func saveSystem() -> SaveSystemUseCase {

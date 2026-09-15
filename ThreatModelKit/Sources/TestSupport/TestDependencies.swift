@@ -358,8 +358,16 @@ public final class TestDependencies: UseCaseFactory {
         )
     }
 
+    public func readReportTemplate() -> ReadReportTemplateUseCase {
+        ReadReportTemplate(projects: projects, policies: policySources)
+    }
+
     public func compileSystemReport() -> CompileSystemReportUseCase {
-        CompileSystemReport(projects: projects, markdown: exportModelAsMarkdown())
+        CompileSystemReport(
+            projects: projects,
+            templates: readReportTemplate(),
+            markdown: exportModelAsMarkdown()
+        )
     }
 
     public func saveSystem() -> SaveSystemUseCase {

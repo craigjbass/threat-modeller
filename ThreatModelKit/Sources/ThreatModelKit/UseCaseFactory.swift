@@ -66,6 +66,8 @@ public protocol UseCaseFactory: Sendable {
     func saveSystem() -> SaveSystemUseCase
     func saveSystemAnswers() -> SaveSystemAnswersUseCase
     func compileSystemReport() -> CompileSystemReportUseCase
+    /// The template the project states for its reports.
+    func readReportTemplate() -> ReadReportTemplateUseCase
     func viewCatalogueVersion() -> ViewCatalogueVersionUseCase
     func adoptCatalogueVersion() -> AdoptCatalogueVersionUseCase
     func listSampleModels() -> ListSampleModelsUseCase

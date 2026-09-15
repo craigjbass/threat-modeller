@@ -63,19 +63,19 @@ struct ReportExporter {
     func data(for kind: Kind) async -> (data: Data, fileName: String)? {
         switch kind {
         case .markdown:
-            session.markdownExport()
+            return session.markdownExport()
         case .html:
-            session.htmlExport()
+            return session.htmlExport()
         case .json:
-            session.jsonExport()
+            return session.jsonExport()
         case .mermaid:
-            session.mermaidExport()
+            return session.mermaidExport()
         case .threatcl:
-            session.threatclExport()
+            return session.threatclExport()
         case .pdf:
-            await session.pdfExport()
+            return await session.pdfExport()
         case .image:
-            image()
+            return image()
         }
     }
 

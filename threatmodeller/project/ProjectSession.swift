@@ -509,7 +509,7 @@ final class ProjectSession {
             errorMessage = nil
             clearMessage()
             loading = .scoringTheThreats
-            let drawn = ThreatModelSession(useCases: useCases)
+            let drawn = ThreatModelSession(useCases: useCases, projectRoot: root)
             model = drawn
             savedRevision = drawn.revision
             hasFilesChangedOnDisk = false

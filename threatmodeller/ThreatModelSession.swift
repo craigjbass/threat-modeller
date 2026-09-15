@@ -84,13 +84,22 @@ final class ThreatModelSession {
     /// A document window sets nothing. A project window writes the files.
     var onChange: (() -> Void)?
 
+    /// The open project's root, so a report export reads the project's
+    /// template. Nil when no project holds this model.
+    private let projectRoot: String?
+
     /// Where a double-click on a palette row puts a component, in model
     /// coordinates. A drag from the palette uses the drop point instead.
     static let defaultDropPoint = (x: 80.0, y: 80.0)
 
-    init(useCases: UseCaseFactory, clipboard: Clipboard = SystemClipboard()) {
+    init(
+        useCases: UseCaseFactory,
+        clipboard: Clipboard = SystemClipboard(),
+        projectRoot: String? = nil
+    ) {
         self.useCases = useCases
         self.clipboard = clipboard
+        self.projectRoot = projectRoot
         threatChoices = useCases.listThreatChoices().execute(ListThreatChoicesRequest()).threats
         refresh()
     }
@@ -720,10 +729,45 @@ final class ThreatModelSession {
         return technology
     }
 
-    /// What a report writes, and what to call the file. Nothing here touches
-    /// the file system: the exporter asks the user where it goes.
-    func markdownExport() -> (data: Data, fileName: String) {
-        let response = useCases.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest())
+    /// How a report export resolved the project's template.
+    private enum TemplateResolution {
+        case none
+        case found(ReportTemplate)
+        case failed
+    }
+
+    /// The template the project states, read when a report is written, the
+    /// way `threatmodeller report` reads it. A failure sets `errorMessage`,
+    /// and the export writes nothing, the way the command line stops the run.
+    private func projectTemplate() -> TemplateResolution {
+        guard let projectRoot else { return .none }
+        switch useCases.readReportTemplate()
+            .execute(ReadReportTemplateRequest(root: projectRoot)) {
+        case .none:
+            return .none
+        case .found(let template):
+            return .found(template)
+        case .missing(let path):
+            errorMessage = "There is no template at \(path)."
+            return .failed
+        case .didNotParse(let path, let diagnostics):
+            errorMessage = diagnostics.map { $0.described(in: path) }.joined(separator: "\n")
+            return .failed
+        }
+    }
+
+    /// What a report writes, and what to call the file, or nil when the
+    /// project's template stops the export. Nothing here touches the file
+    /// system: the exporter asks the user where it goes.
+    func markdownExport() -> (data: Data, fileName: String)? {
+        let template: ReportTemplate?
+        switch projectTemplate() {
+        case .failed: return nil
+        case .none: template = nil
+        case .found(let found): template = found
+        }
+        let response = useCases.exportModelAsMarkdown()
+            .execute(ExportModelAsMarkdownRequest(template: template))
         return (Data(response.markdown.utf8), response.fileName)
     }
 
@@ -732,7 +776,13 @@ final class ThreatModelSession {
     /// The pictures are the ones the command line tool draws, from the same
     /// code, so the page a person exports and the page a build writes are the
     /// same page.
-    func htmlExport() -> (data: Data, fileName: String) {
+    func htmlExport() -> (data: Data, fileName: String)? {
+        let template: ReportTemplate?
+        switch projectTemplate() {
+        case .failed: return nil
+        case .none: template = nil
+        case .found(let found): template = found
+        }
         let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
         let report = useCases.buildThreatModelReport()
             .execute(BuildThreatModelReportRequest()).report
@@ -770,7 +820,8 @@ final class ThreatModelSession {
                     uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) }
                 ),
                 pictureSources: sources,
-                wholePicture: SvgWriter.svg(of: DiagramBuilder.drawing(of: drawn))
+                wholePicture: SvgWriter.svg(of: DiagramBuilder.drawing(of: drawn)),
+                template: template
             )
         )
         return (Data(page.html.utf8), page.fileName)
@@ -810,7 +861,7 @@ final class ThreatModelSession {
     /// The report page, printed. Returns nil when the page could not print,
     /// and says so in `errorMessage`.
     func pdfExport() async -> (data: Data, fileName: String)? {
-        let page = htmlExport()
+        guard let page = htmlExport() else { return nil }
         do {
             let data = try await HtmlPdfPrinter().pdf(
                 fromHtml: String(decoding: page.data, as: UTF8.self)

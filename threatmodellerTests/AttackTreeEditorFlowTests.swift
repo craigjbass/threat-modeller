@@ -151,7 +151,7 @@ struct AttackTreeEditorFlowTests {
         await session.writeAttackTree(try #require(draft.source()))
 
         let reloaded = try #require(session.model)
-        let markdown = reloaded.markdownExport()
+        let markdown = try #require(reloaded.markdownExport())
 
         #expect(String(decoding: markdown.data, as: UTF8.self).contains("Read every record"))
     }
@@ -240,7 +240,7 @@ struct AttackTreeEditorFlowTests {
         #expect(bound.id == "drawn-on-the-canvas")
         #expect(bound.isStale == false)
 
-        let markdown = reloaded.markdownExport()
+        let markdown = try #require(reloaded.markdownExport())
         #expect(String(decoding: markdown.data, as: UTF8.self).contains("Drawn on the canvas"))
     }
 
