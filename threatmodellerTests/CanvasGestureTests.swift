@@ -289,12 +289,68 @@ struct CanvasGestureTests {
         #expect(canvas.isDrawingZone == false)
     }
 
-    @Test func aTwoFingerScrollMovesTheDiagram() {
+    /// macOS states a delta that already answers the person's own
+    /// natural-scrolling setting, so the diagram moves the way the delta
+    /// states. It used to move the other way.
+    @Test func aTwoFingerScrollMovesTheDiagramTheWayTheDeltaStates() {
         let (_, canvas, gestures) = drawn()
 
         gestures.scroll(by: CGSize(width: 30, height: -20))
 
-        #expect(canvas.transform.pan == CGSize(width: -30, height: 20))
+        #expect(canvas.transform.pan == CGSize(width: 30, height: -20))
+    }
+
+    /// A plain drag on the background pans. It stopped panning when the
+    /// marquee gesture was gated on Shift and never failed.
+    @Test func aPlainDragOnTheBackgroundPansTheDiagram() {
+        let (_, canvas, gestures) = drawn()
+
+        gestures.backgroundDragChanged(
+            from: CGPoint(x: 100, y: 100),
+            to: CGPoint(x: 140, y: 130),
+            by: CGSize(width: 40, height: 30),
+            isShiftDown: false
+        )
+
+        #expect(canvas.transform.pan == CGSize(width: 40, height: 30))
+        #expect(canvas.isPanning)
+        #expect(canvas.marquee == nil)
+
+        gestures.backgroundDragEnded()
+        #expect(canvas.isPanning == false)
+    }
+
+    /// A shift-drag draws the marquee and moves the diagram not at all.
+    @Test func aShiftDragOnTheBackgroundDrawsTheMarquee() {
+        let (_, canvas, gestures) = drawn()
+
+        gestures.backgroundDragChanged(
+            from: CGPoint(x: 100, y: 100),
+            to: CGPoint(x: 140, y: 130),
+            by: CGSize(width: 40, height: 30),
+            isShiftDown: true
+        )
+
+        #expect(canvas.marquee != nil)
+        #expect(canvas.transform.pan == .zero)
+        #expect(canvas.isPanning == false)
+    }
+
+    /// A drag while the zone tool is on draws the zone, whatever the keys
+    /// say, and never pans.
+    @Test func aDragWhileTheZoneToolIsOnDrawsTheZone() {
+        let (_, canvas, gestures) = drawn()
+        canvas.startDrawingZone()
+
+        gestures.backgroundDragChanged(
+            from: CGPoint(x: 10, y: 10),
+            to: CGPoint(x: 210, y: 130),
+            by: CGSize(width: 200, height: 120),
+            isShiftDown: false
+        )
+
+        #expect(canvas.zoneDraft != nil)
+        #expect(canvas.transform.pan == .zero)
     }
 
     @Test func aTwoFingerScrollKeepsTheZoom() {
@@ -421,5 +477,25 @@ struct CanvasZoomCommandTests {
         gestures.zoomToActualSize()
 
         #expect(canvas.transform.percentage == 100)
+    }
+}
+
+/// What the pointer says the canvas will do. A hand that promised a pan the
+/// canvas did not answer was the wrong pointer.
+@MainActor
+@Suite("The pointer over open canvas")
+struct CanvasPointerTests {
+    @Test func statesAnOpenHandWhileADragWouldPan() {
+        #expect(CanvasPointer.kind(isDrawingZone: false, isPanning: false) == .openHand)
+    }
+
+    @Test func statesAClosedHandWhileAPanIsInFlight() {
+        #expect(CanvasPointer.kind(isDrawingZone: false, isPanning: true) == .closedHand)
+    }
+
+    /// The zone tool draws a rectangle, and a hand would promise a pan.
+    @Test func statesTheRectanglePointerWhileTheZoneToolIsOn() {
+        #expect(CanvasPointer.kind(isDrawingZone: true, isPanning: false) == .rectangle)
+        #expect(CanvasPointer.kind(isDrawingZone: true, isPanning: true) == .rectangle)
     }
 }

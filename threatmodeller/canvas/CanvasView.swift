@@ -35,8 +35,7 @@ struct CanvasView: View {
 
     /// What the pointer looks like over open canvas.
     private var pointer: PointerStyle? {
-        if canvas.isDrawingZone { return .rectSelection }
-        return canvas.isPanning ? .grabActive : .grabIdle
+        CanvasPointer.style(isDrawingZone: canvas.isDrawingZone, isPanning: canvas.isPanning)
     }
 
     private func startReadingScrollEvents() {
@@ -406,5 +405,35 @@ struct CanvasView: View {
         guard let drag = canvas.connectionDrag,
               let source = boxes[drag.sourceComponentId] else { return nil }
         return (start: source.centre, end: drag.currentPoint)
+    }
+}
+
+
+/// What the pointer says the canvas will do.
+///
+/// A hand promises a drag that moves the diagram, so it is only right while a
+/// plain drag pans. The zone tool draws a rectangle, and macOS shows the
+/// rectangle pointer for that.
+nonisolated enum CanvasPointer {
+    /// Which pointer the canvas asks for. A name rather than the pointer
+    /// itself, because `PointerStyle` states no equality and a test must be
+    /// able to say which one it got.
+    enum Kind: Equatable {
+        case openHand
+        case closedHand
+        case rectangle
+    }
+
+    static func kind(isDrawingZone: Bool, isPanning: Bool) -> Kind {
+        if isDrawingZone { return .rectangle }
+        return isPanning ? .closedHand : .openHand
+    }
+
+    static func style(isDrawingZone: Bool, isPanning: Bool) -> PointerStyle? {
+        switch kind(isDrawingZone: isDrawingZone, isPanning: isPanning) {
+        case .openHand: .grabIdle
+        case .closedHand: .grabActive
+        case .rectangle: .rectSelection
+        }
     }
 }

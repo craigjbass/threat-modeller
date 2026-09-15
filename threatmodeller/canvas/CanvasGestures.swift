@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import ThreatModelKit
 
@@ -101,19 +102,36 @@ struct CanvasGestures {
         // there is nothing on empty canvas for a shift to extend, so the key
         // is free here even though shift-click extends a selection on a node.
         // A drag while the zone tool is on draws the zone, and never pans.
+        //
+        // One gesture, not a shift-gated one `exclusively(before:)` another:
+        // a modifier-gated drag that never failed left the pan gesture
+        // waiting for it, and a plain drag then moved nothing at all. This
+        // reads the key itself, at the moment of the change.
         DragGesture(minimumDistance: 2, coordinateSpace: .named("canvas"))
-            .modifiers(.shift)
-            .onChanged { marqueeDragChanged(from: $0.startLocation, to: $0.location) }
-            .onEnded { _ in backgroundDragEnded() }
-            .exclusively(before: panDrag)
-    }
-
-    private var panDrag: some Gesture {
-        DragGesture(minimumDistance: 2, coordinateSpace: .named("canvas"))
-            .onChanged {
-                panDragChanged(from: $0.startLocation, to: $0.location, by: $0.translation)
+            .onChanged { value in
+                backgroundDragChanged(
+                    from: value.startLocation,
+                    to: value.location,
+                    by: value.translation,
+                    isShiftDown: NSEvent.modifierFlags.contains(.shift)
+                )
             }
             .onEnded { _ in backgroundDragEnded() }
+    }
+
+    /// A drag on the background: the marquee while Shift is down or the zone
+    /// tool is on, and the pan otherwise. Internal so a test can walk the
+    /// drag without SwiftUI's gesture plumbing.
+    func backgroundDragChanged(
+        from start: CGPoint,
+        to end: CGPoint,
+        by translation: CGSize,
+        isShiftDown: Bool
+    ) {
+        guard isShiftDown == false else {
+            return marqueeDragChanged(from: start, to: end)
+        }
+        panDragChanged(from: start, to: end, by: translation)
     }
 
     /// A shift-drag on the background. Internal so a test can walk the drag
@@ -159,10 +177,12 @@ struct CanvasGestures {
 
     /// A two finger scroll moves the diagram, by the same transform a drag
     /// moves it by.
+    ///
+    /// macOS states a scrolling delta that already answers the person's own
+    /// natural-scrolling setting, so the delta is applied as it arrives.
+    /// Negating it a second time moved the diagram the wrong way.
     func scroll(by delta: CGSize) {
-        canvas.transform = canvas.transform.panned(
-            by: CGSize(width: -delta.width, height: -delta.height)
-        )
+        canvas.transform = canvas.transform.panned(by: delta)
     }
 
     /// Ends a zone drag. Internal so a test can walk the drag without
