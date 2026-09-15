@@ -137,7 +137,7 @@ The policy language reads these keywords: `policy`, `max_open_at_level`,
 `accepted_requires_owner`, `accepted_requires_review_by`,
 `implemented_requires_evidence_above`,
 `restricted_data_stays_out_of_public_zones`, `assumptions_require_owner`,
-`system_requires_owner`.
+`system_requires_owner`, `template`.
 
 The governance language reads these keywords: `governance`, `for`, `threat`,
 `on`, `stale`, `accepted`, `work`, `action`, `owner`, `accepted_on`,
@@ -2349,7 +2349,8 @@ PolicyEntry = "max_open_at_level"                         "=" String
             | "implemented_requires_evidence_above"       "=" String
             | "restricted_data_stays_out_of_public_zones" "=" Boolean
             | "assumptions_require_owner"                 "=" Boolean
-            | "system_requires_owner"                     "=" Boolean ;
+            | "system_requires_owner"                     "=" Boolean
+            | "template"                                  "=" String ;
 ```
 
 A file holds exactly one `policy` block. Text after its closing brace is not
@@ -2367,9 +2368,23 @@ not "<word>"`.
 | `restricted_data_stays_out_of_public_zones` | boolean | no component holding restricted data sits in a public zone, or outside every zone |
 | `assumptions_require_owner` | boolean | every assumption names an owner |
 | `system_requires_owner` | boolean | the `.arch` file states `owner` |
+| `template` | string | the report template this project renders through, as a path from the project root. It asks nothing and breaches nothing |
 
 A rule the file does not state is not in force, and `false` is the same as not
 stating it, so a team turns one off without deleting the line.
+
+`template` is not a rule and breaches nothing. It names the report template
+this project renders through, as a path from the project root:
+
+```hcl
+policy {
+  template = "docs/board-report.md"
+}
+```
+
+`threatmodeller report --template <file>` states one for a single run and wins
+over the file. The template language is stated in
+`docs/superpowers/specs/2026-09-15-report-template-design.md`.
 
 A risk level is `low`, `medium`, `high` or `critical`. A value outside the four
 is the error `<rule> is "<raw>"; this application holds "low", "medium",
@@ -2377,7 +2392,7 @@ is the error `<rule> is "<raw>"; this application holds "low", "medium",
 max_open_at_level, accepted_requires_owner, accepted_requires_review_by,
 implemented_requires_evidence_above,
 restricted_data_stays_out_of_public_zones, assumptions_require_owner,
-system_requires_owner, not "<word>"`.
+system_requires_owner, template, not "<word>"`.
 
 ### 9.3 What a breach prints
 

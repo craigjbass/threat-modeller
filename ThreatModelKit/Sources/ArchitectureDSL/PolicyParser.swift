@@ -35,6 +35,7 @@ struct PolicyParser {
         var restrictedDataStaysOutOfPublicZones = false
         var assumptionsRequireOwner = false
         var systemRequiresOwner = false
+        var template: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -54,10 +55,13 @@ struct PolicyParser {
                 assumptionsRequireOwner = parseBooleanAttribute() ?? false
             case "system_requires_owner":
                 systemRequiresOwner = parseBooleanAttribute() ?? false
+            case "template":
+                template = parseTextAttribute()
             default:
                 record(
                     "a policy holds "
-                        + PolicySource.ruleNames.joined(separator: ", ")
+                        + (PolicySource.ruleNames + PolicySource.settingNames)
+                            .joined(separator: ", ")
                         + ", not \"\(current.text)\""
                 )
                 skipAttribute()
@@ -72,7 +76,8 @@ struct PolicyParser {
             implementedRequiresEvidenceAbove: implementedRequiresEvidenceAbove,
             restrictedDataStaysOutOfPublicZones: restrictedDataStaysOutOfPublicZones,
             assumptionsRequireOwner: assumptionsRequireOwner,
-            systemRequiresOwner: systemRequiresOwner
+            systemRequiresOwner: systemRequiresOwner,
+            template: template
         )
     }
 

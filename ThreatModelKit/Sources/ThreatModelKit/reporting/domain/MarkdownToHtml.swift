@@ -15,11 +15,26 @@ public enum MarkdownToHtml {
     /// A picture the page holds itself, by the file name the Markdown names.
     public typealias Pictures = [String: String]
 
+    /// What a cover page states.
+    public struct Cover: Equatable, Sendable {
+        public let title: String
+        public let subtitle: String?
+
+        public init(title: String, subtitle: String? = nil) {
+            self.title = title
+            self.subtitle = subtitle
+        }
+    }
+
+    /// `banner` is a line printed at the top of every page, which a team uses
+    /// for a classification. `cover` opens the page with a cover.
     public static func html(
         of markdown: String,
         title: String,
         pictures: Pictures = [:],
-        wholePicture: String? = nil
+        wholePicture: String? = nil,
+        banner: String? = nil,
+        cover: Cover? = nil
     ) -> String {
         var body: [String] = []
         var table: [String] = []
@@ -147,7 +162,27 @@ public enum MarkdownToHtml {
         closeTable()
         closeList()
 
-        return page(title: title, body: body.joined(separator: "\n"))
+        var whole: [String] = []
+        // The banner is fixed to the top of every printed page, and the cover
+        // is the first page, so a reader of the paper sees both.
+        if let banner {
+            whole.append("<div class=\"banner\">\(escaped(banner))</div>")
+        }
+        if let cover {
+            whole.append("<section class=\"cover\">")
+            whole.append("<h1>\(escaped(cover.title))</h1>")
+            if let subtitle = cover.subtitle {
+                whole.append("<p class=\"cover-subtitle\">\(escaped(subtitle))</p>")
+            }
+            whole.append("</section>")
+        }
+        whole.append(body.joined(separator: "\n"))
+
+        return page(
+            title: title,
+            body: whole.joined(separator: "\n"),
+            hasBanner: banner != nil || cover != nil
+        )
     }
 
     // MARK: one construct
@@ -287,6 +322,22 @@ public enum MarkdownToHtml {
 
     /// The stylesheet is written into the page and sized for A4, so a reader
     /// who prints the page gets the report as a PDF with no other tool.
+    /// What a banner and a cover take. A page states these only when the
+    /// template asks for one of them, so a page with neither carries neither
+    /// rule.
+    public static let bannerStyle = """
+    .banner { position: fixed; top: 0; left: 0; right: 0; text-align: center;
+              font: 8pt/1.4 -apple-system, 'Helvetica Neue', Arial, sans-serif;
+              letter-spacing: 0.08em; text-transform: uppercase;
+              background: #16161a; color: #ffffff; padding: 3pt 0; }
+    body { padding-top: 18pt; }
+    .cover { min-height: 60vh; display: flex; flex-direction: column;
+             justify-content: center; page-break-after: always; }
+    .cover h1 { font-size: 32pt; margin: 0 0 12pt; }
+    .cover-subtitle { font-size: 13pt; color: #4a4a55; margin: 0; }
+    @media print { .banner { position: fixed; } }
+    """
+
     public static let style = """
     @page { size: A4; margin: 16mm 14mm; }
     body { font: 10pt/1.45 -apple-system, 'Helvetica Neue', Arial, sans-serif;
@@ -311,7 +362,7 @@ public enum MarkdownToHtml {
     @media print { body { max-width: none; padding: 0; } a { color: inherit; } }
     """
 
-    static func page(title: String, body: String) -> String {
+    static func page(title: String, body: String, hasBanner: Bool = false) -> String {
         """
         <!doctype html>
         <html lang="en">
@@ -321,6 +372,7 @@ public enum MarkdownToHtml {
         <title>\(escaped(title))</title>
         <style>
         \(style)
+        \(hasBanner ? bannerStyle : "")
         </style>
         </head>
         <body>

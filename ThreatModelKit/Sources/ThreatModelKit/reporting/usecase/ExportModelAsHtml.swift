@@ -15,13 +15,19 @@ public struct ExportModelAsHtmlRequest: Equatable, Sendable {
     public let pictureSources: [String: String]
     /// The whole system as SVG, written under the title. Nil draws none.
     public let wholePicture: String?
+    /// The team's own shape for the report, or nil for the shape this
+    /// application ships. The page reads its front matter for the banner and
+    /// the cover.
+    public let template: ReportTemplate?
 
     public init(
         threatPictures: [String: String] = [:],
         controlPictures: [String: String] = [:],
         pictureSources: [String: String] = [:],
-        wholePicture: String? = nil
+        wholePicture: String? = nil,
+        template: ReportTemplate? = nil
     ) {
+        self.template = template
         self.threatPictures = threatPictures
         self.controlPictures = controlPictures
         self.pictureSources = pictureSources
@@ -59,7 +65,8 @@ public struct ExportModelAsHtml: ExportModelAsHtmlUseCase {
         let written = markdown.execute(
             ExportModelAsMarkdownRequest(
                 threatPictures: request.threatPictures,
-                controlPictures: request.controlPictures
+                controlPictures: request.controlPictures,
+                template: request.template
             )
         )
         let stem = String(written.fileName.dropLast(3))
@@ -75,9 +82,25 @@ public struct ExportModelAsHtml: ExportModelAsHtmlUseCase {
                 of: written.markdown,
                 title: title,
                 pictures: request.pictureSources,
-                wholePicture: request.wholePicture
+                wholePicture: request.wholePicture,
+                banner: request.template?.frontMatter.banner,
+                cover: cover(of: request.template, titled: title)
             ),
             fileName: "\(stem).html"
+        )
+    }
+
+    /// What the cover page states, or nil when the template asks for none.
+    /// A template that asks for a cover and names no title covers the report
+    /// with the system's own name.
+    private func cover(
+        of template: ReportTemplate?,
+        titled title: String
+    ) -> MarkdownToHtml.Cover? {
+        guard let front = template?.frontMatter, front.hasCover else { return nil }
+        return MarkdownToHtml.Cover(
+            title: front.coverTitle ?? title,
+            subtitle: front.coverSubtitle
         )
     }
 }

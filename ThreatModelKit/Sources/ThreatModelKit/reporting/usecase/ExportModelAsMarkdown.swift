@@ -19,6 +19,9 @@ public struct ExportModelAsMarkdownRequest: Equatable, Sendable {
     public let threatDiagrams: [String: String]
     /// The diagram of each control, as text, by the control's protector id.
     public let controlDiagrams: [String: String]
+    /// The team's own shape for the report, or nil for the shape this
+    /// application ships.
+    public let template: ReportTemplate?
     /// The file the caller wrote the risk-over-time graph to, relative to the
     /// report, or nil when it drew none.
     public let riskOverTimePicture: String?
@@ -33,6 +36,7 @@ public struct ExportModelAsMarkdownRequest: Equatable, Sendable {
         controlPictures: [String: String] = [:],
         threatDiagrams: [String: String] = [:],
         controlDiagrams: [String: String] = [:],
+        template: ReportTemplate? = nil,
         riskOverTimePicture: String? = nil,
         history: [RiskHistoryRow] = [],
         historyTruncated: Bool = false,
@@ -42,6 +46,7 @@ public struct ExportModelAsMarkdownRequest: Equatable, Sendable {
         self.controlPictures = controlPictures
         self.threatDiagrams = threatDiagrams
         self.controlDiagrams = controlDiagrams
+        self.template = template
         self.riskOverTimePicture = riskOverTimePicture
         self.history = history
         self.historyTruncated = historyTruncated
@@ -71,6 +76,47 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         self.reports = reports
     }
 
+    /// The shape this application ships: every section, in the order the
+    /// report has always written them, and nothing of a team's own. A project
+    /// that names no template renders through this, and the bytes are the
+    /// bytes the writer produced before templates existed.
+    public static let defaultTemplate = ReportTemplate(
+        pieces: ReportTemplate.Slot.allCases.sorted { left, right in
+            (defaultOrder.firstIndex(of: left) ?? 0) < (defaultOrder.firstIndex(of: right) ?? 0)
+        }.map { ReportTemplate.Piece.slot($0) }
+    )
+
+    /// The order the report has always written its sections in.
+    static let defaultOrder: [ReportTemplate.Slot] = [
+        .systemName,
+        .catalogueTag,
+        .documentControl,
+        .executiveSummary,
+        .scope,
+        .dataInventory,
+        .thirdParties,
+        .policy,
+        .riskOverTime,
+        .whatChanged,
+        .rollups,
+        .threatPictures,
+        .methodology,
+        .findings,
+        .leverage,
+        .attackPaths,
+        .attackTrees,
+        .protectionDependencies,
+        .recommendations,
+        .acceptedRisks,
+        .assumptions,
+        .threatActors,
+        .glossary,
+        .threatRegister,
+        .modelInventory,
+        .diagrams,
+        .attackPathsAppendix
+    ]
+
     public func execute(_ request: ExportModelAsMarkdownRequest) -> ExportModelAsMarkdownResponse {
         let report = reports.execute(
             BuildThreatModelReportRequest(
@@ -79,68 +125,93 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
                 change: request.change
             )
         ).report
-        var lines: [String] = []
 
-        lines.append("# \(report.modelName)")
-        lines.append("")
-        if let catalogueTag = report.catalogueTag {
-            lines.append("Assessed against threat catalogue `\(catalogueTag)`.")
-            lines.append("")
-        }
-
-        lines += MarkdownDocumentControl.lines(report.documentControl)
-        lines += MarkdownExecutiveSummary.lines(
+        // Every section, written once, and the template decides which of them
+        // a reader sees and in what order. A template naming none of them is
+        // a template that writes only the team's own words.
+        var sections: [ReportTemplate.Slot: [String]] = [:]
+        sections[.systemName] = ["# \(report.modelName)", ""]
+        sections[.catalogueTag] = report.catalogueTag.map {
+            ["Assessed against threat catalogue `\($0)`.", ""]
+        } ?? []
+        sections[.documentControl] = MarkdownDocumentControl.lines(report.documentControl)
+        sections[.executiveSummary] = MarkdownExecutiveSummary.lines(
             report.executiveSummary,
             components: report.components,
             direction: report.change?.direction
         )
-        lines += MarkdownScope.lines(
+        sections[.scope] = MarkdownScope.lines(
             useCases: report.useCases,
             exclusions: report.exclusions
         )
-        lines += MarkdownDataInventory.lines(report.dataInventory)
-        lines += MarkdownThirdParties.lines(report.thirdParties)
-        lines += MarkdownPolicy.lines(report.policy)
-        lines += MarkdownRiskOverTime.lines(
+        sections[.dataInventory] = MarkdownDataInventory.lines(report.dataInventory)
+        sections[.thirdParties] = MarkdownThirdParties.lines(report.thirdParties)
+        sections[.policy] = MarkdownPolicy.lines(report.policy)
+        sections[.riskOverTime] = MarkdownRiskOverTime.lines(
             report.history,
             picturePath: request.riskOverTimePicture,
             truncated: report.historyTruncated
         )
-        lines += MarkdownWhatChanged.lines(report.change, since: report.history.first?.commit)
-        lines += MarkdownRollups.lines(
+        sections[.whatChanged] = MarkdownWhatChanged.lines(
+            report.change,
+            since: report.history.first?.commit
+        )
+        sections[.rollups] = MarkdownRollups.lines(
             report.rollups,
             showsAssumed: report.assumedMitigations.isEmpty == false
         )
-        lines += MarkdownThreatPictures.lines(
+        sections[.threatPictures] = MarkdownThreatPictures.lines(
             report.rollups.topResidual,
             pictures: request.threatPictures,
             diagrams: request.threatDiagrams
         )
-        lines += MarkdownMethodology.lines(report.methodology)
-        lines += MarkdownFindings.lines(report.findings, toleranceLabel: report.toleranceLabel)
-        lines += MarkdownLeverage.lines(report.actions)
-        lines += MarkdownAttackPaths.lines(report.attackPaths, prefix: report.attackPathPrefix)
-        lines += MarkdownAttackTrees.lines(report.attackTrees, routes: report.attackPathCount)
-        lines += MarkdownProtectionDependencies.lines(
+        sections[.methodology] = MarkdownMethodology.lines(report.methodology)
+        sections[.findings] = MarkdownFindings.lines(
+            report.findings,
+            toleranceLabel: report.toleranceLabel
+        )
+        sections[.leverage] = MarkdownLeverage.lines(report.actions)
+        sections[.attackPaths] = MarkdownAttackPaths.lines(
+            report.attackPaths,
+            prefix: report.attackPathPrefix
+        )
+        sections[.attackTrees] = MarkdownAttackTrees.lines(
+            report.attackTrees,
+            routes: report.attackPathCount
+        )
+        sections[.protectionDependencies] = MarkdownProtectionDependencies.lines(
             report.protectionDependencies,
             pictures: request.controlPictures,
             diagrams: request.controlDiagrams
         )
-        lines += MarkdownRecommendations.lines(report.recommendations)
-        lines += MarkdownAcceptedRisks.lines(report.acceptedRisks)
-        lines += MarkdownAssumptions.lines(
+        sections[.recommendations] = MarkdownRecommendations.lines(report.recommendations)
+        sections[.acceptedRisks] = MarkdownAcceptedRisks.lines(report.acceptedRisks)
+        sections[.assumptions] = MarkdownAssumptions.lines(
             assumptions: report.assumptions,
             assumedMitigations: report.assumedMitigations
         )
-        lines += MarkdownThreatActors.lines(report.threatActors)
-        lines += MarkdownGlossary.lines()
-        lines += threatRegister(report.threats, summary: report.summary)
-        lines += modelInventory(report)
-        lines += MarkdownDiagrams.lines(report.diagrams)
-        lines += MarkdownAttackPaths.appendixLines(
+        sections[.threatActors] = MarkdownThreatActors.lines(report.threatActors)
+        sections[.glossary] = MarkdownGlossary.lines()
+        sections[.threatRegister] = threatRegister(report.threats, summary: report.summary)
+        sections[.modelInventory] = modelInventory(report)
+        sections[.diagrams] = MarkdownDiagrams.lines(report.diagrams)
+        sections[.attackPathsAppendix] = MarkdownAttackPaths.appendixLines(
             report.attackPathsNotListed,
             beyond: report.attackPathsBeyondAppendix
         )
+
+        let template = request.template ?? Self.defaultTemplate
+        var lines: [String] = []
+        if let banner = template.frontMatter.banner {
+            lines.append("> \(banner)")
+            lines.append("")
+        }
+        for piece in template.pieces {
+            switch piece {
+            case .text(let text): lines.append(text)
+            case .slot(let slot): lines += sections[slot] ?? []
+            }
+        }
 
         return ExportModelAsMarkdownResponse(
             markdown: lines.joined(separator: "\n"),

@@ -434,6 +434,45 @@ likelihood findings" above); `<level>` is `low`, `medium`, `high` or
 `-f` or `--force` removes a library a system still names. `--format <name>`
 picks the shape `check`, `compile` and `format` write; see below.
 
+### A team's own report shape
+
+`threatmodeller report --template <file>` renders the report through a
+template, and `template = "<path>"` in `threatmodel/policy.hcl` states one for
+every run. The flag wins over the file.
+
+A template is a Markdown file with named slots and no logic:
+
+```markdown
+---
+banner: OFFICIAL — SENSITIVE
+cover: true
+cover_title: Payments threat model
+cover_subtitle: Prepared for the security review board
+---
+
+# {{system_name}}
+
+{{executive_summary}}
+
+## Our own words
+
+The board reads this section before the numbers.
+
+{{findings}}
+{{threat_register}}
+```
+
+A `{{slot}}` on a line of its own is replaced by that section, whole. Every
+other line is copied out byte for byte. A slot the template omits is not
+written; a slot named twice, and a slot that names no section, are each a
+diagnostic that stops the run. The front matter states a classification banner
+and a cover page, which the HTML report and the PDF both honour.
+
+The slots and the rules are stated in
+[the report template design](docs/superpowers/specs/2026-09-15-report-template-design.md).
+A project that names no template renders through the shape this application
+ships, which is the report as it has always read.
+
 ### Listing the systems in a project
 
 `threatmodeller list` writes one row per system: its name, its file, its owner,

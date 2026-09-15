@@ -21,6 +21,9 @@ public struct PolicySource: Equatable, Sendable {
     public let assumptionsRequireOwner: Bool
     /// The `.arch` file states `owner`.
     public let systemRequiresOwner: Bool
+    /// The report template this project renders through, as a path from the
+    /// project root. Nil renders through the shape this application ships.
+    public let template: String?
 
     public init(
         maxOpenAtLevel: RiskLevel? = nil,
@@ -29,8 +32,10 @@ public struct PolicySource: Equatable, Sendable {
         implementedRequiresEvidenceAbove: RiskLevel? = nil,
         restrictedDataStaysOutOfPublicZones: Bool = false,
         assumptionsRequireOwner: Bool = false,
-        systemRequiresOwner: Bool = false
+        systemRequiresOwner: Bool = false,
+        template: String? = nil
     ) {
+        self.template = template
         self.maxOpenAtLevel = maxOpenAtLevel
         self.acceptedRequiresOwner = acceptedRequiresOwner
         self.acceptedRequiresReviewBy = acceptedRequiresReviewBy
@@ -39,6 +44,9 @@ public struct PolicySource: Equatable, Sendable {
         self.assumptionsRequireOwner = assumptionsRequireOwner
         self.systemRequiresOwner = systemRequiresOwner
     }
+
+    /// What a policy file holds beside its rules.
+    public static let settingNames = ["template"]
 
     /// The names a policy file holds, in the order the design lists them.
     public static let ruleNames = [

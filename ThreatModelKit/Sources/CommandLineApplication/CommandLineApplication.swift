@@ -75,6 +75,7 @@ public struct CommandLineApplication {
         var formatWord: String?
         var wantsStandardOutput = false
         var diagramLanguage: String?
+        var templatePath: String?
         var fieldWords: String?
         var sortWord: String?
         var wantsHeader = true
@@ -117,6 +118,9 @@ public struct CommandLineApplication {
                 pictures.insert(.dot)
             case "--d2":
                 pictures.insert(.d2)
+            case "--template":
+                index += 1
+                templatePath = index < words.count ? words[index] : nil
             case "--diagram":
                 index += 1
                 diagramLanguage = index < words.count ? words[index] : nil
@@ -192,6 +196,7 @@ public struct CommandLineApplication {
             return report(
                 root: root,
                 into: into,
+                templatePath: templatePath,
                 diagramLanguage: diagramLanguage,
                 wantsHtml: wantsHtml,
                 isQuiet: isQuiet,
@@ -663,6 +668,13 @@ public struct CommandLineApplication {
         return try? projects.read(path: layout.policyPath)
     }
 
+    /// The template this project states for itself, or nil when it states
+    /// none or the policy file does not read.
+    private func projectTemplatePath(root: String) -> String? {
+        guard let text = policyText(root: root) else { return nil }
+        return HclPolicySource().read(text).source?.template
+    }
+
     /// Who carries each accepted risk, or nil when the project holds no such
     /// file.
     private func governanceText(of system: ProjectSystem) -> String? {
@@ -1078,12 +1090,31 @@ public struct CommandLineApplication {
     private func report(
         root: String,
         into: String?,
+        templatePath: String?,
         diagramLanguage: String?,
         wantsHtml: Bool,
         isQuiet: Bool,
         commits: Int = ReadRiskHistory.defaultCommits,
         output: (String) -> Void
     ) -> Int32 {
+        // The flag wins over the file, the way every other flag does.
+        var template: ReportTemplate?
+        if let named = templatePath ?? projectTemplatePath(root: root) {
+            let path = named.hasPrefix("/") ? named : ProjectConvention.path(root, named)
+            guard let text = try? projects.read(path: path) else {
+                output("threatmodeller: there is no template at \(path)")
+                return ExitCode.fileFault.rawValue
+            }
+            let read = ReportTemplate.read(text)
+            guard let found = read.template else {
+                for diagnostic in read.diagnostics {
+                    output(diagnostic.described(in: path))
+                }
+                return ExitCode.didNotParse.rawValue
+            }
+            template = found
+        }
+
         if let diagramLanguage, diagramLanguage != TextDiagramWriter.Language.mermaid.rawValue {
             output(
                 "threatmodeller: there is no report diagram language"
@@ -1249,6 +1280,7 @@ public struct CommandLineApplication {
                         controlPictures: controlPictures,
                         threatDiagrams: threatDiagrams,
                         controlDiagrams: controlDiagrams,
+                        template: template,
                         riskOverTimePicture: chartFileName,
                         history: historyRead.rows,
                         historyTruncated: historyRead.truncated,
@@ -1306,7 +1338,8 @@ public struct CommandLineApplication {
                         threatPictures: threatPictures,
                         controlPictures: controlPictures,
                         pictureSources: sources,
-                        wholePicture: SvgWriter.svg(of: DiagramBuilder.drawing(of: drawn))
+                        wholePicture: SvgWriter.svg(of: DiagramBuilder.drawing(of: drawn)),
+                        template: template
                     )
                 )
                 // Beside the report, named after the system the way every
@@ -2027,6 +2060,7 @@ public struct CommandLineApplication {
       --dot                 draw as Graphviz DOT text
       --d2                  draw as D2 text
       --diagram <language>  report writes the diagram as text: mermaid
+      --template <file>     report renders through this template
       --catalogue <dir>     read the threat catalogue from this directory
       --tolerance <level>   a likelihood finding answers a threat up to this level
       --format <name>       plain, github or json; check, compile and format read it.
