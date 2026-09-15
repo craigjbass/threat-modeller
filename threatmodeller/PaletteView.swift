@@ -8,6 +8,9 @@ struct PaletteView: View {
     /// Deleting a technology deletes the components using it, so the canvas
     /// must drop those rows from its selection.
     let canvas: CanvasState
+    /// The project this model sits in, or nil in a document window. A
+    /// technology moves into a library only in a project.
+    var project: ProjectSession?
 
     /// nil when no sheet is open, .some(nil) for a new technology, and
     /// .some(id) to change one.
@@ -38,6 +41,7 @@ struct PaletteView: View {
                             category: category,
                             session: session,
                             canvas: canvas,
+                            project: project,
                             isSearching: isSearching,
                             edit: { editing = EditedTechnology(value: $0) }
                         )
@@ -96,6 +100,7 @@ private struct CategoryDisclosure: View {
     let category: ListedCategory
     let session: ThreatModelSession
     let canvas: CanvasState
+    let project: ProjectSession?
     /// True while a person is searching. Every category with a match is open
     /// then, whatever it was before, and it goes back afterwards.
     let isSearching: Bool
@@ -129,6 +134,7 @@ private struct CategoryDisclosure: View {
                         technology: technology,
                         session: session,
                         canvas: canvas,
+                        project: project,
                         isDefinedByThisModel: providerId == CustomTechnology.provider.value,
                         edit: edit
                     )
@@ -146,6 +152,8 @@ struct TechnologyRow: View {
     let technology: ListedTechnology
     let session: ThreatModelSession
     let canvas: CanvasState
+    /// The project this model sits in, or nil in a document window.
+    var project: ProjectSession?
     /// Only a technology this model defines can be changed or deleted. The
     /// catalogue is a library, and this application does not edit it.
     let isDefinedByThisModel: Bool
@@ -154,6 +162,10 @@ struct TechnologyRow: View {
     /// True while the question is on screen. Deleting a technology deletes
     /// every component that uses it, so the question is asked first.
     @State private var isAsking = false
+    /// True while the question about which library is on screen.
+    @State private var isMoving = false
+    /// The library the technology moves into.
+    @State private var libraryLabel = "shared"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -178,8 +190,29 @@ struct TechnologyRow: View {
         .contextMenu {
             if isDefinedByThisModel {
                 Button("Edit\u{2026}") { edit(technology.id) }
+                // A technology in a library is read by every system in the
+                // project, and vendored by another project.
+                if let project, project.root != nil {
+                    Button("Move to Library\u{2026}") { isMoving = true }
+                        .accessibilityIdentifier("move-technology-to-library")
+                }
                 Button("Delete\u{2026}", role: .destructive) { isAsking = true }
             }
+        }
+        .alert("Move \(technology.name) to a library", isPresented: $isMoving) {
+            TextField("Library name", text: $libraryLabel)
+                .accessibilityIdentifier("library-label")
+            Button("Move") {
+                project?.moveTechnologyToLibrary(technology.id, into: libraryLabel)
+                isMoving = false
+            }
+            Button("Cancel", role: .cancel) { isMoving = false }
+        } message: {
+            Text(
+                "The technology moves into <name>.lib in this project's library "
+                    + "directory. Every system in the project reads it, and another "
+                    + "project vendors it with threatmodeller library add."
+            )
         }
         .confirmationDialog(
             "Delete \(technology.name)?",

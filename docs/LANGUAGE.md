@@ -1302,6 +1302,16 @@ library "acme" {
 }
 ```
 
+**A technology that crosses systems and projects belongs in a library.** A
+`technology` block in an `.arch` file belongs to the system that states it. The
+application moves one into a library: *Move to Library…* on the palette row
+writes it into `<directory>/library/<name>.lib`, takes it out of the `.arch`
+file, and points every component at the identifier the library mints,
+`<library>-<id>`. Every system in the project reads every library file, so the
+technology is stated once and read by both. Another project vendors it with
+`threatmodeller library add`, and `threatmodeller library verify` says when a
+vendored copy and the lock file disagree.
+
 A `classification` block states one level of a classification scheme, and the
 order the blocks appear in is the scheme: the first level is the least
 sensitive and the last is the most. A project whose library states a scheme

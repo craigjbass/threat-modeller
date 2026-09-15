@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Testing
 import ThreatModelKit
 import TestSupport
@@ -169,5 +170,80 @@ struct SamplePreviewTests {
         #expect(wide < 1)
         #expect(small == 1)
         #expect(SampleBrowser.previewScale(of: .zero) == 1)
+    }
+}
+
+/// A technology one system defines, moved into the project's library.
+@MainActor
+@Suite("Moving a technology to a library")
+struct MoveToLibraryTests {
+    private let payments = """
+    system "Payments" {
+      component "api" { technology = "aws-ec2" }
+    }
+
+    """
+
+    private func aProject() async -> (ProjectSession, TestDependencies) {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+        return (session, useCases)
+    }
+
+    @Test func writesTheTechnologyIntoTheProjectsLibrary() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        let technologyId = try #require(
+            model.createCustomTechnology(
+                name: "Our Ledger",
+                categoryId: "database",
+                description: "",
+                threatIds: [],
+                enforcesEncryption: false
+            )
+        )
+
+        let moved = session.moveTechnologyToLibrary(technologyId, into: "shared")
+
+        #expect(moved == "shared-\(technologyId.replacingOccurrences(of: "custom-", with: ""))")
+        #expect(useCases.project.text(at: "/work/threatmodel/library/shared.lib") != nil)
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func saysSoWhenTheLibraryAlreadyStatesIt() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        let technologyId = try #require(
+            model.createCustomTechnology(
+                name: "Our Ledger",
+                categoryId: "database",
+                description: "",
+                threatIds: [],
+                enforcesEncryption: false
+            )
+        )
+        let bare = technologyId.replacingOccurrences(of: "custom-", with: "")
+        useCases.project.put(
+            """
+            library "shared" {
+              technology "\(bare)" {
+                name     = "Our Ledger"
+                category = "database"
+              }
+            }
+            """,
+            at: "/work/threatmodel/library/shared.lib"
+        )
+
+        let moved = session.moveTechnologyToLibrary(technologyId, into: "shared")
+
+        #expect(moved == nil)
+        #expect(session.errorMessage?.contains("already states") == true)
     }
 }

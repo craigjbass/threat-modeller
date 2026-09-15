@@ -713,6 +713,11 @@ from anywhere.
   technology-wide override, and, once one is set, the menu offers "Use the
   catalogue's severity" to clear it. The sidebar disables the menu rather
   than let a choice from it change nothing.
+- *Move to Library…* on a palette row moves a technology this model defines
+  into `<directory>/library/<name>.lib`. Every system in the project then reads
+  it, and another project vendors it with `threatmodeller library add`. The
+  technology takes the identifier the library mints, and every component that
+  named the old one names the new one.
 - A user creates, edits and deletes a custom technology from the canvas: its
   name, category and description, which catalogue threats it carries, and
   whether it encrypts what crosses it. See "Sharing an element library" below

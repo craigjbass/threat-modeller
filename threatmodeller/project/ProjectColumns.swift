@@ -36,7 +36,7 @@ struct ProjectColumns: View {
         switch stage {
         case .architecture:
             NavigationSplitView {
-                PaletteView(session: session, canvas: canvas)
+                PaletteView(session: session, canvas: canvas, project: project)
                     .navigationSplitViewColumnWidth(min: 220, ideal: 260)
             } content: {
                 diagram

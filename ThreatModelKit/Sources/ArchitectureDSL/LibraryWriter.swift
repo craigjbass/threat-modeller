@@ -158,6 +158,9 @@ struct LibraryWriter {
             attributes.append(("encrypts", "true"))
         }
         lines += indent(aligned(attributes))
+        for control in technology.controlDescriptions {
+            lines.append("  control \(quoted(control))")
+        }
         lines.append("}")
         return lines
     }

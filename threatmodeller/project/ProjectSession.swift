@@ -479,6 +479,39 @@ final class ProjectSession {
         coalescer.schedule { [weak self] in self?.saveNow() }
     }
 
+    /// Moves a technology the drawn system defines into a library file this
+    /// project holds, so every system in the project reads it and another
+    /// project vendors it with `threatmodeller library add`.
+    ///
+    /// It answers the technology's new identifier, or nil when nothing moved.
+    @discardableResult
+    func moveTechnologyToLibrary(_ technologyId: String, into libraryLabel: String) -> String? {
+        guard let root else { return nil }
+
+        switch useCases.moveTechnologyToLibrary().execute(
+            MoveTechnologyToLibraryRequest(
+                root: root,
+                technologyId: technologyId,
+                libraryLabel: libraryLabel
+            )
+        ) {
+        case .moved(let newId, let path):
+            errorMessage = nil
+            say("Moved to \(path)")
+            reload()
+            return newId
+        case .unknownTechnology:
+            errorMessage = "This model no longer defines that technology."
+        case .alreadyInTheLibrary(let held):
+            errorMessage = "The library already states \(held)."
+        case .notAProject(let reason):
+            errorMessage = "That is not a project: \(reason)"
+        case .cannotWrite(let reason):
+            errorMessage = "The library could not be written: \(reason)"
+        }
+        return nil
+    }
+
     /// Lays the drawn diagram out again, and moves the elements to the result.
     ///
     /// The layout search is the most expensive thing this application runs, so

@@ -398,6 +398,10 @@ public final class TestDependencies: UseCaseFactory {
         ResizeZone(models: models)
     }
 
+    public func moveTechnologyToLibrary() -> MoveTechnologyToLibraryUseCase {
+        MoveTechnologyToLibrary(models: models, projects: project, libraries: librarySources)
+    }
+
     public func listClassifications() -> ListClassificationsUseCase {
         ListClassifications(catalogue: catalogue)
     }

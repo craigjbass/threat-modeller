@@ -184,7 +184,17 @@ public extension Library {
                 threatIds: technology.threatIds.map {
                     ThreatId(declared.contains($0) ? prefixed($0) : $0)
                 },
-                enforcesEncryption: technology.encrypts
+                enforcesEncryption: technology.encrypts,
+                // A control the library states on the technology answers every
+                // threat that technology carries.
+                threatMitigations: Dictionary(
+                    uniqueKeysWithValues: technology.threatIds.map {
+                        (
+                            ThreatId(declared.contains($0) ? prefixed($0) : $0),
+                            technology.controlDescriptions
+                        )
+                    }
+                )
             )
         }
 

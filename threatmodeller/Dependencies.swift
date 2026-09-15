@@ -396,6 +396,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         ResizeZone(models: models)
     }
 
+    func moveTechnologyToLibrary() -> MoveTechnologyToLibraryUseCase {
+        MoveTechnologyToLibrary(models: models, projects: projects, libraries: librarySources)
+    }
+
     func listClassifications() -> ListClassificationsUseCase {
         ListClassifications(catalogue: catalogue)
     }
