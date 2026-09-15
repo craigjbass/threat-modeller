@@ -400,6 +400,14 @@ public final class TestDependencies: UseCaseFactory {
         ResizeZone(models: models)
     }
 
+    /// The index this root wires, so a test states what an index holds and
+    /// no test reaches a server.
+    public let libraryIndex = FakeLibraryIndex()
+
+    public func readLibraryIndex() -> ReadLibraryIndexUseCase {
+        ReadLibraryIndex(indexes: libraryIndex)
+    }
+
     public func moveTechnologyToLibrary() -> MoveTechnologyToLibraryUseCase {
         MoveTechnologyToLibrary(models: models, projects: project, libraries: librarySources)
     }

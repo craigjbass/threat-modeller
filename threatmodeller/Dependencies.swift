@@ -27,7 +27,10 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let history: GitHistoryGateway = GitHistory()
     private let attackTreeSources: AttackTreeSourceGateway = HclAttackTreeSource()
     /// The one place this application runs `git`.
-    private let libraryFetcher: LibraryFetching = GitLibraryFetcher()
+    private let gitFetcher = GitLibraryFetcher()
+    private var libraryFetcher: LibraryFetching { gitFetcher }
+    /// The same `git`, reading an index rather than a library.
+    private var libraryIndexFetcher: LibraryIndexFetching { gitFetcher }
     /// The fetcher this root wires, so the Libraries sheet can stop a fetch.
     var fetcher: LibraryFetching { libraryFetcher }
     private let samples: SampleModelGateway = BundledSampleModels()
@@ -396,6 +399,10 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func resizeZone() -> ResizeZoneUseCase {
         ResizeZone(models: models)
+    }
+
+    func readLibraryIndex() -> ReadLibraryIndexUseCase {
+        ReadLibraryIndex(indexes: libraryIndexFetcher)
     }
 
     func moveTechnologyToLibrary() -> MoveTechnologyToLibraryUseCase {

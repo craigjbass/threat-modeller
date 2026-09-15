@@ -14,6 +14,10 @@ public enum ProjectConvention {
     public static let policyFileName = "policy.hcl"
     /// The directory a project's shared libraries sit in.
     public static let libraryDirectory = "library"
+    /// The index this application reads when nobody names another. It is a
+    /// git repository holding one `index.json`, as the library index design
+    /// states.
+    public static let defaultLibraryIndex = "https://github.com/craigjbass/threat-modeller-index"
     public static let libraryExtension = "lib"
 
     /// The systems a directory holds, by name, sorted.

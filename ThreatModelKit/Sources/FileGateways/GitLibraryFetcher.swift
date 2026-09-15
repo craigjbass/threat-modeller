@@ -7,7 +7,7 @@ import ThreatModelKit
 /// `~/.ssh/config`, a credential helper and `~/.gitconfig`. Running `git`
 /// inherits every one of them, so this application re-implements none of it and
 /// holds no credential.
-public final class GitLibraryFetcher: LibraryFetching, @unchecked Sendable {
+public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @unchecked Sendable {
     /// How long a `git` command may take before it is killed, so a fetch that
     /// never answers does not stop the window.
     private let timeout: TimeInterval
@@ -61,6 +61,33 @@ public final class GitLibraryFetcher: LibraryFetching, @unchecked Sendable {
             files[name] = text
         }
         return files
+    }
+
+    /// The index one repository holds, as text.
+    ///
+    /// The same shallow clone a library fetch runs, reading one file rather
+    /// than every `.lib`. Nothing in the clone is run.
+    public func fetchIndex(repository: String) throws -> String {
+        try refuseAFlag(repository)
+
+        let clone = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threatmodeller-index-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: clone) }
+
+        _ = try run([
+            "clone", "--depth", "1", "--no-tags", "--recurse-submodules=no",
+            "--", repository, clone.path
+        ])
+
+        guard let text = try? String(
+            contentsOf: clone.appendingPathComponent(LibraryIndex.fileName),
+            encoding: .utf8
+        ) else {
+            throw LibraryFetchFault.cannotRead(
+                reason: "that repository holds no \(LibraryIndex.fileName) at its root"
+            )
+        }
+        return text
     }
 
     /// The newest tag, by version. `git` sorts, so this reads the first line

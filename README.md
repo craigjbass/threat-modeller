@@ -722,6 +722,12 @@ from anywhere.
   name, category and description, which catalogue threats it carries, and
   whether it encrypts what crosses it. See "Sharing an element library" below
   for what a custom technology is and how it differs from a library entry.
+- *Browse Index…* in the Libraries sheet reads the library index and lists what
+  it holds, narrowed by typed text; *Add* on a row fetches that library with no
+  repository typed by hand. The index is a git repository holding one
+  `index.json`, read only when a person presses the button. A machine with no
+  network says so, and adding by repository and tag still works. See
+  [the library index design](docs/superpowers/specs/2026-09-15-library-index-design.md).
 - The About window lists the libraries the open project reads, each with its
   repository and its tag, under the catalogue line.
 - *Libraries* opens a sheet listing the shared element libraries the project

@@ -57,6 +57,54 @@ final class LibrarySession {
         reload()
     }
 
+    /// What the index holds, once a person asked. Empty until they do.
+    private(set) var indexed: [IndexedLibrary] = []
+    /// True while the index is being read.
+    private(set) var isReadingIndex = false
+    /// What a person typed to narrow the index.
+    var indexSearch = "" {
+        didSet { narrowIndexed() }
+    }
+    /// The index narrowed by what a person typed.
+    private(set) var shownIndexed: [IndexedLibrary] = []
+
+    /// Reads the index. Nothing reads it at launch and nothing reads it when
+    /// the sheet opens: a person presses Browse Index.
+    func browseIndex(repository: String? = nil) async {
+        errorMessage = nil
+        isReadingIndex = true
+        defer { isReadingIndex = false }
+
+        let useCases = self.useCases
+        let response = await Task.detached {
+            useCases.readLibraryIndex().execute(ReadLibraryIndexRequest(repository: repository))
+        }.value
+
+        switch response {
+        case .read(let libraries):
+            indexed = libraries
+            narrowIndexed()
+        case .cannotRead(let reason):
+            indexed = []
+            shownIndexed = []
+            errorMessage = reason
+        }
+    }
+
+    /// Adds a library the index lists. The tag is the newest the entry
+    /// states; an entry that states none is added by the typed form.
+    func add(indexed entry: IndexedLibrary) async {
+        guard let tag = entry.newestTag else {
+            errorMessage = "\(entry.name) states no version, so type the version you want."
+            return
+        }
+        await add(repository: entry.repository, tag: tag)
+    }
+
+    private func narrowIndexed() {
+        shownIndexed = LibraryIndex.narrow(indexed, to: indexSearch)
+    }
+
     /// Stops the fetch in flight. A cancelled fetch writes nothing: the
     /// library and the lock file are written after the files arrive, and they
     /// never arrive.

@@ -221,3 +221,107 @@ struct LibraryFetchCancelTests {
         #expect(useCases.project.text(at: "/work/threatmodel/library/acme.lib") != nil)
     }
 }
+
+/// Browsing the index from the Libraries sheet.
+@MainActor
+@Suite("Browsing the library index")
+struct LibraryIndexBrowsingTests {
+    private let index = """
+    {
+      "version": 1,
+      "libraries": [
+        {
+          "label": "acme",
+          "name": "Acme Platform",
+          "description": "Acme's own services",
+          "repository": "/elements",
+          "tags": ["v1.0.0"]
+        },
+        {
+          "label": "beta",
+          "name": "Beta Tooling",
+          "repository": "/beta"
+        }
+      ]
+    }
+    """
+
+    private func aProject() -> (LibrarySession, TestDependencies) {
+        let useCases = TestDependencies()
+        useCases.project.put("system \"Payments\" { }", at: "/work/threatmodel/payments.arch")
+        useCases.libraryIndex.put(index, at: ProjectConvention.defaultLibraryIndex)
+        useCases.libraryFetcher.put(
+            ["acme.lib": "library \"acme\" { name = \"Acme\" }"],
+            repository: "/elements",
+            tag: "v1.0.0"
+        )
+        let session = LibrarySession(
+            useCases: useCases,
+            root: "/work",
+            onChange: {},
+            fetcher: useCases.libraryFetcher
+        )
+        return (session, useCases)
+    }
+
+    @Test func nothingReadsTheIndexUntilAPersonAsks() {
+        let (_, useCases) = aProject()
+
+        #expect(useCases.libraryIndex.reads.isEmpty)
+    }
+
+    @Test func listsWhatTheIndexHolds() async {
+        let (session, _) = aProject()
+
+        await session.browseIndex()
+
+        #expect(session.shownIndexed.map(\.label) == ["acme", "beta"])
+    }
+
+    @Test func narrowsTheListByTypedText() async {
+        let (session, _) = aProject()
+        await session.browseIndex()
+
+        session.indexSearch = "beta"
+
+        #expect(session.shownIndexed.map(\.label) == ["beta"])
+    }
+
+    @Test func addsALibraryWithNoRepositoryTypedByHand() async throws {
+        let (session, useCases) = aProject()
+        await session.browseIndex()
+        let entry = try #require(session.shownIndexed.first)
+
+        await session.add(indexed: entry)
+
+        #expect(useCases.project.text(at: "/work/threatmodel/library/acme.lib") != nil)
+        #expect(session.libraries.map(\.label) == ["acme"])
+    }
+
+    @Test func anEntryWithNoVersionAsksForOne() async throws {
+        let (session, _) = aProject()
+        await session.browseIndex()
+        let entry = try #require(session.shownIndexed.last)
+
+        await session.add(indexed: entry)
+
+        #expect(session.errorMessage?.contains("states no version") == true)
+    }
+
+    /// A machine with no network says so, and the typed form still works.
+    @Test func aMachineWithNoNetworkSaysSoAndTheTypedFormStillWorks() async throws {
+        let (session, useCases) = aProject()
+        useCases.libraryIndex.refuse(
+            .cannotRead(reason: "fatal: unable to access: Could not resolve host"),
+            at: ProjectConvention.defaultLibraryIndex
+        )
+
+        await session.browseIndex()
+        #expect(session.errorMessage?.contains("Could not resolve host") == true)
+        #expect(session.shownIndexed.isEmpty)
+
+        await session.add(repository: "/elements", tag: "v1.0.0")
+
+        #expect(useCases.project.text(at: "/work/threatmodel/library/acme.lib") != nil)
+    }
+}

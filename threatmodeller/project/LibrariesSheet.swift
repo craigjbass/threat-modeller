@@ -1,4 +1,5 @@
 import SwiftUI
+import ThreatModelKit
 
 /// The shared element libraries a project holds, and what a user does with
 /// them.
@@ -11,6 +12,8 @@ struct LibrariesSheet: View {
 
     @State private var selected: String?
     @State private var isAdding = false
+    /// True while the index browser is on screen.
+    @State private var isBrowsing = false
     @State private var repository = ""
     @State private var tag = ""
 
@@ -45,6 +48,7 @@ struct LibrariesSheet: View {
         .padding(20)
         .frame(minWidth: 720, minHeight: 420)
         .sheet(isPresented: $isAdding) { addForm }
+        .sheet(isPresented: $isBrowsing) { indexBrowser }
         .accessibilityIdentifier("libraries-sheet")
     }
 
@@ -141,6 +145,15 @@ struct LibrariesSheet: View {
                     .accessibilityIdentifier("cancel-fetch")
             }
 
+            // The index is read when a person presses this, never at launch
+            // and never when the sheet opens.
+            Button("Browse Index\u{2026}") {
+                isBrowsing = true
+                Task { await session.browseIndex() }
+            }
+            .help("Read the library index. This reaches a server.")
+            .accessibilityIdentifier("library-browse-index")
+
             Button("Check for Updates") {
                 Task { await session.checkForUpdates() }
             }
@@ -153,6 +166,72 @@ struct LibrariesSheet: View {
         }
         // Cancel answers while a fetch runs; every other control waits.
         .disabled(session.isWorking)
+    }
+
+    /// What the index holds, narrowed by what a person typed.
+    private var indexBrowser: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Add a library from the index")
+                .font(.headline)
+
+            Text(
+                "An entry here is a pointer, not an endorsement. Adding one fetches "
+                    + "that repository with your own git."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            TextField("Search", text: indexSearch, prompt: Text("acme"))
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("library-index-search")
+
+            if session.isReadingIndex {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityIdentifier("library-index-reading")
+            } else if session.shownIndexed.isEmpty {
+                Text(session.errorMessage ?? "The index lists nothing that matches.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("library-index-empty")
+            }
+
+            List(session.shownIndexed, id: \.label) { entry in
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.name)
+                        Text(entry.description.isEmpty ? entry.repository : entry.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 8)
+                    if let tag = entry.newestTag {
+                        Text(tag)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                    Button("Add") {
+                        isBrowsing = false
+                        Task { await session.add(indexed: entry) }
+                    }
+                    .accessibilityIdentifier("library-index-add-\(entry.label)")
+                }
+                .accessibilityIdentifier("library-index-row-\(entry.label)")
+            }
+            .frame(minHeight: 220)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { isBrowsing = false }
+                    .keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 520)
+    }
+
+    private var indexSearch: Binding<String> {
+        Binding(get: { session.indexSearch }, set: { session.indexSearch = $0 })
     }
 
     private var addForm: some View {
