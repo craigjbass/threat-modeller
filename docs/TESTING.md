@@ -201,6 +201,26 @@ Wait three seconds, then render.
 **Prevention.** Run `pkill -x threatmodeller` after every `RunAllTests` or
 `RunSomeTests`, before the next preview or snippet.
 
+## What one resolution costs, and what the history costs
+
+`ThreatResolver.resolve` is what the threat list and the risk summary both
+read. One change used to run it twice: the list ran one and the summary ran
+another. `ThreatResolutionCache` keeps the answer against the model's
+revision, so one change runs it once.
+
+Measured in a release build, sixty components in one zone with fifty-nine
+flows:
+
+| What | Cost |
+| --- | --- |
+| One `ThreatResolver.resolve` | 0.0056 s |
+| The undo history, at its full depth of 100 snapshots | 736 KB resident |
+
+The history holds a whole model per step. At sixty components that is about
+7 KB a step, and the depth is capped at
+`InMemoryThreatModelGateway.historyLimit`, which is 100, so a session holds
+under a megabyte of history whatever a person does.
+
 ## What a compile costs
 
 `threatmodeller compile` scores a model and draws nothing. Zone membership is a

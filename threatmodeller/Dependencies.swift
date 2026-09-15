@@ -11,6 +11,8 @@ nonisolated final class Dependencies: UseCaseFactory {
     private let base: TechnologyCatalogue
     /// The open project's libraries. `useLibraries` is what fills it.
     private let libraries = LibraryStore()
+    /// The last resolution, kept so one change runs the resolver once.
+    private let resolutions = ThreatResolutionCache()
     /// The vendored catalogue and the open project's libraries, read as one.
     private var catalogue: TechnologyCatalogue { MergedCatalogue(base: base, store: libraries) }
     private let models: ThreatModelGateway
@@ -289,6 +291,9 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func useLibraries(_ libraries: [Library]) {
         self.libraries.set(libraries)
+        // The catalogue decides what a model raises, so a library that
+        // arrives makes the kept resolution stale.
+        resolutions.forget()
     }
 
     func addLibrary() -> AddLibraryUseCase {
@@ -432,7 +437,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func summariseRisk() -> SummariseRiskUseCase {
-        SummariseRisk(models: models, catalogue: catalogue)
+        SummariseRisk(models: models, catalogue: catalogue, cache: resolutions)
     }
 
     func listPathwayMitigations() -> ListPathwayMitigationsUseCase {
@@ -444,7 +449,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func assessThreatModel() -> AssessThreatModelUseCase {
-        AssessThreatModel(models: models, catalogue: catalogue)
+        AssessThreatModel(models: models, catalogue: catalogue, cache: resolutions)
     }
 
     func assessLeverage() -> AssessLeverageUseCase {

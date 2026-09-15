@@ -33,6 +33,10 @@ public protocol ThreatModelGateway: AnyObject, Sendable {
     /// there is nothing.
     var undoLabel: String? { get }
     var redoLabel: String? { get }
+    /// How many times the model has changed. A reader that keeps an answer
+    /// works out from this number whether the answer is still about the model
+    /// in front of it.
+    var revision: Int { get }
 }
 
 public extension ThreatModelGateway {
@@ -111,6 +115,15 @@ public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Se
     private var model: ThreatModel
     private var past: [Step] = []
     private var future: [Step] = []
+    private var changes = 0
+
+    /// How many times the model has changed. Every write to `model` moves it,
+    /// and nothing moves it back: an undo is a change like any other.
+    public var revision: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return changes
+    }
 
     public init(_ model: ThreatModel = ThreatModel()) {
         self.model = model
@@ -130,6 +143,7 @@ public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Se
         self.model = model
         past = []
         future = []
+        changes += 1
     }
 
     public func mutate<T>(label: String, _ change: (inout ThreatModel) -> T) -> T {
@@ -140,6 +154,7 @@ public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Se
         let result = change(&model)
 
         if model != before {
+            changes += 1
             past.append(Step(model: before, label: label))
             if past.count > Self.historyLimit { past.removeFirst() }
             // The user has taken a different branch. Offering to redo the
@@ -154,6 +169,7 @@ public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Se
         lock.lock()
         defer { lock.unlock() }
         guard let previous = past.popLast() else { return nil }
+        changes += 1
         future.append(Step(model: model, label: previous.label))
         model = previous.model
         return previous.label
@@ -163,6 +179,7 @@ public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Se
         lock.lock()
         defer { lock.unlock() }
         guard let next = future.popLast() else { return nil }
+        changes += 1
         past.append(Step(model: model, label: next.label))
         model = next.model
         return next.label

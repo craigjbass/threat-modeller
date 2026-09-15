@@ -318,15 +318,19 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
     private let catalogue: TechnologyCatalogue
     /// The day a review date is measured against.
     private let clock: Clock
+    /// Where the last resolution is kept, or nil to resolve every time.
+    private let cache: ThreatResolutionCache?
 
     public init(
         models: ThreatModelGateway,
         catalogue: TechnologyCatalogue,
-        clock: Clock = SystemClock()
+        clock: Clock = SystemClock(),
+        cache: ThreatResolutionCache? = nil
     ) {
         self.models = models
         self.catalogue = catalogue
         self.clock = clock
+        self.cache = cache
     }
 
     public func execute(_ request: AssessThreatModelRequest) -> AssessThreatModelResponse {
@@ -334,7 +338,8 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
         let taxonomy = catalogue.taxonomy()
         let today = CheckGovernance.today(clock.now())
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
-        let resolvedByStages = ThreatResolver(model: model, catalogue: catalogue).resolve()
+        let resolvedByStages = cache?.resolved(models, catalogue)
+            ?? ThreatResolver(model: model, catalogue: catalogue).resolve()
         let bound = AttackTreeBinding.bind(trees: model.attackTrees, to: resolvedByStages)
         let staged = AttackTreeScoring.apply(trees: bound, to: resolvedByStages)
         let resolved = staged.threats

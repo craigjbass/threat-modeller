@@ -67,14 +67,24 @@ public struct SummariseRisk: SummariseRiskUseCase {
 
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
+    /// Where the last resolution is kept, or nil to resolve every time. The
+    /// list of threats and this summary ask the same question of the same
+    /// model, so one change runs the resolver once.
+    private let cache: ThreatResolutionCache?
 
-    public init(models: ThreatModelGateway, catalogue: TechnologyCatalogue) {
+    public init(
+        models: ThreatModelGateway,
+        catalogue: TechnologyCatalogue,
+        cache: ThreatResolutionCache? = nil
+    ) {
         self.models = models
         self.catalogue = catalogue
+        self.cache = cache
     }
 
     public func execute(_ request: SummariseRiskRequest) -> SummariseRiskResponse {
-        let resolved = ThreatResolver(model: models.current(), catalogue: catalogue).resolve()
+        let resolved = cache?.resolved(models, catalogue)
+            ?? ThreatResolver(model: models.current(), catalogue: catalogue).resolve()
 
         var levels: [RiskLevel: Int] = [:]
         var stride: [StrideId: Int] = [:]

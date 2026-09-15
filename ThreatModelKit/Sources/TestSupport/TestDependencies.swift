@@ -10,6 +10,8 @@ public final class TestDependencies: UseCaseFactory {
     private let base: InMemoryTechnologyCatalogue
     /// The open project's libraries. `useLibraries` is what fills it.
     private let libraries = LibraryStore()
+    /// The last resolution, kept so one change runs the resolver once.
+    private let resolutions = ThreatResolutionCache()
     /// The fixture catalogue and the open project's libraries, read as one.
     private var catalogue: TechnologyCatalogue { MergedCatalogue(base: base, store: libraries) }
     private let models: ThreatModelGateway
@@ -254,6 +256,9 @@ public final class TestDependencies: UseCaseFactory {
 
     public func useLibraries(_ libraries: [Library]) {
         self.libraries.set(libraries)
+        // The catalogue decides what a model raises, so a library that
+        // arrives makes the kept resolution stale.
+        resolutions.forget()
     }
 
     public func addLibrary() -> AddLibraryUseCase {
@@ -434,7 +439,7 @@ public final class TestDependencies: UseCaseFactory {
     }
 
     public func summariseRisk() -> SummariseRiskUseCase {
-        SummariseRisk(models: models, catalogue: catalogue)
+        SummariseRisk(models: models, catalogue: catalogue, cache: resolutions)
     }
 
     public func listPathwayMitigations() -> ListPathwayMitigationsUseCase {
@@ -446,7 +451,7 @@ public final class TestDependencies: UseCaseFactory {
     }
 
     public func assessThreatModel() -> AssessThreatModelUseCase {
-        AssessThreatModel(models: models, catalogue: catalogue)
+        AssessThreatModel(models: models, catalogue: catalogue, cache: resolutions)
     }
 
     public func assessLeverage() -> AssessLeverageUseCase {
