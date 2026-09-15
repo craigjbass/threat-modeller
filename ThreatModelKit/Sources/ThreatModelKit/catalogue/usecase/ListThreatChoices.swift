@@ -43,17 +43,10 @@ public struct ListThreatChoices: ListThreatChoicesUseCase {
 
     public func execute(_ request: ListThreatChoicesRequest) -> ListThreatChoicesResponse {
         let taxonomy = catalogue.taxonomy()
-        var found: [ThreatId: Threat] = [:]
-        for technology in catalogue.all() {
-            for threat in catalogue.threatsFor(technologyId: technology.id) {
-                found[threat.id] = threat
-            }
-        }
-        for threat in catalogue.connectionThreats() + catalogue.zoneThreats() {
-            found[threat.id] = threat
-        }
+        // One read of the catalogue's index, not one read per technology.
+        let found = catalogue.everyThreat()
 
-        let ordered = found.values.sorted {
+        let ordered = found.sorted {
             if $0.severity.rank != $1.severity.rank { return $0.severity.rank > $1.severity.rank }
             return $0.name < $1.name
         }

@@ -91,6 +91,9 @@ struct CustomTechnologyJSON: Codable {
     let description: String
     let threatIds: [String]
     let enforcesEncryption: Bool
+    /// The controls this technology brings. Absent in a file written before
+    /// format version 7.
+    let controls: [String]?
 }
 
 struct CatalogueStampJSON: Codable {

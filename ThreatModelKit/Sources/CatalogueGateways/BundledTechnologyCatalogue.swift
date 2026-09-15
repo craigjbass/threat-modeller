@@ -64,6 +64,8 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
     private let technologies: [Technology]
     private let technologiesById: [TechnologyId: Technology]
     private let threatsById: [ThreatId: Threat]
+    /// Every threat, in catalogue order, built once as the file is read.
+    private let everyThreatValue: [Threat]
     private let connectionThreatsValue: [Threat]
     private let zoneThreatsValue: [Threat]
     private let pathwayMitigationsValue: [PathwayMitigationDefinition]
@@ -118,6 +120,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
             from: try resources.data(named: "threats/common-threats.json")
         )
         var threats: [ThreatId: Threat] = [:]
+        var everyThreatList: [Threat] = []
         var connectionThreatList: [Threat] = []
         var zoneThreatList: [Threat] = []
         for entry in threatsJSON.threats {
@@ -142,6 +145,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
                 zoneContext: entry.zoneContext
             )
             threats[threat.id] = threat
+            everyThreatList.append(threat)
             if threat.isConnectionThreat {
                 connectionThreatList.append(threat)
             }
@@ -150,6 +154,7 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
             }
         }
         threatsById = threats
+        everyThreatValue = everyThreatList
         connectionThreatsValue = connectionThreatList
         zoneThreatsValue = zoneThreatList
 
@@ -262,6 +267,8 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
         guard let technology = technologiesById[technologyId] else { return [] }
         return technology.threatIds.compactMap { threatsById[$0] }
     }
+
+    public func everyThreat() -> [Threat] { everyThreatValue }
 
     public func connectionThreats() -> [Threat] { connectionThreatsValue }
 

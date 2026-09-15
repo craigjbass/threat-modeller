@@ -29,9 +29,34 @@ public protocol TechnologyCatalogue: Sendable {
     /// What the project's libraries change about a threat this catalogue
     /// holds, by threat id. Empty for a catalogue no library sits over.
     func overrides() -> [ThreatId: ThreatOverride]
+    /// Every threat this catalogue holds, wherever it holds it, in catalogue
+    /// order.
+    ///
+    /// One read. A caller that wants the whole set used to walk every
+    /// technology and ask for its threats, which is 277 reads of the
+    /// catalogue for one list.
+    func everyThreat() -> [Threat]
 }
 
 public extension TechnologyCatalogue {
     /// A catalogue no library sits over changes nothing.
     func overrides() -> [ThreatId: ThreatOverride] { [:] }
+
+    /// The slow answer, for a catalogue that holds no index: walk every
+    /// technology. A gateway that can answer in one read overrides this.
+    func everyThreat() -> [Threat] {
+        var found: [ThreatId: Threat] = [:]
+        var ordered: [Threat] = []
+        for technology in all() {
+            for threat in threatsFor(technologyId: technology.id)
+            where found.updateValue(threat, forKey: threat.id) == nil {
+                ordered.append(threat)
+            }
+        }
+        for threat in connectionThreats() + zoneThreats()
+        where found.updateValue(threat, forKey: threat.id) == nil {
+            ordered.append(threat)
+        }
+        return ordered
+    }
 }

@@ -51,14 +51,9 @@ public struct TechnologyLookup {
         return customOrder.isEmpty ? rest : [own] + rest
     }
 
-    /// Every threat the catalogue defines, wherever it defines it.
-    ///
-    /// WARNING: this walks every technology. At 277 technologies that is
-    /// wasteful on every call. Add `allThreats()` to the catalogue port if the
-    /// suite's time moves.
+    /// Every threat the catalogue defines, wherever it defines it. One read
+    /// of the catalogue's own index.
     private func everyThreat() -> [Threat] {
-        catalogue.all().flatMap { catalogue.threatsFor(technologyId: $0.id) }
-            + catalogue.connectionThreats()
-            + catalogue.zoneThreats()
+        catalogue.everyThreat()
     }
 }

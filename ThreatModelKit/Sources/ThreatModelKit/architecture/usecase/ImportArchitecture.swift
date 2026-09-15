@@ -99,7 +99,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 category: CategoryId(technology.category),
                 description: technology.description,
                 threatIds: technology.threatIds.map(ThreatId.init),
-                enforcesEncryption: technology.encrypts
+                enforcesEncryption: technology.encrypts,
+                controls: technology.controlDescriptions
             )
         }
 

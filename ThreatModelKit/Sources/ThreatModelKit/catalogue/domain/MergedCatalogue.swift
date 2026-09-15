@@ -47,6 +47,18 @@ public struct MergedCatalogue: TechnologyCatalogue {
         )
     }
 
+    /// Every threat the catalogue holds and every threat the libraries add,
+    /// in one read, with the library overrides applied.
+    public func everyThreat() -> [Threat] {
+        var seen: Set<ThreatId> = []
+        var ordered: [Threat] = []
+        for threat in base.everyThreat() + store.all().flatMap(\.threats)
+        where seen.insert(threat.id).inserted {
+            ordered.append(threat)
+        }
+        return overridden(ordered)
+    }
+
     /// Every threat as the libraries state it.
     ///
     /// The merge order is the catalogue first, then each library in the order

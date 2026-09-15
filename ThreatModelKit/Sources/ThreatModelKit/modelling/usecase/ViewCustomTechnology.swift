@@ -19,6 +19,8 @@ public struct ViewedCustomTechnology: Equatable, Sendable {
     public let description: String
     public let threatIds: [String]
     public let enforcesEncryption: Bool
+    /// The controls this technology brings, in the team's own words.
+    public let controls: [String]
 
     public init(
         id: String,
@@ -26,7 +28,8 @@ public struct ViewedCustomTechnology: Equatable, Sendable {
         categoryId: String,
         description: String,
         threatIds: [String],
-        enforcesEncryption: Bool
+        enforcesEncryption: Bool,
+        controls: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -34,6 +37,7 @@ public struct ViewedCustomTechnology: Equatable, Sendable {
         self.description = description
         self.threatIds = threatIds
         self.enforcesEncryption = enforcesEncryption
+        self.controls = controls
     }
 }
 
@@ -58,7 +62,8 @@ public struct ViewCustomTechnology: ViewCustomTechnologyUseCase {
                 categoryId: technology.category.value,
                 description: technology.description,
                 threatIds: technology.threatIds.map(\.value),
-                enforcesEncryption: technology.enforcesEncryption
+                enforcesEncryption: technology.enforcesEncryption,
+                controls: technology.controls
             )
         )
     }

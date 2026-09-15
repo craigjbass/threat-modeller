@@ -533,7 +533,8 @@ final class ThreatModelSession {
         categoryId: String,
         description: String,
         threatIds: [String],
-        enforcesEncryption: Bool
+        enforcesEncryption: Bool,
+        controls: [String] = []
     ) -> String? {
         let response = useCases.createCustomTechnology().execute(
             CreateCustomTechnologyRequest(
@@ -541,7 +542,8 @@ final class ThreatModelSession {
                 categoryId: categoryId,
                 description: description,
                 threatIds: threatIds,
-                enforcesEncryption: enforcesEncryption
+                enforcesEncryption: enforcesEncryption,
+                controls: controls
             )
         )
 
@@ -557,6 +559,9 @@ final class ThreatModelSession {
         case .unknownCategory:
             errorMessage = "That category is not one this application holds."
             return nil
+        case .nameAlreadyUsed(let byTechnologyId):
+            errorMessage = Self.nameClash(name, with: byTechnologyId, in: self)
+            return nil
         }
     }
 
@@ -568,7 +573,8 @@ final class ThreatModelSession {
         categoryId: String,
         description: String,
         threatIds: [String],
-        enforcesEncryption: Bool
+        enforcesEncryption: Bool,
+        controls: [String] = []
     ) -> Bool {
         let response = useCases.editCustomTechnology().execute(
             EditCustomTechnologyRequest(
@@ -577,7 +583,8 @@ final class ThreatModelSession {
                 categoryId: categoryId,
                 description: description,
                 threatIds: threatIds,
-                enforcesEncryption: enforcesEncryption
+                enforcesEncryption: enforcesEncryption,
+                controls: controls
             )
         )
 
@@ -595,6 +602,9 @@ final class ThreatModelSession {
             return false
         case .unknownTechnology:
             errorMessage = "This model no longer defines that technology."
+            return false
+        case .nameAlreadyUsed(let byTechnologyId):
+            errorMessage = Self.nameClash(name, with: byTechnologyId, in: self)
             return false
         }
     }
@@ -673,17 +683,20 @@ final class ThreatModelSession {
     }
 
     /// What the technology editor offers as a category, taken from the
-    /// palette so the editor names exactly what the palette can show.
+    /// taxonomy, so a category nothing is in yet is still offered.
     var categoryChoices: [(id: String, label: String)] {
-        var seen: Set<String> = []
-        var choices: [(id: String, label: String)] = []
-        for provider in palette {
-            for category in provider.categories where seen.contains(category.id) == false {
-                seen.insert(category.id)
-                choices.append((id: category.id, label: category.label))
-            }
-        }
-        return choices.sorted { $0.label < $1.label }
+        useCases.listCategories().execute(ListCategoriesRequest()).categories
+            .map { (id: $0.id, label: $0.label) }
+    }
+
+    /// What the editor says when two technologies would share a name.
+    private static func nameClash(
+        _ name: String,
+        with technologyId: String,
+        in session: ThreatModelSession
+    ) -> String {
+        let other = session.customTechnology(technologyId)?.name ?? technologyId
+        return "This model already defines \"\(other)\", so \"\(name)\" is taken."
     }
 
     /// The technology this model defines with that identifier, or nil.

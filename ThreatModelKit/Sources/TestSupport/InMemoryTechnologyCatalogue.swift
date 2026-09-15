@@ -51,6 +51,8 @@ public final class InMemoryTechnologyCatalogue: TechnologyCatalogue, @unchecked 
         return technology.threatIds.compactMap { threats[$0] }
     }
 
+    public func everyThreat() -> [Threat] { orderedThreats }
+
     public func connectionThreats() -> [Threat] {
         orderedThreats.filter(\.isConnectionThreat)
     }

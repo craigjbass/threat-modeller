@@ -8,19 +8,23 @@ public struct CreateCustomTechnologyRequest: Equatable, Sendable {
     public let description: String
     public let threatIds: [String]
     public let enforcesEncryption: Bool
+    /// The controls this technology brings, in the team's own words.
+    public let controls: [String]
 
     public init(
         name: String,
         categoryId: String,
         description: String,
         threatIds: [String],
-        enforcesEncryption: Bool
+        enforcesEncryption: Bool,
+        controls: [String] = []
     ) {
         self.name = name
         self.categoryId = categoryId
         self.description = description
         self.threatIds = threatIds
         self.enforcesEncryption = enforcesEncryption
+        self.controls = controls
     }
 }
 
@@ -28,6 +32,9 @@ public enum CreateCustomTechnologyResponse: Equatable, Sendable {
     case created(technologyId: String)
     case emptyName
     case unknownCategory
+    /// Another technology this model defines is already called that. Two of
+    /// one name on the palette is two rows a person cannot tell apart.
+    case nameAlreadyUsed(byTechnologyId: String)
 }
 
 /// Adds a technology this model defines for itself.
@@ -53,13 +60,20 @@ public struct CreateCustomTechnology: CreateCustomTechnologyUseCase {
         let category = CategoryId(request.categoryId)
         guard catalogue.taxonomy().category(id: category) != nil else { return .unknownCategory }
 
+        if let clash = models.current().customTechnologies.first(
+            where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+        ) {
+            return .nameAlreadyUsed(byTechnologyId: clash.id.value)
+        }
+
         let technology = CustomTechnology(
             id: TechnologyId("custom-\(ids.next())"),
             name: name,
             category: category,
             description: request.description.trimmingWhitespace(),
             threatIds: request.threatIds.map(ThreatId.init),
-            enforcesEncryption: request.enforcesEncryption
+            enforcesEncryption: request.enforcesEncryption,
+            controls: request.controls.map { $0.trimmingWhitespace() }.filter { $0.isEmpty == false }
         )
 
         return models.mutate(label: ChangeLabel.createCustomTechnology) { model in

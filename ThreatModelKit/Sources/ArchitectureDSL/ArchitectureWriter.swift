@@ -107,6 +107,9 @@ struct ArchitectureWriter {
                 attributes.append(("encrypts", "true"))
             }
             body += indent(aligned(attributes))
+            for control in technology.controlDescriptions {
+                body.append("  control \(quoted(control))")
+            }
             body.append("}")
             body.append("")
         }

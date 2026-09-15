@@ -19,6 +19,12 @@ public struct CustomTechnology: Equatable, Sendable {
     public var description: String
     public var threatIds: [ThreatId]
     public var enforcesEncryption: Bool
+    /// The controls this technology brings, in the team's own words.
+    ///
+    /// They answer every threat the technology carries, the way a catalogue
+    /// technology's own mitigations do, so they appear on every card the
+    /// technology raises and in the report.
+    public var controls: [String]
 
     public init(
         id: TechnologyId,
@@ -27,7 +33,8 @@ public struct CustomTechnology: Equatable, Sendable {
         category: CategoryId,
         description: String,
         threatIds: [ThreatId],
-        enforcesEncryption: Bool = false
+        enforcesEncryption: Bool = false,
+        controls: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -36,6 +43,7 @@ public struct CustomTechnology: Equatable, Sendable {
         self.description = description
         self.threatIds = threatIds
         self.enforcesEncryption = enforcesEncryption
+        self.controls = controls
     }
 
     /// The same thing, said the way the rest of the application says it.
@@ -47,7 +55,12 @@ public struct CustomTechnology: Equatable, Sendable {
             category: category,
             description: description,
             threatIds: threatIds,
-            enforcesEncryption: enforcesEncryption
+            enforcesEncryption: enforcesEncryption,
+            // A control this technology brings answers every threat it
+            // carries, so each threat is offered every one of them.
+            threatMitigations: Dictionary(
+                uniqueKeysWithValues: threatIds.map { ($0, controls) }
+            )
         )
     }
 }

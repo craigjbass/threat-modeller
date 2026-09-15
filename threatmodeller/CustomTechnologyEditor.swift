@@ -19,6 +19,9 @@ struct CustomTechnologyEditor: View {
     @State private var chosenThreatIds: Set<String> = []
     @State private var enforcesEncryption = false
     @State private var threatSearch = ""
+    /// The controls this technology brings, one a line, as a person types
+    /// them.
+    @State private var controlsText = ""
 
     private var isEditing: Bool { technologyId != nil }
 
@@ -50,6 +53,13 @@ struct CustomTechnologyEditor: View {
 
                 Toggle("This technology encrypts what crosses it", isOn: $enforcesEncryption)
                     .accessibilityIdentifier("technology-enforces-encryption")
+
+                // A team's own control, in their own words. It answers every
+                // threat this technology carries, the way a catalogue
+                // technology's own mitigation does.
+                TextField("Controls, one a line", text: $controlsText, axis: .vertical)
+                    .lineLimit(2 ... 6)
+                    .accessibilityIdentifier("technology-controls")
             }
             .formStyle(.grouped)
 
@@ -129,6 +139,15 @@ struct CustomTechnologyEditor: View {
         description = technology.description
         chosenThreatIds = Set(technology.threatIds)
         enforcesEncryption = technology.enforcesEncryption
+        controlsText = technology.controls.joined(separator: "\n")
+    }
+
+    /// What the person typed, one control a line, with the blank lines gone.
+    private var controls: [String] {
+        controlsText
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.isEmpty == false }
     }
 
     /// The sheet stays open when the model refuses a value, so the message
@@ -143,7 +162,8 @@ struct CustomTechnologyEditor: View {
                 categoryId: categoryId,
                 description: description,
                 threatIds: threatIds,
-                enforcesEncryption: enforcesEncryption
+                enforcesEncryption: enforcesEncryption,
+                controls: controls
             )
             if isSaved { dismiss() }
             return
@@ -154,7 +174,8 @@ struct CustomTechnologyEditor: View {
             categoryId: categoryId,
             description: description,
             threatIds: threatIds,
-            enforcesEncryption: enforcesEncryption
+            enforcesEncryption: enforcesEncryption,
+            controls: controls
         ) != nil {
             dismiss()
         }

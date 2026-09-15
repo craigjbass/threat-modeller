@@ -313,6 +313,7 @@ struct ArchitectureParser {
         var description = ""
         var threatIds: [String] = []
         var encrypts = false
+        var controls: [String] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -321,8 +322,16 @@ struct ArchitectureParser {
             case "description": description = parseTextAttribute() ?? ""
             case "threats": threatIds = parseListAttribute()
             case "encrypts": encrypts = parseBooleanAttribute() ?? false
+            case "control":
+                advance()
+                if let text = expect(.string, "the control's description") {
+                    controls.append(text.text)
+                }
             default:
-                record("a technology holds name, category, description, threats and encrypts, not \"\(current.text)\"")
+                record(
+                    "a technology holds name, category, description, threats, encrypts and "
+                        + "control, not \"\(current.text)\""
+                )
                 skipAttribute()
             }
         }
@@ -342,7 +351,8 @@ struct ArchitectureParser {
             category: category,
             description: description,
             threatIds: threatIds,
-            encrypts: encrypts
+            encrypts: encrypts,
+            controlDescriptions: controls
         )
     }
 

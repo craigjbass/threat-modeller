@@ -36,7 +36,8 @@ public enum ArchitectureSourceBuilder {
                         category: technology.category.value,
                         description: technology.description,
                         threatIds: technology.threatIds.map(\.value),
-                        encrypts: technology.enforcesEncryption
+                        encrypts: technology.enforcesEncryption,
+                        controlDescriptions: technology.controls
                     )
                 },
                 zones: model.zones.map { zone in

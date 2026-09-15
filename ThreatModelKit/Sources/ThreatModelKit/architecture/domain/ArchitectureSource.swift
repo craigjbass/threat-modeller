@@ -69,6 +69,9 @@ public struct SourceTechnology: Equatable, Sendable {
     public let description: String
     public let threatIds: [String]
     public let encrypts: Bool
+    /// The controls this technology brings, in the team's own words. They
+    /// answer every threat it carries.
+    public let controlDescriptions: [String]
 
     public init(
         id: String,
@@ -76,7 +79,8 @@ public struct SourceTechnology: Equatable, Sendable {
         category: String,
         description: String = "",
         threatIds: [String] = [],
-        encrypts: Bool = false
+        encrypts: Bool = false,
+        controlDescriptions: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -84,6 +88,7 @@ public struct SourceTechnology: Equatable, Sendable {
         self.description = description
         self.threatIds = threatIds
         self.encrypts = encrypts
+        self.controlDescriptions = controlDescriptions
     }
 }
 

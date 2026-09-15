@@ -422,6 +422,9 @@ technology "our-ledger" {
   description = "The ledger we wrote ourselves"
   threats     = ["t-sql-injection", "t-data-exfiltration"]
   encrypts    = true
+
+  control "Every write is signed by the service account"
+  control "The ledger is read only outside the write path"
 }
 ```
 
@@ -435,6 +438,16 @@ attribute names.
 | `description` | string | empty | free text |
 | `threats` | list of strings | empty | the threat identifiers this technology raises |
 | `encrypts` | boolean | `false` | true when the technology encrypts what it holds |
+| `control` | statement | none | a control this technology brings, in the team's own words |
+
+A `control` statement states a control this technology brings. It answers every
+threat the technology carries, the way a catalogue technology's own mitigation
+does, so it appears on every card that technology raises and in the report. A
+block may hold as many as it needs.
+
+Two technologies this file declares cannot share a name: the palette would draw
+two rows a person cannot tell apart. The application states the clash and names
+the other technology before it saves.
 
 A block with no `name` is the error `the technology "<id>" has no name`. A block
 with no `category` is the error `the technology "<id>" has no category`. Either

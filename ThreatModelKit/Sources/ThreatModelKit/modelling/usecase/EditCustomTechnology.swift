@@ -9,6 +9,8 @@ public struct EditCustomTechnologyRequest: Equatable, Sendable {
     public let description: String
     public let threatIds: [String]
     public let enforcesEncryption: Bool
+    /// The controls this technology brings, in the team's own words.
+    public let controls: [String]
 
     public init(
         technologyId: String,
@@ -16,7 +18,8 @@ public struct EditCustomTechnologyRequest: Equatable, Sendable {
         categoryId: String,
         description: String,
         threatIds: [String],
-        enforcesEncryption: Bool
+        enforcesEncryption: Bool,
+        controls: [String] = []
     ) {
         self.technologyId = technologyId
         self.name = name
@@ -24,6 +27,7 @@ public struct EditCustomTechnologyRequest: Equatable, Sendable {
         self.description = description
         self.threatIds = threatIds
         self.enforcesEncryption = enforcesEncryption
+        self.controls = controls
     }
 }
 
@@ -32,6 +36,8 @@ public enum EditCustomTechnologyResponse: Equatable, Sendable {
     case unknownTechnology
     case emptyName
     case unknownCategory
+    /// Another technology this model defines is already called that.
+    case nameAlreadyUsed(byTechnologyId: String)
 }
 
 /// Changes a technology this model defines. All or nothing: one bad value
@@ -57,12 +63,20 @@ public struct EditCustomTechnology: EditCustomTechnologyUseCase {
             }
             guard name.isEmpty == false else { return .emptyName }
             guard knowsCategory else { return .unknownCategory }
+            if let clash = model.customTechnologies.first(where: {
+                $0.id != id && $0.name.caseInsensitiveCompare(name) == .orderedSame
+            }) {
+                return .nameAlreadyUsed(byTechnologyId: clash.id.value)
+            }
 
             model.customTechnologies[index].name = name
             model.customTechnologies[index].category = category
             model.customTechnologies[index].description = request.description.trimmingWhitespace()
             model.customTechnologies[index].threatIds = request.threatIds.map(ThreatId.init)
             model.customTechnologies[index].enforcesEncryption = request.enforcesEncryption
+            model.customTechnologies[index].controls = request.controls
+                .map { $0.trimmingWhitespace() }
+                .filter { $0.isEmpty == false }
             return .updated
         }
     }

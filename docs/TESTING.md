@@ -201,6 +201,22 @@ Wait three seconds, then render.
 **Prevention.** Run `pkill -x threatmodeller` after every `RunAllTests` or
 `RunSomeTests`, before the next preview or snippet.
 
+## What listing the threat choices costs
+
+The custom technology editor lists every threat a technology can carry, and
+`TechnologyLookup` reads the same set. Both used to walk every technology and
+ask for its threats, which is one read of the catalogue per technology.
+`TechnologyCatalogue.everyThreat()` answers in one read from an index the
+gateway builds as it parses the file.
+
+Measured in a release build, over the vendored catalogue's 286 technologies,
+each figure the mean of a hundred calls:
+
+| What | Time |
+| --- | --- |
+| `ListThreatChoices`, walking every technology | 0.00073 s |
+| `ListThreatChoices`, one indexed read | 0.00004 s |
+
 ## What one resolution costs, and what the history costs
 
 `ThreatResolver.resolve` is what the threat list and the risk summary both

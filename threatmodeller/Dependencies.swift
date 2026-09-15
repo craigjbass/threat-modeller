@@ -396,6 +396,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         ResizeZone(models: models)
     }
 
+    func listCategories() -> ListCategoriesUseCase {
+        ListCategories(catalogue: catalogue)
+    }
+
     func previewSampleModel() -> PreviewSampleModelUseCase {
         PreviewSampleModel(samples: samples, files: files, catalogue: catalogue)
     }

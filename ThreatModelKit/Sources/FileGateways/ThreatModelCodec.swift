@@ -411,7 +411,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             category: technology.category.value,
             description: technology.description,
             threatIds: technology.threatIds.map(\.value),
-            enforcesEncryption: technology.enforcesEncryption
+            enforcesEncryption: technology.enforcesEncryption,
+            controls: technology.controls.isEmpty ? nil : technology.controls
         )
     }
 
@@ -422,7 +423,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             category: CategoryId(json.category),
             description: json.description,
             threatIds: json.threatIds.map(ThreatId.init),
-            enforcesEncryption: json.enforcesEncryption
+            enforcesEncryption: json.enforcesEncryption,
+            controls: json.controls ?? []
         )
     }
 
