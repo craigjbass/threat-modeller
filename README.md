@@ -655,6 +655,10 @@ from anywhere.
   command line prints.
 - A save message and a report message show in the toolbar, where the load stage
   shows, and clear themselves after four seconds.
+- A component's technology is changed in the component bar. The component
+  keeps its id, its name, its place, its zone and its flows. An answer on a
+  threat the new technology no longer raises goes with it, and the diagnostics
+  strip names each one.
 - A plain drag on empty canvas moves the diagram, a two finger scroll moves it
   as well, shift-drag draws a selection rectangle, and a pinch zooms. The
   pointer shows an open hand over open canvas and a closed hand while the

@@ -9,7 +9,9 @@ public struct Component: Equatable, Sendable {
     public static let size = Size(width: 160, height: 72)
 
     public let id: ComponentId
-    public let technologyId: TechnologyId
+    /// What the component is. A person changes it in place, through
+    /// `ChangeComponentTechnology`, and the component keeps everything else.
+    public var technologyId: TechnologyId
     public var position: Point
     public var sensitivity: DataSensitivity
     public var customName: String?

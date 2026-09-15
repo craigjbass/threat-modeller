@@ -391,6 +391,10 @@ public final class TestDependencies: UseCaseFactory {
         ResizeZone(models: models)
     }
 
+    public func changeComponentTechnology() -> ChangeComponentTechnologyUseCase {
+        ChangeComponentTechnology(models: models, catalogue: catalogue)
+    }
+
     public func moveZones() -> MoveZonesUseCase {
         MoveZones(models: models)
     }

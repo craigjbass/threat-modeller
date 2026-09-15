@@ -54,6 +54,20 @@ struct ComponentPanel: View {
                 commit: { write(name: $0) }
             )
 
+            // A component drawn with the wrong technology is changed here
+            // rather than deleted and drawn again, which used to lose its
+            // name, its place, its flows and every answer on it.
+            Picker("Technology", selection: technology) {
+                ForEach(session.technologyChoices, id: \.provider) { group in
+                    Section(group.provider) {
+                        ForEach(group.technologies, id: \.id) { Text($0.label).tag($0.id) }
+                    }
+                }
+            }
+            .labelsHidden()
+            .frame(width: 200)
+            .accessibilityIdentifier("component-technology")
+
             Picker("Shape", selection: shape) {
                 ForEach(Self.shapes, id: \.0) { Text(label(forShape: $0.0, $0.1)).tag($0.0) }
             }
@@ -80,10 +94,6 @@ struct ComponentPanel: View {
                 .accessibilityIdentifier("component-threats-raised")
 
             Spacer(minLength: 0)
-
-            Text(component.technologyId)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, CanvasView.windowEdgeMargin)
         .padding(.vertical, 8)
@@ -118,6 +128,13 @@ struct ComponentPanel: View {
         return "Auto \u{2014} \(derived)"
     }
 
+
+    private var technology: Binding<String> {
+        Binding(
+            get: { component.technologyId },
+            set: { session.changeTechnology(componentId: component.id, technologyId: $0) }
+        )
+    }
 
     private var sensitivity: Binding<String> {
         Binding(get: { component.sensitivityId }, set: { write(sensitivity: $0) })

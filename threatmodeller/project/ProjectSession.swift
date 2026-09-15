@@ -460,6 +460,21 @@ final class ProjectSession {
     /// user pressing Synchronise. The write waits for the changes to stop, so
     /// a name typed into a field writes the files once and not once a letter.
     func modelDidChange() {
+        // A technology change drops the answers on threats the new technology
+        // does not raise. The person is told which, once.
+        let dropped = model?.takeDroppedAnswerThreatIds() ?? []
+        if dropped.isEmpty == false {
+            diagnostics = dropped.map {
+                Diagnostic(
+                    severity: .warning,
+                    line: 0,
+                    column: 0,
+                    message: "the answer on \($0) went with the technology that raised it"
+                )
+            }
+            diagnosticsFileName = chosenSystem.map { "\($0).arch" }
+        }
+
         guard isAutoSyncOn, hasUnsavedChanges else { return }
         coalescer.schedule { [weak self] in self?.saveNow() }
     }

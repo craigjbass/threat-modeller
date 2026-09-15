@@ -64,6 +64,7 @@ public enum ChangeLabel {
     public static let removeZone = "Delete Zone"
     public static let setZoneProperties = "Edit Zone"
     public static let setComponentProperties = "Edit Component"
+    public static let changeComponentTechnology = "Change Technology"
     public static let paste = "Paste"
     public static let duplicate = "Duplicate"
     public static let recordControl = "Tick Control"

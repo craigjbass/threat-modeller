@@ -237,3 +237,58 @@ struct DeferredEditTests {
         #expect(writes == 1)
     }
 }
+
+/// Changing a component's technology from the panel.
+@MainActor
+@Suite("The technology picker")
+struct ComponentTechnologyTests {
+    private func drawn() -> (ThreatModelSession, String) {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        return (session, session.canvas.components[0].id)
+    }
+
+    @Test func offersEveryTechnologyGroupedByProvider() {
+        let (session, _) = drawn()
+
+        let choices = session.technologyChoices
+
+        #expect(choices.isEmpty == false)
+        #expect(choices.contains { $0.technologies.contains { $0.id == "aws-rds" } })
+    }
+
+    @Test func changesTheTechnologyAndKeepsTheComponent() throws {
+        let (session, componentId) = drawn()
+
+        session.changeTechnology(componentId: componentId, technologyId: "aws-rds")
+
+        let component = try #require(session.canvas.components.first)
+        #expect(component.id == componentId)
+        #expect(component.technologyId == "aws-rds")
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func saysWhichAnswersWentWithTheOldTechnology() throws {
+        let (session, componentId) = drawn()
+        for threat in session.threats {
+            for control in threat.controls {
+                session.setControlStatus(key: control.key, statusId: "implemented")
+            }
+        }
+
+        session.changeTechnology(componentId: componentId, technologyId: "aws-rds")
+
+        #expect(session.droppedAnswerThreatIds.isEmpty == false)
+        #expect(session.takeDroppedAnswerThreatIds().isEmpty == false)
+        #expect(session.droppedAnswerThreatIds.isEmpty)
+    }
+
+    @Test func oneUndoPutsTheOldTechnologyBack() throws {
+        let (session, componentId) = drawn()
+
+        session.changeTechnology(componentId: componentId, technologyId: "aws-rds")
+        session.undo()
+
+        #expect(session.canvas.components.first?.technologyId == "aws-ec2")
+    }
+}

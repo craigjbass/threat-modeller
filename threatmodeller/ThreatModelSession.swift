@@ -618,6 +618,57 @@ final class ThreatModelSession {
         }
     }
 
+    /// Puts a different technology on a component that is already drawn.
+    ///
+    /// The component keeps its id, its name, its place, its zone and its
+    /// flows. An answer on a threat the new technology no longer raises is
+    /// dropped, and the diagnostics strip names each threat that went.
+    func changeTechnology(componentId: String, technologyId: String) {
+        switch useCases.changeComponentTechnology().execute(
+            ChangeComponentTechnologyRequest(
+                componentId: componentId,
+                technologyId: technologyId
+            )
+        ) {
+        case .changed(let dropped):
+            errorMessage = nil
+            droppedAnswerThreatIds = dropped
+        case .unchanged:
+            errorMessage = nil
+        case .unknownComponent:
+            errorMessage = "That component is no longer on the model."
+        case .unknownTechnology:
+            errorMessage = "This model no longer defines that technology."
+        }
+
+        refresh()
+    }
+
+    /// The threats whose answers the last technology change dropped, so the
+    /// window says what went. Empty when the last change dropped nothing.
+    private(set) var droppedAnswerThreatIds: [String] = []
+
+    /// Reads what the last technology change dropped, and forgets it, so the
+    /// window says it once.
+    func takeDroppedAnswerThreatIds() -> [String] {
+        let dropped = droppedAnswerThreatIds
+        droppedAnswerThreatIds = []
+        return dropped
+    }
+
+    /// Every technology a person can put on a component, grouped the way the
+    /// palette groups them.
+    var technologyChoices: [(provider: String, technologies: [(id: String, label: String)])] {
+        palette.map { provider in
+            (
+                provider: provider.displayName,
+                technologies: provider.categories.flatMap { category in
+                    category.technologies.map { (id: $0.id, label: $0.name) }
+                }
+            )
+        }
+    }
+
     /// What the technology editor offers as a category, taken from the
     /// palette so the editor names exactly what the palette can show.
     var categoryChoices: [(id: String, label: String)] {
