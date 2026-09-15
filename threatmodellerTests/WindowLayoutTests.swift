@@ -164,6 +164,59 @@ struct WindowLayoutTests {
         #expect(column.maxY - alone.maxY == WorkflowPanel.bottomMargin)
     }
 
+    /// The threats stage draws the diagram on the left and the threat list on
+    /// the right, each reaching its own edge of the window, and the two never
+    /// overlap.
+    @Test func drawsTheDiagramAndTheThreatListSideBySideOnTheThreatsStage() async throws {
+        let project = await aDrawnProject()
+        let model = try #require(project.model)
+        let window = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: CanvasState(),
+                stage: .constant(.threats)
+            )
+        )
+        let content = try #require(window.contentView)
+        let split = try #require(columns(in: content))
+        #expect(split.arrangedSubviews.count == 2)
+
+        let left = split.arrangedSubviews[0].convert(split.arrangedSubviews[0].bounds, to: nil)
+        let right = split.arrangedSubviews[1].convert(split.arrangedSubviews[1].bounds, to: nil)
+        let whole = content.convert(content.bounds, to: nil)
+
+        #expect(left.minX == whole.minX)
+        #expect(right.maxX == whole.maxX)
+        #expect(left.intersects(right) == false)
+        #expect(left.width >= ProjectColumns.minimumDiagramWidth)
+        #expect(right.width >= ProjectColumns.minimumThreatListWidth)
+    }
+
+    /// The person drags the divider, and neither side goes below its stated
+    /// minimum.
+    @Test func theThreatsStageDividerHoldsEachSideAtItsMinimum() async throws {
+        let project = await aDrawnProject()
+        let model = try #require(project.model)
+        let window = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: CanvasState(),
+                stage: .constant(.threats)
+            )
+        )
+        let content = try #require(window.contentView)
+        let split = try #require(columns(in: content))
+
+        // Drag the divider as far left as it goes.
+        split.setPosition(0, ofDividerAt: 0)
+        split.layoutSubtreeIfNeeded()
+
+        let left = split.arrangedSubviews[0].frame.width
+        #expect(left >= ProjectColumns.minimumDiagramWidth)
+    }
+
     /// The canvas keeps room under it for the panel, so a node at the bottom
     /// of the model is never hidden by it.
     @Test func theCanvasKeepsRoomUnderItForTheFloatingPanel() async throws {

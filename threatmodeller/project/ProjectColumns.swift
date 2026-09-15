@@ -15,6 +15,10 @@ struct ProjectColumns: View {
     /// columns hold a binding rather than a value.
     @Binding var stage: WorkStage
 
+    /// The narrowest each side of the threats stage goes.
+    static let minimumDiagramWidth: CGFloat = 400
+    static let minimumThreatListWidth: CGFloat = 320
+
     @State private var isSampleBrowserOpen = false
 
     var body: some View {
@@ -41,12 +45,16 @@ struct ProjectColumns: View {
                     .navigationSplitViewColumnWidth(min: 280, ideal: 360)
             }
         case .threats:
-            NavigationSplitView {
+            // A plain split, not a `NavigationSplitView`. A sidebar column
+            // takes the sidebar material behind whatever it holds and the
+            // standard toggle collapses it, and a canvas is neither of those
+            // things. `HSplitView` gives a divider the person drags, and the
+            // width holds while the window is open.
+            HSplitView {
                 diagram
-                    .navigationSplitViewColumnWidth(min: 400, ideal: 640)
-            } detail: {
+                    .frame(minWidth: Self.minimumDiagramWidth)
                 ThreatSidebar(session: session, focus: .likelihood)
-                    .navigationSplitViewColumnWidth(min: 320, ideal: 420)
+                    .frame(minWidth: Self.minimumThreatListWidth, idealWidth: 420)
             }
         case .controls:
             ThreatSidebar(session: session, focus: .controls, project: project)
@@ -65,7 +73,9 @@ struct ProjectColumns: View {
             }
             .overlay(alignment: .bottom) { workflowPanel }
             .navigationTitle("Diagram")
-            .navigationSplitViewColumnWidth(min: 400, ideal: 700)
+            // One width, stated once, for the one column that holds the
+            // diagram. The threats stage states its own minimum on the split.
+            .navigationSplitViewColumnWidth(min: Self.minimumDiagramWidth, ideal: 700)
     }
 
     /// The five controls, floating at the bottom middle of the column they

@@ -184,6 +184,30 @@ struct ViewRenderTests {
         expectDrawn(ProjectWindow(session: session), "the project window after the example")
     }
 
+    // MARK: the threats stage
+
+    /// The threats stage draws the diagram beside the threat list, with
+    /// nothing picked on the diagram and with a node picked, which is what
+    /// puts a selection panel under the canvas.
+    @Test func drawsTheThreatsStageWithSomethingSelectedAndWithNothing() async throws {
+        let project = await aDrawnProject()
+        let model = try #require(project.model)
+        let canvas = CanvasState()
+        let stage = ProjectColumns(
+            project: project,
+            session: model,
+            canvas: canvas,
+            stage: .constant(.threats)
+        )
+
+        expectDrawn(stage, width: 1200, height: 800, "the threats stage with nothing picked")
+
+        let node = try #require(model.canvas.components.first)
+        canvas.select(componentId: node.id, addingToSelection: false)
+
+        expectDrawn(stage, width: 1200, height: 800, "the threats stage with a node picked")
+    }
+
     // MARK: the floating workflow panel
 
     @Test func drawsTheFloatingWorkflowPanel() async throws {
