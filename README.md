@@ -403,6 +403,7 @@ threatmodeller draw    [<root>] [-o <dir>]   # writes every diagram as SVG or PN
 threatmodeller export  [<root>] [-o <dir>]   # writes every model as data another program reads
 threatmodeller list    [<root>]              # says what each system holds and what it scores
 threatmodeller import terraform [<root>]    # draws what a Terraform state holds
+threatmodeller mcp     [<root>]              # serves the Model Context Protocol
 threatmodeller format  [<root>]                # rewrites every .arch, .attacktree and .lib file
 threatmodeller library <operation> …         # manages the shared element libraries
 threatmodeller help                          # shows the usage text
@@ -496,6 +497,35 @@ The slots and the rules are stated in
 [the report template design](docs/superpowers/specs/2026-09-15-report-template-design.md).
 A project that names no template renders through the shape this application
 ships, which is the report as it has always read.
+
+### Offering the model to an assistant
+
+`threatmodeller mcp [<root>]` serves the Model Context Protocol over standard
+input and output, so an assistant reads the assessed model rather than
+guessing at the files. Point a client at it:
+
+```json
+{
+  "mcpServers": {
+    "threatmodeller": {
+      "command": "threatmodeller",
+      "args": ["mcp", "/path/to/the/project"]
+    }
+  }
+}
+```
+
+The tools: `list_systems`, `read_system` (the JSON of the export schema),
+`check`, `compile`, `describe_threat`, `describe_technology`,
+`describe_control` and `open_threats_above`. Each runs the verb a person runs,
+so an assistant and a person read the same answer. Every source file the
+project holds is offered as a read-only resource.
+
+The server writes nothing unless `--allow-writes` is given. With the flag it
+offers two more tools: `answer_control` answers one control on one threat, and
+`set_likelihood` writes a likelihood finding, each writing the `.controls`
+file the application itself writes. Without the flag, `compile` says what it
+would write and writes nothing.
 
 ### Importing an architecture from Terraform
 

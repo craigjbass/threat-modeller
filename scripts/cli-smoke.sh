@@ -95,6 +95,17 @@ grep -q '"otmVersion"' "$work/sample/threatmodel/payments.otm.json"
 tm export "$work/sample" --stdout > "$work/sample/stdout.json"
 grep -q '"threats"' "$work/sample/stdout.json"
 
+step "mcp answers a client"
+printf '%s\n%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+    > "$work/mcp-in.json"
+tm mcp "$work/sample" < "$work/mcp-in.json" > "$work/mcp-out.json"
+grep -q '"serverInfo"' "$work/mcp-out.json"
+grep -q '"list_systems"' "$work/mcp-out.json"
+grep -q '"answer_control"' "$work/mcp-out.json" && exit 1
+echo "the read-only server offers no writing tool"
+
 step "import terraform draws what a state holds"
 mkdir -p "$work/imported/threatmodel"
 tm import terraform "$work/imported" < ThreatModelKit/Tests/Goldens/terraform-aws-state.json

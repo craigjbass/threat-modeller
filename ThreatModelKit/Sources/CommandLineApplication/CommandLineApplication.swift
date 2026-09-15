@@ -84,6 +84,7 @@ public struct CommandLineApplication {
         var fieldWords: String?
         var sortWord: String?
         var wantsHeader = true
+        var allowsWrites = false
         var wantsJson = false
         var commits = ReadRiskHistory.defaultCommits
 
@@ -139,6 +140,8 @@ public struct CommandLineApplication {
             case "--sort":
                 index += 1
                 sortWord = index < words.count ? words[index] : nil
+            case "--allow-writes":
+                allowsWrites = true
             case "--no-header":
                 wantsHeader = false
             case "--json":
@@ -211,6 +214,8 @@ public struct CommandLineApplication {
         case "draw":
             let into = words.first { $0.hasPrefix("-o:") }.map { String($0.dropFirst(3)) }
             return draw(root: root, into: into, wants: pictures, isQuiet: isQuiet, output: output)
+        case "mcp":
+            return serveMcp(root: root, allowsWrites: allowsWrites, output: output)
         case "import":
             return importing(words: Array(words.dropFirst()), isQuiet: isQuiet, output: output)
         case "list":
@@ -1403,6 +1408,28 @@ public struct CommandLineApplication {
     /// SVG is written by this package, so it works wherever the tool runs. PNG
     /// needs a drawing engine, which only Apple's platforms supply here, so a
     /// Linux build says so rather than writing nothing.
+    /// Serves the Model Context Protocol over standard input and output.
+    ///
+    /// One request a line, one answer a line. Every tool runs the verb a
+    /// person runs, so an assistant reads the application's own answers.
+    private func serveMcp(
+        root: String,
+        allowsWrites: Bool,
+        output: (String) -> Void
+    ) -> Int32 {
+        let server = McpServer(
+            application: self,
+            projects: projects,
+            root: root,
+            allowsWrites: allowsWrites
+        )
+        while let line = readLine(strippingNewline: true) {
+            guard line.trimmingCharacters(in: .whitespaces).isEmpty == false else { continue }
+            if let answer = server.answer(to: line) { output(answer) }
+        }
+        return ExitCode.success.rawValue
+    }
+
     /// Draws what a Terraform state holds.
     ///
     /// The state arrives on standard input, the way `terraform show -json`
@@ -2152,6 +2179,8 @@ public struct CommandLineApplication {
       threatmodeller draw    [<root>]  write every diagram as a picture
       threatmodeller export  [<root>]  write every model as data another program reads
       threatmodeller list    [<root>]  say what each system holds and what it scores
+      threatmodeller mcp     [<root>]  serve the Model Context Protocol on standard
+                                       input and output
       threatmodeller import terraform [<root>]  draw what a Terraform state holds,
                                        reading `terraform show -json` on standard input
       threatmodeller format  [<root>]  rewrite every .arch, .attacktree and .lib file
@@ -2191,6 +2220,7 @@ public struct CommandLineApplication {
       --sort <field>        list orders the rows by this column
       --no-header           list writes no header row
       --json                list writes the rows as an array a dashboard reads
+      --allow-writes        mcp offers the two tools that write a file
       --commits <n>         how many commits history samples, newest first
       -q, --quiet           say nothing about a file that did not change
       -f, --force           remove a library a system still names
