@@ -20,6 +20,19 @@ covered is now split between `threatmodellerTests/ViewRenderTests.swift`, which
 draws each view with `ImageRenderer` and reads the pixels back, and the session
 tests, which state what each control does.
 
+## What covers the icon
+
+`threatmodellerTests/IconDrawingTests.swift` runs `scripts/make-icon.swift`
+into a temporary directory and states, for each of the ten sizes, the pixel
+size, that the drawing holds more than one colour, and the checksum of the
+bytes. A change to the drawing fails the test and the message names the size
+and its new checksum; a change made on purpose is that checksum written into
+the table at the top of the file.
+
+The test runs `swift`, which reads AppKit, so it runs in the macOS job with
+the rest of the application tests. The Linux job runs the package tests and
+never this one.
+
 ## What covers the canvas gestures
 
 Six gestures move the model: node drag, marquee selection, connection drawing,
