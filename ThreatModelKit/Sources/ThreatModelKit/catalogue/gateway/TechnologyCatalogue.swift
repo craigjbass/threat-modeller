@@ -26,4 +26,12 @@ public protocol TechnologyCatalogue: Sendable {
     /// Every fault found while this catalogue was read. Empty for a sound
     /// catalogue. Nothing is dropped without a fault naming what was dropped.
     func faults() -> [CatalogueFault]
+    /// What the project's libraries change about a threat this catalogue
+    /// holds, by threat id. Empty for a catalogue no library sits over.
+    func overrides() -> [ThreatId: ThreatOverride]
+}
+
+public extension TechnologyCatalogue {
+    /// A catalogue no library sits over changes nothing.
+    func overrides() -> [ThreatId: ThreatOverride] { [:] }
 }

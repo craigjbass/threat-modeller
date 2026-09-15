@@ -19,6 +19,8 @@ public struct LibrarySource: Equatable, Sendable {
     public let categories: [SourceTaxonomyEntry]
     public let severities: [SourceTaxonomyEntry]
     public let strides: [SourceTaxonomyEntry]
+    /// What this library changes about a threat the catalogue already holds.
+    public let overrides: [SourceLibraryOverride]
 
     public init(
         label: String,
@@ -30,7 +32,8 @@ public struct LibrarySource: Equatable, Sendable {
         threatActors: [SourceThreatActor] = [],
         categories: [SourceTaxonomyEntry] = [],
         severities: [SourceTaxonomyEntry] = [],
-        strides: [SourceTaxonomyEntry] = []
+        strides: [SourceTaxonomyEntry] = [],
+        overrides: [SourceLibraryOverride] = []
     ) {
         self.label = label
         self.displayName = displayName
@@ -42,6 +45,35 @@ public struct LibrarySource: Equatable, Sendable {
         self.categories = categories
         self.severities = severities
         self.strides = strides
+        self.overrides = overrides
+    }
+}
+
+/// What a library changes about a threat the catalogue already holds.
+///
+/// Every field is optional: a library states what it changes and nothing
+/// else. An empty control list leaves the catalogue's controls; a list with
+/// entries replaces them, because a team that words its own controls means
+/// those and not those plus the catalogue's.
+public struct SourceLibraryOverride: Equatable, Sendable {
+    public let threatId: String
+    public let severityLabel: String?
+    public let likelihood: String?
+    public let description: String?
+    public let controlDescriptions: [String]
+
+    public init(
+        threatId: String,
+        severityLabel: String? = nil,
+        likelihood: String? = nil,
+        description: String? = nil,
+        controlDescriptions: [String] = []
+    ) {
+        self.threatId = threatId
+        self.severityLabel = severityLabel
+        self.likelihood = likelihood
+        self.description = description
+        self.controlDescriptions = controlDescriptions
     }
 }
 

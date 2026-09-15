@@ -29,6 +29,26 @@ struct LibraryWriter {
         for entry in source.severities { body += taxonomyBlock("severity", entry) }
         for entry in source.strides { body += taxonomyBlock("stride", entry) }
 
+        for override in source.overrides {
+            body.append("override \(quoted(override.threatId)) {")
+            var attributes: [(String, String)] = []
+            if let severity = override.severityLabel {
+                attributes.append(("severity", quoted(severity)))
+            }
+            if let likelihood = override.likelihood {
+                attributes.append(("likelihood", quoted(likelihood)))
+            }
+            if let description = override.description {
+                attributes.append(("description", quoted(description)))
+            }
+            body += indent(aligned(attributes))
+            for control in override.controlDescriptions {
+                body.append("  control \(quoted(control))")
+            }
+            body.append("}")
+            body.append("")
+        }
+
         for technology in source.technologies {
             body += technologyBlock(technology)
             body.append("")

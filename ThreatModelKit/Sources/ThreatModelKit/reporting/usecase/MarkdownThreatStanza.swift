@@ -56,6 +56,9 @@ public enum MarkdownThreatStanza {
         if threat.strideLabels.isEmpty == false {
             lines.append("- STRIDE: \(threat.strideLabels.joined(separator: ", "))")
         }
+        if let overriddenBy = threat.overriddenBy {
+            lines.append("- Changed by the library: \(overriddenBy)")
+        }
         if threat.mitreTechniqueIds.isEmpty == false {
             // Each id is a link, so the Markdown and the page built from it
             // both take a reader to the technique.

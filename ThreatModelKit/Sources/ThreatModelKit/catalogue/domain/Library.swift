@@ -16,6 +16,9 @@ public struct Library: Equatable, Sendable {
     public let categories: [ServiceCategory]
     public let severities: [ThreatSeverity]
     public let strides: [StrideCategory]
+    /// What this library changes about a threat the catalogue already holds,
+    /// by that threat's id.
+    public let overrides: [ThreatId: ThreatOverride]
 
     public init(
         label: String,
@@ -26,7 +29,8 @@ public struct Library: Equatable, Sendable {
         threatActors: [ThreatActor] = [],
         categories: [ServiceCategory] = [],
         severities: [ThreatSeverity] = [],
-        strides: [StrideCategory] = []
+        strides: [StrideCategory] = [],
+        overrides: [ThreatId: ThreatOverride] = [:]
     ) {
         self.label = label
         self.provider = provider
@@ -37,6 +41,55 @@ public struct Library: Equatable, Sendable {
         self.categories = categories
         self.severities = severities
         self.strides = strides
+        self.overrides = overrides
+    }
+}
+
+/// What a library changes about a threat the catalogue holds, and which
+/// library changed it.
+///
+/// The report names the library, so a reader can tell an overridden value from
+/// the catalogue's own.
+public struct ThreatOverride: Equatable, Sendable {
+    public let libraryLabel: String
+    public let severity: ThreatSeverity?
+    public let likelihood: Likelihood?
+    public let description: String?
+    public let controls: [Control]
+
+    public init(
+        libraryLabel: String,
+        severity: ThreatSeverity? = nil,
+        likelihood: Likelihood? = nil,
+        description: String? = nil,
+        controls: [Control] = []
+    ) {
+        self.libraryLabel = libraryLabel
+        self.severity = severity
+        self.likelihood = likelihood
+        self.description = description
+        self.controls = controls
+    }
+
+    /// The threat as this override states it.
+    public func applied(to threat: Threat) -> Threat {
+        Threat(
+            id: threat.id,
+            name: threat.name,
+            description: description ?? threat.description,
+            severity: severity ?? threat.severity,
+            stride: threat.stride,
+            mitreTechniques: threat.mitreTechniques,
+            controls: controls.isEmpty ? threat.controls : controls,
+            isConnectionThreat: threat.isConnectionThreat,
+            isZoneThreat: threat.isZoneThreat,
+            isPathwayThreat: threat.isPathwayThreat,
+            zoneContext: threat.zoneContext,
+            appliesToFlowKinds: threat.appliesToFlowKinds,
+            boundary: threat.boundary,
+            appliesToPrivilegeLevels: threat.appliesToPrivilegeLevels,
+            likelihood: likelihood ?? threat.likelihood
+        )
     }
 }
 
@@ -201,6 +254,29 @@ public extension Library {
             )
         }
 
+        // An override names a threat the catalogue holds. A library's own
+        // threat is stated by its `threat` block, not overridden here, so an
+        // id this library declares and an id nothing holds are both faults.
+        var overrides: [ThreatId: ThreatOverride] = [:]
+        for override in source.overrides {
+            let severity = override.severityLabel.flatMap { taxonomy.severity(id: $0) }
+            if let stated = override.severityLabel, severity == nil {
+                faults.append(.unknownSeverity(threatId: override.threatId, value: stated))
+            }
+            overrides[ThreatId(override.threatId)] = ThreatOverride(
+                libraryLabel: source.displayName ?? source.label,
+                severity: severity,
+                likelihood: override.likelihood.flatMap(Likelihood.init(rawValue:)),
+                description: override.description,
+                controls: override.controlDescriptions.enumerated().map {
+                    Control(
+                        id: "\(source.label)-\(override.threatId)-override-\($0.offset)",
+                        description: $0.element
+                    )
+                }
+            )
+        }
+
         // Spec section 3.3: a library's actor id is minted the way a
         // technology id and a threat id are.
         let actors = source.threatActors.map { actor in
@@ -234,7 +310,8 @@ public extension Library {
                 threatActors: actors,
                 categories: ownCategories,
                 severities: ownSeverities,
-                strides: ownStrides
+                strides: ownStrides,
+                overrides: overrides
             ),
             []
         )

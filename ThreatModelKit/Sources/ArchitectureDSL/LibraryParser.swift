@@ -42,6 +42,7 @@ struct LibraryParser {
         var categories: [SourceTaxonomyEntry] = []
         var severities: [SourceTaxonomyEntry] = []
         var strides: [SourceTaxonomyEntry] = []
+        var overrides: [SourceLibraryOverride] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -67,6 +68,8 @@ struct LibraryParser {
                 if let entry = parseTaxonomyEntry("the stride category's identifier") {
                     strides.append(entry)
                 }
+            case "override":
+                if let override = parseOverride() { overrides.append(override) }
             case "threat_actor":
                 let token = current
                 if let actor = parseThreatActor() {
@@ -79,7 +82,7 @@ struct LibraryParser {
             default:
                 record(
                     "a library holds name, catalogue, technology, threat, mitigation, "
-                        + "threat_actor, category, severity and stride, not "
+                        + "threat_actor, category, severity, stride and override, not "
                         + "\"\(current.text)\""
                 )
                 skipToNextBlock()
@@ -97,7 +100,58 @@ struct LibraryParser {
             threatActors: threatActors,
             categories: categories,
             severities: severities,
-            strides: strides
+            strides: strides,
+            overrides: overrides
+        )
+    }
+
+    /// What this library changes about a threat the catalogue already holds.
+    private mutating func parseOverride() -> SourceLibraryOverride? {
+        advance()
+        guard let id = expect(.string, "the threat's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var severityLabel: String?
+        var likelihood: String?
+        var description: String?
+        var controls: [String] = []
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "severity": severityLabel = parseTextAttribute()
+            case "description": description = parseTextAttribute()
+            case "likelihood":
+                let token = current
+                likelihood = parseTextAttribute()
+                if let word = likelihood, Likelihood(rawValue: word) == nil {
+                    record(
+                        "likelihood is \"\(word)\"; this application holds \"commodity\", "
+                            + "\"targeted\", \"research\"",
+                        at: token
+                    )
+                    likelihood = nil
+                }
+            case "control":
+                advance()
+                if let text = expect(.string, "the control's description") {
+                    controls.append(text.text)
+                }
+            default:
+                record(
+                    "an override holds severity, likelihood, description and control, not "
+                        + "\"\(current.text)\""
+                )
+                skipToNextBlock()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        return SourceLibraryOverride(
+            threatId: id.text,
+            severityLabel: severityLabel,
+            likelihood: likelihood,
+            description: description,
+            controlDescriptions: controls
         )
     }
 

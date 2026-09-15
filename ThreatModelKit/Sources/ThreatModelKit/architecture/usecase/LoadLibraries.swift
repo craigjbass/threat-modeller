@@ -102,6 +102,21 @@ public struct LoadLibraries: LoadLibrariesUseCase {
                 )
             }
 
+            // An override names a threat the catalogue holds. One that names
+            // nothing is a fault a person fixes in the library file.
+            let known = Set(Self.everyThreatId(of: catalogue))
+            for id in library.overrides.keys where known.contains(id) == false {
+                return .refused(
+                    fileName: fileName,
+                    diagnostics: [
+                        Self.fault(
+                            "the library \"\(source.label)\" overrides the threat "
+                                + "\"\(id.value)\", which the catalogue does not hold"
+                        )
+                    ]
+                )
+            }
+
             // Two libraries that declare one word of the taxonomy is a fault
             // a person fixes in one of the two files, so the warning names
             // both libraries. The first one read stands.
@@ -110,6 +125,13 @@ public struct LoadLibraries: LoadLibrariesUseCase {
         }
 
         return .loaded(libraries: libraries, warnings: warnings)
+    }
+
+    /// Every threat id the catalogue holds, wherever it holds it.
+    private static func everyThreatId(of catalogue: TechnologyCatalogue) -> [ThreatId] {
+        catalogue.all().flatMap { catalogue.threatsFor(technologyId: $0.id).map(\.id) }
+            + catalogue.connectionThreats().map(\.id)
+            + catalogue.zoneThreats().map(\.id)
     }
 
     /// What this library declares that another library already declared.

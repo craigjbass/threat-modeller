@@ -543,6 +543,10 @@ public struct ReportThreat: Equatable, Sendable {
     public let scoreBeforeTree: Int?
     /// The tree that raised this threat, or nil when none did.
     public let raisedByTree: String?
+    /// The library that changed this threat, or nil when the catalogue's own
+    /// words stand. A reader can then tell an overridden value from the
+    /// catalogue's.
+    public let overriddenBy: String?
     public let sourceName: String
     /// "Component", "Connection" or "Zone", so a reader can group by what
     /// raised the threat.
@@ -594,6 +598,7 @@ public struct ReportThreat: Equatable, Sendable {
         likelihoodReason: String = LikelihoodSource.catalogue(.commodity).reason,
         scoreBeforeTree: Int? = nil,
         raisedByTree: String? = nil,
+        overriddenBy: String? = nil,
         sourceName: String,
         sourceKind: String,
         sourceId: String = "",
@@ -627,6 +632,7 @@ public struct ReportThreat: Equatable, Sendable {
         self.likelihoodReason = likelihoodReason
         self.scoreBeforeTree = scoreBeforeTree
         self.raisedByTree = raisedByTree
+        self.overriddenBy = overriddenBy
         self.sourceName = sourceName
         self.sourceKind = sourceKind
         self.controls = controls

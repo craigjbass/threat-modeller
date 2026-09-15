@@ -116,7 +116,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 // by people, so it names it by label.
                 strideLabels: assessed.stride.compactMap {
                     taxonomy.strideCategory(id: StrideId($0))?.label
-                }
+                },
+                overrides: catalogue.overrides()
             )
         }
 
@@ -379,7 +380,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         from assessed: AssessedThreat,
         tree: BoundAttackTree?,
         compensating: [ReportCompensatingControl],
-        strideLabels: [String]
+        strideLabels: [String],
+        overrides: [ThreatId: ThreatOverride] = [:]
     ) -> ReportThreat {
         ReportThreat(
             threatId: assessed.threatId,
@@ -394,6 +396,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             likelihoodReason: assessed.likelihoodReason,
             scoreBeforeTree: tree?.scoreBefore,
             raisedByTree: tree?.name,
+            overriddenBy: overrides[ThreatId(assessed.threatId)]?.libraryLabel,
             sourceName: assessed.source.displayName,
             sourceKind: kind(of: assessed.source),
             sourceId: assessed.source.id,

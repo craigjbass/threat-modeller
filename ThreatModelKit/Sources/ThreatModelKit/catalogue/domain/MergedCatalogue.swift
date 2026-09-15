@@ -28,18 +28,46 @@ public struct MergedCatalogue: TechnologyCatalogue {
 
     public func threatsFor(technologyId: TechnologyId) -> [Threat] {
         if base.findById(technologyId) != nil {
-            return base.threatsFor(technologyId: technologyId)
+            return overridden(base.threatsFor(technologyId: technologyId))
         }
         guard let technology = findById(technologyId) else { return [] }
-        return technology.threatIds.compactMap { threat(id: $0) }
+        return overridden(technology.threatIds.compactMap { threat(id: $0) })
     }
 
     public func connectionThreats() -> [Threat] {
-        base.connectionThreats() + store.all().flatMap { $0.threats.filter(\.isConnectionThreat) }
+        overridden(
+            base.connectionThreats()
+                + store.all().flatMap { $0.threats.filter(\.isConnectionThreat) }
+        )
     }
 
     public func zoneThreats() -> [Threat] {
-        base.zoneThreats() + store.all().flatMap { $0.threats.filter(\.isZoneThreat) }
+        overridden(
+            base.zoneThreats() + store.all().flatMap { $0.threats.filter(\.isZoneThreat) }
+        )
+    }
+
+    /// Every threat as the libraries state it.
+    ///
+    /// The merge order is the catalogue first, then each library in the order
+    /// the project reads them, which is its library files by name. A later
+    /// library's override wins over an earlier one's, and the per-model
+    /// override wins over both, because it is applied by the resolver after
+    /// the catalogue has answered.
+    private func overridden(_ threats: [Threat]) -> [Threat] {
+        let overrides = overrides()
+        guard overrides.isEmpty == false else { return threats }
+        return threats.map { overrides[$0.id]?.applied(to: $0) ?? $0 }
+    }
+
+    /// What every library changes about a catalogue threat, by threat id. A
+    /// later library wins.
+    public func overrides() -> [ThreatId: ThreatOverride] {
+        var overrides: [ThreatId: ThreatOverride] = [:]
+        for library in store.all() {
+            for (id, override) in library.overrides { overrides[id] = override }
+        }
+        return overrides
     }
 
     /// The vendored mitigations and every mitigation the libraries define.

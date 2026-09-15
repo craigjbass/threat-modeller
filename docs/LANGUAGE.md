@@ -1289,6 +1289,21 @@ library "acme" {
 }
 ```
 
+An `override` block changes what the catalogue says about a threat the
+catalogue already holds: its severity, its likelihood, its description or its
+controls. A block states what it changes and nothing else, and a control list
+with entries replaces the catalogue's controls, because a team that words its
+own controls means those and not those plus the catalogue's. An override of a
+threat the catalogue does not hold refuses the library and names the id.
+
+**The merge order** is the catalogue first, then each library in the order the
+project reads them, which is its `.lib` files by name, then the per-model
+severity override. A later library's override wins over an earlier one's, and
+the per-model override wins over both: the resolver applies it after the
+catalogue has answered. The report writes
+`- Changed by the library: <library>` on a threat a library changed, so a
+reader can tell an overridden value from the catalogue's own.
+
 A `mitigation` block states a pathway mitigation the library brings: what
 provides it, which threats it answers, the percentage it lowers a score by and
 the mode it starts in. A threat the library marks `pathway = true` is a pathway
