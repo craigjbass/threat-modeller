@@ -326,6 +326,61 @@ final class ProjectSession {
         fingerprint = currentFingerprint()
     }
 
+    // MARK: the attack trees this system states
+
+    /// The trees the system's `.attacktree` file states, for the editor. It
+    /// reads the file rather than the model, because the editor writes the
+    /// file.
+    var attackTreeSources: [SourceAttackTree] {
+        guard let root, let chosenSystem else { return [] }
+        guard case .listed(let trees, _) = useCases.listAttackTreeSources().execute(
+            ListAttackTreeSourcesRequest(root: root, systemName: chosenSystem)
+        ) else { return [] }
+        return trees
+    }
+
+    /// Writes one tree and reads the project again, so the score beside the
+    /// tree is the score the model now gives it.
+    func writeAttackTree(_ tree: SourceAttackTree) async {
+        guard let root, let chosenSystem else { return }
+
+        useCases.writeAttackTree()
+            .execute(
+                WriteAttackTreeRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    systemDisplayName: model?.canvas.name,
+                    tree: tree
+                )
+            )
+            .describe(into: &errorMessage)
+
+        await reloadFromDisk()
+    }
+
+    /// Deletes one tree and reads the project again.
+    func removeAttackTree(_ treeId: String) async {
+        guard let root, let chosenSystem else { return }
+
+        useCases.removeAttackTree()
+            .execute(
+                RemoveAttackTreeRequest(root: root, systemName: chosenSystem, treeId: treeId)
+            )
+            .describe(into: &errorMessage)
+
+        await reloadFromDisk()
+    }
+
+    /// Writes a tree from somewhere that cannot wait for it.
+    func saveAttackTree(_ tree: SourceAttackTree) {
+        inFlight = Task { await writeAttackTree(tree) }
+    }
+
+    /// Deletes a tree from somewhere that cannot wait for it.
+    func deleteAttackTree(_ treeId: String) {
+        inFlight = Task { await removeAttackTree(treeId) }
+    }
+
     /// Deletes one from somewhere that cannot wait for it.
     func deleteStaleAnswer(_ answer: StaleAnswer) {
         inFlight = Task { await removeStaleAnswer(answer) }

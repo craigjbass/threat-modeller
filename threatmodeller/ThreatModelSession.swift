@@ -32,6 +32,12 @@ final class ThreatModelSession {
     /// order it was last sorted into, so a card the person is working in does
     /// not move out from under the pointer when its score changes.
     private(set) var threats: [AssessedThreat] = []
+    /// The trees the model bound and scored. The attack tree editor states
+    /// each tree's score beside it, so a person writing one sees what it is
+    /// worth.
+    var attackTrees: [BoundAttackTree] {
+        useCases.assessThreatModel().execute(AssessThreatModelRequest()).attackTrees
+    }
     /// How many rows sit somewhere other than where a sort would put them.
     /// Zero while the list is in order, which is when the Reorder button is
     /// not shown.

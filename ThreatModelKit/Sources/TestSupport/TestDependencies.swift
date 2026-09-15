@@ -488,6 +488,18 @@ public final class TestDependencies: UseCaseFactory {
         ReadLibraryIndex(indexes: libraryIndex)
     }
 
+    public func listAttackTreeSources() -> ListAttackTreeSourcesUseCase {
+        ListAttackTreeSources(projects: projects, sources: attackTreeSources)
+    }
+
+    public func writeAttackTree() -> WriteAttackTreeUseCase {
+        WriteAttackTree(projects: projects, sources: attackTreeSources)
+    }
+
+    public func removeAttackTree() -> RemoveAttackTreeUseCase {
+        RemoveAttackTree(projects: projects, sources: attackTreeSources)
+    }
+
     public func moveTechnologyToLibrary() -> MoveTechnologyToLibraryUseCase {
         MoveTechnologyToLibrary(models: models, projects: project, libraries: librarySources)
     }

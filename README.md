@@ -856,6 +856,13 @@ from anywhere.
   as PDF…* and *Export as Image…* write the architecture or the canvas in
   those formats. Only the Markdown export is the project's report; the other
   three exist only from this menu.
+- *Attack Trees* in the toolbar writes how an attacker reaches a threat: a
+  tree's name, its goal, how much it raises the risk by, and one step per
+  threat the model raises. The sheet states each tree's bound score beside it,
+  and every change is written through a use case, so a tree written here and
+  one written by `threatmodeller format` are the same file. The shape is
+  stated in
+  [the attack tree editor design](docs/superpowers/specs/2026-09-15-attack-tree-editor-design.md).
 - *View ▸ Show or Hide Palette*, Control-Command-S, and the window's own
   sidebar button all show and hide the palette; the window holds the one state
   all three write.

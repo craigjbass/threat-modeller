@@ -484,6 +484,18 @@ nonisolated final class Dependencies: UseCaseFactory {
         ReadLibraryIndex(indexes: libraryIndexFetcher)
     }
 
+    func listAttackTreeSources() -> ListAttackTreeSourcesUseCase {
+        ListAttackTreeSources(projects: projects, sources: attackTreeSources)
+    }
+
+    func writeAttackTree() -> WriteAttackTreeUseCase {
+        WriteAttackTree(projects: projects, sources: attackTreeSources)
+    }
+
+    func removeAttackTree() -> RemoveAttackTreeUseCase {
+        RemoveAttackTree(projects: projects, sources: attackTreeSources)
+    }
+
     func moveTechnologyToLibrary() -> MoveTechnologyToLibraryUseCase {
         MoveTechnologyToLibrary(models: models, projects: projects, libraries: librarySources)
     }

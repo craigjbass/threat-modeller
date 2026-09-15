@@ -12,6 +12,8 @@ struct ProjectWindow: View {
     /// True while the question about downloading ATT&CK is on screen.
     @State private var isAskingAboutAttack = false
     @State private var isShowingLibraries = false
+    /// True while the attack tree editor is on screen.
+    @State private var isShowingAttackTrees = false
     @State private var isShowingHistory = false
     @State private var canvas = CanvasState()
     /// The stage of the work the window draws.
@@ -82,6 +84,16 @@ struct ProjectWindow: View {
                 HistorySheet(
                     session: HistorySession(useCases: session.useCases, root: root),
                     dismiss: { isShowingHistory = false }
+                )
+            }
+        }
+        .sheet(isPresented: $isShowingAttackTrees) {
+            if let model = session.model {
+                AttackTreeSheet(
+                    project: session,
+                    threats: model.threats,
+                    bound: model.attackTrees,
+                    dismiss: { isShowingAttackTrees = false }
                 )
             }
         }
@@ -160,6 +172,15 @@ struct ProjectWindow: View {
                     isShowingHistory = true
                 }
                 .accessibilityIdentifier("show-history")
+            }
+
+            ToolbarItem {
+                Button("Attack Trees", systemImage: "point.topleft.down.to.point.bottomright.curvepath") {
+                    isShowingAttackTrees = true
+                }
+                .disabled(session.model == nil)
+                .help("Write how an attacker reaches a threat.")
+                .accessibilityIdentifier("attack-trees")
             }
 
             ToolbarItem {
