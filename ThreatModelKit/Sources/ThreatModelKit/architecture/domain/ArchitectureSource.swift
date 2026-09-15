@@ -25,6 +25,22 @@ public struct ArchitectureSource: Equatable, Sendable {
     public let faces: [String]
     /// The threat actors this file declares for itself.
     public let threatActors: [SourceThreatActor]
+    /// What this system is, in the team's own words.
+    public let description: String?
+    /// Who wrote the model, in file order.
+    public let authors: [String]
+    /// Where the design, the ticket or the runbook is.
+    public let links: [String]
+    /// The repositories this system's code sits in.
+    public let repositories: [String]
+    /// When the model was written and when it was last read again, each
+    /// `YYYY-MM-DD`.
+    public let created: String?
+    public let reviewed: String?
+    /// What the team calls this version of the model.
+    public let version: String?
+    /// What the language does not name, stated by the team.
+    public let attributes: [SourceSystemAttribute]
 
     public init(
         systemName: String,
@@ -39,8 +55,24 @@ public struct ArchitectureSource: Equatable, Sendable {
         requiresEvidenceAbove: String? = nil,
         owner: String? = nil,
         faces: [String] = [],
-        threatActors: [SourceThreatActor] = []
+        threatActors: [SourceThreatActor] = [],
+        description: String? = nil,
+        authors: [String] = [],
+        links: [String] = [],
+        repositories: [String] = [],
+        created: String? = nil,
+        reviewed: String? = nil,
+        version: String? = nil,
+        attributes: [SourceSystemAttribute] = []
     ) {
+        self.description = description
+        self.authors = authors
+        self.links = links
+        self.repositories = repositories
+        self.created = created
+        self.reviewed = reviewed
+        self.version = version
+        self.attributes = attributes
         self.systemName = systemName
         self.catalogueTag = catalogueTag
         self.technologies = technologies
@@ -250,6 +282,17 @@ public struct SourceMitigates: Equatable, Sendable {
         var edge = self
         edge.action = nil
         return edge
+    }
+}
+
+/// One thing a team states about a system that the language does not name.
+public struct SourceSystemAttribute: Equatable, Sendable {
+    public let name: String
+    public let value: String
+
+    public init(name: String, value: String) {
+        self.name = name
+        self.value = value
     }
 }
 

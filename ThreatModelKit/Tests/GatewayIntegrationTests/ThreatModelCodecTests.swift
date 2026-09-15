@@ -109,7 +109,7 @@ struct ThreatModelCodecTests {
         )
 
         #expect(json["formatVersion"] as? Int == ThreatModelCodec.formatVersion)
-        #expect(ThreatModelCodec.formatVersion == 7)
+        #expect(ThreatModelCodec.formatVersion == 8)
         let catalogue = try #require(json["catalogue"] as? [String: Any])
         #expect(catalogue["tag"] as? String == "v1.0.1")
         #expect(json["customTechnologies"] as? [Any] != nil)
@@ -204,7 +204,7 @@ struct ThreatModelCodecTests {
         json["formatVersion"] = 99
         let data = try JSONSerialization.data(withJSONObject: json)
 
-        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 7)) {
+        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: ThreatModelCodec.formatVersion)) {
             try codec.decode(data)
         }
     }
@@ -315,7 +315,7 @@ struct ThreatModelCodecTests {
                 with: "\"formatVersion\" : 99"
             )
 
-        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: 7)) {
+        #expect(throws: ThreatModelFileError.unsupportedFormatVersion(found: 99, supported: ThreatModelCodec.formatVersion)) {
             try codec.decodeSelection(text)
         }
     }

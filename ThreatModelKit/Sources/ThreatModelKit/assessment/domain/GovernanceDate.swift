@@ -60,6 +60,24 @@ public struct GovernanceDate: Equatable, Comparable, Sendable, CustomStringConve
         return "\(year)-\(month)-\(day)"
     }
 
+    /// How many days from this date to that one. A date after it counts
+    /// negative.
+    ///
+    /// It counts by the calendar this type already states, so it needs no
+    /// Foundation and it works the same on Linux.
+    public func daysUntil(_ other: GovernanceDate) -> Int {
+        Self.dayNumber(of: other) - Self.dayNumber(of: self)
+    }
+
+    /// The day number of a date, counting from the first of January in year
+    /// one. Only the difference of two such numbers is meaningful.
+    private static func dayNumber(of date: GovernanceDate) -> Int {
+        var days = 0
+        for year in 1 ..< date.year { days += isLeap(year) ? 366 : 365 }
+        for month in 1 ..< date.month { days += daysIn(month: month, year: date.year) }
+        return days + date.day
+    }
+
     public static func < (left: GovernanceDate, right: GovernanceDate) -> Bool {
         (left.year, left.month, left.day) < (right.year, right.month, right.day)
     }

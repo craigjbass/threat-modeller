@@ -23,8 +23,12 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// from the coordinates before and is now written on the component. A file
     /// at version 6 or below reads back with the same membership, filled in
     /// from the coordinates the file holds.
-    public static let formatVersion = 7
-    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7]
+    /// Version 8 adds the system's owner and what the model states about
+    /// itself: the description, the authors, the links, the repositories, the
+    /// dates, the version and the team's own attributes. A file at version 7
+    /// or below states none of them and reads back with none.
+    public static let formatVersion = 8
+    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7, 8]
 
     public init() {}
 
@@ -139,7 +143,22 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 assumptions: model.assumptions.map {
                     SystemAssumptionJSON(label: $0.label, text: $0.text, owner: $0.owner)
                 },
-                riskTolerance: model.riskTolerance?.rawValue
+                riskTolerance: model.riskTolerance?.rawValue,
+                owner: model.owner.isEmpty ? nil : model.owner,
+                documentFacts: model.documentFacts.isEmpty
+                    ? nil
+                    : DocumentFactsJSON(
+                        description: model.documentFacts.description,
+                        authors: model.documentFacts.authors,
+                        links: model.documentFacts.links,
+                        repositories: model.documentFacts.repositories,
+                        created: model.documentFacts.created,
+                        reviewed: model.documentFacts.reviewed,
+                        version: model.documentFacts.version,
+                        attributes: model.documentFacts.attributes.map {
+                            DocumentFactsJSON.AttributeJSON(name: $0.name, value: $0.value)
+                        }
+                    )
             )
         )
     }
@@ -294,6 +313,19 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 )
             ),
             customTechnologies: document.customTechnologies.map(Self.customTechnology(from:)),
+            owner: document.owner ?? "",
+            documentFacts: DocumentFacts(
+                description: document.documentFacts?.description ?? "",
+                authors: document.documentFacts?.authors ?? [],
+                links: document.documentFacts?.links ?? [],
+                repositories: document.documentFacts?.repositories ?? [],
+                created: document.documentFacts?.created ?? "",
+                reviewed: document.documentFacts?.reviewed ?? "",
+                version: document.documentFacts?.version ?? "",
+                attributes: (document.documentFacts?.attributes ?? []).map {
+                    (name: $0.name, value: $0.value)
+                }
+            ),
             createdAt: document.createdAt,
             updatedAt: document.updatedAt,
             catalogueVersion: document.catalogue.map {

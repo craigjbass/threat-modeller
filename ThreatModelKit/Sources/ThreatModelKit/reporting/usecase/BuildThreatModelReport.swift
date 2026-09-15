@@ -281,9 +281,27 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             )
         } ?? []
 
+        // What the report says about the document itself.
+        let control = DocumentControl(
+            systemName: model.name,
+            description: model.documentFacts.description.isEmpty
+                ? nil
+                : model.documentFacts.description,
+            owner: model.owner.isEmpty ? nil : model.owner,
+            authors: model.documentFacts.authors,
+            version: model.documentFacts.version.isEmpty ? nil : model.documentFacts.version,
+            created: model.documentFacts.created.isEmpty ? nil : model.documentFacts.created,
+            reviewed: model.documentFacts.reviewed.isEmpty ? nil : model.documentFacts.reviewed,
+            catalogueTag: model.catalogueVersion?.tag ?? catalogue.version().tag,
+            links: model.documentFacts.links,
+            repositories: model.documentFacts.repositories,
+            attributes: model.documentFacts.attributes
+        )
+
         return BuildThreatModelReportResponse(
             report: Report(
                 modelName: model.name,
+                documentControl: control,
                 catalogueTag: model.catalogueVersion?.tag ?? catalogue.version().tag,
                 summary: ReportSummary(
                     totalThreats: summary.totalThreats,
@@ -337,7 +355,9 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     tolerance: tolerance,
                     findings: findingsCut,
                     actions: actions,
-                    acceptedRisks: acceptedRisks
+                    acceptedRisks: acceptedRisks,
+                    documentControl: control,
+                    today: CheckGovernance.today(clock.now())
                 ),
                 methodology: ReportMethodology.build(zones: zones, tolerance: tolerance),
                 actions: actions,

@@ -88,6 +88,14 @@ struct ArchitectureParser {
         var requiresEvidenceAbove: String?
         var owner: String?
         var threatActors: [SourceThreatActor] = []
+        var description: String?
+        var authors: [String] = []
+        var links: [String] = []
+        var repositories: [String] = []
+        var created: String?
+        var reviewed: String?
+        var version: String?
+        var attributes: [SourceSystemAttribute] = []
 
         while current.kind != .endOfFile && (insideABlock == false || current.kind != .rightBrace) {
             switch current.text {
@@ -119,6 +127,32 @@ struct ArchitectureParser {
                 if let assumption = parseAssumption() { assumptions.append(assumption) }
             case "owner":
                 owner = parseTextAttribute()
+            case "description":
+                description = parseTextAttribute()
+            case "authors":
+                authors = parseListAttribute()
+            case "links":
+                links = parseUrlListAttribute("links")
+            case "repositories":
+                repositories = parseUrlListAttribute("repositories")
+            case "created":
+                created = parseDateAttribute("created")
+            case "reviewed":
+                reviewed = parseDateAttribute("reviewed")
+            case "version":
+                version = parseTextAttribute()
+            case "attribute":
+                let token = current
+                if let attribute = parseSystemAttribute() {
+                    if attributes.contains(where: { $0.name == attribute.name }) {
+                        record(
+                            "the attribute \"\(attribute.name)\" is declared twice",
+                            at: token
+                        )
+                    } else {
+                        attributes.append(attribute)
+                    }
+                }
             case "requires_evidence_above":
                 let token = current
                 let raw = parseTextAttribute() ?? ""
@@ -145,7 +179,13 @@ struct ArchitectureParser {
                     }
                 }
             default:
-                record("a system holds catalogue, owner, technology, zone, component, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, faces and threat_actor, not \"\(current.text)\"")
+                record(
+                    "a system holds catalogue, owner, description, authors, links, "
+                        + "repositories, created, reviewed, version, attribute, technology, "
+                        + "zone, component, flow, mitigates, risk_tolerance, "
+                        + "requires_evidence_above, assumption, faces and threat_actor, not "
+                        + "\"\(current.text)\""
+                )
                 skipToNextBlock()
             }
         }
@@ -166,8 +206,71 @@ struct ArchitectureParser {
             requiresEvidenceAbove: requiresEvidenceAbove,
             owner: owner,
             faces: faces,
-            threatActors: threatActors
+            threatActors: threatActors,
+            description: description,
+            authors: authors,
+            links: links,
+            repositories: repositories,
+            created: created,
+            reviewed: reviewed,
+            version: version,
+            attributes: attributes
         )
+    }
+
+    /// A date the file states, or nil when it states something that is not
+    /// one. A date reads `YYYY-MM-DD` and names a day of the calendar.
+    private mutating func parseDateAttribute(_ name: String) -> String? {
+        let token = current
+        guard let raw = parseTextAttribute() else { return nil }
+        switch GovernanceDate.read(raw) {
+        case .success:
+            return raw
+        case .failure(let fault):
+            record(fault.message(attribute: name, raw: raw), at: token)
+            return nil
+        }
+    }
+
+    /// A list of addresses. Something that is not one is a fault naming it.
+    private mutating func parseUrlListAttribute(_ name: String) -> [String] {
+        let token = current
+        let held = parseListAttribute()
+        return held.filter { address in
+            guard address.hasPrefix("https://") || address.hasPrefix("http://") else {
+                record(
+                    "\(name) holds \"\(address)\", which is not an address; "
+                        + "an address starts https:// or http://",
+                    at: token
+                )
+                return false
+            }
+            return true
+        }
+    }
+
+    /// One thing a team states that the language does not name.
+    private mutating func parseSystemAttribute() -> SourceSystemAttribute? {
+        advance()
+        guard let name = expect(.string, "the attribute's name") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var value: String?
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "value": value = parseTextAttribute()
+            default:
+                record("an attribute holds value, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let value else {
+            record("the attribute \"\(name.text)\" states no value", at: name)
+            return nil
+        }
+        return SourceSystemAttribute(name: name.text, value: value)
     }
 
     /// Drops every action a file cannot mean, and keeps the edge that held it.

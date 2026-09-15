@@ -423,6 +423,41 @@ The label is the system's name, which the report and the window title show.
 | `owner` | string | empty | who owns this system |
 | `faces` | list of strings | empty | the threat actor ids this system faces |
 | `requires_evidence_above` | string | none | the risk level at and above which an implemented control must state evidence |
+| `description` | string | none | what this system is, in the team's own words |
+| `authors` | list of strings | empty | who wrote the model |
+| `version` | string | none | what the team calls this version of the model |
+| `created` | string | none | when the model was written, `YYYY-MM-DD` |
+| `reviewed` | string | none | when the model was last read again, `YYYY-MM-DD` |
+| `links` | list of strings | empty | where the design, the ticket or the runbook is |
+| `repositories` | list of strings | empty | where this system's code is |
+
+**Document control.** Those seven, with `owner` and the catalogue tag, are what
+the report's opening table states. A system that states none of them writes no
+table: an empty table says nothing and takes a page.
+
+A date is `YYYY-MM-DD` and names a day of the calendar: `2026-02-30` is the
+error `created is "2026-02-30", which is not a date`, and `4 January 2026` is
+`created is "4 January 2026"; a date is written YYYY-MM-DD`. A link and a
+repository each start `https://` or `http://`; anything else is the error
+`links holds "<value>", which is not an address; an address starts https:// or
+http://`.
+
+A model nobody has read again for **180 days** — `DocumentControl.reviewIntervalDays`,
+one constant — is marked in the executive summary. A model that states no
+`reviewed` date is not marked: nobody said it ever was read. `check` fails for
+none of this; a system with no owner is not a failing system unless the
+project's policy asks for one.
+
+```hcl
+attribute "data-controller" {
+  value = "Acme Payments Limited"
+}
+```
+
+An `attribute` block states what the language does not name. The label is the
+name a reader sees in the document control table, and a name declared twice is
+the error `the attribute "<name>" is declared twice`.
+
 
 `requires_evidence_above` takes `low`, `medium`, `high` or `critical`. A
 project that states it fails `threatmodeller check` for an implemented control

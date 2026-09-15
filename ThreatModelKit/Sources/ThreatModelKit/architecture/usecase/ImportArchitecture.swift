@@ -138,6 +138,17 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
         var model = ThreatModel(
             name: source.systemName,
             customTechnologies: customTechnologies,
+            documentFacts: DocumentFacts(
+                description: source.description ?? "",
+                authors: source.authors,
+                links: source.links,
+                repositories: source.repositories,
+                created: source.created ?? "",
+                reviewed: source.reviewed ?? "",
+                version: source.version ?? "",
+                attributes: source.attributes.map { (name: $0.name, value: $0.value) }
+            ),
+
             catalogueVersion: source.catalogueTag.map {
                 CatalogueVersion(repository: catalogue.version().repository, tag: $0)
             }

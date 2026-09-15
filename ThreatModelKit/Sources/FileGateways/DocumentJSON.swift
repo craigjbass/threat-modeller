@@ -30,6 +30,10 @@ struct DocumentJSON: Codable {
     let assumptions: [SystemAssumptionJSON]?
     /// Absent means the file states no tolerance, so a check uses `.low`.
     let riskTolerance: String?
+    /// Version 8 adds these two: who owns the system, and what the model
+    /// states about itself. A file at version 7 or below holds neither.
+    let owner: String?
+    let documentFacts: DocumentFactsJSON?
 }
 
 struct LikelihoodFindingJSON: Codable {
@@ -94,6 +98,24 @@ struct CustomTechnologyJSON: Codable {
     /// The controls this technology brings. Absent in a file written before
     /// format version 7.
     let controls: [String]?
+}
+
+/// What the model states about itself. Absent in a file written before format
+/// version 8.
+struct DocumentFactsJSON: Codable {
+    let description: String?
+    let authors: [String]?
+    let links: [String]?
+    let repositories: [String]?
+    let created: String?
+    let reviewed: String?
+    let version: String?
+    let attributes: [AttributeJSON]?
+
+    struct AttributeJSON: Codable {
+        let name: String
+        let value: String
+    }
 }
 
 struct CatalogueStampJSON: Codable {

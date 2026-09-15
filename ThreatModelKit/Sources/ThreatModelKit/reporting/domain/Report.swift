@@ -5,6 +5,9 @@
 /// positions: a reader of a report does not place components.
 public struct Report: Equatable, Sendable {
     public let modelName: String
+    /// What the report says about the document itself: who owns it, who wrote
+    /// it, which version, and when it was last read again.
+    public let documentControl: DocumentControl
     /// The catalogue this assessment was made against, or nil for a model that
     /// has never been saved.
     public let catalogueTag: String?
@@ -67,6 +70,7 @@ public struct Report: Equatable, Sendable {
 
     public init(
         modelName: String,
+        documentControl: DocumentControl? = nil,
         catalogueTag: String?,
         summary: ReportSummary,
         components: [ReportComponent],
@@ -97,6 +101,7 @@ public struct Report: Equatable, Sendable {
         attackPathCount: Int = 0
     ) {
         self.modelName = modelName
+        self.documentControl = documentControl ?? DocumentControl(systemName: modelName)
         self.catalogueTag = catalogueTag
         self.summary = summary
         self.components = components
@@ -211,6 +216,11 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     /// implemented at all. A reader who reads one page should see both.
     public let unevidencedControls: Int
     public let implementedControls: Int
+    /// True when nobody has read the model again inside the interval
+    /// `DocumentControl.reviewIntervalDays` states.
+    public let isReviewOverdue: Bool
+    /// When the model was last read again, for the sentence that says so.
+    public let reviewedOn: String?
 
     public init(
         verdict: String = "",
@@ -223,7 +233,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         topRisksWithNoAction: Set<String> = [],
         acceptedRisksOverdue: Int = 0,
         unevidencedControls: Int = 0,
-        implementedControls: Int = 0
+        implementedControls: Int = 0,
+        isReviewOverdue: Bool = false,
+        reviewedOn: String? = nil
     ) {
         self.verdict = verdict
         self.toleranceLabel = toleranceLabel
@@ -236,6 +248,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         self.acceptedRisksOverdue = acceptedRisksOverdue
         self.unevidencedControls = unevidencedControls
         self.implementedControls = implementedControls
+        self.isReviewOverdue = isReviewOverdue
+        self.reviewedOn = reviewedOn
     }
 
     /// How many of each the summary names.
@@ -250,7 +264,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         tolerance: RiskLevel,
         findings: ReportFindingsCut,
         actions: [ReportAction] = [],
-        acceptedRisks: [ReportAcceptedRisk] = []
+        acceptedRisks: [ReportAcceptedRisk] = [],
+        documentControl: DocumentControl? = nil,
+        today: GovernanceDate? = nil
     ) -> ReportExecutiveSummary {
         // Counted once per distinct control key the way `SummariseRisk`
         // counts, so a control shared across links is one control.
@@ -282,6 +298,10 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         let topRisks = Array(sorted.prefix(topCount))
         let answered = Set(recommendations.map(\.threatKey))
 
+        let overdue = documentControl.flatMap { control in
+            today.map(control.isOverdue(on:))
+        } ?? false
+
         return ReportExecutiveSummary(
             verdict: verdict,
             toleranceLabel: tolerance.label,
@@ -308,7 +328,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
             ),
             acceptedRisksOverdue: acceptedRisks.filter(\.isOverdue).count,
             unevidencedControls: implemented.filter { $0.evidence == "no evidence" }.count,
-            implementedControls: implemented.count
+            implementedControls: implemented.count,
+            isReviewOverdue: overdue,
+            reviewedOn: documentControl?.reviewed
         )
     }
 

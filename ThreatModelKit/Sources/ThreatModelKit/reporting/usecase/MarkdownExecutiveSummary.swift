@@ -48,6 +48,16 @@ public enum MarkdownExecutiveSummary {
             lines.append("")
         }
 
+        // A model nobody has read again states what a system was, not what it
+        // is, so the summary says so.
+        if summary.isReviewOverdue {
+            lines.append(
+                "This model was last read again on \(summary.reviewedOn ?? "an unstated date"), "
+                    + "more than \(DocumentControl.reviewIntervalDays) days ago."
+            )
+            lines.append("")
+        }
+
         if summary.acceptedRisksOverdue > 0 {
             lines.append(
                 summary.acceptedRisksOverdue == 1

@@ -91,6 +91,22 @@ public enum ArchitectureSourceBuilder {
                         text: assumption.text,
                         owner: assumption.owner
                     )
+                },
+                owner: model.owner.isEmpty ? nil : model.owner,
+                // What the model states about itself. A model that states
+                // none writes none, so a file that never held these lines
+                // round trips unchanged.
+                description: model.documentFacts.description.isEmpty
+                    ? nil
+                    : model.documentFacts.description,
+                authors: model.documentFacts.authors,
+                links: model.documentFacts.links,
+                repositories: model.documentFacts.repositories,
+                created: model.documentFacts.created.isEmpty ? nil : model.documentFacts.created,
+                reviewed: model.documentFacts.reviewed.isEmpty ? nil : model.documentFacts.reviewed,
+                version: model.documentFacts.version.isEmpty ? nil : model.documentFacts.version,
+                attributes: model.documentFacts.attributes.map {
+                    SourceSystemAttribute(name: $0.name, value: $0.value)
                 }
             )
         return source

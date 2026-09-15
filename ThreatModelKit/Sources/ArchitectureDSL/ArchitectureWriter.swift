@@ -27,6 +27,36 @@ struct ArchitectureWriter {
         if asPart == false { lines.append("system \(quoted(source.systemName)) {") }
 
         var body: [String] = []
+
+        // Document control first, in the order a reader reads it: what the
+        // system is, who owns it, who wrote it, which version, when.
+        var control: [(String, String)] = []
+        if let description = source.description {
+            control.append(("description", quoted(description)))
+        }
+        if let owner = source.owner { control.append(("owner", quoted(owner))) }
+        if source.authors.isEmpty == false {
+            control.append(("authors", list(source.authors)))
+        }
+        if let version = source.version { control.append(("version", quoted(version))) }
+        if let created = source.created { control.append(("created", quoted(created))) }
+        if let reviewed = source.reviewed { control.append(("reviewed", quoted(reviewed))) }
+        if source.links.isEmpty == false { control.append(("links", list(source.links))) }
+        if source.repositories.isEmpty == false {
+            control.append(("repositories", list(source.repositories)))
+        }
+        if control.isEmpty == false {
+            body += aligned(control)
+            body.append("")
+        }
+
+        for attribute in source.attributes {
+            body.append("attribute \(quoted(attribute.name)) {")
+            body += indent(aligned([("value", quoted(attribute.value))]))
+            body.append("}")
+            body.append("")
+        }
+
         if let riskTolerance = source.riskTolerance {
             body += aligned([("risk_tolerance", quoted(riskTolerance))])
             body.append("")
@@ -45,11 +75,6 @@ struct ArchitectureWriter {
 
         if let catalogueTag = source.catalogueTag {
             body += aligned([("catalogue", quoted(catalogueTag))])
-            body.append("")
-        }
-
-        if let owner = source.owner {
-            body += aligned([("owner", quoted(owner))])
             body.append("")
         }
 
@@ -241,6 +266,11 @@ struct ArchitectureWriter {
 
     private func indent(_ lines: [String]) -> [String] {
         lines.map { $0.isEmpty ? "" : "  " + $0 }
+    }
+
+    /// A list of texts, the way every list attribute writes.
+    private func list(_ values: [String]) -> String {
+        "[" + values.map(quoted).joined(separator: ", ") + "]"
     }
 
     private func quoted(_ text: String) -> String {

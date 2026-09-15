@@ -68,6 +68,9 @@ public struct ThreatModel: Equatable, Sendable {
     /// Who owns this system, from the `.arch` file. Empty when it states
     /// nobody.
     public var owner: String
+    /// What this model states about itself: the description, the authors, the
+    /// links, the dates and the version. None of it moves a score.
+    public var documentFacts: DocumentFacts
     /// The rules the project states for itself, or nil when it holds no
     /// policy file.
     public var policy: PolicySource?
@@ -117,6 +120,7 @@ public struct ThreatModel: Equatable, Sendable {
         pathwayMitigations: PathwayMitigationSettings = PathwayMitigationSettings(),
         customTechnologies: [CustomTechnology] = [],
         owner: String = "",
+        documentFacts: DocumentFacts = DocumentFacts(),
         policy: PolicySource? = nil,
         controlProofs: [ControlKey: ControlProof] = [:],
         requiresEvidenceAbove: RiskLevel? = nil,
@@ -151,6 +155,7 @@ public struct ThreatModel: Equatable, Sendable {
         self.pathwayMitigations = pathwayMitigations
         self.customTechnologies = customTechnologies
         self.owner = owner
+        self.documentFacts = documentFacts
         self.policy = policy
         self.controlProofs = controlProofs
         self.requiresEvidenceAbove = requiresEvidenceAbove

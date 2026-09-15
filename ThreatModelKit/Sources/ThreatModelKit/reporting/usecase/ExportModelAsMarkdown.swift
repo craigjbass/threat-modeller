@@ -78,6 +78,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             lines.append("")
         }
 
+        lines += MarkdownDocumentControl.lines(report.documentControl)
         lines += MarkdownExecutiveSummary.lines(
             report.executiveSummary,
             components: report.components,
