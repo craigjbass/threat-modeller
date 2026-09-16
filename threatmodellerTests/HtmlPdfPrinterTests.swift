@@ -1,9 +1,16 @@
 import Testing
 import Foundation
-import WebKit
 @testable import threatmodeller
 
 /// The page a person exports and the page the PDF prints are one page.
+///
+/// Only `printsAPageToPdfBytes()` and `throwsWhenTheFileIsNotThere()` load a
+/// page, and both load it through `HtmlPdfPrinter`. No test builds a
+/// `WKWebView`. A test that builds one holds the main actor while WebKit
+/// starts a content process, and on the runner that wait passed the time
+/// limit. Every other test reports the load outcome through the
+/// `LoadWatcher` entry points, which run on the main actor and return at
+/// once.
 @MainActor
 struct HtmlPdfPrinterTests {
     /// A navigation error with no meaning beyond its identity.
@@ -18,14 +25,25 @@ struct HtmlPdfPrinterTests {
         #expect(data.starts(with: Array("%PDF".utf8)))
     }
 
-    /// Fires one delegate method from the main queue. The main actor runs
-    /// the main queue, so the call lands as soon as the waiting test
-    /// releases the main actor. A `Task` would need a thread from the
-    /// cooperative pool, and a loaded test run can hold every thread of that
-    /// pool for longer than the time limit.
-    private func fireFromTheMainQueue(_ call: @escaping @Sendable @MainActor () -> Void) {
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated { call() }
+    /// The delegate wiring carries a real navigation failure to the caller.
+    /// The printer loads a file path that is not there, WebKit reports the
+    /// failure through `didFailProvisionalNavigation`, and `pdf(fromFileAt:)`
+    /// throws the error WebKit gave.
+    ///
+    /// This test and `printsAPageToPdfBytes()` carry no time limit. Both
+    /// start a WebKit content process, and the start time belongs to WebKit,
+    /// not to `LoadWatcher`.
+    @Test func throwsWhenTheFileIsNotThere() async {
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent("no-such-report-\(UUID().uuidString).html")
+
+        do {
+            _ = try await HtmlPdfPrinter().pdf(fromFileAt: missing)
+            Issue.record("did not throw")
+        } catch {
+            let fault = error as NSError
+            #expect(fault.domain == NSURLErrorDomain)
+            #expect(fault.code == NSURLErrorFileDoesNotExist)
         }
     }
 
@@ -34,19 +52,13 @@ struct HtmlPdfPrinterTests {
     /// `resume(throwing:)` left out would leave the caller waiting forever;
     /// the time limit fails the test instead of hanging the suite.
     ///
-    /// The limit is five minutes, not one. The whole application suite takes
-    /// about sixty seconds, and this test waits for a main queue block that
-    /// sits behind the main actor work of the other tests. A one minute
-    /// limit is the size of the whole suite, so a normal backlog failed the
-    /// test. Five minutes still catches a continuation that is never
-    /// resumed, because that one waits forever.
-    @Test(.timeLimit(.minutes(5)))
+    /// The `onWaiting` hook runs the moment `waitForLoad()` stores the
+    /// continuation, so the report lands while the caller waits with no
+    /// queue hop and no wait on the clock.
+    @Test(.timeLimit(.minutes(1)))
     func throwsWhenNavigationFailsBeforeItCommitsWhileTheCallerWaits() async {
         let watcher = LoadWatcher()
-        let view = WKWebView()
-        fireFromTheMainQueue {
-            watcher.webView(view, didFailProvisionalNavigation: nil, withError: Boom())
-        }
+        watcher.onWaiting = { [weak watcher] in watcher?.loadFailed(Boom()) }
 
         do {
             try await watcher.waitForLoad()
@@ -61,7 +73,7 @@ struct HtmlPdfPrinterTests {
     @Test(.timeLimit(.minutes(1)))
     func throwsWhenNavigationFailedBeforeTheCallerWaits() async {
         let watcher = LoadWatcher()
-        watcher.webView(WKWebView(), didFailProvisionalNavigation: nil, withError: Boom())
+        watcher.loadFailed(Boom())
 
         do {
             try await watcher.waitForLoad()
@@ -74,16 +86,10 @@ struct HtmlPdfPrinterTests {
     /// The content process can die mid-load with no `Error` of its own. The
     /// watcher resumes the waiting continuation instead of leaving the
     /// caller waiting forever.
-    ///
-    /// The limit is five minutes for the reason given on
-    /// `throwsWhenNavigationFailsBeforeItCommitsWhileTheCallerWaits()`.
-    @Test(.timeLimit(.minutes(5)))
+    @Test(.timeLimit(.minutes(1)))
     func throwsWhenTheContentProcessDiesWhileTheCallerWaits() async {
         let watcher = LoadWatcher()
-        let view = WKWebView()
-        fireFromTheMainQueue {
-            watcher.webViewWebContentProcessDidTerminate(view)
-        }
+        watcher.onWaiting = { [weak watcher] in watcher?.contentProcessDied() }
 
         do {
             try await watcher.waitForLoad()
@@ -98,7 +104,7 @@ struct HtmlPdfPrinterTests {
     @Test(.timeLimit(.minutes(1)))
     func throwsWhenTheContentProcessDiedBeforeTheCallerWaits() async {
         let watcher = LoadWatcher()
-        watcher.webViewWebContentProcessDidTerminate(WKWebView())
+        watcher.contentProcessDied()
 
         do {
             try await watcher.waitForLoad()
@@ -112,7 +118,7 @@ struct HtmlPdfPrinterTests {
     @Test(.timeLimit(.minutes(1)))
     func returnsWhenTheLoadFinishedBeforeTheCallerWaits() async throws {
         let watcher = LoadWatcher()
-        watcher.webView(WKWebView(), didFinish: nil)
+        watcher.loadFinished()
 
         try await watcher.waitForLoad()
     }
