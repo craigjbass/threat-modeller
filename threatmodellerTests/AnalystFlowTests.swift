@@ -6,10 +6,11 @@ import ThreatModelKit
 import TestSupport
 @testable import threatmodeller
 
-/// The three stages of the analyst's work, measured in a real window.
+/// The four stages of the analyst's work, measured in a real window.
 ///
 /// A stage states which columns the window draws. Architecture draws the
-/// palette, the diagram and what the system takes on trust. Threats drops the
+/// palette, the diagram and what the system takes on trust. Attack Trees
+/// draws the trees, the tree canvas and the selected node. Threats drops the
 /// palette. Controls drops the diagram as well, so the answers take the whole
 /// window.
 @MainActor
@@ -83,6 +84,21 @@ struct AnalystFlowTests {
         let project = await aDrawnProject()
 
         #expect(try columns(.architecture, of: project) == 3)
+    }
+
+    /// The stages, in the order the panel lists them: Attack Trees sits after
+    /// Architecture, because a tree names elements the architecture states.
+    @Test func listsTheFourStagesInOrder() {
+        #expect(WorkStage.allCases == [.architecture, .attackTrees, .threats, .controls])
+        #expect(WorkStage.attackTrees.label == "Attack Trees")
+    }
+
+    /// A tree is drawn with the trees on the left, the canvas in the middle
+    /// and the selected node on the right.
+    @Test func drawsTheTreesTheTreeCanvasAndTheSelectedNodeWhileDrawingAttackTrees() async throws {
+        let project = await aDrawnProject()
+
+        #expect(try columns(.attackTrees, of: project) == 3)
     }
 
     /// Nothing is added to the diagram at this stage, so the palette is a
@@ -206,6 +222,53 @@ struct AnalystFlowTests {
         expectDrawn(
             ThreatSidebar(session: aModelThatTakesSomethingOnTrust(), focus: .likelihood),
             "the threat list of the threats stage"
+        )
+    }
+
+    @Test func drawsTheTreeSidebarTheAttackTreesStageShows() async throws {
+        let project = await aDrawnProject()
+        let model = try #require(project.model)
+
+        expectDrawn(
+            TreeSidebar(
+                project: project,
+                session: model,
+                editor: TreeEditor(),
+                canvas: TreeCanvasState(),
+                elements: TreeElement.list(
+                    threats: model.threats,
+                    components: model.canvas.components,
+                    connections: model.canvas.connections,
+                    zones: model.canvas.zones
+                ),
+                bound: []
+            ),
+            "the tree sidebar of the attack trees stage"
+        )
+    }
+
+    @Test func drawsTheSelectedNodeTheAttackTreesStageShows() {
+        let editor = TreeEditor()
+        editor.open(
+            SourceAttackTree(
+                id: "t",
+                name: "T",
+                description: nil,
+                raisesRiskBy: 10,
+                goal: SourceTreeTarget(threatId: "exfiltration", sourceKind: "component", sourceId: "db"),
+                root: .step(SourceTreeStep(
+                    target: SourceTreeTarget(threatId: "ssrf", sourceKind: "component", sourceId: "api"),
+                    note: nil
+                ))
+            ),
+            threats: []
+        )
+        let canvas = TreeCanvasState()
+        canvas.select(editor.graph.nodes[1].id, addingToSelection: false)
+
+        expectDrawn(
+            TreeSelectionPanel(editor: editor, canvas: canvas, bound: nil),
+            "the selected node panel of the attack trees stage"
         )
     }
 

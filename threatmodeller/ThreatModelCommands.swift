@@ -38,6 +38,17 @@ struct ProjectSessionKey: FocusedValueKey {
     typealias Value = ProjectSession
 }
 
+/// The tree in front, while the Attack Trees stage is drawn. Undo, Redo,
+/// Delete and Select All act on the tree then, and the zoom items on its
+/// canvas.
+struct TreeEditorKey: FocusedValueKey {
+    typealias Value = TreeEditor
+}
+
+struct TreeCanvasKey: FocusedValueKey {
+    typealias Value = TreeCanvasState
+}
+
 extension FocusedValues {
     var threatModelSession: ThreatModelSession? {
         get { self[ThreatModelSessionKey.self] }
@@ -63,6 +74,16 @@ extension FocusedValues {
         get { self[ProjectSessionKey.self] }
         set { self[ProjectSessionKey.self] = newValue }
     }
+
+    var treeEditor: TreeEditor? {
+        get { self[TreeEditorKey.self] }
+        set { self[TreeEditorKey.self] = newValue }
+    }
+
+    var treeCanvas: TreeCanvasState? {
+        get { self[TreeCanvasKey.self] }
+        set { self[TreeCanvasKey.self] = newValue }
+    }
 }
 
 /// Everything the toolbar and the canvas do, with a menu item and a key.
@@ -75,6 +96,8 @@ struct ThreatModelCommands: Commands {
     @FocusedValue(\.threatModelSampleBrowser) private var sampleBrowser
     @FocusedValue(\.threatModelPalette) private var palette
     @FocusedValue(\.projectSession) private var project
+    @FocusedValue(\.treeEditor) private var treeEditor
+    @FocusedValue(\.treeCanvas) private var treeCanvas
 
     var body: some Commands {
         CommandGroup(after: .newItem) {
@@ -108,14 +131,19 @@ struct ThreatModelCommands: Commands {
 
         CommandGroup(replacing: .undoRedo) {
             // The menu names the change, so a person knows what pressing it
-            // takes back. `Undo` alone when the history is empty.
-            Button(session?.undoTitle ?? "Undo") { session?.undo() }
-                .keyboardShortcut("z", modifiers: .command)
-                .disabled(session?.canUndo != true)
+            // takes back. `Undo` alone when the history is empty. A tree is
+            // not in the model, so the tree in front keeps its own history.
+            Button(undoTitle) {
+                if let treeEditor { treeEditor.undo() } else { session?.undo() }
+            }
+            .keyboardShortcut("z", modifiers: .command)
+            .disabled(canUndo == false)
 
-            Button(session?.redoTitle ?? "Redo") { session?.redo() }
-                .keyboardShortcut("z", modifiers: [.command, .shift])
-                .disabled(session?.canRedo != true)
+            Button(redoTitle) {
+                if let treeEditor { treeEditor.redo() } else { session?.redo() }
+            }
+            .keyboardShortcut("z", modifiers: [.command, .shift])
+            .disabled(canRedo == false)
         }
 
         // Replacing this group takes the standard Cut, Copy and Paste away
@@ -169,18 +197,24 @@ struct ThreatModelCommands: Commands {
 
             Divider()
 
+            // One key per stage, in the stage order.
             Button("Architecture") { canvas?.showStage?(.architecture) }
                 .keyboardShortcut("1", modifiers: .command)
                 .disabled(canvas?.showStage == nil)
                 .accessibilityIdentifier("stage-architecture")
 
-            Button("Threats") { canvas?.showStage?(.threats) }
+            Button("Attack Trees") { canvas?.showStage?(.attackTrees) }
                 .keyboardShortcut("2", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-attack-trees")
+
+            Button("Threats") { canvas?.showStage?(.threats) }
+                .keyboardShortcut("3", modifiers: .command)
                 .disabled(canvas?.showStage == nil)
                 .accessibilityIdentifier("stage-threats")
 
             Button("Controls") { canvas?.showStage?(.controls) }
-                .keyboardShortcut("3", modifiers: .command)
+                .keyboardShortcut("4", modifiers: .command)
                 .disabled(canvas?.showStage == nil)
                 .accessibilityIdentifier("stage-controls")
 
@@ -238,6 +272,10 @@ struct ThreatModelCommands: Commands {
                 case .textField:
                     PasteboardRouting.sendToTextField(#selector(NSText.selectAll(_:)))
                 case .canvas:
+                    if let treeEditor, let treeCanvas {
+                        TreeCanvasGestures(editor: treeEditor, canvas: treeCanvas, elements: []).selectAll()
+                        return
+                    }
                     guard let session, let canvas else { return }
                     canvas.selectAll(componentIds: session.canvas.components.map(\.id), zoneIds: [])
                 }
@@ -274,7 +312,11 @@ struct ThreatModelCommands: Commands {
             // A command a user cannot find is a command they do not have.
             Button("Delete") { deleteSelection() }
                 .keyboardShortcut(.delete, modifiers: [])
-                .disabled(hasSelection == false && canvas?.selectedConnectionIds.isEmpty != false)
+                .disabled(
+                    hasSelection == false
+                        && canvas?.selectedConnectionIds.isEmpty != false
+                        && treeCanvas?.hasSelection != true
+                )
 
             Divider()
 
@@ -301,10 +343,34 @@ struct ThreatModelCommands: Commands {
         }
     }
 
-    /// Runs one of the canvas's zoom commands on the front window.
-    private func zoom(_ act: (CanvasGestures) -> Void) {
+    /// Runs one zoom command on the canvas in front: the tree canvas while
+    /// the Attack Trees stage is drawn, and the diagram otherwise.
+    private func zoom(_ act: (any CanvasZooming) -> Void) {
+        if let treeEditor, let treeCanvas {
+            return act(TreeCanvasGestures(editor: treeEditor, canvas: treeCanvas, elements: []))
+        }
         guard let session, let canvas else { return }
         act(CanvasGestures(session: session, canvas: canvas))
+    }
+
+    private var undoTitle: String {
+        if let treeEditor { return treeEditor.undoLabel.map { "Undo \($0)" } ?? "Undo" }
+        return session?.undoTitle ?? "Undo"
+    }
+
+    private var redoTitle: String {
+        if let treeEditor { return treeEditor.redoLabel.map { "Redo \($0)" } ?? "Redo" }
+        return session?.redoTitle ?? "Redo"
+    }
+
+    private var canUndo: Bool {
+        if let treeEditor { return treeEditor.canUndo }
+        return session?.canUndo == true
+    }
+
+    private var canRedo: Bool {
+        if let treeEditor { return treeEditor.canRedo }
+        return session?.canRedo == true
     }
 
     private func reorderZones(_ placement: ZonePlacement) {
@@ -313,10 +379,14 @@ struct ThreatModelCommands: Commands {
     }
 
     private var hasSelection: Bool {
-        (canvas?.selectedComponentIds.isEmpty == false) || (canvas?.selectedZoneIds.isEmpty == false)
+        if let treeCanvas { return treeCanvas.hasSelection }
+        return (canvas?.selectedComponentIds.isEmpty == false) || (canvas?.selectedZoneIds.isEmpty == false)
     }
 
     private func deleteSelection() {
+        if let treeEditor, let treeCanvas {
+            return TreeCanvasGestures(editor: treeEditor, canvas: treeCanvas, elements: []).deleteSelection()
+        }
         guard let session, let canvas else { return }
         CanvasGestures(session: session, canvas: canvas).deleteSelection()
     }

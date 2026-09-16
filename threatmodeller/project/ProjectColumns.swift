@@ -15,6 +15,11 @@ struct ProjectColumns: View {
     /// columns hold a binding rather than a value.
     @Binding var stage: WorkStage
 
+    /// The tree in front and its canvas. The window owns both, so the tree
+    /// survives a change of stage; a caller with no window takes fresh ones.
+    var trees = TreeEditor()
+    var treeCanvas = TreeCanvasState()
+
     /// The narrowest each side of the threats stage goes.
     static let minimumDiagramWidth: CGFloat = 400
     static let minimumThreatListWidth: CGFloat = 320
@@ -59,6 +64,23 @@ struct ProjectColumns: View {
                     // the canvas to its minimum.
                     .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
             }
+        case .attackTrees:
+            NavigationSplitView(columnVisibility: columns) {
+                TreeSidebar(
+                    project: project,
+                    session: session,
+                    editor: trees,
+                    canvas: treeCanvas,
+                    elements: treeElements,
+                    bound: session.attackTrees
+                )
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+            } content: {
+                treeDiagram
+            } detail: {
+                TreeSelectionPanel(editor: trees, canvas: treeCanvas, bound: boundTree)
+                    .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
+            }
         case .threats:
             // A plain split, not a `NavigationSplitView`. A sidebar column
             // takes the sidebar material behind whatever it holds and the
@@ -91,6 +113,42 @@ struct ProjectColumns: View {
             // One width, stated once, for the one column that holds the
             // diagram. The threats stage states its own minimum on the split.
             .navigationSplitViewColumnWidth(min: Self.minimumDiagramWidth, ideal: 700)
+    }
+
+    /// The tree canvas, with the same room kept under it for the floating
+    /// panel that the diagram keeps.
+    private var treeDiagram: some View {
+        TreeCanvas(editor: trees, canvas: treeCanvas, elements: treeElements, bound: boundTree)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(
+                    height: WorkflowPanel.reservedHeight + WorkflowPanel.bottomMargin
+                )
+            }
+            .overlay(alignment: .bottom) {
+                WorkflowPanel(
+                    session: project,
+                    stage: $stage,
+                    trees: trees,
+                    treeCanvas: treeCanvas
+                )
+            }
+            .navigationTitle("Attack Trees")
+            .navigationSplitViewColumnWidth(min: Self.minimumDiagramWidth, ideal: 700)
+    }
+
+    /// The elements the `.arch` file states, with the threats raised on each.
+    private var treeElements: [TreeElement] {
+        TreeElement.list(
+            threats: session.threats,
+            components: session.canvas.components,
+            connections: session.canvas.connections,
+            zones: session.canvas.zones
+        )
+    }
+
+    /// What the assessment bound for the tree in front, or nil.
+    private var boundTree: BoundAttackTree? {
+        session.attackTrees.first { $0.id == trees.id }
     }
 
     /// The five controls, floating at the bottom middle of the column they

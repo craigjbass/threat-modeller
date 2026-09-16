@@ -856,13 +856,15 @@ from anywhere.
   as PDF…* and *Export as Image…* write the architecture or the canvas in
   those formats. Only the Markdown export is the project's report; the other
   three exist only from this menu.
-- *Attack Trees* in the toolbar writes how an attacker reaches a threat: a
-  tree's name, its goal, how much it raises the risk by, and one step per
-  threat the model raises. The sheet states each tree's bound score beside it,
-  and every change is written through a use case, so a tree written here and
-  one written by `threatmodeller format` are the same file. The shape is
-  stated in
-  [the attack tree editor design](docs/superpowers/specs/2026-09-15-attack-tree-editor-design.md).
+- The *Attack Trees* stage, after Architecture, draws how an attacker reaches
+  a threat. The left sidebar lists the system's trees and the elements a
+  person drags onto the tree canvas; the right sidebar shows the selected
+  node's threat, element and score, or the tree's name, its goal and how much
+  it raises the risk by. The canvas pans, zooms, selects with a marquee,
+  drags, undoes and fits the way the diagram does. Every change is written
+  through a use case, so a tree drawn here and one written by
+  `threatmodeller format` are the same file. The shape is stated in
+  [the attack tree stage design](docs/superpowers/specs/2026-09-16-attack-tree-stage-design.md).
 - *View ▸ Show or Hide Palette*, Control-Command-S, and the window's own
   sidebar button all show and hide the palette; the window holds the one state
   all three write.
@@ -880,9 +882,9 @@ from anywhere.
 - A save message and a report message show in the toolbar, where the load stage
   shows, and clear themselves after four seconds.
 - The View menu holds *Zoom In* (`Cmd+=`), *Zoom Out* (`Cmd+-`), *Actual Size*
-  (`Cmd+0`), *Zoom to Fit* (`Cmd+9`), *Zoom to Selection*, and the three stages
-  (`Cmd+1`, `Cmd+2`, `Cmd+3`). The floating panel states the zoom, and a click
-  on it opens the same items.
+  (`Cmd+0`), *Zoom to Fit* (`Cmd+9`), *Zoom to Selection*, and the four stages
+  (`Cmd+1` to `Cmd+4`). The floating panel states the zoom, and a click on it
+  opens the same items.
 - The palette has a search field. Typed words narrow the technologies by name
   and by description, and every category with a match opens. The arrow keys
   move the selection and Return places it.

@@ -1,0 +1,246 @@
+import CoreGraphics
+import Observation
+import ThreatModelKit
+
+/// The tree in front on the Attack Trees stage.
+///
+/// The design in
+/// `docs/superpowers/specs/2026-09-16-attack-tree-stage-design.md` states the
+/// shape: the window owns one of these beside `CanvasState`, so the tree in
+/// front and its history survive a change of stage. Every change goes
+/// through one method that records the history, converts the graph and
+/// writes through the project when the graph is a tree. A tree is not in the
+/// in-memory model, so the model's undo cannot take a change back; this
+/// history can.
+@MainActor
+@Observable
+final class TreeEditor {
+    /// The project the tree is written to. The stage sets it. With none, a
+    /// change records its history and writes nothing.
+    var project: ProjectSession?
+
+    /// Everything a change can touch, so one snapshot puts all of it back.
+    struct Draft: Equatable {
+        var graph = TreeGraph()
+        var pending: [PendingElement] = []
+        var name = ""
+        var description = ""
+        var raisesRiskBy = 0
+    }
+
+    /// The id of the tree in front. The file names a tree by it.
+    private(set) var id = ""
+    private(set) var draft = Draft()
+    /// Why the graph is not a tree, or nil while it writes.
+    private(set) var refusal: String?
+    /// The last tree written, so an unchanged graph writes nothing.
+    private(set) var lastWritten: SourceAttackTree?
+    /// True once a tree is chosen or added, so the canvas has something to be.
+    private(set) var isEditing = false
+
+    private var past: [(label: String, draft: Draft)] = []
+    private var future: [(label: String, draft: Draft)] = []
+    private var nextPendingNumber = 1
+
+    var graph: TreeGraph { draft.graph }
+    var pending: [PendingElement] { draft.pending }
+    var name: String { draft.name }
+    var description: String { draft.description }
+    var raisesRiskBy: Int { draft.raisesRiskBy }
+
+    // MARK: history
+
+    var canUndo: Bool { past.isEmpty == false }
+    var canRedo: Bool { future.isEmpty == false }
+    /// What the Edit menu names: the change Undo takes back, or nil.
+    var undoLabel: String? { past.last?.label }
+    var redoLabel: String? { future.last?.label }
+
+    func undo() {
+        guard let last = past.popLast() else { return }
+        future.append((label: last.label, draft: draft))
+        draft = last.draft
+        save()
+    }
+
+    func redo() {
+        guard let next = future.popLast() else { return }
+        past.append((label: next.label, draft: draft))
+        draft = next.draft
+        save()
+    }
+
+    /// One change: the history records the draft before it, the redo history
+    /// empties, and the result writes when it is a tree.
+    private func change(_ label: String, _ apply: (inout Draft) -> Void) {
+        let before = draft
+        apply(&draft)
+        guard draft != before else { return }
+        past.append((label: label, draft: before))
+        future = []
+        save()
+    }
+
+    // MARK: opening and closing
+
+    /// Opens one tree the file states, laid out again from the file.
+    func open(_ tree: SourceAttackTree, threats: [AssessedThreat]) {
+        id = tree.id
+        draft = Draft(
+            graph: TreeGraph.graph(of: tree) { target in
+                let key = TreeDraft.key(of: target)
+                guard let threat = threats.first(where: { $0.threatKey == key }) else {
+                    return (target.threatId, "\(target.sourceKind) \(target.sourceId)")
+                }
+                return (threat.name, threat.source.displayName)
+            },
+            pending: [],
+            name: tree.name ?? tree.id,
+            description: tree.description ?? "",
+            raisesRiskBy: tree.raisesRiskBy
+        )
+        past = []
+        future = []
+        refusal = nil
+        lastWritten = tree
+        isEditing = true
+    }
+
+    /// Starts a new, empty tree with the first id the file does not hold.
+    func addTree(among trees: [SourceAttackTree]) {
+        var number = trees.count + 1
+        while trees.contains(where: { $0.id == "tree-\(number)" }) { number += 1 }
+        id = "tree-\(number)"
+        draft = Draft(name: "A new tree")
+        past = []
+        future = []
+        refusal = TreeGraph.Refusal.noGoal.message
+        lastWritten = nil
+        isEditing = true
+    }
+
+    /// Leaves no tree in front. Choosing another system calls this.
+    func close() {
+        id = ""
+        draft = Draft()
+        past = []
+        future = []
+        refusal = nil
+        lastWritten = nil
+        isEditing = false
+    }
+
+    /// Deletes the tree in front from the file and closes it.
+    func deleteTree() {
+        let deleted = id
+        close()
+        project?.deleteAttackTree(deleted)
+    }
+
+    // MARK: what a person draws
+
+    /// A drop from the element list. A junction becomes a node at once; an
+    /// element waits, pending, until a threat is picked. Returns the id of
+    /// what was dropped, or nil for a payload the list does not offer.
+    @discardableResult
+    func drop(_ payload: String, at point: CGPoint, elements: [TreeElement]) -> String? {
+        if payload == "junction:all" {
+            var id = ""
+            change("Drop") { id = $0.graph.add(.allOf, title: "ALL") }
+            return id
+        }
+        if payload == "junction:any" {
+            var id = ""
+            change("Drop") { id = $0.graph.add(.anyOf, title: "ANY") }
+            return id
+        }
+        guard let element = elements.first(where: { $0.payload == payload }) else { return nil }
+        let id = "p\(nextPendingNumber)"
+        nextPendingNumber += 1
+        change("Drop") {
+            $0.pending.append(PendingElement(id: id, element: element, point: point))
+        }
+        return id
+    }
+
+    /// Picking a threat makes the pending element a step. A tree reaches a
+    /// threat, so the first step a person makes is the goal until they move
+    /// the mark.
+    func pick(_ threat: AssessedThreat, for pendingId: String) {
+        guard let item = draft.pending.first(where: { $0.id == pendingId }) else { return }
+        change("Pick Threat") { draft in
+            let target = SourceTreeTarget(
+                threatId: threat.threatId,
+                sourceKind: item.element.kind,
+                sourceId: item.element.sourceId
+            )
+            let id = draft.graph.add(
+                .step(target: target, note: nil),
+                title: threat.name,
+                subtitle: item.element.name
+            )
+            if draft.graph.goalId == nil { draft.graph.goalId = id }
+            draft.pending.removeAll { $0.id == pendingId }
+        }
+    }
+
+    /// `from` feeds `to`.
+    func join(from: String, to: String) {
+        change("Join") { $0.graph.join(from: from, to: to) }
+    }
+
+    /// Cuts every edge leaving one node.
+    func cutOutgoingJoin(of id: String) {
+        change("Cut Join") { draft in
+            for edge in draft.graph.edges where edge.from == id {
+                draft.graph.disconnect(from: edge.from, to: edge.to)
+            }
+        }
+    }
+
+    /// Removes nodes and pending elements by id.
+    func remove(_ ids: Set<String>) {
+        change("Delete") { draft in
+            for id in ids { draft.graph.remove(id) }
+            draft.pending.removeAll { ids.contains($0.id) }
+        }
+    }
+
+    func setGoal(_ id: String) {
+        change("Set as Goal") { $0.graph.goalId = id }
+    }
+
+    func setName(_ name: String) {
+        change("Rename") { $0.name = name }
+    }
+
+    func setDescription(_ description: String) {
+        change("Describe") { $0.description = description }
+    }
+
+    func setRaisesRiskBy(_ percent: Int) {
+        change("Raises Risk By") { $0.raisesRiskBy = percent }
+    }
+
+    // MARK: what is written
+
+    /// Writes the graph when it states a tree, or states the refusal. There
+    /// is no Save button to forget: a valid change writes at once.
+    private func save() {
+        let result = draft.graph.tree(
+            id: id,
+            name: draft.name.isEmpty ? nil : draft.name,
+            description: draft.description.isEmpty ? nil : draft.description,
+            raisesRiskBy: draft.raisesRiskBy
+        )
+        switch result {
+        case .success(let tree):
+            refusal = nil
+            guard tree != lastWritten else { return }
+            lastWritten = tree
+            project?.saveAttackTree(tree)
+        case .failure(let fault):
+            refusal = fault.message
+        }
+    }
+}

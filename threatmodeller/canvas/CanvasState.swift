@@ -9,7 +9,7 @@ import Observation
 /// never touches the object the threat list observes.
 @MainActor
 @Observable
-final class CanvasState {
+final class CanvasState: CanvasViewport {
     var transform = CanvasTransform()
 
     private(set) var selectedComponentIds: Set<String> = []

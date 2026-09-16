@@ -40,7 +40,10 @@ zone move, zone resize and undo. `threatmodellerTests/CanvasGestureTests.swift`
 covers all six. Each test calls what the gesture's `onChanged` and `onEnded`
 call, with the numbers SwiftUI reports, so the code under test is the code the
 gesture runs. `threatmodellerTests/ZoneSelectionTests.swift` covers the same
-gestures over a group of zones.
+gestures over a group of zones. `threatmodellerTests/TreeCanvasGestureTests.swift`
+covers the tree canvas the same way: pan, zoom, marquee, drag, join, drop,
+undo and Zoom to Fit, and `threatmodellerTests/canvas/ViewportGesturesTests.swift`
+states the rules both canvases share.
 
 **Why nothing presses the mouse.** A synthetic `NSEvent` does not reach a
 SwiftUI gesture. Measured: a `CanvasView` in an `NSWindow`, laid out, with

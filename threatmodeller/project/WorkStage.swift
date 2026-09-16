@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The three stages of the work, in the order an analyst does them.
+/// The four stages of the work, in the order an analyst does them.
 ///
 /// A stage is a view of one model, not a mode: nothing is locked, and the
 /// stage control moves between them at any time. What a stage changes is
@@ -10,6 +10,9 @@ enum WorkStage: String, CaseIterable, Identifiable {
     /// Draw the system: the palette, the diagram, and what the system takes
     /// on trust.
     case architecture
+    /// Draw how an attacker reaches a threat: a tree of steps over the
+    /// elements the architecture states.
+    case attackTrees
     /// Read what the architecture raises, and say how often each one happens.
     case threats
     /// Answer the controls, and clear the answers the architecture no longer
@@ -21,6 +24,7 @@ enum WorkStage: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .architecture: "Architecture"
+        case .attackTrees: "Attack Trees"
         case .threats: "Threats"
         case .controls: "Controls"
         }
@@ -29,6 +33,7 @@ enum WorkStage: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .architecture: "square.on.square"
+        case .attackTrees: "point.topleft.down.to.point.bottomright.curvepath"
         case .threats: "shield"
         case .controls: "checklist"
         }

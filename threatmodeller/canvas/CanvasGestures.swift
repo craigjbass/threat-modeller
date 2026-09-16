@@ -8,9 +8,12 @@ import ThreatModelKit
 /// the session and the canvas state and calls use cases through the session.
 /// It draws nothing.
 @MainActor
-struct CanvasGestures {
+struct CanvasGestures: CanvasZooming {
     let session: ThreatModelSession
     let canvas: CanvasState
+
+    /// The rules shared with the tree canvas: pan, marquee, scroll and zoom.
+    private var viewport: ViewportGestures { ViewportGestures(viewport: canvas) }
 
     private var boxes: [String: ComponentBox] {
         CanvasHitTest.boxes(
@@ -137,15 +140,13 @@ struct CanvasGestures {
     /// A shift-drag on the background. Internal so a test can walk the drag
     /// without SwiftUI's gesture plumbing.
     func marqueeDragChanged(from start: CGPoint, to end: CGPoint) {
-        let corners = (
+        guard canvas.isDrawingZone else {
+            return viewport.marqueeDragChanged(from: start, to: end)
+        }
+        canvas.zoneDraft = (
             start: canvas.transform.modelPoint(start),
             end: canvas.transform.modelPoint(end)
         )
-        if canvas.isDrawingZone {
-            canvas.zoneDraft = corners
-        } else {
-            canvas.marquee = corners
-        }
     }
 
     /// A plain drag on the background. A drag reports the translation from
@@ -155,13 +156,7 @@ struct CanvasGestures {
         guard canvas.isDrawingZone == false else {
             return marqueeDragChanged(from: start, to: end)
         }
-        let step = CGSize(
-            width: translation.width - canvas.lastPanTranslation.width,
-            height: translation.height - canvas.lastPanTranslation.height
-        )
-        canvas.lastPanTranslation = translation
-        canvas.transform = canvas.transform.panned(by: step)
-        canvas.isPanning = true
+        viewport.panDragChanged(by: translation)
     }
 
     /// The end of either background drag.
@@ -182,7 +177,7 @@ struct CanvasGestures {
     /// natural-scrolling setting, so the delta is applied as it arrives.
     /// Negating it a second time moved the diagram the wrong way.
     func scroll(by delta: CGSize) {
-        canvas.transform = canvas.transform.panned(by: delta)
+        viewport.scroll(by: delta)
     }
 
     /// Ends a zone drag. Internal so a test can walk the drag without
@@ -410,20 +405,17 @@ struct CanvasGestures {
     }
 
     func zoom(by factor: CGFloat, about viewPoint: CGPoint) {
-        canvas.transform = canvas.transform.zoomed(by: factor, about: viewPoint)
+        viewport.zoom(by: factor, about: viewPoint)
     }
 
     /// One press of Zoom In or Zoom Out. The point under the middle of the
     /// visible canvas stays where it is.
     func zoomAStep(in closer: Bool) {
-        canvas.transform = canvas.transform.zoomedAboutTheCentre(
-            by: closer ? CanvasTransform.zoomStep : 1 / CanvasTransform.zoomStep,
-            of: canvas.visibleSize
-        )
+        viewport.zoomAStep(in: closer)
     }
 
     func zoomToActualSize() {
-        canvas.transform = canvas.transform.atActualSize(in: canvas.visibleSize)
+        viewport.zoomToActualSize()
     }
 
     /// Fits the whole diagram in the visible canvas.
@@ -433,14 +425,12 @@ struct CanvasGestures {
     /// past the farthest element so a node can always be dragged further out.
     /// Fitting it would show mostly empty canvas.
     func zoomToFit() {
-        guard let rect = SelectionBounds.rect(
+        viewport.fit(SelectionBounds.rect(
             components: session.canvas.components.map {
                 ($0.x, $0.y, Component.size.width, Component.size.height)
             },
             zones: session.canvas.zones.map { ($0.x, $0.y, $0.width, $0.height) }
-        ) else { return }
-
-        canvas.transform = canvas.transform.fitting(rect, in: canvas.visibleSize)
+        ))
     }
 
     /// Fits what is selected in the visible canvas. With nothing selected it
@@ -448,13 +438,11 @@ struct CanvasGestures {
     func zoomToSelection() {
         let components = session.canvas.components.filter { canvas.isSelected(componentId: $0.id) }
         let zones = session.canvas.zones.filter { canvas.isSelected(zoneId: $0.id) }
-        guard let rect = SelectionBounds.rect(
+        viewport.fit(SelectionBounds.rect(
             components: components.map {
                 ($0.x, $0.y, Component.size.width, Component.size.height)
             },
             zones: zones.map { ($0.x, $0.y, $0.width, $0.height) }
-        ) else { return }
-
-        canvas.transform = canvas.transform.fitting(rect, in: canvas.visibleSize)
+        ))
     }
 }

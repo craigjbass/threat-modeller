@@ -12,14 +12,16 @@ struct ProjectWindow: View {
     /// True while the question about downloading ATT&CK is on screen.
     @State private var isAskingAboutAttack = false
     @State private var isShowingLibraries = false
-    /// True while the attack tree editor is on screen.
-    @State private var isShowingAttackTrees = false
     /// True while the planned-work list is on screen.
     @State private var isShowingPlannedWork = false
     @State private var isShowingHistory = false
     /// True while the check summary is on screen.
     @State private var isShowingCheckSummary = false
     @State private var canvas = CanvasState()
+    /// The tree in front on the Attack Trees stage, and its canvas. The
+    /// window owns them, so the tree survives a change of stage.
+    @State private var trees = TreeEditor()
+    @State private var treeCanvas = TreeCanvasState()
     /// The stage of the work the window draws.
     @State private var stage: WorkStage = .architecture
     /// The name the user gives a system they start with nothing in it.
@@ -43,14 +45,23 @@ struct ProjectWindow: View {
                         project: session,
                         session: model,
                         canvas: canvas,
-                        stage: $stage
+                        stage: $stage,
+                        trees: trees,
+                        treeCanvas: treeCanvas
                     )
                         .focusedSceneValue(\.threatModelSession, model)
                         .focusedSceneValue(\.threatModelCanvas, canvas)
                         .focusedSceneValue(\.projectSession, session)
+                        // The Edit menu's Undo and the View menu's zoom act
+                        // on the tree while the tree is in front.
+                        .focusedSceneValue(\.treeEditor, stage == .attackTrees ? trees : nil)
+                        .focusedSceneValue(\.treeCanvas, stage == .attackTrees ? treeCanvas : nil)
                         // A context menu on the diagram takes a person to the
                         // threats of what they clicked.
-                        .onAppear { canvas.showStage = { stage = $0 } }
+                        .onAppear {
+                            canvas.showStage = { stage = $0 }
+                            trees.project = session
+                        }
                 } else if let loading = session.loading {
                     loadingNotice(loading)
                 } else if session.canInitialise {
@@ -96,22 +107,6 @@ struct ProjectWindow: View {
                 HistorySheet(
                     session: HistorySession(useCases: session.useCases, root: root),
                     dismiss: { isShowingHistory = false }
-                )
-            }
-        }
-        .sheet(isPresented: $isShowingAttackTrees) {
-            if let model = session.model {
-                AttackTreeSheet(
-                    project: session,
-                    threats: model.threats,
-                    bound: model.attackTrees,
-                    elements: TreeElement.list(
-                        threats: model.threats,
-                        components: model.canvas.components,
-                        connections: model.canvas.connections,
-                        zones: model.canvas.zones
-                    ),
-                    dismiss: { isShowingAttackTrees = false }
                 )
             }
         }
@@ -223,15 +218,6 @@ struct ProjectWindow: View {
                     isShowingHistory = true
                 }
                 .accessibilityIdentifier("show-history")
-            }
-
-            ToolbarItem {
-                Button("Attack Trees", systemImage: "point.topleft.down.to.point.bottomright.curvepath") {
-                    isShowingAttackTrees = true
-                }
-                .disabled(session.model == nil)
-                .help("Write how an attacker reaches a threat.")
-                .accessibilityIdentifier("attack-trees")
             }
 
             ToolbarItem {

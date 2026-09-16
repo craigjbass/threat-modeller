@@ -28,6 +28,11 @@ struct WorkflowPanel: View {
     /// The model the zoom control reads, so Zoom to Fit knows the picture.
     var model: ThreatModelSession?
 
+    /// The tree in front and its canvas, on the Attack Trees stage, or nil
+    /// in a stage that draws no tree.
+    var trees: TreeEditor?
+    var treeCanvas: TreeCanvasState?
+
     /// How tall the selection panel under the canvas is, or zero when no
     /// selection panel is shown. The panel floats above it.
     var liftedBy: CGFloat = 0
@@ -141,21 +146,34 @@ struct WorkflowPanel: View {
                 Divider()
                     .frame(height: 20)
 
-                zoom(canvas: canvas, model: model)
+                zoom(
+                    CanvasGestures(session: model, canvas: canvas),
+                    percentage: canvas.transform.percentage,
+                    hasSelection: canvas.hasSelection
+                )
+            } else if let trees, let treeCanvas {
+                Divider()
+                    .frame(height: 20)
+
+                zoom(
+                    TreeCanvasGestures(editor: trees, canvas: treeCanvas, elements: []),
+                    percentage: treeCanvas.transform.percentage,
+                    hasSelection: treeCanvas.hasSelection
+                )
             }
         }
     }
 
-    /// What the zoom is, and the way to change it.
-    private func zoom(canvas: CanvasState, model: ThreatModelSession) -> some View {
-        let gestures = CanvasGestures(session: model, canvas: canvas)
-        return Menu("\(canvas.transform.percentage)%") {
+    /// What the zoom is, and the way to change it. One control for both
+    /// canvases, because both zoom through `CanvasZooming`.
+    private func zoom(_ gestures: any CanvasZooming, percentage: Int, hasSelection: Bool) -> some View {
+        Menu("\(percentage)%") {
             Button("Zoom In") { gestures.zoomAStep(in: true) }
             Button("Zoom Out") { gestures.zoomAStep(in: false) }
             Button("Actual Size") { gestures.zoomToActualSize() }
             Button("Zoom to Fit") { gestures.zoomToFit() }
             Button("Zoom to Selection") { gestures.zoomToSelection() }
-                .disabled(canvas.hasSelection == false)
+                .disabled(hasSelection == false)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()

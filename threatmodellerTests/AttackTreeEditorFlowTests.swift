@@ -5,8 +5,9 @@ import ThreatModelKit
 import TestSupport
 @testable import threatmodeller
 
-/// Writing a tree in the window, end to end: the draft the sheet holds, the
-/// file the use case writes, the score the model gives it, and the report.
+/// Writing a tree in the window, end to end: the draft, the file the use
+/// case writes, the score the model gives it, and the report. The tree is
+/// drawn on the Attack Trees stage; the sheet it once opened in is gone.
 @MainActor
 @Suite("Writing an attack tree in the window")
 struct AttackTreeEditorFlowTests {
@@ -179,7 +180,7 @@ struct AttackTreeEditorFlowTests {
         #expect(session.attackTreeSources.isEmpty)
     }
 
-    @Test func theSheetListsWhatTheFileStates() async throws {
+    @Test func theSidebarListsWhatTheFileStates() async throws {
         let (session, _) = await aProject()
         let model = try #require(session.model)
         let goal = try #require(model.threats.first)
@@ -242,6 +243,47 @@ struct AttackTreeEditorFlowTests {
 
         let markdown = try #require(reloaded.markdownExport())
         #expect(String(decoding: markdown.data, as: UTF8.self).contains("Drawn on the canvas"))
+    }
+
+    /// A tree drawn on the stage writes the same bytes the sheet wrote before
+    /// it: both hand the same `SourceAttackTree` to `WriteAttackTree`, and
+    /// the one writer states the shape.
+    @Test func aTreeDrawnOnTheStageWritesTheBytesTheSheetWrote() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        let elements = TreeElement.list(
+            threats: model.threats,
+            components: model.canvas.components,
+            connections: model.canvas.connections,
+            zones: model.canvas.zones
+        )
+        let db = try #require(elements.first { $0.payload == "component:db" })
+        let api = try #require(elements.first { $0.payload == "component:api" })
+        let editor = TreeEditor()
+        editor.project = session
+        editor.addTree(among: [])
+
+        let goal = try #require(editor.drop(db.payload, at: .zero, elements: elements))
+        editor.pick(try #require(db.threats.first), for: goal)
+        let goalId = try #require(editor.graph.goalId)
+        let step = try #require(editor.drop(api.payload, at: .zero, elements: elements))
+        editor.pick(try #require(api.threats.first), for: step)
+        let stepId = try #require(editor.graph.nodes.first { $0.id != goalId }).id
+        editor.join(from: stepId, to: goalId)
+        editor.setName("Read every record")
+        editor.setRaisesRiskBy(40)
+        await session.settle()
+
+        // What the sheet wrote: the same source through the same use case.
+        let sheetTree = try #require(editor.lastWritten)
+        let sheetSession = await aProject()
+        await sheetSession.0.writeAttackTree(sheetTree)
+
+        let stageBytes = try #require(useCases.project.text(at: "/work/threatmodel/payments.attacktree"))
+        let sheetBytes = try #require(sheetSession.1.project.text(at: "/work/threatmodel/payments.attacktree"))
+        #expect(stageBytes == sheetBytes)
+        #expect(stageBytes.contains("tree \"tree-1\" {"))
+        #expect(stageBytes.contains("step \""))
     }
 
     /// The file the window writes is the file `threatmodeller format` writes:

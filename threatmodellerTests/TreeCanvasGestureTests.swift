@@ -1,0 +1,306 @@
+import CoreGraphics
+import Testing
+import ThreatModelKit
+import TestSupport
+@testable import threatmodeller
+
+/// The gestures the tree canvas installs, each driven the way SwiftUI drives
+/// it: through what the gesture's `onChanged` and `onEnded` call. The design
+/// in `docs/superpowers/specs/2026-09-16-attack-tree-stage-design.md` states
+/// the tree canvas shares these with the architecture canvas.
+@MainActor
+@Suite("Driving the tree canvas gestures")
+struct TreeCanvasGestureTests {
+    private func target(_ threat: String, on id: String) -> SourceTreeTarget {
+        SourceTreeTarget(threatId: threat, sourceKind: "component", sourceId: id)
+    }
+
+    /// An editor holding a goal fed by one step, with no project to write to.
+    private func drawn() -> (TreeEditor, TreeCanvasState, TreeCanvasGestures, String, String) {
+        let editor = TreeEditor()
+        editor.open(
+            SourceAttackTree(
+                id: "t",
+                name: "T",
+                description: nil,
+                raisesRiskBy: 10,
+                goal: target("exfiltration", on: "db"),
+                root: .step(SourceTreeStep(target: target("ssrf", on: "api"), note: nil))
+            ),
+            threats: []
+        )
+        let canvas = TreeCanvasState()
+        let gestures = TreeCanvasGestures(editor: editor, canvas: canvas, elements: [])
+        let ids = editor.graph.nodes.map(\.id)
+        return (editor, canvas, gestures, ids[0], ids[1])
+    }
+
+    // MARK: selection
+
+    @Test func aPlainClickSelectsOnlyThatNode() {
+        let (_, canvas, gestures, goal, step) = drawn()
+
+        gestures.selectNode(goal, addingToSelection: false)
+        gestures.selectNode(step, addingToSelection: false)
+
+        #expect(canvas.selectedIds == [step])
+    }
+
+    @Test func aShiftClickAddsANodeToTheSelection() {
+        let (_, canvas, gestures, goal, step) = drawn()
+
+        gestures.selectNode(goal, addingToSelection: false)
+        gestures.selectNode(step, addingToSelection: true)
+
+        #expect(canvas.selectedIds == [goal, step])
+    }
+
+    @Test func aClickOnTheBackgroundClearsTheSelection() {
+        let (_, canvas, gestures, goal, _) = drawn()
+        gestures.selectNode(goal, addingToSelection: false)
+
+        gestures.backgroundTap()
+
+        #expect(canvas.hasSelection == false)
+    }
+
+    // MARK: pan and marquee
+
+    @Test func aPlainDragOnTheBackgroundPansTheCanvas() {
+        let (_, canvas, gestures, _, _) = drawn()
+
+        gestures.backgroundDragChanged(
+            from: CGPoint(x: 10, y: 10),
+            to: CGPoint(x: 40, y: 30),
+            by: CGSize(width: 30, height: 20),
+            isShiftDown: false
+        )
+        gestures.backgroundDragEnded()
+
+        #expect(canvas.transform.pan == CGSize(width: 30, height: 20))
+        #expect(canvas.isPanning == false)
+    }
+
+    @Test func aShiftDragSelectsTheNodesItTouches() {
+        let (_, canvas, gestures, goal, step) = drawn()
+        let stepRect = gestures.rect(of: step)
+        let goalRect = gestures.rect(of: goal)
+        #expect(stepRect.intersects(goalRect) == false)
+
+        gestures.backgroundDragChanged(
+            from: CGPoint(x: stepRect.minX - 5, y: stepRect.minY - 5),
+            to: CGPoint(x: stepRect.midX, y: stepRect.midY),
+            by: .zero,
+            isShiftDown: true
+        )
+        #expect(canvas.marqueeRect != nil)
+        gestures.backgroundDragEnded()
+
+        #expect(canvas.selectedIds == [step])
+        #expect(canvas.marqueeRect == nil)
+    }
+
+    @Test func aScrollPansTheCanvas() {
+        let (_, canvas, gestures, _, _) = drawn()
+
+        gestures.scroll(by: CGSize(width: 12, height: -8))
+
+        #expect(canvas.transform.pan == CGSize(width: 12, height: -8))
+    }
+
+    // MARK: node drag
+
+    @Test func aNodeDragHoldsEverySelectedNodeByTheModelDistance() {
+        let (_, canvas, gestures, goal, step) = drawn()
+        canvas.transform = CanvasTransform(zoom: 0.5)
+        let goalBefore = gestures.position(of: goal)
+        let stepBefore = gestures.position(of: step)
+        gestures.selectNode(goal, addingToSelection: false)
+        gestures.selectNode(step, addingToSelection: true)
+
+        gestures.nodeDragChanged(step, CGSize(width: 50, height: 10))
+        #expect(gestures.position(of: step).x == stepBefore.x + 100)
+        gestures.nodeDragEnded(CGSize(width: 50, height: 10))
+
+        #expect(gestures.position(of: goal) == CGPoint(x: goalBefore.x + 100, y: goalBefore.y + 20))
+        #expect(gestures.position(of: step) == CGPoint(x: stepBefore.x + 100, y: stepBefore.y + 20))
+        #expect(canvas.dragTranslation == nil)
+    }
+
+    @Test func aDragOnAnUnselectedNodeSelectsItFirst() {
+        let (_, canvas, gestures, goal, step) = drawn()
+        gestures.selectNode(goal, addingToSelection: false)
+
+        gestures.nodeDragChanged(step, CGSize(width: 5, height: 5))
+        gestures.nodeDragEnded(CGSize(width: 5, height: 5))
+
+        #expect(canvas.selectedIds == [step])
+    }
+
+    @Test func layOutTreeDropsEveryHold() {
+        let (_, canvas, gestures, _, step) = drawn()
+        let before = gestures.position(of: step)
+        gestures.nodeDragChanged(step, CGSize(width: 50, height: 10))
+        gestures.nodeDragEnded(CGSize(width: 50, height: 10))
+
+        gestures.layOutAgain()
+
+        #expect(gestures.position(of: step) == before)
+        #expect(canvas.held.isEmpty)
+    }
+
+    // MARK: join
+
+    @Test func aJoinDragFromTheHandleToAnotherNodeMakesAnEdge() {
+        let (editor, canvas, gestures, goal, step) = drawn()
+        editor.cutOutgoingJoin(of: step)
+        #expect(editor.graph.edges.isEmpty)
+        let end = canvas.transform.viewPoint(gestures.position(of: goal))
+
+        gestures.joinDragChanged(step, CGPoint(x: end.x - 40, y: end.y))
+        #expect(canvas.joining?.from == step)
+        gestures.joinDragEnded(step, end)
+
+        #expect(editor.graph.edges == [TreeGraph.Edge(from: step, to: goal)])
+        #expect(canvas.joining == nil)
+    }
+
+    @Test func aJoinDragEndingOnOpenCanvasMakesNoEdge() {
+        let (editor, _, gestures, _, step) = drawn()
+        editor.cutOutgoingJoin(of: step)
+
+        gestures.joinDragChanged(step, CGPoint(x: 900, y: 900))
+        gestures.joinDragEnded(step, CGPoint(x: 900, y: 900))
+
+        #expect(editor.graph.edges.isEmpty)
+    }
+
+    // MARK: drop
+
+    @Test func aDropLandsAtTheModelPointUnderThePointer() throws {
+        let editor = TreeEditor()
+        editor.addTree(among: [])
+        let canvas = TreeCanvasState()
+        canvas.transform = CanvasTransform(pan: CGSize(width: 100, height: 100), zoom: 2)
+        let api = TreeElement(kind: "component", sourceId: "api", name: "api", threats: [])
+        let gestures = TreeCanvasGestures(editor: editor, canvas: canvas, elements: [api])
+
+        #expect(gestures.drop(["component:api"], at: CGPoint(x: 300, y: 200)))
+
+        let dropped = try #require(editor.pending.first)
+        #expect(dropped.point == CGPoint(x: 100, y: 50))
+        #expect(gestures.position(of: dropped.id) == CGPoint(x: 100, y: 50))
+    }
+
+    @Test func aJunctionDropSitsWhereItWasDropped() throws {
+        let (editor, _, gestures, _, _) = drawn()
+
+        #expect(gestures.drop(["junction:all"], at: CGPoint(x: 500, y: 400)))
+
+        let junction = try #require(editor.graph.nodes.last)
+        #expect(junction.kind == .allOf)
+        #expect(gestures.position(of: junction.id) == CGPoint(x: 500, y: 400))
+    }
+
+    // MARK: delete
+
+    @Test func deleteRemovesTheSelectedNodes() {
+        let (editor, canvas, gestures, _, step) = drawn()
+        gestures.selectNode(step, addingToSelection: false)
+
+        gestures.deleteSelection()
+
+        #expect(editor.graph.nodes.map(\.id).contains(step) == false)
+        #expect(canvas.hasSelection == false)
+    }
+
+    // MARK: every gesture the architecture canvas has, on one tree
+
+    /// Pan, zoom, marquee, drag, undo, context menu and Zoom to Fit, in that
+    /// order, on one tree.
+    @Test func everyGestureTheArchitectureCanvasHasWorksOnATree() throws {
+        let (editor, canvas, gestures, goal, step) = drawn()
+        canvas.visibleSize = CGSize(width: 800, height: 600)
+        let menu = TreeMenu(editor: editor, canvas: canvas, elements: [])
+
+        // Pan.
+        gestures.backgroundDragChanged(
+            from: .zero, to: CGPoint(x: 20, y: 10), by: CGSize(width: 20, height: 10), isShiftDown: false
+        )
+        gestures.backgroundDragEnded()
+        #expect(canvas.transform.pan == CGSize(width: 20, height: 10))
+
+        // Zoom.
+        gestures.zoomAStep(in: true)
+        #expect(canvas.transform.zoom == CanvasTransform.zoomStep)
+
+        // Marquee, over both nodes, at this pan and zoom.
+        let corner = canvas.transform.viewPoint(CGPoint(x: 0, y: 0))
+        let far = canvas.transform.viewPoint(CGPoint(x: 1000, y: 1000))
+        gestures.backgroundDragChanged(from: corner, to: far, by: .zero, isShiftDown: true)
+        gestures.backgroundDragEnded()
+        #expect(canvas.selectedIds == [goal, step])
+
+        // Drag: both move by the model distance.
+        let before = gestures.position(of: goal)
+        gestures.nodeDragChanged(goal, CGSize(width: 25, height: 0))
+        gestures.nodeDragEnded(CGSize(width: 25, height: 0))
+        #expect(gestures.position(of: goal).x == before.x + 25 / CanvasTransform.zoomStep)
+
+        // Context menu: cut the join through the step's menu.
+        canvas.clearSelection()
+        menu.selectBeforeMenu(step)
+        for row in menu.node(step) {
+            if case .item(let id, _, _, _, let act) = row, id == "context-tree-cut-join" { act() }
+        }
+        #expect(editor.graph.edges.isEmpty)
+
+        // Undo puts the join back.
+        editor.undo()
+        #expect(editor.graph.edges == [TreeGraph.Edge(from: step, to: goal)])
+
+        // Zoom to Fit: both nodes inside the visible canvas.
+        gestures.zoomToFit()
+        let visible = CGRect(origin: .zero, size: canvas.visibleSize)
+        for id in [goal, step] {
+            let rect = gestures.rect(of: id)
+            let shown = CGRect(
+                origin: canvas.transform.viewPoint(rect.origin),
+                size: CGSize(width: rect.width * canvas.transform.zoom, height: rect.height * canvas.transform.zoom)
+            )
+            #expect(visible.contains(shown), "\(id) draws at \(shown)")
+        }
+    }
+
+    // MARK: zoom
+
+    @Test func zoomToFitPutsEveryNodeInTheVisibleCanvas() {
+        let (_, canvas, gestures, goal, step) = drawn()
+        canvas.visibleSize = CGSize(width: 800, height: 600)
+        canvas.transform = CanvasTransform(pan: CGSize(width: -5000, height: -5000), zoom: 1)
+
+        gestures.zoomToFit()
+
+        let visible = CGRect(origin: .zero, size: canvas.visibleSize)
+        for id in [goal, step] {
+            let rect = gestures.rect(of: id)
+            let shown = CGRect(
+                origin: canvas.transform.viewPoint(rect.origin),
+                size: CGSize(width: rect.width * canvas.transform.zoom, height: rect.height * canvas.transform.zoom)
+            )
+            #expect(visible.contains(shown), "\(id) draws at \(shown)")
+        }
+    }
+
+    @Test func zoomToSelectionFitsOnlyTheSelectedNodes() {
+        let (_, canvas, gestures, _, step) = drawn()
+        canvas.visibleSize = CGSize(width: 800, height: 600)
+        gestures.selectNode(step, addingToSelection: false)
+
+        gestures.zoomToSelection()
+
+        let centre = canvas.transform.viewPoint(gestures.position(of: step))
+        #expect(abs(centre.x - 400) < 0.5)
+        #expect(abs(centre.y - 300) < 0.5)
+    }
+}
