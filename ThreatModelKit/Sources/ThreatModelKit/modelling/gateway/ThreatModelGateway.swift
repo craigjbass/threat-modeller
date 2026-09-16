@@ -98,6 +98,7 @@ public enum ChangeLabel {
     public static let removeThirdParty = "Remove Third Party"
     public static let setComponentProvider = "Set Provided By"
     public static let setFacedThreatActors = "Set Threat Actors Faced"
+    public static let setRiskTolerance = "Set Risk Tolerance"
     public static let setLocalThreatActor = "Set Threat Actor"
     public static let removeLocalThreatActor = "Remove Threat Actor"
     public static let createCustomTechnology = "New Technology"

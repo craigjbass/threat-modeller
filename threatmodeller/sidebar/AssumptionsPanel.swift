@@ -38,6 +38,7 @@ struct AssumptionsPanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 systemFacts
+                riskTolerance
 
                 Divider()
                 Text("What this system takes on trust")
@@ -83,6 +84,35 @@ struct AssumptionsPanel: View {
         }
         .navigationTitle("Assumptions")
         .accessibilityIdentifier("assumptions-panel")
+    }
+
+    /// The risk level a likelihood finding may answer up to. A system that
+    /// states none reads as Low, the same default `threatmodeller check`
+    /// uses, so the picker never shows a level the file does not back.
+    private var riskTolerance: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Risk tolerance")
+                .font(.subheadline.weight(.semibold))
+            Text("The level a likelihood finding may bring a threat down to.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Picker("Risk tolerance", selection: riskToleranceBinding) {
+                ForEach(RiskLevel.allCases, id: \.rawValue) { level in
+                    Text(level.label).tag(level.rawValue)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("risk-tolerance")
+        }
+    }
+
+    private var riskToleranceBinding: Binding<String> {
+        Binding(
+            get: { session.canvas.riskTolerance },
+            set: { session.setRiskTolerance($0) }
+        )
     }
 
     /// The named things of value the system holds. A component states which

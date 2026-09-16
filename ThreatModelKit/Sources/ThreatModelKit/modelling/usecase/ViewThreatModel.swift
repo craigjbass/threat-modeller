@@ -364,6 +364,10 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     public let systemFacts: ViewedSystemFacts
     /// What one component lowers on another.
     public let mitigations: [ViewedMitigation]
+    /// The risk level a likelihood finding may answer up to: what the file
+    /// states, or `low` when the file states none. The same value
+    /// `threatmodeller check` reports for this system.
+    public let riskTolerance: String
     /// Whether there is anything to take back or put in again, so a menu item
     /// can dim itself from the same read that draws the canvas.
     public let canUndo: Bool
@@ -385,6 +389,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         thirdParties: [ViewedThirdParty] = [],
         systemFacts: ViewedSystemFacts = ViewedSystemFacts(),
         mitigations: [ViewedMitigation] = [],
+        riskTolerance: String = RiskLevel.low.rawValue,
         canUndo: Bool = false,
         canRedo: Bool = false,
         undoLabel: String? = nil,
@@ -398,6 +403,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         self.thirdParties = thirdParties
         self.systemFacts = systemFacts
         self.mitigations = mitigations
+        self.riskTolerance = riskTolerance
         self.components = components
         self.connections = connections
         self.zones = zones
@@ -535,6 +541,7 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     actionText: edge.action?.text
                 )
             },
+            riskTolerance: model.effectiveRiskTolerance.rawValue,
             canUndo: models.canUndo,
             canRedo: models.canRedo,
             undoLabel: models.undoLabel,

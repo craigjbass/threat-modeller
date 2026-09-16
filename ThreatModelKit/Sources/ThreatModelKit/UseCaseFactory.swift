@@ -59,6 +59,7 @@ public protocol UseCaseFactory: Sendable {
     func removeThirdParty() -> RemoveThirdPartyUseCase
     func setComponentProvider() -> SetComponentProviderUseCase
     func setFacedThreatActors() -> SetFacedThreatActorsUseCase
+    func setRiskTolerance() -> SetRiskToleranceUseCase
     func setLocalThreatActor() -> SetLocalThreatActorUseCase
     func removeLocalThreatActor() -> RemoveLocalThreatActorUseCase
     func setCompensatingControl() -> SetCompensatingControlUseCase

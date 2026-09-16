@@ -254,6 +254,10 @@ public final class TestDependencies: UseCaseFactory {
         SetFacedThreatActors(models: models, catalogue: catalogue)
     }
 
+    public func setRiskTolerance() -> SetRiskToleranceUseCase {
+        SetRiskTolerance(models: models)
+    }
+
     public func setLocalThreatActor() -> SetLocalThreatActorUseCase {
         SetLocalThreatActor(models: models)
     }

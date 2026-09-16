@@ -255,6 +255,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetFacedThreatActors(models: models, catalogue: catalogue)
     }
 
+    func setRiskTolerance() -> SetRiskToleranceUseCase {
+        SetRiskTolerance(models: models)
+    }
+
     func setLocalThreatActor() -> SetLocalThreatActorUseCase {
         SetLocalThreatActor(models: models)
     }

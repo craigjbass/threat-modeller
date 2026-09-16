@@ -1045,6 +1045,17 @@ final class ThreatModelSession {
         refresh()
     }
 
+    // MARK: the risk level a likelihood finding may answer up to
+
+    /// States the level: `low`, `medium`, `high` or `critical`. The value
+    /// `canvas.riskTolerance` reads changes on the same refresh.
+    func setRiskTolerance(_ level: String) {
+        useCases.setRiskTolerance()
+            .execute(SetRiskToleranceRequest(level: level))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
     // MARK: what the system takes on trust
 
     /// Writes down a fact the team accepts without proof, or changes the one
