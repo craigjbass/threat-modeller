@@ -228,7 +228,8 @@ struct ComponentPanel: View {
         Binding(get: { component.sensitivityId }, set: { write(sensitivity: $0) })
     }
 
-    private var shape: Binding<String> {
+    /// What the Shape picker reads and writes. The empty word is Auto.
+    var shape: Binding<String> {
         Binding(
             get: { component.shapeOverrideId ?? "" },
             set: { write(shape: $0) }
