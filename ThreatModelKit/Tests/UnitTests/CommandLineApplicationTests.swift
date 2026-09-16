@@ -648,6 +648,66 @@ struct CommandLineApplicationTests {
         #expect(result.lines.contains { $0.contains("\"waf\"") })
     }
 
+    @Test func checkRefusesAComponentThatNestsAndStatesAnotherZone() {
+        project.put(Self.splitHeader, at: "/work/threatmodel/payments/arch/payments.arch")
+        project.put(
+            """
+            zone "edge" {
+              kind = "public"
+
+              component "waf" {
+                technology = "aws-waf"
+                zone       = "core"
+              }
+            }
+
+            zone "core" { kind = "private" }
+            """,
+            at: "/work/threatmodel/payments/arch/edge.arch"
+        )
+
+        let result = run("check", "/work")
+
+        #expect(result.code == 2)
+        #expect(result.lines.contains {
+            $0.contains("arch/edge.arch")
+                && $0.contains("the component \"waf\" sits in the zone \"edge\" and states zone \"core\"")
+        })
+    }
+
+    @Test func checkRefusesAZoneNoPartFileDeclares() {
+        project.put(Self.splitHeader, at: "/work/threatmodel/payments/arch/payments.arch")
+        project.put(
+            "component \"api\" {\n  technology = \"aws-ec2\"\n  zone       = \"ghost\"\n}",
+            at: "/work/threatmodel/payments/arch/ledger.arch"
+        )
+
+        let result = run("check", "/work")
+
+        #expect(result.code == 2)
+        #expect(result.lines.contains {
+            $0.contains("the component \"api\" states zone \"ghost\", which this system does not declare")
+        })
+    }
+
+    @Test func checkReadsAComponentWhoseZoneAnotherPartFileDeclares() {
+        project.put(Self.splitHeader, at: "/work/threatmodel/payments/arch/payments.arch")
+        project.put(
+            "zone \"edge\" {\n  kind = \"public\"\n\n  component \"waf\" { technology = \"aws-waf\" }\n}",
+            at: "/work/threatmodel/payments/arch/edge.arch"
+        )
+        project.put(
+            "component \"api\" {\n  technology = \"aws-ec2\"\n  zone       = \"edge\"\n}",
+            at: "/work/threatmodel/payments/arch/ledger.arch"
+        )
+        _ = run("compile", "/work")
+
+        let result = run("check", "/work")
+
+        #expect(result.code == 1)
+        #expect(result.lines.contains { $0.contains("\"api\"") })
+    }
+
     @Test func reportWritesOneReportInsideTheSubproject() {
         aSplitProject()
 

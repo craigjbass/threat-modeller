@@ -1,0 +1,11 @@
+component "db" {
+  technology = "aws-rds"
+}
+
+component "api" {
+  technology = "aws-ec2"
+  zone       = "edge"
+  data       = "confidential"
+}
+
+flow api -> db

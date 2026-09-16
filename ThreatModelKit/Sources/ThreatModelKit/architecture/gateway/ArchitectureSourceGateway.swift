@@ -30,14 +30,18 @@ public extension ArchitectureSourceGateway {
         guard parts.count > 1 || directoryName != nil else {
             let one = parts.first ?? SourcePart(file: "", text: "")
             let read = read(one.text)
+            // A whole file declares every zone it names, and the parser has
+            // refused one that names a zone it does not declare, so the
+            // placement here finds every zone.
+            let source = read.source.map { MergedArchitecture.placed($0).source }
             return MergedArchitecture.Merged(
-                source: read.source,
+                source: source,
                 // A part with no path states none: the caller names the file
                 // it read, the way it always has.
                 diagnostics: one.file.isEmpty
                     ? read.diagnostics
                     : read.diagnostics.map { $0.in(file: one.file) },
-                origins: MergedArchitecture.origins(of: read.source, in: one.file)
+                origins: MergedArchitecture.origins(of: source, in: one.file)
             )
         }
         return MergedArchitecture.merge(

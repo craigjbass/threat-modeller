@@ -1,0 +1,9 @@
+zone "edge" {
+  kind            = "public"
+  network         = "dmz"
+  reduces_risk_by = 20
+
+  component "waf" {
+    technology = "aws-waf"
+  }
+}

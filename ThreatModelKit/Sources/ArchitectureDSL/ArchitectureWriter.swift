@@ -249,7 +249,7 @@ struct ArchitectureWriter {
         }
 
         for component in source.components {
-            body += componentBlock(component)
+            body += componentBlock(component, statesZone: true)
             body.append("")
         }
 
@@ -321,10 +321,19 @@ struct ArchitectureWriter {
             .joined(separator: "\n") + "\n"
     }
 
-    private func componentBlock(_ component: SourceComponent) -> [String] {
+    /// `statesZone` is true for a top-level block, which states the zone it
+    /// sits in with a `zone` line. A nested block sits in the zone around it
+    /// and writes no line.
+    private func componentBlock(
+        _ component: SourceComponent,
+        statesZone: Bool = false
+    ) -> [String] {
         var lines = ["component \(quoted(component.id)) {"]
         var attributes: [(String, String)] = [("technology", quoted(component.technologyId))]
         if let name = component.name { attributes.append(("name", quoted(name))) }
+        if statesZone, let zoneId = component.zoneId {
+            attributes.append(("zone", quoted(zoneId)))
+        }
         // A component that states no classification of its own writes no
         // `data` line: the assets it holds decide, and writing the derived
         // word would make a file that says two things.

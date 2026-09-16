@@ -848,7 +848,19 @@ struct ArchitectureParser {
                     record("reduces_risk_by is \(percent); it runs from 0 to 100", at: token)
                 }
             case "component":
-                if let component = parseComponent() { components.append(component) }
+                let token = current
+                if let component = parseComponent() {
+                    // A nested component sits in this zone. One that states
+                    // another zone says two things at once.
+                    if let stated = component.zoneId, stated != id.text {
+                        record(
+                            "the component \"\(component.id)\" sits in the zone \"\(id.text)\" "
+                                + "and states zone \"\(stated)\"",
+                            at: token
+                        )
+                    }
+                    components.append(component)
+                }
             case "boundary":
                 let token = current
                 boundary = parseTextAttribute() ?? boundary
@@ -903,11 +915,13 @@ struct ArchitectureParser {
         var declaredData: String?
         var tags: [String] = []
         var status = "live"
+        var zoneId: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
             case "technology": technologyId = parseTextAttribute()
             case "name": name = parseTextAttribute()
+            case "zone": zoneId = parseTextAttribute()
             case "holds":
                 holds = parseListAttribute()
             case "provided_by":
@@ -943,8 +957,8 @@ struct ArchitectureParser {
                 expectVocabulary(status, Self.componentStatuses, field: "status", at: token)
             default:
                 record(
-                    "a component holds technology, name, data, status, holds, provided_by, "
-                        + "source, threats, runs_as, shape, tags and asset, not "
+                    "a component holds technology, name, zone, data, status, holds, "
+                        + "provided_by, source, threats, runs_as, shape, tags and asset, not "
                         + "\"\(current.text)\""
                 )
                 skipAttribute()
@@ -970,7 +984,8 @@ struct ArchitectureParser {
             declaredData: declaredData,
             shape: shape,
             tags: tags,
-            status: status
+            status: status,
+            zoneId: zoneId
         )
     }
 
@@ -1214,10 +1229,6 @@ struct ArchitectureParser {
             }
         }
 
-        for zone in source.zones where zone.components.isEmpty {
-            record("the zone \"\(zone.id)\" holds no components", at: tokens[0], severity: .warning)
-        }
-
         var edges: Set<String> = []
         for edge in source.mitigates {
             if edge.sourceId == edge.targetId {
@@ -1249,6 +1260,19 @@ struct ArchitectureParser {
         var componentIds: Set<String> = []
         for component in source.everyComponent where componentIds.insert(component.id).inserted == false {
             record("the component \"\(component.id)\" is declared twice", at: tokens[0])
+        }
+
+        // A whole file declares every zone it holds, so a stated zone it does
+        // not declare is known here. A part file leaves that to the merge.
+        let zoneIds = Set(source.zones.map(\.id))
+        for component in source.components {
+            if let stated = component.zoneId, zoneIds.contains(stated) == false {
+                record(
+                    "the component \"\(component.id)\" states zone \"\(stated)\", which this file "
+                        + "does not declare",
+                    at: tokens[0]
+                )
+            }
         }
 
         var pairs: Set<String> = []

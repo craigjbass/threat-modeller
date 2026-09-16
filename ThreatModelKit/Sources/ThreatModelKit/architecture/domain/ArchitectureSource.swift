@@ -188,6 +188,23 @@ public struct SourceZone: Equatable, Sendable {
         self.boundary = boundary
         self.description = description
     }
+
+    /// The same zone holding these components.
+    public func holding(_ components: [SourceComponent]) -> SourceZone {
+        SourceZone(
+            id: id,
+            kind: kind,
+            network: network,
+            name: name,
+            reducesRisk: reducesRisk,
+            reducesRiskBy: reducesRiskBy,
+            components: components,
+            boundary: boundary,
+            description: description,
+            source: source,
+            tags: tags
+        )
+    }
 }
 
 public struct SourceComponent: Equatable, Sendable {
@@ -216,6 +233,10 @@ public struct SourceComponent: Equatable, Sendable {
     /// Whether the component runs in Production today or is a planned change:
     /// `live` or `proposed`. A stanza that states nothing is `live`.
     public let status: String
+    /// The zone the block states with `zone = "<id>"`, or nil. A top-level
+    /// block states it to sit in a zone another part file declares; the
+    /// merge places the component in that zone.
+    public let zoneId: String?
 
     public init(
         id: String,
@@ -231,8 +252,10 @@ public struct SourceComponent: Equatable, Sendable {
         declaredData: String? = nil,
         shape: String? = nil,
         tags: [String] = [],
-        status: String = "live"
+        status: String = "live",
+        zoneId: String? = nil
     ) {
+        self.zoneId = zoneId
         self.status = status
         self.tags = tags
         self.id = id
@@ -247,6 +270,27 @@ public struct SourceComponent: Equatable, Sendable {
         self.source = source
         self.declaredData = declaredData
         self.shape = shape
+    }
+
+    /// The same component stating this zone, or none.
+    public func stating(zone zoneId: String?) -> SourceComponent {
+        SourceComponent(
+            id: id,
+            technologyId: technologyId,
+            name: name,
+            data: data,
+            raisesThreats: raisesThreats,
+            runsAs: runsAs,
+            assets: assets,
+            holds: holds,
+            providedBy: providedBy,
+            source: source,
+            declaredData: declaredData,
+            shape: shape,
+            tags: tags,
+            status: status,
+            zoneId: zoneId
+        )
     }
 }
 

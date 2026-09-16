@@ -95,6 +95,46 @@ grep -q '"otmVersion"' "$work/sample/threatmodel/payments.otm.json"
 tm export "$work/sample" --stdout > "$work/sample/stdout.json"
 grep -q '"threats"' "$work/sample/stdout.json"
 
+step "a component sits in a zone another part file declares"
+mkdir -p "$work/split/threatmodel/payments/arch"
+printf 'system "Payments" {\n  catalogue = "v1.0.0"\n}\n' \
+    > "$work/split/threatmodel/payments/arch/payments.arch"
+cat > "$work/split/threatmodel/payments/arch/edge.arch" <<'ARCH'
+zone "edge" {
+  kind            = "public"
+  network         = "dmz"
+  reduces_risk_by = 20
+
+  component "waf" {
+    technology = "aws-waf"
+  }
+}
+ARCH
+cat > "$work/split/threatmodel/payments/arch/ledger.arch" <<'ARCH'
+component "api" {
+  technology = "aws-ec2"
+  zone       = "edge"
+}
+
+flow waf -> api
+ARCH
+cp "$work/split/threatmodel/payments/arch/ledger.arch" "$work/split-ledger-first.arch"
+cp "$work/split/threatmodel/payments/arch/edge.arch" "$work/split-edge-first.arch"
+# A format writes the attribute back where it was and nests nothing across
+# files, so both part files read byte for byte.
+tm format "$work/split"
+diff "$work/split-ledger-first.arch" "$work/split/threatmodel/payments/arch/ledger.arch"
+diff "$work/split-edge-first.arch" "$work/split/threatmodel/payments/arch/edge.arch"
+tm compile "$work/split"
+grep -q 'on component "api"' "$work/split/threatmodel/payments/controls/ledger.controls"
+
+step "check refuses a zone no part file declares"
+mkdir -p "$work/ghost/threatmodel/payments/arch"
+printf 'system "Payments" { }\n' > "$work/ghost/threatmodel/payments/arch/payments.arch"
+printf 'component "api" {\n  technology = "aws-ec2"\n  zone       = "ghost"\n}\n' \
+    > "$work/ghost/threatmodel/payments/arch/ledger.arch"
+expect_code 2 check "$work/ghost"
+
 step "lsp answers a client"
 # The Language Server Protocol frames each message with its length.
 frame() {

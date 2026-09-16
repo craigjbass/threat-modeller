@@ -21,10 +21,23 @@ public enum ArchitectureSourceSplit {
 
         var written: [SourcePart] = []
         for path in files.sorted() {
-            let zones = source.zones.filter { file(of: .zone($0.id)) == path }
-            // A component sits in the file its zone sits in, because a zone
-            // states the components inside it.
+            // A zone nests the components that sit in its own file. A
+            // component whose block is in another file stays there, as a
+            // top-level block that states the zone with `zone = "<id>"`.
+            let zones = source.zones
+                .filter { file(of: .zone($0.id)) == path }
+                .map { zone in
+                    zone.holding(zone.components.filter { file(of: .component($0.id)) == path })
+                }
+            let statingAZone = source.zones
+                .filter { file(of: .zone($0.id)) != path }
+                .flatMap { zone in
+                    zone.components
+                        .filter { file(of: .component($0.id)) == path }
+                        .map { $0.stating(zone: zone.id) }
+                }
             let loose = source.components.filter { file(of: .component($0.id)) == path }
+                + statingAZone
 
             let part = ArchitectureSource(
                 systemName: source.systemName,

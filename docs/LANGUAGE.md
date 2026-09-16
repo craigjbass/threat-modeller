@@ -275,6 +275,33 @@ every `assumption`, because those are facts of the system and not of a file.
 **A part file** holds `technology`, `zone`, `component`, `flow` and `mitigates`
 blocks at the top level and no `system` block.
 
+**A zone declared in another part file.** A component sits in a zone by
+nesting, and a part file cannot nest a block inside a zone another file
+declares. A top-level `component` block states `zone = "<id>"` instead, and
+the merge places the component in that zone once every file is read:
+
+```hcl
+# arch/edge.arch
+zone "edge" {
+  kind = "public"
+
+  component "waf" { technology = "aws-waf" }
+}
+
+# arch/ledger.arch
+component "api" {
+  technology = "aws-ec2"
+  zone       = "edge"
+}
+```
+
+The component keeps the file its block is in, so its answers stay in the
+controls file that mirrors that file. A save nests a component when its zone
+is in the same file and writes `zone = "<id>"` when the zone is in another
+file, so a file written either way reads and writes byte for byte. Inside one
+part file a save writes the components that state no zone first, then the
+components that state a zone, in zone order.
+
 | Fault | Message |
 | --- | --- |
 | no file holds a `system` block | `the system "<name>" holds no file with a system block` |
@@ -292,6 +319,8 @@ identifier declared twice is a fault naming both files.
 | a component declared twice | `the component "<id>" is declared twice: <first> and <second>` |
 | an assumption declared twice | `the assumption "<label>" is declared twice: <first> and <second>` |
 | a flow that names nothing | `the flow starts at "<id>", which this system does not declare` |
+| a component that states a zone no file declares | `the component "<id>" states zone "<id>", which this system does not declare` |
+| a nested component that states another zone | `the component "<id>" sits in the zone "<outer>" and states zone "<stated>"` |
 
 Every fault names the file it is in, so a build log reads
 `arch/edge.arch:12:5: error: …`.
@@ -388,6 +417,7 @@ ZoneEntry = "kind"            "=" String
 ComponentBlock = "component" String "{" { ComponentEntry } "}" ;
 ComponentEntry = "technology"  "=" String
                | "name"        "=" String
+               | "zone"        "=" String
                | "data"        "=" String
                | "holds"       "=" StringList
                | "provided_by" "=" String
@@ -716,6 +746,7 @@ The label is the component's identifier.
 | --- | --- | --- | --- |
 | `technology` | string | a technology identifier | **required** |
 | `name` | string | any | the technology's name |
+| `zone` | string | a zone identifier any file of the system declares | none |
 | `data` | string | the project's classification scheme, which is `public`, `internal`, `confidential`, `restricted` unless a library states its own (section 6) | `internal` |
 | `runs_as` | string | `user`, `admin`, `root`, `system`, `kernel` | `user` |
 | `shape` | string | `actor`, `process`, `store` | the derived shape |
@@ -735,8 +766,17 @@ A block with no `technology` is the error
 `the component "<id>" names no technology`, and the block is dropped.
 
 **Placement.** A `component` block inside a `zone` block sits in that zone. A
-`component` block at the top level of the `system` block sits outside every
-zone.
+`component` block at the top level that states `zone = "<id>"` sits in that
+zone, whichever file of the system declares it (section 3). A `component`
+block at the top level that states no `zone` sits outside every zone.
+
+A top-level block that states a zone no file of the system declares is the
+error `the component "<id>" states zone "<id>", which this system does not
+declare`; in a flat file the message ends `which this file does not declare`.
+A nested block that states a different zone from the one around it is the
+error `the component "<id>" sits in the zone "<outer>" and states zone
+"<stated>"`. A nested block that states the zone around it is not an error,
+and the next save drops the line.
 
 **`asset` on the system.** A system names the things of value it holds. A
 component then states which of them it holds, and a flow states which it
@@ -2531,7 +2571,7 @@ entry" or "an unknown attribute".
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
-| architecture | `component` | `a component holds technology, name, data, holds, provided_by, source, threats, runs_as, shape and asset, not "<word>"` |
+| architecture | `component` | `a component holds technology, name, zone, data, status, holds, provided_by, source, threats, runs_as, shape, tags and asset, not "<word>"` |
 | architecture | `third_party` | `a third_party holds name, description, kind, paying_customer, uptime, uptime_notes, owner and link, not "<word>"` |
 | architecture | `third_party` | `the third party "<id>" has no name` |
 | architecture | `third_party` | `the third party "<id>" states no uptime; state "none", "degraded", "hard" or "operational"` |
@@ -2759,6 +2799,7 @@ ZoneEntry = "kind"            "=" String
 ComponentBlock = "component" String "{" { ComponentEntry } "}" ;
 ComponentEntry = "technology"  "=" String
                | "name"        "=" String
+               | "zone"        "=" String
                | "data"        "=" String
                | "holds"       "=" StringList
                | "provided_by" "=" String

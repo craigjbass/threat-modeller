@@ -201,7 +201,7 @@ public enum MergedArchitecture {
             }
         }
 
-        let merged = ArchitectureSource(
+        let joined = ArchitectureSource(
             systemName: head.systemName,
             catalogueTag: head.catalogueTag,
             technologies: technologies,
@@ -216,6 +216,30 @@ public enum MergedArchitecture {
             faces: head.faces,
             threatActors: head.threatActors
         )
+
+        // Every file is read now, so a component that states a zone finds it
+        // whichever file declares it.
+        let placement = placed(joined)
+        let merged = placement.source
+        for (componentId, zoneId) in placement.unknownZones {
+            diagnostics.append(
+                fault(
+                    "the component \"\(componentId)\" states zone \"\(zoneId)\", which this "
+                        + "system does not declare"
+                )
+            )
+        }
+        for zone in merged.zones where zone.components.isEmpty {
+            diagnostics.append(
+                Diagnostic(
+                    severity: .warning,
+                    line: 1,
+                    column: 1,
+                    message: "the zone \"\(zone.id)\" holds no components",
+                    file: origins[.zone(zone.id)]
+                )
+            )
+        }
 
         // The checks that read two identifiers run here, over every file.
         let declared = Set(merged.everyComponent.map(\.id))
@@ -259,6 +283,71 @@ public enum MergedArchitecture {
             source: refused ? nil : merged,
             diagnostics: diagnostics,
             origins: origins
+        )
+    }
+
+    /// The source with every top-level component that states a zone moved
+    /// into that zone, and the pairs that name a zone the source does not
+    /// declare, in file order.
+    ///
+    /// A reader downstream reads membership from the nesting alone, so the
+    /// attribute is a way to write a file and not a second way to hold a
+    /// model. A component that states a zone nothing declares stays at the
+    /// top level; the caller refuses the source.
+    public static func placed(
+        _ source: ArchitectureSource
+    ) -> (source: ArchitectureSource, unknownZones: [(componentId: String, zoneId: String)]) {
+        var loose: [SourceComponent] = []
+        var joining: [String: [SourceComponent]] = [:]
+        var unknown: [(componentId: String, zoneId: String)] = []
+        let zoneIds = Set(source.zones.map(\.id))
+        for component in source.components {
+            guard let zoneId = component.zoneId else {
+                loose.append(component)
+                continue
+            }
+            guard zoneIds.contains(zoneId) else {
+                unknown.append((componentId: component.id, zoneId: zoneId))
+                loose.append(component)
+                continue
+            }
+            joining[zoneId, default: []].append(component)
+        }
+        guard joining.isEmpty == false else { return (source, unknown) }
+
+        let zones = source.zones.map { zone in
+            zone.holding(zone.components + (joining[zone.id] ?? []))
+        }
+        return (
+            ArchitectureSource(
+                systemName: source.systemName,
+                catalogueTag: source.catalogueTag,
+                technologies: source.technologies,
+                zones: zones,
+                components: loose,
+                flows: source.flows,
+                mitigates: source.mitigates,
+                riskTolerance: source.riskTolerance,
+                assumptions: source.assumptions,
+                useCases: source.useCases,
+                exclusions: source.exclusions,
+                systemAssets: source.systemAssets,
+                thirdParties: source.thirdParties,
+                diagrams: source.diagrams,
+                requiresEvidenceAbove: source.requiresEvidenceAbove,
+                owner: source.owner,
+                faces: source.faces,
+                threatActors: source.threatActors,
+                description: source.description,
+                authors: source.authors,
+                links: source.links,
+                repositories: source.repositories,
+                created: source.created,
+                reviewed: source.reviewed,
+                version: source.version,
+                attributes: source.attributes
+            ),
+            unknown
         )
     }
 
