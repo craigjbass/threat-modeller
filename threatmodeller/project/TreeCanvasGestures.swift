@@ -15,6 +15,9 @@ struct TreeCanvasGestures: CanvasZooming {
     let canvas: TreeCanvasState
     /// The elements the list beside the canvas offers, for what a drop makes.
     let elements: [TreeElement]
+    /// True while Space is held down over the canvas. The view counts the
+    /// key, because AppKit states no modifier flag for Space.
+    var isSpaceDown = false
 
     static let nodeSize = CGSize(width: 190, height: 56)
     static let junctionSize = CGSize(width: 90, height: 40)
@@ -106,9 +109,12 @@ struct TreeCanvasGestures: CanvasZooming {
         from start: CGPoint,
         to end: CGPoint,
         by translation: CGSize,
-        isShiftDown: Bool
+        isShiftDown: Bool,
+        isSpaceDown: Bool = false
     ) {
-        if isShiftDown {
+        // Space held down pans, even while Shift is down. A mouse user needs
+        // one gesture that always moves the picture.
+        if isShiftDown && isSpaceDown == false {
             viewport.marqueeDragChanged(from: start, to: end)
         } else {
             viewport.panDragChanged(by: translation)
@@ -124,6 +130,22 @@ struct TreeCanvasGestures: CanvasZooming {
 
     func scroll(by delta: CGSize) {
         viewport.scroll(by: delta)
+    }
+
+    /// What one wheel event or one two finger scroll does, by pointer mode.
+    /// The scroll monitor calls this.
+    func wheel(by delta: CGSize, at viewPoint: CGPoint, isShiftDown: Bool, mode: PointerMode) {
+        viewport.wheel(by: delta, at: viewPoint, isShiftDown: isShiftDown, mode: mode)
+    }
+
+    /// One step of a middle-button drag or a Space-drag.
+    func panStep(by step: CGSize) {
+        viewport.panStep(by: step)
+    }
+
+    /// The end of a middle-button drag or a Space-drag.
+    func panStepEnded() {
+        viewport.panStepEnded()
     }
 
     // MARK: nodes

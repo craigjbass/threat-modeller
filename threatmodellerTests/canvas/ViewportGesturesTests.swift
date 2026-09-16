@@ -113,4 +113,119 @@ struct ViewportGesturesTests {
             #expect(viewport.transform == before, Comment(rawValue: name))
         }
     }
+
+    // MARK: the pointer mode
+
+    /// How close two model points have to be to count as the same point. A
+    /// zoom about a pointer divides and multiplies by the same zoom, so the
+    /// answer carries a little floating point error.
+    private func isClose(_ one: CGPoint, _ other: CGPoint) -> Bool {
+        abs(one.x - other.x) < 0.0001 && abs(one.y - other.y) < 0.0001
+    }
+
+    /// Trackpad mode is what both canvases always did: the wheel delta pans.
+    @Test func aWheelInTrackpadModePansByTheDelta() {
+        for (name, viewport) in viewports() {
+            let gestures = ViewportGestures(viewport: viewport)
+
+            gestures.wheel(
+                by: CGSize(width: 30, height: -20),
+                at: CGPoint(x: 100, y: 100),
+                isShiftDown: false,
+                mode: .trackpad
+            )
+
+            #expect(viewport.transform.pan == CGSize(width: 30, height: -20), Comment(rawValue: name))
+            #expect(viewport.transform.zoom == 1, Comment(rawValue: name))
+        }
+    }
+
+    /// A mouse has a wheel and no pinch. The wheel zooms, and the model point
+    /// under the pointer stays under the pointer.
+    @Test func aWheelInMouseModeZoomsAboutThePointer() {
+        for (name, viewport) in viewports() {
+            let gestures = ViewportGestures(viewport: viewport)
+            let pointer = CGPoint(x: 240, y: 180)
+            let under = viewport.transform.modelPoint(pointer)
+
+            gestures.wheel(
+                by: CGSize(width: 0, height: 20),
+                at: pointer,
+                isShiftDown: false,
+                mode: .mouse
+            )
+
+            #expect(viewport.transform.zoom > 1, Comment(rawValue: name))
+            #expect(isClose(viewport.transform.modelPoint(pointer), under), Comment(rawValue: name))
+        }
+    }
+
+    /// A wheel towards the person zooms out.
+    @Test func aWheelTowardsThePersonInMouseModeZoomsOut() {
+        for (name, viewport) in viewports() {
+            let gestures = ViewportGestures(viewport: viewport)
+
+            gestures.wheel(
+                by: CGSize(width: 0, height: -20),
+                at: CGPoint(x: 240, y: 180),
+                isShiftDown: false,
+                mode: .mouse
+            )
+
+            #expect(viewport.transform.zoom < 1, Comment(rawValue: name))
+        }
+    }
+
+    /// Shift-wheel pans left and right, and changes no zoom.
+    @Test func aShiftWheelInMouseModePansSideways() {
+        for (name, viewport) in viewports() {
+            let gestures = ViewportGestures(viewport: viewport)
+
+            gestures.wheel(
+                by: CGSize(width: 0, height: 24),
+                at: CGPoint(x: 100, y: 100),
+                isShiftDown: true,
+                mode: .mouse
+            )
+
+            #expect(viewport.transform.pan == CGSize(width: 24, height: 0), Comment(rawValue: name))
+            #expect(viewport.transform.zoom == 1, Comment(rawValue: name))
+        }
+    }
+
+    /// macOS states a shifted wheel on the horizontal axis on some mice and
+    /// on the vertical axis on others, so the pan reads whichever axis the
+    /// event carries.
+    @Test func aShiftWheelReadsTheAxisTheEventCarries() {
+        for (name, viewport) in viewports() {
+            let gestures = ViewportGestures(viewport: viewport)
+
+            gestures.wheel(
+                by: CGSize(width: 18, height: 0),
+                at: CGPoint(x: 100, y: 100),
+                isShiftDown: true,
+                mode: .mouse
+            )
+
+            #expect(viewport.transform.pan == CGSize(width: 18, height: 0), Comment(rawValue: name))
+        }
+    }
+
+    /// A middle-button drag and a Space-drag both state the step since the
+    /// last event, so the pan adds each step as it arrives.
+    @Test func aPanStepAddsEachStepAndShowsTheClosedHand() {
+        for (name, viewport) in viewports() {
+            let gestures = ViewportGestures(viewport: viewport)
+
+            gestures.panStep(by: CGSize(width: 12, height: 8))
+            gestures.panStep(by: CGSize(width: 3, height: 2))
+
+            #expect(viewport.transform.pan == CGSize(width: 15, height: 10), Comment(rawValue: name))
+            #expect(viewport.isPanning, Comment(rawValue: name))
+
+            gestures.panStepEnded()
+
+            #expect(viewport.isPanning == false, Comment(rawValue: name))
+        }
+    }
 }

@@ -165,9 +165,12 @@ final class ProjectSession {
             defaults.set(true, forKey: Self.autoSyncKey)
         }
         isAutoSyncOn = defaults.bool(forKey: Self.autoSyncKey)
+        pointerMode = PointerMode(rawValue: defaults.string(forKey: Self.pointerModeKey) ?? "")
+            ?? PointerMode.standard
     }
 
     private static let autoSyncKey = "autoSync"
+    private static let pointerModeKey = "pointerMode"
 
     /// True while this application redraws the project on its own when a file
     /// changes on disk. It starts on, and the user turns it off in the
@@ -183,6 +186,13 @@ final class ProjectSession {
                 reload()
             }
         }
+    }
+
+    /// Which pointing device the person drives both canvases with. It starts
+    /// on Trackpad, and the toolbar and the View menu change it. The choice
+    /// outlives the run.
+    var pointerMode: PointerMode = .trackpad {
+        didSet { defaults.set(pointerMode.rawValue, forKey: Self.pointerModeKey) }
     }
 
     var hasErrors: Bool {

@@ -11,6 +11,9 @@ import ThreatModelKit
 struct CanvasGestures: CanvasZooming {
     let session: ThreatModelSession
     let canvas: CanvasState
+    /// True while Space is held down over the canvas. The view counts the
+    /// key, because AppKit states no modifier flag for Space.
+    var isSpaceDown = false
 
     /// The rules shared with the tree canvas: pan, marquee, scroll and zoom.
     private var viewport: ViewportGestures { ViewportGestures(viewport: canvas) }
@@ -141,7 +144,8 @@ struct CanvasGestures: CanvasZooming {
                     from: value.startLocation,
                     to: value.location,
                     by: value.translation,
-                    isShiftDown: NSEvent.modifierFlags.contains(.shift)
+                    isShiftDown: NSEvent.modifierFlags.contains(.shift),
+                    isSpaceDown: isSpaceDown
                 )
             }
             .onEnded { _ in backgroundDragEnded() }
@@ -154,8 +158,15 @@ struct CanvasGestures: CanvasZooming {
         from start: CGPoint,
         to end: CGPoint,
         by translation: CGSize,
-        isShiftDown: Bool
+        isShiftDown: Bool,
+        isSpaceDown: Bool = false
     ) {
+        // Space held down pans, whatever else is on. A mouse user needs one
+        // gesture that always moves the picture, so Space beats both the
+        // Shift marquee and the zone tool.
+        guard isSpaceDown == false else {
+            return viewport.panDragChanged(by: translation)
+        }
         guard isShiftDown == false else {
             return marqueeDragChanged(from: start, to: end)
         }
@@ -203,6 +214,23 @@ struct CanvasGestures: CanvasZooming {
     /// Negating it a second time moved the diagram the wrong way.
     func scroll(by delta: CGSize) {
         viewport.scroll(by: delta)
+    }
+
+    /// What one wheel event or one two finger scroll does, by pointer mode.
+    /// The scroll monitor calls this; `ViewportGestures` holds the rule, so
+    /// the tree canvas reads the wheel the same way.
+    func wheel(by delta: CGSize, at viewPoint: CGPoint, isShiftDown: Bool, mode: PointerMode) {
+        viewport.wheel(by: delta, at: viewPoint, isShiftDown: isShiftDown, mode: mode)
+    }
+
+    /// One step of a middle-button drag or a Space-drag.
+    func panStep(by step: CGSize) {
+        viewport.panStep(by: step)
+    }
+
+    /// The end of a middle-button drag or a Space-drag.
+    func panStepEnded() {
+        viewport.panStepEnded()
     }
 
     /// Ends a zone drag. Internal so a test can walk the drag without

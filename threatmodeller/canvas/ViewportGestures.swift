@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// What every canvas holds for its viewport: the transform, the room it
 /// draws in, and the two background drags in flight.
@@ -72,6 +73,53 @@ struct ViewportGestures {
     /// natural-scrolling setting, so the delta is applied as it arrives.
     func scroll(by delta: CGSize) {
         viewport.transform = viewport.transform.panned(by: delta)
+    }
+
+    /// What one wheel event or one two finger scroll does, by pointer mode.
+    ///
+    /// Trackpad keeps the pan the canvas always had, because a trackpad
+    /// zooms with a pinch. A mouse has no pinch, so the wheel zooms about the
+    /// pointer and Shift-wheel pans left and right.
+    func wheel(by delta: CGSize, at viewPoint: CGPoint, isShiftDown: Bool, mode: PointerMode) {
+        switch mode {
+        case .trackpad:
+            scroll(by: delta)
+        case .mouse where isShiftDown:
+            scroll(by: CGSize(width: Self.sidewaysStep(of: delta), height: 0))
+        case .mouse:
+            zoom(by: Self.zoomFactor(ofWheel: delta), about: viewPoint)
+        }
+    }
+
+    /// How far a Shift-wheel pans left or right. macOS states a shifted wheel
+    /// on the horizontal axis on some mice and on the vertical axis on
+    /// others, so the step is whichever axis the event carries.
+    static func sidewaysStep(of delta: CGSize) -> CGFloat {
+        delta.width != 0 ? delta.width : delta.height
+    }
+
+    /// How much one point of wheel delta changes the zoom.
+    static let wheelZoomRate: CGFloat = 0.01
+
+    /// The zoom one wheel event makes. A wheel away from the person states a
+    /// positive delta and zooms in; one towards the person zooms out. The
+    /// exponential keeps the factor above nought at every delta, and makes a
+    /// wheel back undo a wheel forward.
+    static func zoomFactor(ofWheel delta: CGSize) -> CGFloat {
+        exp(delta.height * wheelZoomRate)
+    }
+
+    /// One step of a middle-button drag or a Space-drag. Both state the step
+    /// since the last event, so the pan adds each step as it arrives, rather
+    /// than the whole translation again.
+    func panStep(by step: CGSize) {
+        viewport.transform = viewport.transform.panned(by: step)
+        viewport.isPanning = true
+    }
+
+    /// The end of a middle-button drag or a Space-drag.
+    func panStepEnded() {
+        viewport.isPanning = false
     }
 
     // MARK: zoom

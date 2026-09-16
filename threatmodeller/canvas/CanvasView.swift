@@ -14,15 +14,29 @@ struct CanvasView: View {
 
     let session: ThreatModelSession
     let canvas: CanvasState
+    /// Which pointing device the person drives the canvas with. A preview and
+    /// a drawing test take the mode a new person starts in.
+    var pointerMode: PointerMode = .standard
 
     /// True while the pointer is over this canvas, so a scroll anywhere else
     /// in the application moves nothing here.
     @State private var isPointerOver = false
     /// The monitor reading the scroll events, while this canvas is on screen.
     @State private var scrollMonitor: Any?
+    /// The monitor reading the middle-button drag, while this canvas is on
+    /// screen. A middle button reaches no SwiftUI gesture.
+    @State private var middleButtonMonitor: Any?
+    /// The monitor reading whether Space is held down. AppKit states no
+    /// modifier flag for Space, so the canvas counts the key itself.
+    @State private var spaceMonitor: Any?
+    /// True while Space is held down over this canvas, so a drag pans.
+    @State private var isSpaceDown = false
+    /// Where the pointer last was on the canvas, in view coordinates, so a
+    /// wheel zooms about the point the person is looking at.
+    @State private var pointerViewPoint: CGPoint = .zero
 
     private var gestures: CanvasGestures {
-        CanvasGestures(session: session, canvas: canvas)
+        CanvasGestures(session: session, canvas: canvas, isSpaceDown: isSpaceDown)
     }
 
     private var menus: ElementMenu {
@@ -42,16 +56,62 @@ struct CanvasView: View {
         guard scrollMonitor == nil else { return }
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
             guard isPointerOver else { return event }
-            gestures.scroll(
-                by: CGSize(width: event.scrollingDeltaX, height: event.scrollingDeltaY)
+            gestures.wheel(
+                by: CGSize(width: event.scrollingDeltaX, height: event.scrollingDeltaY),
+                at: pointerViewPoint,
+                isShiftDown: event.modifierFlags.contains(.shift),
+                mode: pointerMode
             )
             return nil
         }
+        startReadingPanEvents()
     }
+
+    /// Reads the two pans a mouse has: the middle-button drag, and Space held
+    /// down while the primary button drags.
+    private func startReadingPanEvents() {
+        if middleButtonMonitor == nil {
+            middleButtonMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.otherMouseDragged, .otherMouseUp]
+            ) { event in
+                guard isPointerOver, event.buttonNumber == CanvasView.middleButton else {
+                    return event
+                }
+                if event.type == .otherMouseUp {
+                    gestures.panStepEnded()
+                } else {
+                    gestures.panStep(by: CGSize(width: event.deltaX, height: event.deltaY))
+                }
+                return nil
+            }
+        }
+        if spaceMonitor == nil {
+            spaceMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.keyDown, .keyUp]
+            ) { event in
+                // The event is passed on either way: Space still types a
+                // space, and still presses whatever holds the focus.
+                if isPointerOver, event.keyCode == CanvasView.spaceKey {
+                    isSpaceDown = event.type == .keyDown
+                }
+                return event
+            }
+        }
+    }
+
+    /// The button number AppKit states for the middle button.
+    static let middleButton = 2
+    /// The key code AppKit states for Space.
+    static let spaceKey: UInt16 = 49
 
     private func stopReadingScrollEvents() {
         if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
         scrollMonitor = nil
+        if let middleButtonMonitor { NSEvent.removeMonitor(middleButtonMonitor) }
+        middleButtonMonitor = nil
+        if let spaceMonitor { NSEvent.removeMonitor(spaceMonitor) }
+        spaceMonitor = nil
+        isSpaceDown = false
     }
 
     /// The part of the model the canvas draws. Focus narrows it to one
@@ -136,9 +196,11 @@ struct CanvasView: View {
         .onContinuousHover { phase in
             if case .active(let where_) = phase {
                 isPointerOver = true
+                pointerViewPoint = where_
                 pointerPoint = canvas.transform.modelPoint(where_)
             } else {
                 isPointerOver = false
+                isSpaceDown = false
             }
         }
         .onAppear { startReadingScrollEvents() }

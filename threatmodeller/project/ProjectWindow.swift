@@ -295,19 +295,7 @@ struct ProjectWindow: View {
                 .accessibilityIdentifier("synchronise-attack")
             }
 
-            // Auto Sync is a setting, not a verb, so it sits with the other
-            // window-wide controls rather than on the floating panel with the
-            // two verbs.
-            ToolbarItem {
-                Toggle("Auto Sync", isOn: autoSync)
-                    .toggleStyle(.checkbox)
-                    .help(
-                        "Save the .arch and .controls files when you change "
-                            + "the model, and redraw the diagram when those "
-                            + "files change on disk."
-                    )
-                    .accessibilityIdentifier("auto-sync")
-            }
+            settingItems
         }
     }
 
@@ -422,6 +410,49 @@ struct ProjectWindow: View {
             get: { session.isAutoSyncOn },
             set: { session.isAutoSyncOn = $0 }
         )
+    }
+
+    private var pointerMode: Binding<PointerMode> {
+        Binding(
+            get: { session.pointerMode },
+            set: { session.pointerMode = $0 }
+        )
+    }
+
+    /// The two settings of the window: what Auto Sync writes, and which
+    /// pointing device drives both canvases. Neither is a verb, so they sit
+    /// here rather than on the floating panel.
+    @ToolbarContentBuilder
+    private var settingItems: some ToolbarContent {
+        ToolbarItem { autoSyncToggle }
+        ToolbarItem { pointerModePicker }
+    }
+
+    private var autoSyncToggle: some View {
+        Toggle("Auto Sync", isOn: autoSync)
+            .toggleStyle(.checkbox)
+            .help(
+                "Save the .arch and .controls files when you change "
+                    + "the model, and redraw the diagram when those "
+                    + "files change on disk."
+            )
+            .accessibilityIdentifier("auto-sync")
+    }
+
+    /// Which pointing device drives both canvases.
+    private var pointerModePicker: some View {
+        Picker("Pointer", selection: pointerMode) {
+            ForEach(PointerMode.allCases) { mode in
+                Text(mode.name).tag(mode)
+            }
+        }
+        .pickerStyle(.menu)
+        .help(
+            "Trackpad: two finger scroll pans and pinch zooms. "
+                + "Mouse: the wheel zooms, Shift-wheel pans sideways, "
+                + "and a middle-button drag or a Space-drag pans."
+        )
+        .accessibilityIdentifier("pointer-mode")
     }
 
     private var chrome: some View {

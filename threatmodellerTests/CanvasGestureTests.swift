@@ -596,6 +596,88 @@ struct CanvasGestureTests {
             ) == nil
         )
     }
+
+    // MARK: the pointer mode
+
+    /// Trackpad mode is what the canvas always did: the wheel delta pans.
+    @Test func aWheelInTrackpadModePansTheDiagram() {
+        let (_, canvas, gestures) = drawn()
+
+        gestures.wheel(
+            by: CGSize(width: 30, height: -20),
+            at: CGPoint(x: 100, y: 100),
+            isShiftDown: false,
+            mode: .trackpad
+        )
+
+        #expect(canvas.transform.pan == CGSize(width: 30, height: -20))
+    }
+
+    /// Trackpad mode keeps the pinch, which is the only zoom a trackpad has.
+    @Test func aPinchZoomsTheDiagram() {
+        let (_, canvas, gestures) = drawn()
+
+        gestures.zoom(by: 1.5, about: CGPoint(x: 200, y: 200))
+
+        #expect(canvas.transform.zoom == 1.5)
+    }
+
+    /// Mouse mode reads the wheel as a zoom about the pointer, so the model
+    /// point under the pointer stays under the pointer.
+    @Test func aWheelInMouseModeZoomsTheDiagramAboutThePointer() {
+        let (_, canvas, gestures) = drawn()
+        let pointer = CGPoint(x: 300, y: 200)
+        let under = canvas.transform.modelPoint(pointer)
+
+        gestures.wheel(by: CGSize(width: 0, height: 20), at: pointer, isShiftDown: false, mode: .mouse)
+
+        #expect(canvas.transform.zoom > 1)
+        let after = canvas.transform.modelPoint(pointer)
+        #expect(abs(after.x - under.x) < 0.0001)
+        #expect(abs(after.y - under.y) < 0.0001)
+    }
+
+    @Test func aShiftWheelInMouseModePansTheDiagramSideways() {
+        let (_, canvas, gestures) = drawn()
+
+        gestures.wheel(by: CGSize(width: 0, height: 24), at: CGPoint(x: 300, y: 200), isShiftDown: true, mode: .mouse)
+
+        #expect(canvas.transform.pan == CGSize(width: 24, height: 0))
+        #expect(canvas.transform.zoom == 1)
+    }
+
+    /// A middle-button drag pans, in either mode.
+    @Test func aMiddleButtonDragPansTheDiagram() {
+        let (_, canvas, gestures) = drawn()
+
+        gestures.panStep(by: CGSize(width: 40, height: 25))
+
+        #expect(canvas.transform.pan == CGSize(width: 40, height: 25))
+        #expect(canvas.isPanning)
+
+        gestures.panStepEnded()
+
+        #expect(canvas.isPanning == false)
+    }
+
+    /// Space held down pans, even while Shift is down and even while the zone
+    /// tool is on: it is the pan a mouse user reaches for.
+    @Test func aSpaceDragPansTheDiagramWhileTheZoneToolIsOn() {
+        let (_, canvas, gestures) = drawn()
+        canvas.startDrawingZone()
+
+        gestures.backgroundDragChanged(
+            from: CGPoint(x: 10, y: 10),
+            to: CGPoint(x: 110, y: 70),
+            by: CGSize(width: 100, height: 60),
+            isShiftDown: true,
+            isSpaceDown: true
+        )
+
+        #expect(canvas.transform.pan == CGSize(width: 100, height: 60))
+        #expect(canvas.zoneDraft == nil)
+        #expect(canvas.marquee == nil)
+    }
 }
 
 /// The zoom commands the View menu runs.

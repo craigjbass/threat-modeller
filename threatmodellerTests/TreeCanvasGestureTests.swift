@@ -108,6 +108,74 @@ struct TreeCanvasGestureTests {
         #expect(canvas.transform.pan == CGSize(width: 12, height: -8))
     }
 
+    // MARK: the pointer mode
+
+    /// Trackpad mode is what the tree canvas always did: the wheel pans.
+    @Test func aWheelInTrackpadModePansTheTreeCanvas() {
+        let (_, canvas, gestures, _, _) = drawn()
+
+        gestures.wheel(
+            by: CGSize(width: 12, height: -8),
+            at: CGPoint(x: 100, y: 100),
+            isShiftDown: false,
+            mode: .trackpad
+        )
+
+        #expect(canvas.transform.pan == CGSize(width: 12, height: -8))
+    }
+
+    @Test func aWheelInMouseModeZoomsTheTreeCanvasAboutThePointer() {
+        let (_, canvas, gestures, _, _) = drawn()
+        let pointer = CGPoint(x: 260, y: 140)
+        let under = canvas.transform.modelPoint(pointer)
+
+        gestures.wheel(by: CGSize(width: 0, height: 20), at: pointer, isShiftDown: false, mode: .mouse)
+
+        #expect(canvas.transform.zoom > 1)
+        let after = canvas.transform.modelPoint(pointer)
+        #expect(abs(after.x - under.x) < 0.0001)
+        #expect(abs(after.y - under.y) < 0.0001)
+    }
+
+    @Test func aShiftWheelInMouseModePansTheTreeCanvasSideways() {
+        let (_, canvas, gestures, _, _) = drawn()
+
+        gestures.wheel(by: CGSize(width: 0, height: 24), at: CGPoint(x: 260, y: 140), isShiftDown: true, mode: .mouse)
+
+        #expect(canvas.transform.pan == CGSize(width: 24, height: 0))
+        #expect(canvas.transform.zoom == 1)
+    }
+
+    @Test func aMiddleButtonDragPansTheTreeCanvas() {
+        let (_, canvas, gestures, _, _) = drawn()
+
+        gestures.panStep(by: CGSize(width: 40, height: 25))
+
+        #expect(canvas.transform.pan == CGSize(width: 40, height: 25))
+        #expect(canvas.isPanning)
+
+        gestures.panStepEnded()
+
+        #expect(canvas.isPanning == false)
+    }
+
+    /// Space held down pans, even while Shift is down, so a mouse user never
+    /// draws a marquee when they meant to move the picture.
+    @Test func aSpaceDragPansTheTreeCanvas() {
+        let (_, canvas, gestures, _, _) = drawn()
+
+        gestures.backgroundDragChanged(
+            from: CGPoint(x: 10, y: 10),
+            to: CGPoint(x: 110, y: 70),
+            by: CGSize(width: 100, height: 60),
+            isShiftDown: true,
+            isSpaceDown: true
+        )
+
+        #expect(canvas.transform.pan == CGSize(width: 100, height: 60))
+        #expect(canvas.marquee == nil)
+    }
+
     // MARK: node drag
 
     @Test func aNodeDragHoldsEverySelectedNodeByTheModelDistance() {

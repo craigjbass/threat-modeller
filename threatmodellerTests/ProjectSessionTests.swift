@@ -587,6 +587,35 @@ struct ProjectSessionTests {
         #expect(second.isAutoSyncOn == false)
     }
 
+    // MARK: the pointer mode
+
+    /// A trackpad gives a pinch and a two finger scroll, so it is the mode a
+    /// new person starts in.
+    @Test func startsInTrackpadPointerMode() {
+        let session = ProjectSession(useCases: TestDependencies(), defaults: aTestDefaults())
+
+        #expect(session.pointerMode == .trackpad)
+    }
+
+    @Test func remembersThePointerModeForTheNextSession() {
+        let defaults = aTestDefaults()
+        let useCases = TestDependencies()
+        let first = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: defaults
+        )
+
+        first.pointerMode = .mouse
+        let second = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: defaults
+        )
+
+        #expect(second.pointerMode == .mouse)
+    }
+
     // MARK: what the last action did
 
     @Test func saysWhatTheSaveDid() async {

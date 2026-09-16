@@ -205,6 +205,18 @@ struct ThreatModelCommands: Commands {
 
             Divider()
 
+            // Which pointing device drives both canvases. A mouse has a wheel
+            // and no pinch, so it reads the wheel as a zoom.
+            Picker("Pointer", selection: pointerMode) {
+                ForEach(PointerMode.allCases) { mode in
+                    Text(mode.name).tag(mode)
+                }
+            }
+            .disabled(project == nil)
+            .accessibilityIdentifier("pointer-mode-menu")
+
+            Divider()
+
             // One key per stage, in the stage order.
             Button("Architecture") { canvas?.showStage?(.architecture) }
                 .keyboardShortcut("1", modifiers: .command)
@@ -349,6 +361,15 @@ struct ThreatModelCommands: Commands {
                 .disabled(canvas?.selectedZoneIds.isEmpty != false)
                 .accessibilityIdentifier("send-zone-to-back")
         }
+    }
+
+    /// Which pointing device drives both canvases. With no project in front
+    /// the menu shows the mode a new person starts in and writes nothing.
+    private var pointerMode: Binding<PointerMode> {
+        Binding(
+            get: { project?.pointerMode ?? .standard },
+            set: { project?.pointerMode = $0 }
+        )
     }
 
     /// Runs one zoom command on the canvas in front: the tree canvas while

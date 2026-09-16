@@ -104,7 +104,7 @@ struct ProjectColumns: View {
     /// The canvas, with room kept under it for the floating panel and the
     /// panel drawn over that room, so nothing the canvas draws hides under it.
     private var diagram: some View {
-        CanvasView(session: session, canvas: canvas)
+        CanvasView(session: session, canvas: canvas, pointerMode: project.pointerMode)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear.frame(
                     height: WorkflowPanel.reservedHeight + WorkflowPanel.bottomMargin
@@ -122,7 +122,13 @@ struct ProjectColumns: View {
     /// The tree canvas, with the same room kept under it for the floating
     /// panel that the diagram keeps.
     private var treeDiagram: some View {
-        TreeCanvas(editor: trees, canvas: treeCanvas, elements: treeElements, bound: boundTree)
+        TreeCanvas(
+            editor: trees,
+            canvas: treeCanvas,
+            elements: treeElements,
+            bound: boundTree,
+            pointerMode: project.pointerMode
+        )
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear.frame(
                     height: WorkflowPanel.reservedHeight + WorkflowPanel.bottomMargin
