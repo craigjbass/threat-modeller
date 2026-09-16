@@ -104,6 +104,114 @@ struct ModellingFromSourceTests {
         #expect(app.viewThreatModel().execute(ViewThreatModelRequest()) == first)
     }
 
+    /// A flow that states what it carries writes back the same bytes. The
+    /// builder must pass `carries` through with every other flow field.
+    @Test func writesBackAFileWhoseFlowStatesWhatItCarries() {
+        let text = """
+        system "Payments" {
+          asset "card-numbers" {
+            name           = "Card numbers"
+            classification = "restricted"
+          }
+
+          component "api" {
+            technology = "aws-ec2"
+            holds      = ["card-numbers"]
+          }
+
+          component "db" {
+            technology = "aws-rds"
+            data       = "public"
+            holds      = ["card-numbers"]
+          }
+
+          flow api -> db {
+            kind    = "network"
+            carries = ["card-numbers"]
+          }
+        }
+
+        """
+
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: text))
+
+        let exported = app.exportArchitecture().execute(ExportArchitectureRequest())
+
+        #expect(exported.text == text)
+    }
+
+    /// Editing an unrelated field on the window and saving again must not
+    /// drop what an existing flow carries.
+    @Test func keepsWhatAFlowCarriesWhenAnUnrelatedFieldChanges() {
+        let text = """
+        system "Payments" {
+          asset "card-numbers" {
+            name           = "Card numbers"
+            classification = "restricted"
+          }
+
+          component "api" {
+            technology = "aws-ec2"
+            holds      = ["card-numbers"]
+          }
+
+          component "db" {
+            technology = "aws-rds"
+            data       = "public"
+            holds      = ["card-numbers"]
+          }
+
+          flow api -> db {
+            kind    = "network"
+            carries = ["card-numbers"]
+          }
+        }
+
+        """
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: text))
+
+        // An edit to the name, which the flow's carries has nothing to do
+        // with.
+        _ = app.setComponentProperties().execute(
+            SetComponentPropertiesRequest(
+                componentId: "db",
+                name: "Database",
+                sensitivity: "public",
+                threatsDisabled: false,
+                runsAs: "user"
+            )
+        )
+
+        let exported = app.exportArchitecture().execute(ExportArchitectureRequest())
+
+        #expect(exported.text.contains("name       = \"Database\""))
+        #expect(exported.text.contains("carries = [\"card-numbers\"]"))
+        #expect(
+            app.viewThreatModel().execute(ViewThreatModelRequest())
+                .connections.first?.carries == ["card-numbers"]
+        )
+    }
+
+    /// A component that forces a shape writes back the same bytes. The
+    /// builder must pass `shape` through with every other component field.
+    @Test func writesBackAFileWhoseComponentStatesAShape() {
+        let text = """
+        system "Payments" {
+          component "cache" {
+            technology = "aws-ec2"
+            shape      = "store"
+          }
+        }
+
+        """
+
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: text))
+
+        let exported = app.exportArchitecture().execute(ExportArchitectureRequest())
+
+        #expect(exported.text == text)
+    }
+
     @Test func exportsAnAssumedEdgeTwoAssumptionsAndTheTolerance() {
         let withAnAssumption = """
         system "S" {

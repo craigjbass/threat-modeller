@@ -22,6 +22,7 @@ public enum ArchitectureSourceBuilder {
                     declaredData: component.statesOwnSensitivity
                         ? component.sensitivity.rawValue
                         : nil,
+                    shape: component.shape?.rawValue,
                     tags: component.tags
                 )
                 if let zoneId = component.zoneId,
@@ -67,6 +68,7 @@ public enum ArchitectureSourceBuilder {
                         targetId: $0.target.value,
                         kind: $0.kind.rawValue,
                         description: $0.description,
+                        carries: $0.carries,
                         tags: $0.tags
                     )
                 },
