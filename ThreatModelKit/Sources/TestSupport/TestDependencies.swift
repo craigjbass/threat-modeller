@@ -484,6 +484,14 @@ public final class TestDependencies: UseCaseFactory {
         ApplyVulnerabilityLock(models: models)
     }
 
+    /// The lookup tool this root wires, so a test states what the tool
+    /// answers and no test runs one.
+    public let vulnerabilityLookup = FakeVulnerabilityLookup()
+
+    public func lookUpVulnerabilities() -> LookUpVulnerabilitiesUseCase {
+        LookUpVulnerabilities(models: models, catalogue: catalogue, lookup: vulnerabilityLookup)
+    }
+
     public func saveSystemAnswers() -> SaveSystemAnswersUseCase {
         SaveSystemAnswers(
             projects: projects,

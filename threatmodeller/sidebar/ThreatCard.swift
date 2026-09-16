@@ -34,6 +34,10 @@ struct ThreatCard: View {
     /// lists what the file holds.
     var onRecommend: (() -> Void)?
 
+    /// Opens the CVE lookup for the component this threat is raised on, or
+    /// nil in a window that has no project to write the `.arch` file into.
+    var onLookUpVulnerabilities: (() -> Void)?
+
     /// Puts the threat's id on the clipboard, so a person can name it in a
     /// file or a ticket. A test gives its own.
     var clipboard: Clipboard = SystemClipboard()
@@ -144,6 +148,14 @@ struct ThreatCard: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("closed-by-tree-\(threat.threatKey)")
+            }
+
+            // A threat on a component may be looked up: the tool the person
+            // installed says which CVEs apply to the technology and version.
+            if let onLookUpVulnerabilities, case .component = threat.source {
+                Button("Look up CVEs\u{2026}", action: onLookUpVulnerabilities)
+                    .font(.caption)
+                    .accessibilityIdentifier("look-up-cves-\(threat.threatKey)")
             }
 
             if focus == .controls {

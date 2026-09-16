@@ -66,6 +66,8 @@ struct ThreatSidebar: View {
 
     /// The threat whose recommendations the user is writing.
     @State private var recommending: CompensatedThreat?
+    /// The threat whose component is being looked up for CVEs, or nil.
+    @State private var lookingUp: CompensatedThreat?
 
     /// The group at the top of the view. Reordering puts it back, so the
     /// place a person was reading stays on screen.
@@ -162,6 +164,11 @@ struct ThreatSidebar: View {
                         severityChoices: session.severityChoices,
                         project: project
                     )
+                }
+            }
+            .sheet(item: $lookingUp) { chosen in
+                if let project {
+                    VulnerabilityLookupSheet(threat: chosen.threat, session: session, project: project)
                 }
             }
             .sheet(item: $recommending) { chosen in
@@ -280,6 +287,12 @@ struct ThreatSidebar: View {
                                                 // with no project offers none.
                                                 onRecommend: project == nil ? nil : {
                                                     recommending = CompensatedThreat(threat: threat)
+                                                },
+                                                // The lookup writes the
+                                                // `.arch` file, so a window
+                                                // with no project offers none.
+                                                onLookUpVulnerabilities: project == nil ? nil : {
+                                                    lookingUp = CompensatedThreat(threat: threat)
                                                 }
                                             )
                                         }

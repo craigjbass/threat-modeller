@@ -1376,6 +1376,33 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// Runs the vulnerability search tool for the component a threat is
+    /// raised on. The tool is the person's own; nothing here reaches a
+    /// network.
+    func lookUpVulnerabilities(componentId: String) -> LookUpVulnerabilitiesResponse {
+        useCases.lookUpVulnerabilities().execute(LookUpVulnerabilitiesRequest(componentId: componentId))
+    }
+
+    /// Adds the picked CVE ids to the ones the component already states,
+    /// through the one writer every panel control uses.
+    func attachVulnerabilities(componentId: String, cveIds: [String]) {
+        guard let component = canvas.components.first(where: { $0.id == componentId }) else {
+            errorMessage = "That component is no longer on the model."
+            return
+        }
+        var held = component.cves
+        for cveId in cveIds where held.contains(cveId) == false { held.append(cveId) }
+        setComponentProperties(
+            componentId: componentId,
+            name: component.customName,
+            sensitivityId: component.sensitivityId,
+            threatsDisabled: component.threatsDisabled,
+            runsAsId: component.runsAsId,
+            shapeId: component.shapeOverrideId,
+            cves: held
+        )
+    }
+
     /// Writes what the four-way status control says. `implemented` records the
     /// control, exactly as the checkbox did.
     func setControlStatus(key: String, statusId: String) {

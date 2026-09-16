@@ -445,6 +445,11 @@ nonisolated final class Dependencies: UseCaseFactory {
         ApplyVulnerabilityLock(models: models)
     }
 
+    /// The one place this application runs `vulnx`.
+    func lookUpVulnerabilities() -> LookUpVulnerabilitiesUseCase {
+        LookUpVulnerabilities(models: models, catalogue: catalogue, lookup: VulnxLookup())
+    }
+
     func saveSystemAnswers() -> SaveSystemAnswersUseCase {
         SaveSystemAnswers(
             projects: projects,

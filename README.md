@@ -271,6 +271,16 @@ or above 0.2. `cve_cvss_threshold` and `cve_epss_threshold` in
 `threatmodel/policy.hcl` move the two thresholds. The JSON export writes the
 same rows as `knownVulnerabilities`.
 
+*Look up CVEs…* on a threat card runs
+[vulnx](https://github.com/projectdiscovery/vulnx) for the component the
+threat is raised on, with the technology's name and the component's version,
+and lists what came back with its CVSS, EPSS and KEV. *Attach* writes the
+picked ids onto the component. The tool is the person's own, found on their
+`PATH`; the application ships no tool and calls no network of its own for a
+lookup. A machine without it says
+`vulnx is not installed; install it with go install github.com/projectdiscovery/vulnx/cmd/vulnx@latest`.
+The command the application runs is `vulnx search --json --limit 50 <product> [<version>]`.
+
 WARNING: the NVD answers five requests in thirty seconds to a caller with no
 key, so `cve sync` waits six seconds between NVD requests after the fifth.
 `THREATMODELLER_CVE_FEEDS=<directory>` reads the three feeds from files in
