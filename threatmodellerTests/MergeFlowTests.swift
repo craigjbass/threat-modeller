@@ -175,6 +175,51 @@ struct MergeFlowTests {
         #expect(picked.resolved.tags == ["core"])
         #expect(picked.resolved.statusId == "proposed")
         #expect(picked.resolved.technologyId == "aws-rds")
+
+        // The picked values are the ones written.
+        #expect(model.mergeComponents(picked.resolved))
+        let survivor = try #require(model.canvas.components.first { $0.id == ids[1] })
+        #expect(model.canvas.components.map(\.id) == [ids[1]])
+        #expect(survivor.technologyId == "aws-rds")
+        #expect(survivor.shapeOverrideId == "actor")
+        #expect(survivor.customName == "Store")
+        #expect(survivor.sensitivityId == "restricted")
+        #expect(survivor.runsAsId == "admin")
+        #expect(survivor.holds == ["cards"])
+        #expect(survivor.zoneId == zoneId)
+        #expect(survivor.statusId == "proposed")
+        #expect(survivor.tags == ["core"])
+        #expect(survivor.providedById == "acme")
+    }
+
+    @Test func theSurvivorTakesAValuePickedFromTheOtherComponent() throws {
+        let model = ThreatModelSession(useCases: TestDependencies())
+        model.add(technologyId: "aws-ec2", x: 0, y: 0)
+        model.add(technologyId: "aws-rds", x: 300, y: 0)
+        let ids = model.canvas.components.map(\.id)
+        model.setComponentProperties(
+            componentId: ids[1],
+            name: "Store",
+            sensitivityId: "restricted",
+            threatsDisabled: false,
+            runsAsId: "admin",
+            shapeId: "store"
+        )
+
+        var draft = MergeDraft(session: model, componentIds: ids)
+        draft.pick(.technology, from: ids[1])
+        draft.pick(.shape, from: ids[1])
+        draft.pick(.name, from: ids[1])
+        draft.pick(.runsAs, from: ids[1])
+        #expect(model.mergeComponents(draft.resolved))
+
+        let survivor = try #require(model.canvas.components.first { $0.id == ids[0] })
+        #expect(model.canvas.components.map(\.id) == [ids[0]])
+        #expect(survivor.technologyId == "aws-rds")
+        #expect(survivor.shapeOverrideId == "store")
+        #expect(survivor.customName == "Store")
+        #expect(survivor.runsAsId == "admin")
+        #expect(survivor.sensitivityId == "internal")
     }
 
     // MARK: the verb and the files
