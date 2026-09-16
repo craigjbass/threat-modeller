@@ -15,6 +15,8 @@ struct ReportExporter {
         case json
         case otm
         case mermaid
+        case dot
+        case d2
         case threatcl
         case pdf
         case image
@@ -26,6 +28,8 @@ struct ReportExporter {
             case .json: "Export as JSON\u{2026}"
             case .otm: "Export as OTM\u{2026}"
             case .mermaid: "Export as Mermaid\u{2026}"
+            case .dot: "Export as DOT\u{2026}"
+            case .d2: "Export as D2\u{2026}"
             case .threatcl: "Export as threatcl\u{2026}"
             case .pdf: "Export as PDF\u{2026}"
             case .image: "Export as Image\u{2026}"
@@ -39,6 +43,8 @@ struct ReportExporter {
             case .json: .json
             case .otm: .json
             case .mermaid: UTType(filenameExtension: "mmd") ?? .plainText
+            case .dot: UTType(filenameExtension: "dot") ?? .plainText
+            case .d2: UTType(filenameExtension: "d2") ?? .plainText
             case .threatcl: UTType(filenameExtension: "hcl") ?? .plainText
             case .pdf: .pdf
             case .image: .png
@@ -75,6 +81,10 @@ struct ReportExporter {
             return session.otmExport()
         case .mermaid:
             return session.mermaidExport()
+        case .dot:
+            return session.dotExport()
+        case .d2:
+            return session.d2Export()
         case .threatcl:
             return session.threatclExport()
         case .pdf:

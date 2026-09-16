@@ -862,6 +862,42 @@ final class ThreatModelSession {
         return (Data(text.utf8), "\(FileNaming.stem(from: canvas.name)).mmd")
     }
 
+    /// The diagram as Graphviz DOT text, which Graphviz draws. The same
+    /// writer the executable's `draw --dot` verb runs.
+    func dotExport() -> (data: Data, fileName: String) {
+        let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+        let drawn = DiagramBuilder.Model(
+            components: canvas.components,
+            connections: canvas.connections,
+            zones: canvas.zones,
+            risks: ElementRiskRollup.byElement(
+                assessment.threats,
+                levelOrder: assessment.severities.map(\.id)
+            ),
+            guards: EdgeGuards.byElement(assessment.threats)
+        )
+        let text = TextDiagramWriter.dot(of: drawn)
+        return (Data(text.utf8), "\(FileNaming.stem(from: canvas.name)).dot")
+    }
+
+    /// The diagram as D2 text, which D2 draws. The same writer the
+    /// executable's `draw --d2` verb runs.
+    func d2Export() -> (data: Data, fileName: String) {
+        let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+        let drawn = DiagramBuilder.Model(
+            components: canvas.components,
+            connections: canvas.connections,
+            zones: canvas.zones,
+            risks: ElementRiskRollup.byElement(
+                assessment.threats,
+                levelOrder: assessment.severities.map(\.id)
+            ),
+            guards: EdgeGuards.byElement(assessment.threats)
+        )
+        let text = TextDiagramWriter.d2(of: drawn)
+        return (Data(text.utf8), "\(FileNaming.stem(from: canvas.name)).d2")
+    }
+
     func threatclExport() -> (data: Data, fileName: String) {
         let response = useCases.exportModelAsThreatcl().execute(ExportModelAsThreatclRequest())
         return (Data(response.hcl.utf8), response.fileName)
