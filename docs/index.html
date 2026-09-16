@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Craig's Threat Modeller — a threat model your team writes as text files in git. A macOS application and a command line executable that read .arch and .controls files, raise the threats and fail the build while one has no answer." />
+  <meta name="description" content="Craig's Threat Modeller — a threat model your team writes as text files in git. A macOS application and a command line executable that read .arch, .controls, .attacktree and .governance files, raise the threats, fail the build while one has no answer, and write a report a board reads." />
   <title>Craig's Threat Modeller — a threat model your team writes as text files in git</title>
   <style>
     /* ============================================================
@@ -280,11 +280,11 @@
     <!-- SCREENSHOT -->
     <figure class="shot">
       <img src="screenshot.png" width="1440" height="880" alt="The project window on the public-web system. The palette lists the technologies on the left. The canvas draws an end user, an edge zone holding CloudFront and a load balancer, and an application VPC holding an application server, a customer database and a document store. The sidebar on the right counts the threats by severity, says 5 of 165 controls are in place, and shows the controls of the Credential Theft threat, three of them implemented." />
-      <figcaption>// the application draws the same two files, and the sidebar answers each threat</figcaption>
+      <figcaption>// the application draws the same files, and the sidebar answers each threat</figcaption>
     </figure>
 
     <!-- STATS -->
-    <div class="stats"><span class="k">sources=</span>2  <span class="k">outputs=</span>1  <span class="k">catalogue=</span>v1.0.1  <span class="k">platforms=</span>macos+linux  <span class="k">net=</span>0</div>
+    <div class="stats"><span class="k">sources=</span>4  <span class="k">reports=</span>md+html  <span class="k">exports=</span>json+otm+threatcl  <span class="k">catalogue=</span>v1.0.1  <span class="k">platforms=</span>macos+linux  <span class="k">net=</span>0</div>
 
     <!-- DOWNLOAD -->
     <div class="sh" id="download">// download</div>
@@ -304,6 +304,8 @@
       <dd>The command line executable for Linux on x86_64. Static, so it runs in any container.</dd>
       <dt><a id="cli-linux-arm-link" href="https://github.com/craigjbass/threat-modeller/releases/latest">threatmodeller-cli-linux-aarch64.tar.gz</a></dt>
       <dd>The command line executable for Linux on aarch64.</dd>
+      <dt><a id="provenance-link" href="https://github.com/craigjbass/threat-modeller/releases/latest">threatmodeller.intoto.jsonl</a></dt>
+      <dd>The SLSA build provenance, one statement that names every file above. A <code>.sigstore</code> bundle holding the GitHub build attestation sits beside it.</dd>
     </dl>
 
     <!-- HOW IT WORKS -->
@@ -311,20 +313,21 @@
 <pre class="ascii">┌──────────┐   compile   ┌──────────────┐   check   ┌──────────┐
 │  .arch   │ ──────────▶ │  .controls   │ ────────▶ │ exit 0/1 │
 └──────────┘             └──────┬───────┘           └──────────┘
-                                │ report
+                                │ report · export
                                 ▼
-                          ┌───────────┐
-                          │    .md    │
-                          └───────────┘</pre>
+                  ┌───────────────────────────┐
+                  │  .md  .html  .json  .otm  │
+                  └───────────────────────────┘</pre>
     <ol class="steps">
-      <li>A person writes <code>payments.arch</code>: the technologies, the zones, the components and the flows.</li>
+      <li>A person writes <code>payments.arch</code>: the technologies, the zones, the components, the flows, the assets they hold and carry, and what the model leaves out.</li>
       <li><code>threatmodeller compile</code> reads the architecture, raises every threat the catalogue holds for it, and writes a stanza into <code>payments.controls</code>.</li>
-      <li>A person fills in each stanza: the status of every control, a note, and a compensating control where one applies.</li>
+      <li>A person fills in each stanza: the status of every control, a note, and a compensating control where one applies. Where an attacker needs several steps, a person writes the route into <code>payments.attacktree</code>.</li>
       <li><code>threatmodeller check</code> exits <code class="no">1</code> while a threat has no answer, so a pull request that adds a database and answers nothing fails the build.</li>
+      <li><code>threatmodeller report</code> writes a document a board reads: one verdict against the risk tolerance, the three worst residual risks, what to do first, and the full register as an appendix.</li>
     </ol>
 
-    <!-- THE TWO FILES -->
-    <div class="sh" id="files">// the two files</div>
+    <!-- THE FILES -->
+    <div class="sh" id="files">// the files</div>
     <p class="dim">threatmodel/payments.arch — a person writes it.</p>
 <pre><code>system "Payments" {
   catalogue = "v1.0.1"
@@ -369,34 +372,64 @@
 
   threat "t-mitm" on flow "attacker-&gt;api" { }
 }</code></pre>
-    <p class="dim">A threat with an empty block has no answer, and <code>check</code> exits <code class="no">1</code> until somebody writes one.</p>
+    <p class="dim">threatmodel/payments.attacktree — a person writes it, or the window does.</p>
+<pre><code>attack_trees for "Payments" {
+  catalogue = "v1.0.1"
+
+  tree "steal-an-admin-session" {
+    name           = "Steal an admin session"
+    raises_risk_by = 40
+
+    goal "t-credential-theft" on component "api"
+
+    step "t-mitm" on flow "attacker-&gt;api" {
+      note = "The login form posts over the flow the attacker sits on."
+    }
+  }
+}</code></pre>
+    <p class="dim">A threat with an empty block has no answer, and <code>check</code> exits <code class="no">1</code> until somebody writes one. An open step raises the score of the goal it leads to, and a step the model no longer raises is stale, so <code>check</code> exits <code class="no">1</code> for that too.</p>
 
     <!-- FEATURES -->
     <div class="sh" id="features">// features</div>
     <ul class="bullets">
       <li>the architecture language
-        <span class="desc">One file states the technologies, the zones, the components and the flows. The language guide states the grammar of every block and attribute.</span>
+        <span class="desc">One file states the technologies, the zones, the components and the flows. A system names its assets once, a component holds them and a flow carries them. use_case and exclusion state what the model covers and what it leaves out, a third_party block states who the system cannot run without, and a system states its owner, its authors and when it was last read again. A large system splits across files, so two teams edit one system. The language guide states the grammar of every block and attribute.</span>
       </li>
       <li>the generated controls file
-        <span class="desc">The compiler writes a stanza for every threat the architecture raises, and merges new threats into the file a person has already answered. An answer a threat no longer needs stays in the file, marked stale.</span>
+        <span class="desc">The compiler writes a stanza for every threat the architecture raises, and merges new threats into the file a person has already answered. An answer a threat no longer needs stays in the file, marked stale. A threat states what it harms, confidentiality, integrity or availability, and a control states what proves it is in place.</span>
       </li>
-      <li>likelihood findings and a risk tolerance
-        <span class="desc">A person records what they found out about how often a threat is actually exploited, with a rationale and its sources. check treats that finding as an answer once the threat's score ranks at or under the project's risk tolerance — evidence closes a threat nobody exploits, and never a high one, unless the team raises the tolerance.</span>
+      <li>attack trees
+        <span class="desc">A .attacktree file states a goal and the steps that reach it, joined by all_of and any_of. An open tree raises the score of its goal by the weakest open step, because a route is as likely as its least likely step. The report reads the route as a story, with the controls that fire along it. Attack Trees in the toolbar writes the same file, byte for byte.</span>
+      </li>
+      <li>likelihood findings, actors and a risk tolerance
+        <span class="desc">A person records what they found out about how often a threat is actually exploited, with a rationale and its sources. check treats that finding as an answer once the threat's score ranks at or under the project's risk tolerance — evidence closes a threat nobody exploits, and never a high one, unless the team raises the tolerance. A system states the threat actors it faces, an actor states the threats it performs, and attack sync puts MITRE ATT&amp;CK on this machine, so actors list --mitre names the groups a project could face.</span>
       </li>
       <li>the build gate
-        <span class="desc">The executable exits 1 for an unanswered threat, a stale answer, or a library file that does not match the lock file. A diagnostic prints as threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0.1, which an editor and a build log both read.</span>
+        <span class="desc">The executable exits 1 for an unanswered threat, a stale answer, a stale attack tree step, an accepted risk with no owner or a review date that has passed, a breach of a rule in threatmodel/policy.hcl, or a library file that does not match the lock file. A diagnostic prints as threatmodel/payments.arch:12:5: error: no technology "aws-ec3" in catalogue v1.0.1, which an editor and a build log both read. check --format github writes a line a pull request shows beside the file, and --format json writes the whole run for any other tool.</span>
       </li>
-      <li>the macOS canvas
-        <span class="desc">The application draws the same files, and Auto Sync writes the files when the model changes and redraws the diagram when a file changes on disk.</span>
-      </li>
-      <li>shared element libraries
-        <span class="desc">A team writes technologies, threats and controls into a .lib file and shares it. The label prefixes every id it declares, so two teams cannot clash. library.lock.json records the repository, the tag and the sha256 of each file.</span>
+      <li>governance and policy
+        <span class="desc">An accepted risk states who carries it, when they took it and when they read it again, in a .governance file. A project states its own rules in threatmodel/policy.hcl: how many threats may stay open at a level, whether an accepted risk needs an owner and a review date, and whether an implemented control above a risk level must say what proves it. check reports each breach naming the rule.</span>
       </li>
       <li>a fixed scoring order
-        <span class="desc">Base severity, the zone reduction, the controls answered, the pathway mitigation, a component that mitigates the threat, a likelihood finding, then one compensating control. Two mitigations at the same stage give the stronger of the two, not the sum, and a threat also carries a target score for what it would owe if every assumed mitigation held.</span>
+        <span class="desc">Base severity, the zone reduction, the controls answered, the pathway mitigation, a component that mitigates the threat, a likelihood finding, one compensating control, then an open attack tree that raises its goal. Two mitigations at the same stage give the stronger of the two, not the sum, and a threat also carries a target score for what it would owe if every assumed mitigation held. The report states its own arithmetic: the scale, the stages and a glossary of every word it uses.</span>
       </li>
-      <li>markdown reports
-        <span class="desc">threatmodeller report writes one .md file for each system, with a picture of each top residual threat and of each control beside it. threatmodeller report --html writes the same report as one page that holds every picture, which opens in a browser and prints to A4 as a PDF. A report is an artefact, so a synchronise does not write it.</span>
+      <li>a report a board reads
+        <span class="desc">threatmodeller report writes one .md file for each system. An executive summary opens it, what needs action reads first, and the full threat register and the model inventory are appendices. threatmodeller report --html writes the same report as one page that holds every picture, which opens in a browser and prints to A4 as a PDF. report --template renders the report through a Markdown file a team writes, with named slots and no logic, and its front matter states a classification banner and a cover. threatmodeller history says what the model scored at each commit that touched it, and the report draws the risk over time. A report is an artefact, so a synchronise does not write it.</span>
+      </li>
+      <li>the model as data
+        <span class="desc">threatmodeller export writes the assessed model as JSON against a published, versioned JSON Schema, as an Open Threat Model file, or as HCL the current threatcl specification accepts, and --stdout feeds a pipeline. threatmodeller list says what each system holds and what it scores, with --fields, --sort and --json for a dashboard. draw --mermaid, --dot and --d2 write the diagram as text a wiki renders and a diff reads, and report --diagram mermaid embeds it.</span>
+      </li>
+      <li>an assistant and an editor
+        <span class="desc">threatmodeller mcp serves the Model Context Protocol, so an assistant reads the assessed model, runs check, describes a threat and lists the open threats above a level, through the same verbs a person runs. It writes nothing without --allow-writes. threatmodeller lsp speaks the Language Server Protocol: the parser's diagnostics at the line they belong to, completion for technology ids, threat ids, controls, zones and attributes, hover, go to definition and formatting.</span>
+      </li>
+      <li>import from Terraform
+        <span class="desc">threatmodeller import terraform draws what terraform show -json states: 40 AWS and 25 Google Cloud resource types, VPCs and subnets as zones, security group rules as flows. A second import writes the same bytes, and an element a person wrote is never removed.</span>
+      </li>
+      <li>the macOS canvas
+        <span class="desc">The application draws the same files in three stages, Architecture, Threats and Controls, and Auto Sync writes the files when the model changes and redraws the diagram when a file changes on disk. The threat list has a search field, a filter and groups, and holds its order while a person answers it. A secondary click opens a menu on whatever is under the pointer, the diagram copies as a picture, and a large model draws while it opens.</span>
+      </li>
+      <li>shared element libraries
+        <span class="desc">A team writes technologies, threats, mitigations, actors, categories, severities and classification schemes into a .lib file and shares it, and a library may change what the catalogue says about a threat. The label prefixes every id it declares, so two teams cannot clash. library.lock.json records the repository, the tag and the sha256 of each file, and Browse Index lists the libraries an index holds.</span>
       </li>
       <li>your own git, no credential
         <span class="desc">The application runs git as a child process, so a private repository works through the ssh-agent key and the credential helper you already have. This application holds no credential, reads none and prompts for none.</span>
@@ -414,16 +447,18 @@
           <li>The diagram and the code drift apart, and nothing measures the distance.</li>
           <li>The answer to a threat lives in a spreadsheet beside it, or in nobody's head.</li>
           <li>The build knows nothing about the model.</li>
+          <li>No other tool reads the model.</li>
         </ul>
       </div>
       <div>
         <h4>Craig's Threat Modeller</h4>
         <ul>
-          <li>The model is two text files beside the code.</li>
+          <li>The model is text files beside the code.</li>
           <li>A reviewer reads the diff, line by line, in the pull request.</li>
           <li>A new component raises its threats the moment the file changes.</li>
           <li>The answer to a threat sits in the .controls file, with a note and a status.</li>
           <li>The build fails while a threat has no answer.</li>
+          <li>export, mcp and lsp hand the model to a pipeline, an assistant and an editor.</li>
         </ul>
       </div>
     </div>
@@ -438,7 +473,7 @@
 <span class="p">$</span> ln -sf "$PWD/threatmodeller" ~/.local/bin/threatmodeller
 <span class="p">$</span> export PATH="$HOME/.local/bin:$PATH"</pre>
     <p class="dim">In continuous integration:</p>
-<pre class="shell"><span class="p">$</span> threatmodeller library verify &amp;&amp; threatmodeller check</pre>
+<pre class="shell"><span class="p">$</span> threatmodeller library verify &amp;&amp; threatmodeller check --format github</pre>
     <p class="dim">The application installs the same executable: <em>threatmodeller ▸ Install Command Line Tool…</em> writes a link in <code>~/.local/bin</code>, and asks for no password.</p>
 
     <div class="foot">
@@ -459,7 +494,8 @@
     { id: 'dmg-link',            pattern: /\.dmg$/i },
     { id: 'cli-macos-link',      pattern: /-macos\.tar\.gz$/i },
     { id: 'cli-linux-x86-link',  pattern: /-linux-x86_64\.tar\.gz$/i },
-    { id: 'cli-linux-arm-link',  pattern: /-linux-aarch64\.tar\.gz$/i }
+    { id: 'cli-linux-arm-link',  pattern: /-linux-aarch64\.tar\.gz$/i },
+    { id: 'provenance-link',     pattern: /\.intoto\.jsonl$/i }
   ];
   fetch('https://api.github.com/repos/craigjbass/threat-modeller/releases?per_page=1', { headers: { Accept: 'application/vnd.github+json' } })
     .then(function(r){ return r.ok ? r.json() : null; })
