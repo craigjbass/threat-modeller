@@ -128,68 +128,6 @@ struct WindowLayoutTests {
         }
     }
 
-    /// The floating panel sits above whichever selection panel is shown, so
-    /// the two never cover each other. Each panel is measured at the width the
-    /// canvas column has.
-    @Test func theFloatingPanelNeverCoversASelectionPanel() async throws {
-        let model = ThreatModelSession(useCases: TestDependencies())
-        model.add(technologyId: "aws-ec2", x: 0, y: 0)
-        model.add(technologyId: "aws-rds", x: 400, y: 0)
-        let components = model.canvas.components
-        model.connect(
-            sourceComponentId: components[0].id,
-            targetComponentId: components[1].id
-        )
-        let connection = try #require(model.canvas.connections.first)
-        _ = model.addZone(x: 0, y: 0, width: 400, height: 300)
-        let zone = try #require(model.canvas.zones.first)
-
-        let panels: [(String, AnyView)] = [
-            ("component", AnyView(ComponentPanel(session: model, component: components[0]))),
-            ("zone", AnyView(ZonePanel(session: model, zone: zone))),
-            ("connection", AnyView(ConnectionPanel(session: model, connection: connection))),
-            (
-                "mitigates",
-                AnyView(
-                    MitigatesPanel(
-                        session: model,
-                        source: components[0],
-                        target: components[1]
-                    )
-                )
-            )
-        ]
-
-        let column = CGRect(x: 0, y: 0, width: 700, height: 800)
-        let project = await aDrawnProject()
-        let floating = NSHostingView(
-            rootView: WorkflowPanel(session: project, stage: .constant(.architecture))
-        ).fittingSize
-
-        for (name, panel) in panels {
-            let hosting = NSHostingView(rootView: panel)
-            hosting.frame = NSRect(x: 0, y: 0, width: column.width, height: 0)
-            let height = hosting.fittingSize.height
-            #expect(height > 0, "the \(name) panel measured no height")
-
-            let selection = WorkflowPanel.selectionPanelRect(in: column, height: height)
-            let above = WorkflowPanel.rect(in: column, panelSize: floating, liftedBy: height)
-
-            #expect(
-                above.intersects(selection) == false,
-                "the floating panel at \(above) covers the \(name) panel at \(selection)"
-            )
-            #expect(
-                selection.minY - above.maxY == WorkflowPanel.gapAboveSelectionPanel,
-                "the gap above the \(name) panel is \(selection.minY - above.maxY)"
-            )
-        }
-
-        // With no selection panel the floating panel returns to the margin.
-        let alone = WorkflowPanel.rect(in: column, panelSize: floating, liftedBy: 0)
-        #expect(column.maxY - alone.maxY == WorkflowPanel.bottomMargin)
-    }
-
     /// The threats stage draws the diagram on the left and the threat list on
     /// the right, each reaching its own edge of the window, and the two never
     /// overlap.
@@ -254,62 +192,147 @@ struct WindowLayoutTests {
         #expect(WorkflowPanel.reservedHeight >= floating.height)
     }
 
-    /// The columns never cover the selection panel. Each panel scrolls its
-    /// controls inside the canvas column, so nothing draws under the
-    /// assumptions column, even when the closed palette leaves the canvas
-    /// narrow and the selected element's row is wider than the column.
-    @Test func theColumnsNeverCoverTheSelectionPanel() async throws {
+    /// The right sidebar holds the editor for the selected element, at the
+    /// column's own width.
+    ///
+    /// The bar under the canvas never took the diagram column's width, at any
+    /// window size and with the palette either way, because SwiftUI spreads a
+    /// scroller across the leading safe area the floating palette states. The
+    /// editor now sits in the detail column, which has no such safe area.
+    ///
+    /// The column draws the default content and the editor in one stack, so
+    /// the column holds one scroller while nothing is selected and two while
+    /// an editor is in front. The editor is the second.
+    @Test func theRightSidebarHoldsTheEditorForTheSelectedElement() async throws {
         let project = await aFlowProject()
-        project.paletteColumns = .doubleColumn
         let model = try #require(project.model)
-        let components = model.canvas.components
-        _ = model.addZone(x: 0, y: 0, width: 200, height: 150)
-        let zone = try #require(model.canvas.zones.first)
-        let connection = try #require(model.canvas.connections.first)
+        let component = try #require(model.canvas.components.first)
 
-        let selections: [(String, (CanvasState) -> Void)] = [
-            ("component", { $0.select(componentId: components[0].id, addingToSelection: false) }),
-            ("connection", { $0.select(connectionId: connection.id, addingToSelection: false) }),
-            ("zone", { $0.select(componentIds: [], zoneIds: [zone.id]) }),
-            ("mitigates", { $0.select(componentIds: [components[0].id, components[1].id]) })
-        ]
+        for width in [900.0, 1200.0, 1400.0] {
+            for palette in [NavigationSplitViewVisibility.all, .detailOnly] {
+                project.paletteColumns = palette
+                let shown = PaletteColumn.isShowing(palette) ? "shown" : "hidden"
+                let canvas = CanvasState()
+                canvas.select(componentId: component.id, addingToSelection: false)
 
-        for (name, select) in selections {
-            let canvas = CanvasState()
-            select(canvas)
-            let window = laidOut(
-                ProjectColumns(
-                    project: project,
-                    session: model,
-                    canvas: canvas,
-                    stage: .constant(.architecture)
-                ),
-                width: 940
-            )
-            let content = try #require(window.contentView)
-            let split = try #require(columns(in: content))
-            let pane = split.arrangedSubviews[1].convert(
-                split.arrangedSubviews[1].bounds, to: nil
-            )
-            let detail = split.arrangedSubviews[2].convert(
-                split.arrangedSubviews[2].bounds, to: nil
-            )
-            let panelView = try #require(
-                selectionPanel(in: split.arrangedSubviews[1]),
-                "no \(name) panel in the canvas column"
-            )
-            let panel = panelView.convert(panelView.bounds, to: nil)
+                let window = laidOut(
+                    ProjectColumns(
+                        project: project,
+                        session: model,
+                        canvas: canvas,
+                        stage: .constant(.architecture)
+                    ),
+                    width: width
+                )
 
-            #expect(panel.width > 0, "the \(name) panel measured no width")
-            #expect(
-                panel.maxX <= pane.maxX + 0.5,
-                "the \(name) panel at \(panel) leaves its column \(pane)"
-            )
-            #expect(
-                panel.intersects(detail) == false,
-                "the assumptions column at \(detail) covers the \(name) panel at \(panel)"
-            )
+                let (sidebar, scrollers) = try sidebarScrollers(in: window)
+                #expect(
+                    scrollers.count == 2,
+                    "the sidebar holds \(scrollers.count) scrollers with a component selected at \(width), palette \(shown)"
+                )
+                let editorView = try #require(scrollers.last, "no editor at \(width)")
+                let editor = editorView.convert(editorView.bounds, to: nil)
+
+                #expect(
+                    abs(editor.minX - sidebar.minX) <= 1,
+                    "the editor starts at \(editor.minX) and the sidebar at \(sidebar.minX), palette \(shown)"
+                )
+                #expect(
+                    abs(editor.width - sidebar.width) <= 1,
+                    "the editor is \(editor.width) wide in a sidebar of \(sidebar.width), palette \(shown)"
+                )
+
+                // The window is resized with the editor on screen.
+                resize(window, to: width - 200)
+                let (resizedSidebar, resizedScrollers) = try sidebarScrollers(in: window)
+                let resizedEditorView = try #require(
+                    resizedScrollers.last,
+                    "no editor after the resize at \(width)"
+                )
+                let resizedEditor = resizedEditorView.convert(resizedEditorView.bounds, to: nil)
+                #expect(
+                    abs(resizedEditor.width - resizedSidebar.width) <= 1,
+                    "the editor is \(resizedEditor.width) wide in a sidebar of \(resizedSidebar.width) after the resize"
+                )
+
+                // Deselecting puts the default content back.
+                canvas.clearSelection()
+                settle(window)
+                let (_, afterScrollers) = try sidebarScrollers(in: window)
+                #expect(
+                    afterScrollers.count == 1,
+                    "the sidebar holds \(afterScrollers.count) scrollers after the selection is cleared at \(width)"
+                )
+            }
         }
+    }
+
+    /// The default content stays in the view tree while an editor is in
+    /// front, so its scroll position is the one it had when the person
+    /// deselects. A view that is removed and built again starts at the top.
+    @Test func theDefaultContentStaysInTheTreeWhileAnEditorIsInFront() async throws {
+        let project = await aFlowProject()
+        let model = try #require(project.model)
+        let component = try #require(model.canvas.components.first)
+        let canvas = CanvasState()
+
+        let window = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: canvas,
+                stage: .constant(.architecture)
+            ),
+            width: 1200
+        )
+        let (_, empty) = try sidebarScrollers(in: window)
+        let defaultContent = try #require(empty.first, "no default content in the sidebar")
+        #expect(empty.count == 1, "the sidebar holds \(empty.count) scrollers with nothing selected")
+
+        canvas.select(componentId: component.id, addingToSelection: false)
+        settle(window)
+        let (_, editing) = try sidebarScrollers(in: window)
+
+        #expect(editing.count == 2, "the sidebar holds \(editing.count) scrollers with an editor in front")
+        #expect(
+            editing.first === defaultContent,
+            "the default content left the view tree, so its scroll position is lost"
+        )
+    }
+
+    /// Two or more selected elements draw the multi-selection view, and it
+    /// offers Merge for two components.
+    @Test func theSidebarShowsTheMultiSelectionViewForTwoComponents() async throws {
+        let project = await aFlowProject()
+        let model = try #require(project.model)
+        let canvas = CanvasState()
+        canvas.select(componentIds: model.canvas.components.map(\.id))
+
+        let window = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: canvas,
+                stage: .constant(.architecture)
+            ),
+            width: 1200
+        )
+        let (sidebar, scrollers) = try sidebarScrollers(in: window)
+
+        #expect(
+            scrollers.count == 2,
+            "the sidebar holds \(scrollers.count) scrollers with two components selected"
+        )
+        let viewView = try #require(scrollers.last)
+        let view = viewView.convert(viewView.bounds, to: nil)
+        #expect(abs(view.width - sidebar.width) <= 1)
+
+        guard case .several(let several) = CanvasSelection.of(session: model, canvas: canvas) else {
+            Issue.record("two components show no multi-selection view")
+            return
+        }
+        #expect(several.counts == ["2 components"])
+        #expect(several.offersMerge, "the sidebar offers no Merge for two components")
     }
 
     /// Closing the palette widens the canvas, not the assumptions: the detail
@@ -474,9 +497,9 @@ struct WindowLayoutTests {
 
     /// The controls that float over the diagram follow the diagram column.
     ///
-    /// The person drags the divider of the threats stage. The canvas toolbar,
-    /// the workflow panel and the selection panel each have to fit the column
-    /// at its new width, so none of them draws over the threat sidebar.
+    /// The person drags the divider of the threats stage. The canvas toolbar
+    /// and the workflow panel each have to fit the column at its new width,
+    /// so neither of them draws over the threat sidebar.
     @Test func theFloatingControlsFitTheDiagramColumnAtEveryDividerPosition() async throws {
         let project = await aTaggedProject()
         let model = try #require(project.model)
@@ -520,12 +543,6 @@ struct WindowLayoutTests {
                 "no tag filter menu at \(column.width)"
             )
 
-            let selectionView = try #require(
-                selectionPanel(in: pane),
-                "no selection panel at \(column.width)"
-            )
-            let selection = selectionView.convert(selectionView.bounds, to: nil)
-
             #expect(
                 column.minX <= toolbar.minX && toolbar.maxX <= column.maxX,
                 "the canvas toolbar at \(toolbar) leaves the column \(column)"
@@ -548,98 +565,78 @@ struct WindowLayoutTests {
                 "the workflow panel at \(panel) is off centre in \(column)"
             )
             #expect(
-                column.minX <= selection.minX && selection.maxX <= column.maxX,
-                "the selection panel at \(selection) leaves the column \(column)"
-            )
-            #expect(
-                selection.intersects(sidebar) == false,
-                "the selection panel at \(selection) covers the threat sidebar at \(sidebar)"
-            )
-            #expect(
                 abs(drawing.width - column.width) <= 1,
                 "the canvas is \(drawing.width) wide in a column of \(column.width)"
             )
         }
     }
 
-    /// The Controls stage draws no selection panel, so the floating panel
-    /// keeps the plain margin there, even after a component stays selected on
-    /// the Architecture stage. Switching back to Architecture lifts the panel
-    /// over the selection panel again.
-    @Test func theFloatingPanelDropsItsLiftOnTheControlsStage() async throws {
+    /// The workflow panel sits `bottomMargin` above the bottom of the column
+    /// it floats over, on every stage, whatever is selected. Nothing is drawn
+    /// under the canvas any more, so the panel has nothing to lift over.
+    @Test func theWorkflowPanelKeepsTheMarginOnEveryStage() async throws {
         let project = await aFlowProject()
         let model = try #require(project.model)
         let canvas = CanvasState()
         canvas.select(componentId: model.canvas.components[0].id, addingToSelection: false)
 
-        // Architecture, with a component selected: the canvas measures the
-        // selection panel and writes its height onto the canvas.
-        _ = laidOut(
-            ProjectColumns(
-                project: project,
-                session: model,
-                canvas: canvas,
-                stage: .constant(.architecture)
+        for stage in [WorkStage.architecture, .controls] {
+            let window = laidOut(
+                ProjectColumns(
+                    project: project,
+                    session: model,
+                    canvas: canvas,
+                    stage: .constant(stage)
+                )
             )
-        )
-        #expect(canvas.selectionPanelHeight > 0, "the selection panel measured no height")
-
-        // Controls, with the same canvas: the stage draws no selection panel,
-        // so the floating panel keeps the plain margin.
-        let controlsWindow = laidOut(
-            ProjectColumns(
-                project: project,
-                session: model,
-                canvas: canvas,
-                stage: .constant(.controls)
+            let content = try #require(window.contentView)
+            var takers: [NSRect] = []
+            dropTakers(in: content, into: &takers)
+            // The canvas is the tall drop taker and the workflow panel the
+            // short one. The Controls stage draws no canvas at all.
+            let panel = try #require(
+                takers.sorted(by: { $0.height < $1.height }).first,
+                "no workflow panel on the \(stage) stage"
             )
-        )
-        let controlsContent = try #require(controlsWindow.contentView)
-        var controlsTakers: [NSRect] = []
-        dropTakers(in: controlsContent, into: &controlsTakers)
-        let controlsPanel = try #require(
-            controlsTakers.first, "no workflow panel on the Controls stage"
-        )
-        let controlsColumn = controlsContent.convert(controlsContent.bounds, to: nil)
+            let column = content.convert(content.bounds, to: nil)
 
-        #expect(
-            abs((controlsPanel.minY - controlsColumn.minY) - WorkflowPanel.bottomMargin) < 0.5,
-            "the panel sits \(controlsPanel.minY - controlsColumn.minY) above the bottom on the Controls stage"
-        )
-
-        // Back on Architecture, with the same canvas: the panel lifts over
-        // the selection panel again.
-        let architectureWindow = laidOut(
-            ProjectColumns(
-                project: project,
-                session: model,
-                canvas: canvas,
-                stage: .constant(.architecture)
+            #expect(
+                abs((panel.minY - column.minY) - WorkflowPanel.bottomMargin) < 0.5,
+                "the panel sits \(panel.minY - column.minY) above the bottom on the \(stage) stage"
             )
-        )
-        let architectureContent = try #require(architectureWindow.contentView)
-        var architectureTakers: [NSRect] = []
-        dropTakers(in: architectureContent, into: &architectureTakers)
-        // The canvas is the tall one and the workflow panel the short one.
-        let architecturePanel = try #require(
-            architectureTakers.sorted(by: { $0.height < $1.height }).first,
-            "no workflow panel on the Architecture stage"
-        )
-        let architectureColumn = architectureContent.convert(architectureContent.bounds, to: nil)
-
-        #expect(
-            architecturePanel.minY - architectureColumn.minY > WorkflowPanel.bottomMargin,
-            "the panel sits at the plain margin on the Architecture stage with a selection shown"
-        )
+        }
     }
 
-    /// The selection panel: the one scroller the canvas column holds.
-    private func selectionPanel(in view: NSView) -> NSScrollView? {
-        if let scroll = view as? NSScrollView { return scroll }
-        for child in view.subviews {
-            if let found = selectionPanel(in: child) { return found }
-        }
-        return nil
+    /// The detail column of the architecture split, and every scroller in it
+    /// in the order the column stacks them: the default content first, and
+    /// the selection editor second while one is in front.
+    private func sidebarScrollers(in window: NSWindow) throws -> (NSRect, [NSScrollView]) {
+        let content = try #require(window.contentView)
+        let split = try #require(columns(in: content))
+        let detail = try #require(split.arrangedSubviews.last)
+        var found: [NSScrollView] = []
+        scrollers(in: detail, into: &found)
+        return (detail.convert(detail.bounds, to: nil), found)
+    }
+
+    private func scrollers(in view: NSView, into found: inout [NSScrollView]) {
+        if let scroll = view as? NSScrollView { found.append(scroll) }
+        for child in view.subviews { scrollers(in: child, into: &found) }
+    }
+
+    /// Lets AppKit lay the window out again after a change.
+    private func settle(_ window: NSWindow) {
+        window.contentView?.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        window.contentView?.layoutSubtreeIfNeeded()
+    }
+
+    /// Resizes the window with what it draws already on screen.
+    private func resize(_ window: NSWindow, to width: Double) {
+        guard let content = window.contentView else { return }
+        content.frame = NSRect(x: 0, y: 0, width: width, height: content.frame.height)
+        window.setContentSize(content.frame.size)
+        settle(window)
     }
 
     private func laidOut(_ view: some View, width: Double) -> NSWindow {

@@ -50,6 +50,24 @@ struct ViewRenderTests {
         return false
     }
 
+    /// Draws a view the way AppKit draws it, then states it drew something.
+    ///
+    /// `ImageRenderer` draws nothing inside a `ScrollView`, and every
+    /// selection editor is a scrolling column, so those are hosted in a
+    /// window instead.
+    private func expectHosted(
+        _ view: some View,
+        width: Double = 360,
+        height: Double = 700,
+        _ what: String
+    ) {
+        guard let drawn = hostedDrawing(of: view, width: width, height: height) else {
+            Issue.record("\(what) drew nothing at all")
+            return
+        }
+        #expect(hasContent(drawn.image), "\(what) drew a blank rectangle")
+    }
+
     private func expectDrawn(
         _ view: some View,
         width: Double = 900,
@@ -332,20 +350,38 @@ struct ViewRenderTests {
         #expect(hasContent(panel))
     }
 
-    /// The panel floats above a selection panel, so the two never cover each
-    /// other. Each of the four selection panels is a different height.
-    @Test func drawsTheFloatingPanelLiftedAboveASelectionPanel() async throws {
-        let session = await aDrawnProject()
+    /// The right sidebar draws one of two views: the default content, the
+    /// editor for the one selected element, or the multi-selection view.
+    @Test func drawsTheRightSidebarInEachOfItsStates() throws {
+        let session = aModel()
+        session.addAtDefaultPoint(technologyId: "aws-rds")
+        let components = session.canvas.components
+        let component = try #require(components.first)
 
-        let lifted = try #require(
-            draw(
-                WorkflowPanel(session: session, stage: .constant(.architecture), liftedBy: 60),
-                width: 900,
-                height: 200
-            )
+        expectHosted(
+            SelectionSidebar(session: session, canvas: CanvasState()),
+            width: 360,
+            height: 700,
+            "the sidebar with the default content"
         )
 
-        #expect(hasContent(lifted))
+        let one = CanvasState()
+        one.select(componentId: component.id, addingToSelection: false)
+        expectHosted(
+            SelectionSidebar(session: session, canvas: one),
+            width: 360,
+            height: 700,
+            "the sidebar with a component editor"
+        )
+
+        let both = CanvasState()
+        both.select(componentIds: components.map(\.id))
+        expectHosted(
+            SelectionSidebar(session: session, canvas: both),
+            width: 360,
+            height: 700,
+            "the sidebar with the multi-selection view"
+        )
     }
 
     // MARK: the Libraries sheet
@@ -761,10 +797,10 @@ struct ViewRenderTests {
         let session = aModel()
         let component = try #require(session.canvas.components.first)
 
-        expectDrawn(
+        expectHosted(
             ComponentPanel(session: session, component: component),
-            width: 900,
-            height: 60,
+            width: 360,
+            height: 700,
             "the node panel"
         )
     }
@@ -773,10 +809,10 @@ struct ViewRenderTests {
         let session = aModel()
         let zone = try #require(session.canvas.zones.first)
 
-        expectDrawn(
+        expectHosted(
             ZonePanel(session: session, zone: zone),
-            width: 900,
-            height: 60,
+            width: 360,
+            height: 700,
             "the zone panel"
         )
     }
@@ -791,10 +827,10 @@ struct ViewRenderTests {
         )
         let connection = try #require(session.canvas.connections.first)
 
-        expectDrawn(
+        expectHosted(
             ConnectionPanel(session: session, connection: connection),
-            width: 900,
-            height: 60,
+            width: 360,
+            height: 700,
             "the connection panel"
         )
     }

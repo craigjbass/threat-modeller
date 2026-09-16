@@ -1,7 +1,7 @@
 import SwiftUI
 import ThreatModelKit
 
-/// The bar under the canvas, shown while exactly one node is selected.
+/// The editor in the right sidebar, shown while exactly one node is selected.
 ///
 /// Every control writes through `SetComponentProperties` and the threat list
 /// rescores, so the user sees what a sensitivity costs as they change it.
@@ -37,30 +37,26 @@ struct ComponentPanel: View {
     ]
 
     var body: some View {
-        // The controls scroll sideways. Their widths are fixed and they need
-        // 1658 points; the canvas column can be 400. Without the scroll the
-        // row reflowed and the bar grew to 208 points, taking that height
-        // from the diagram above it.
-        ScrollView(.horizontal) {
+        SelectionEditor(title: "This component", identifier: "component-panel") {
             controls
         }
-        .scrollIndicators(.never)
-        .background(.bar)
     }
 
+    @ViewBuilder
     private var controls: some View {
-        HStack(alignment: .center, spacing: 16) {
+        SelectionField("Name") {
             DeferredTextField(
                 title: "Name",
                 text: component.customName ?? "",
-                width: 200,
                 identifier: "component-name",
                 commit: { write(name: $0) }
             )
+        }
 
-            // A component drawn with the wrong technology is changed here
-            // rather than deleted and drawn again, which used to lose its
-            // name, its place, its flows and every answer on it.
+        // A component drawn with the wrong technology is changed here
+        // rather than deleted and drawn again, which used to lose its
+        // name, its place, its flows and every answer on it.
+        SelectionField("Technology") {
             Picker("Technology", selection: technology) {
                 ForEach(session.technologyChoices, id: \.provider) { group in
                     Section(group.provider) {
@@ -69,44 +65,49 @@ struct ComponentPanel: View {
                 }
             }
             .labelsHidden()
-            .frame(width: 200)
             .accessibilityIdentifier("component-technology")
+        }
 
+        SelectionField("Shape") {
             Picker("Shape", selection: shape) {
                 ForEach(Self.shapes, id: \.0) { Text(label(forShape: $0.0, $0.1)).tag($0.0) }
             }
             .labelsHidden()
-            .frame(width: 170)
             .accessibilityIdentifier("component-shape")
+        }
 
-            // A model of a planned change draws both kinds on one canvas.
-            // The canvas draws a proposed component with a broken outline.
+        // A model of a planned change draws both kinds on one canvas.
+        // The canvas draws a proposed component with a broken outline.
+        SelectionField("Status") {
             Picker("Status", selection: status) {
                 ForEach(Self.statuses, id: \.0) { Text($0.1).tag($0.0) }
             }
             .labelsHidden()
-            .frame(width: 130)
             .accessibilityIdentifier("component-status")
+        }
 
+        SelectionField("Sensitivity") {
             Picker("Sensitivity", selection: sensitivity) {
                 ForEach(session.classificationChoices, id: \.id) {
                     Text($0.label).tag($0.id)
                 }
             }
             .labelsHidden()
-            .frame(width: 160)
             .accessibilityIdentifier("component-sensitivity")
+        }
 
+        SelectionField("Runs as") {
             Picker("Runs as", selection: runsAs) {
                 ForEach(Self.privileges, id: \.0) { Text($0.1).tag($0.0) }
             }
             .labelsHidden()
-            .frame(width: 150)
             .accessibilityIdentifier("component-runs-as")
+        }
 
-            // The assets a system declares are a multiple choice: a component
-            // holds none, one or many, and the menu states which.
-            if session.canvas.systemAssets.isEmpty == false {
+        // The assets a system declares are a multiple choice: a component
+        // holds none, one or many, and the menu states which.
+        if session.canvas.systemAssets.isEmpty == false {
+            SelectionField("Holds") {
                 Menu {
                     ForEach(session.canvas.systemAssets, id: \.id) { asset in
                         Toggle(asset.name, isOn: holds(asset.id))
@@ -114,62 +115,63 @@ struct ComponentPanel: View {
                 } label: {
                     Text(heldLabel)
                 }
-                .frame(width: 200)
                 .accessibilityIdentifier("component-holds")
             }
+        }
 
-            // A component another company runs states which one. The picker
-            // is only there when the system declares a third party, so a
-            // model with none keeps the bar at the width it had.
-            if session.canvas.thirdParties.isEmpty == false {
+        // A component another company runs states which one. The picker
+        // is only there when the system declares a third party, so a
+        // model with none keeps the editor at the rows it had.
+        if session.canvas.thirdParties.isEmpty == false {
+            SelectionField("Provided by") {
                 Picker("Provided by", selection: provider) {
                     ForEach(providerChoices, id: \.id) { Text($0.label).tag($0.id) }
                 }
                 .labelsHidden()
-                .frame(width: 200)
                 .accessibilityIdentifier("component-provided-by")
             }
+        }
 
-            // The tags a component is filed under, as one line. The canvas
-            // tag filter draws the view a tag names.
+        // The tags a component is filed under, as one line. The canvas
+        // tag filter draws the view a tag names.
+        SelectionField("Tags") {
             DeferredTextField(
                 title: "Tags",
                 text: tagsText,
-                width: 200,
                 identifier: "component-tags",
                 commit: { commitTags($0) }
             )
+        }
 
-            // The version the component runs and the CVEs that version
-            // carries. A known exploited CVE raises every threat on the
-            // component; the threat card names each one.
+        // The version the component runs and the CVEs that version
+        // carries. A known exploited CVE raises every threat on the
+        // component; the threat card names each one.
+        SelectionField("Version") {
             DeferredTextField(
                 title: "Version",
                 text: component.version,
-                width: 110,
                 identifier: "component-version",
                 commit: { commitVersion($0) }
             )
+        }
 
+        SelectionField("CVEs") {
             DeferredTextField(
                 title: "CVEs",
                 text: cvesText,
-                width: 220,
                 identifier: "component-cves",
                 commit: { commitCves($0) }
             )
-
-            Toggle("Raise threats", isOn: threatsRaised)
-                .toggleStyle(.switch)
-                .accessibilityIdentifier("component-threats-raised")
-
-            Button("Focus") { canvas.focus(componentId: component.id) }
-                .accessibilityIdentifier("component-focus")
-
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, CanvasView.windowEdgeMargin)
-        .padding(.vertical, 8)
+
+        Divider()
+
+        Toggle("Raise threats", isOn: threatsRaised)
+            .toggleStyle(.switch)
+            .accessibilityIdentifier("component-threats-raised")
+
+        Button("Focus") { canvas.focus(componentId: component.id) }
+            .accessibilityIdentifier("component-focus")
     }
 
     /// The line the tag field shows: every tag the component holds, separated

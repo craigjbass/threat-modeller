@@ -1,7 +1,7 @@
 import SwiftUI
 import ThreatModelKit
 
-/// The bar under the canvas, shown while exactly one user is selected.
+/// The editor in the right sidebar, shown while exactly one user is selected.
 ///
 /// Every control writes through `SetUserProperties`, so the `.arch` file
 /// holds the `user` block on the next save. The user block design states the
@@ -16,41 +16,43 @@ struct UserPanel: View {
     static let noActor = ""
 
     var body: some View {
-        ScrollView(.horizontal) {
+        SelectionEditor(title: "This user", identifier: "user-panel") {
             controls
         }
-        .scrollIndicators(.never)
-        .background(.bar)
     }
 
+    @ViewBuilder
     private var controls: some View {
-        HStack(alignment: .center, spacing: 16) {
+        SelectionField("Name") {
             DeferredTextField(
                 title: "Name",
                 text: user.customName ?? "",
-                width: 200,
                 identifier: "user-name",
                 commit: { write(name: $0) }
             )
+        }
 
+        SelectionField("Role") {
             DeferredTextField(
                 title: "Role",
                 text: user.role,
-                width: 200,
                 identifier: "user-role",
                 commit: { write(role: $0) }
             )
+        }
 
+        SelectionField("Access") {
             Picker("Access", selection: access) {
                 ForEach(Self.accessLevels, id: \.0) { Text($0.1).tag($0.0) }
             }
             .labelsHidden()
-            .frame(width: 150)
             .accessibilityIdentifier("user-access")
+        }
 
-            // The components the user reaches are a multiple choice: none,
-            // one or many, and the menu states which.
-            if reachable.isEmpty == false {
+        // The components the user reaches are a multiple choice: none,
+        // one or many, and the menu states which.
+        if reachable.isEmpty == false {
+            SelectionField("Reaches") {
                 Menu {
                     ForEach(reachable, id: \.id) { component in
                         Toggle(component.name, isOn: reaches(component.id))
@@ -58,21 +60,17 @@ struct UserPanel: View {
                 } label: {
                     Text(reachesLabel)
                 }
-                .frame(width: 200)
                 .accessibilityIdentifier("user-reaches")
             }
+        }
 
+        SelectionField("Threat actor") {
             Picker("Threat actor", selection: threatActor) {
                 ForEach(actorChoices, id: \.id) { Text($0.label).tag($0.id) }
             }
             .labelsHidden()
-            .frame(width: 220)
             .accessibilityIdentifier("user-threat-actor")
-
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, CanvasView.windowEdgeMargin)
-        .padding(.vertical, 8)
     }
 
     /// Every component that is not a user, in canvas order.

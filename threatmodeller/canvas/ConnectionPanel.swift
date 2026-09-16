@@ -1,7 +1,7 @@
 import SwiftUI
 import ThreatModelKit
 
-/// The bar under the canvas, shown while exactly one flow is selected.
+/// The editor in the right sidebar, shown while exactly one flow is selected.
 ///
 /// The kind decides which threats the flow raises, so the threat list changes
 /// as the user changes the picker.
@@ -18,33 +18,31 @@ struct ConnectionPanel: View {
     ]
 
     var body: some View {
-        // The controls scroll sideways, the way the component panel's do: the
-        // row is wider than a squeezed canvas column, and a row that does not
-        // scroll draws its trailing controls under the neighbouring column.
-        ScrollView(.horizontal) {
+        SelectionEditor(title: "This flow", identifier: "connection-panel") {
             controls
         }
-        .scrollIndicators(.never)
-        .background(.bar)
     }
 
+    @ViewBuilder
     private var controls: some View {
-        HStack(alignment: .center, spacing: 16) {
+        SelectionField("Kind") {
             Picker("Kind", selection: kind) {
                 ForEach(Self.kinds, id: \.0) { Text($0.1).tag($0.0) }
             }
             .labelsHidden()
-            .frame(width: 160)
             .accessibilityIdentifier("connection-kind")
+        }
 
+        SelectionField("Description") {
             TextField("Description", text: description)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 280)
                 .accessibilityIdentifier("connection-description")
+        }
 
-            // What a flow carries names the assets, so a reader of the report
-            // sees which asset a threat on this flow puts at risk.
-            if session.canvas.systemAssets.isEmpty == false {
+        // What a flow carries names the assets, so a reader of the report
+        // sees which asset a threat on this flow puts at risk.
+        if session.canvas.systemAssets.isEmpty == false {
+            SelectionField("Carries") {
                 Menu {
                     ForEach(session.canvas.systemAssets, id: \.id) { asset in
                         Toggle(asset.name, isOn: carries(asset.id))
@@ -52,20 +50,17 @@ struct ConnectionPanel: View {
                 } label: {
                     Text(carriedLabel)
                 }
-                .frame(width: 200)
                 .accessibilityIdentifier("connection-carries")
             }
-
-            // The direction decides which threats the flow raises, so it is
-            // changed here rather than by deleting the flow and drawing it
-            // again, which loses the kind and the description.
-            Button("Reverse Direction") { session.reverseConnection(connection.id) }
-                .accessibilityIdentifier("reverse-connection")
-
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, CanvasView.windowEdgeMargin)
-        .padding(.vertical, 8)
+
+        Divider()
+
+        // The direction decides which threats the flow raises, so it is
+        // changed here rather than by deleting the flow and drawing it
+        // again, which loses the kind and the description.
+        Button("Reverse Direction") { session.reverseConnection(connection.id) }
+            .accessibilityIdentifier("reverse-connection")
     }
 
     /// What the menu reads when it is closed.

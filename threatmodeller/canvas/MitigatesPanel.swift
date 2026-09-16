@@ -1,11 +1,12 @@
 import SwiftUI
 import ThreatModelKit
 
-/// The bar under the canvas while two nodes are selected.
+/// The mitigates row of the multi-selection view, while two nodes are
+/// selected.
 ///
 /// One component can lower a threat on another: a gateway in front of a
 /// service, a proxy in front of a store. The diagram cannot draw which
-/// threats that covers, so the bar names the edge and a sheet writes it.
+/// threats that covers, so the row names the edge and a sheet writes it.
 struct MitigatesPanel: View {
     let session: ThreatModelSession
     let source: ViewedComponent
@@ -25,31 +26,17 @@ struct MitigatesPanel: View {
     }
 
     var body: some View {
-        // The controls scroll sideways, the way the component panel's do: two
-        // long component names push the buttons past a squeezed column's
-        // edge, under the neighbouring column.
-        ScrollView(.horizontal) {
-            controls
-        }
-        .scrollIndicators(.never)
-        .background(.bar)
-        .sheet(isPresented: $isWriting) {
-            writingSheet
-        }
+        controls
+            .sheet(isPresented: $isWriting) {
+                writingSheet
+            }
     }
 
     private var controls: some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("\(protector.name) lowers threats on \(protected.name)")
                 .font(.callout)
-
-            Button {
-                isReversed.toggle()
-            } label: {
-                Image(systemName: "arrow.left.arrow.right")
-            }
-            .help("Swap which component protects the other.")
-            .accessibilityIdentifier("swap-mitigates")
+                .fixedSize(horizontal: false, vertical: true)
 
             if let existing {
                 Text("\(existing.status.capitalized) \u{00B7} \(existing.reducesRiskBy)% on \(existing.threatIds.count)")
@@ -57,22 +44,29 @@ struct MitigatesPanel: View {
                     .foregroundStyle(.secondary)
             }
 
-            Spacer(minLength: 8)
-
-            Button(existing == nil ? "Mitigates\u{2026}" : "Edit\u{2026}") {
-                isWriting = true
-            }
-            .accessibilityIdentifier("mitigates")
-
-            if existing != nil {
-                Button("Remove", role: .destructive) {
-                    session.removeMitigatesEdge(from: protector.id, to: protected.id)
+            HStack(spacing: 8) {
+                Button {
+                    isReversed.toggle()
+                } label: {
+                    Image(systemName: "arrow.left.arrow.right")
                 }
-                .accessibilityIdentifier("remove-mitigates")
+                .help("Swap which component protects the other.")
+                .accessibilityIdentifier("swap-mitigates")
+
+                Button(existing == nil ? "Mitigates\u{2026}" : "Edit\u{2026}") {
+                    isWriting = true
+                }
+                .accessibilityIdentifier("mitigates")
+
+                if existing != nil {
+                    Button("Remove", role: .destructive) {
+                        session.removeMitigatesEdge(from: protector.id, to: protected.id)
+                    }
+                    .accessibilityIdentifier("remove-mitigates")
+                }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier("mitigates-panel")
     }
 

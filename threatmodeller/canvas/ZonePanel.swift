@@ -1,7 +1,7 @@
 import SwiftUI
 import ThreatModelKit
 
-/// The bar under the canvas, shown while exactly one zone is selected.
+/// The editor in the right sidebar, shown while exactly one zone is selected.
 ///
 /// Every control writes through `SetZoneProperties` and the threat list
 /// rescores, so the user sees the effect of a reduction as they change it.
@@ -25,56 +25,58 @@ struct ZonePanel: View {
     ]
 
     var body: some View {
-        // The controls scroll sideways, as the component bar's do. Their
-        // widths are fixed and the canvas column can be 400 points, at which
-        // the row reflowed and the bar grew to 176 points.
-        ScrollView(.horizontal) {
+        SelectionEditor(title: "This zone", identifier: "zone-panel") {
             controls
         }
-        .scrollIndicators(.never)
-        .background(.bar)
     }
 
+    @ViewBuilder
     private var controls: some View {
-        HStack(alignment: .center, spacing: 16) {
+        SelectionField("Name") {
             DeferredTextField(
                 title: "Name",
                 text: zone.customName ?? "",
-                width: 180,
                 identifier: "zone-name",
                 commit: { write(name: $0) }
             )
+        }
 
+        SelectionField("Kind") {
             Picker("Kind", selection: kind) {
                 ForEach(Self.kinds, id: \.0) { Text($0.1).tag($0.0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 160)
             .accessibilityIdentifier("zone-kind")
+        }
 
+        SelectionField("Boundary") {
             Picker("Boundary", selection: boundary) {
                 ForEach(Self.boundaries, id: \.0) { Text($0.1).tag($0.0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 180)
             .accessibilityIdentifier("zone-boundary")
+        }
 
-            if zone.boundaryId == "network" {
+        if zone.boundaryId == "network" {
+            SelectionField("Network") {
                 Picker("Network", selection: networkType) {
                     ForEach(Self.networkTypes, id: \.0) { Text($0.1).tag($0.0) }
                 }
                 .labelsHidden()
-                .frame(width: 200)
                 .accessibilityIdentifier("zone-network-type")
             }
+        }
 
-            Toggle("Reduce risk", isOn: reductionEnabled)
-                .toggleStyle(.switch)
-                .accessibilityIdentifier("zone-reduction-enabled")
+        Divider()
 
-            if zone.riskReductionEnabled && zone.networkZoneId == "private" {
+        Toggle("Reduce risk", isOn: reductionEnabled)
+            .toggleStyle(.switch)
+            .accessibilityIdentifier("zone-reduction-enabled")
+
+        if zone.riskReductionEnabled && zone.networkZoneId == "private" {
+            SelectionField("Reduces risk by") {
                 HStack(spacing: 6) {
                     // The slider writes when the drag ends, not at every
                     // step: a drag across the range is one change and one
@@ -94,25 +96,22 @@ struct ZonePanel: View {
                             write(percent: Int(picked.rounded()))
                         }
                     )
-                    .frame(width: 140)
                     .accessibilityIdentifier("zone-reduction-percent")
                     Text("\(Int(reduction.shown(Double(zone.riskReductionPercent)).rounded()))%")
                         .monospacedDigit()
                         .frame(width: 42, alignment: .trailing)
                 }
             }
-
-            Spacer(minLength: 0)
-
-            Button(role: .destructive) {
-                session.removeZone(zone.id)
-            } label: {
-                Label("Remove zone", systemImage: "trash")
-            }
-            .accessibilityIdentifier("zone-remove")
         }
-        .padding(.horizontal, CanvasView.windowEdgeMargin)
-        .padding(.vertical, 8)
+
+        Divider()
+
+        Button(role: .destructive) {
+            session.removeZone(zone.id)
+        } label: {
+            Label("Remove zone", systemImage: "trash")
+        }
+        .accessibilityIdentifier("zone-remove")
     }
 
     // MARK: writing through

@@ -59,7 +59,9 @@ struct ProjectColumns: View {
             } content: {
                 diagram
             } detail: {
-                AssumptionsPanel(session: session)
+                // The column holds the editor for what is selected, and the
+                // assumptions when nothing is. The design states the rule.
+                SelectionSidebar(session: session, canvas: canvas)
                     // The cap keeps the spare width with the canvas: without
                     // it, closing the palette widens this column and squeezes
                     // the canvas to its minimum.

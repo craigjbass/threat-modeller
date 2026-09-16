@@ -25,8 +25,8 @@ struct LayoutFitTests {
     /// The narrowest the canvas column ever gets.
     private static let canvasMinimumWidth: CGFloat = 400
 
-    /// The room the bottom bar may take from the canvas. Two rows of controls.
-    private static let bottomBarLargestHeight: CGFloat = 90
+    /// The narrowest the right sidebar ever gets.
+    private static let narrowestSidebarWidth: CGFloat = 280
 
     /// The margin the canvas keeps from the window's leading edge once the
     /// palette column is collapsed and the canvas starts at that edge.
@@ -216,50 +216,44 @@ struct LayoutFitTests {
 
     // MARK: the canvas
 
-    /// The bottom bar appears when the user selects an element. In a narrow
-    /// canvas column its controls reflow, and the bar grows down the canvas.
-    @Test func theComponentBottomBarStaysShortInTheNarrowestCanvasColumn() throws {
+    /// Every selection editor fits the narrowest sidebar column.
+    ///
+    /// The editor is a column of fields in the right sidebar, which is 280
+    /// points at its narrowest. Nothing it draws may reach the margin at
+    /// either edge of that column.
+    @Test func everySelectionEditorFitsTheNarrowestSidebarColumn() throws {
         let session = LayoutPreview.session()
         let component = try #require(session.canvas.components.first)
-
-        let renderer = ImageRenderer(
-            content: ComponentPanel(session: session, component: component)
-                .frame(width: Self.canvasMinimumWidth)
-        )
-        renderer.scale = 1
-        let size = try #require(renderer.nsImage?.size)
-
-        #expect(size.height <= Self.bottomBarLargestHeight)
-    }
-
-    /// The zone bar carries more controls than the component bar.
-    @Test func theZoneBottomBarStaysShortInTheNarrowestCanvasColumn() throws {
-        let session = LayoutPreview.session()
+        let connection = try #require(session.canvas.connections.first)
         _ = session.addZone(x: 0, y: 0, width: 400, height: 300)
         let zone = try #require(session.canvas.zones.first)
 
-        let renderer = ImageRenderer(
-            content: ZonePanel(session: session, zone: zone).frame(width: Self.canvasMinimumWidth)
-        )
-        renderer.scale = 1
-        let size = try #require(renderer.nsImage?.size)
+        let editors: [(String, AnyView)] = [
+            ("component", AnyView(ComponentPanel(session: session, component: component))),
+            ("zone", AnyView(ZonePanel(session: session, zone: zone))),
+            ("connection", AnyView(ConnectionPanel(session: session, connection: connection)))
+        ]
 
-        #expect(size.height <= Self.bottomBarLargestHeight)
-    }
+        for (name, editor) in editors {
+            let drawn = try #require(
+                hosted(
+                    editor
+                        .frame(width: Self.narrowestSidebarWidth, height: Self.smallColumnHeight)
+                        .background(Color(nsColor: .controlBackgroundColor)),
+                    width: Self.narrowestSidebarWidth,
+                    height: Self.smallColumnHeight
+                ),
+                "the \(name) editor drew nothing"
+            )
 
-    /// The flow bar carries two controls and still needs more than the column.
-    @Test func theConnectionBottomBarStaysShortInTheNarrowestCanvasColumn() throws {
-        let session = LayoutPreview.session()
-        let connection = try #require(session.canvas.connections.first)
-
-        let renderer = ImageRenderer(
-            content: ConnectionPanel(session: session, connection: connection)
-                .frame(width: Self.canvasMinimumWidth)
-        )
-        renderer.scale = 1
-        let size = try #require(renderer.nsImage?.size)
-
-        #expect(size.height <= Self.bottomBarLargestHeight)
+            // The editor's own padding is 16, so the outermost 4 points are
+            // margin and nothing the editor draws may reach them.
+            let edge = 4 * drawn.scale
+            #expect(
+                isUniform(drawn.image, columns: 0..<edge, rows: 0..<drawn.image.pixelsHigh),
+                "the \(name) editor drew under the leading edge"
+            )
+        }
     }
 
     /// Collapsing the palette column puts the canvas against the window's

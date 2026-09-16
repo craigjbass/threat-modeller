@@ -227,28 +227,6 @@ struct CanvasView: View {
                     )
                 }
         )
-        .safeAreaInset(edge: .bottom) {
-            // One panel at a time. A node and a zone are never both the one
-            // thing selected.
-            Group {
-                if let pair = selectedPair {
-                    MitigatesPanel(session: session, source: pair.source, target: pair.target)
-                } else if let component = selectedComponent, component.isUser {
-                    UserPanel(session: session, user: component)
-                } else if let component = selectedComponent {
-                    ComponentPanel(session: session, canvas: canvas, component: component)
-                } else if let zone = selectedZone {
-                    ZonePanel(session: session, zone: zone)
-                } else if let connection = selectedConnection {
-                    ConnectionPanel(session: session, connection: connection)
-                }
-            }
-            // The floating workflow panel floats above this one, so it has to
-            // know how tall this one is.
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
-                canvas.selectionPanelHeight = height
-            }
-        }
         // The drop runs through the gestures, the way the tree canvas runs
         // its own, so a test drives the same code the drop runs.
         .dropDestination(for: String.self) { technologyIds, location in
@@ -551,36 +529,6 @@ struct CanvasView: View {
             get: { canvas.tagFilter.neighbourDepth },
             set: { canvas.setNeighbourDepth($0) }
         )
-    }
-
-    /// The panel edits one zone at a time, so it appears only when exactly one
-    /// is selected.
-    private var selectedComponent: ViewedComponent? {
-        guard canvas.selectedComponentIds.count == 1,
-              let componentId = canvas.selectedComponentIds.first else { return nil }
-        return session.canvas.components.first { $0.id == componentId }
-    }
-
-    /// The two components a mitigates edge would run between, in the order
-    /// the model holds them. One component lowers a threat on another, so the
-    /// bar needs both ends before it offers anything.
-    private var selectedPair: (source: ViewedComponent, target: ViewedComponent)? {
-        guard canvas.selectedComponentIds.count == 2 else { return nil }
-        let both = session.canvas.components.filter { canvas.selectedComponentIds.contains($0.id) }
-        return MitigatesGeometry.ordered(both, mitigations: session.canvas.mitigations)
-    }
-
-    private var selectedZone: ViewedZone? {
-        guard canvas.selectedZoneIds.count == 1,
-              let zoneId = canvas.selectedZoneIds.first else { return nil }
-        return session.canvas.zones.first { $0.id == zoneId }
-    }
-
-    /// The one flow the panel edits, or nil while none or many are selected.
-    private var selectedConnection: ViewedConnection? {
-        guard canvas.selectedConnectionIds.count == 1,
-              let connectionId = canvas.selectedConnectionIds.first else { return nil }
-        return session.canvas.connections.first { $0.id == connectionId }
     }
 
     /// Every drawn component by id, so the link layer can read the zone each
