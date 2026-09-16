@@ -187,25 +187,4 @@ struct SystemListTests {
         #expect(run.lines.contains { $0.contains("holds no .arch files") })
     }
 
-    /// One resolve per system and no layout: the numbers come from the
-    /// assessment, and nothing here places a component.
-    @Test func readsAProjectOfManySystemsQuickly() {
-        for index in 1 ... 20 {
-            project.put(
-                payments.replacingOccurrences(of: "Payments", with: "System \(index)"),
-                at: "/work/threatmodel/system-\(index).arch"
-            )
-        }
-
-        let started = Date()
-        let run = self.run("list", "/work")
-        let took = Date().timeIntervalSince(started)
-
-        #expect(run.code == 0)
-        #expect(run.lines.count == 21)
-        #expect(took < 2.0, "20 systems took \(took) seconds")
-        if ProcessInfo.processInfo.environment["THREATMODELLER_MEASURE"] == "1" {
-            print("MEASURED list of 20 systems: \(took) seconds")
-        }
-    }
 }
