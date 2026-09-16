@@ -10,6 +10,8 @@ public struct ArchitectureSource: Equatable, Sendable {
     public let zones: [SourceZone]
     /// Components declared outside every zone.
     public let components: [SourceComponent]
+    /// The humans who use the system, in file order. A user sits in no zone.
+    public let users: [SourceUser]
     public let flows: [SourceFlow]
     public let mitigates: [SourceMitigates]
     /// The risk level a likelihood finding may answer up to. Nil means low.
@@ -79,8 +81,10 @@ public struct ArchitectureSource: Equatable, Sendable {
         created: String? = nil,
         reviewed: String? = nil,
         version: String? = nil,
-        attributes: [SourceSystemAttribute] = []
+        attributes: [SourceSystemAttribute] = [],
+        users: [SourceUser] = []
     ) {
+        self.users = users
         self.description = description
         self.authors = authors
         self.links = links
@@ -113,6 +117,79 @@ public struct ArchitectureSource: Equatable, Sendable {
     public var everyComponent: [SourceComponent] {
         components + zones.flatMap(\.components)
     }
+
+    /// Every id a flow may name at an end: every component and every user.
+    public var everyNodeId: [String] {
+        everyComponent.map(\.id) + users.map(\.id)
+    }
+
+    /// The same source holding these users.
+    public func holding(users: [SourceUser]) -> ArchitectureSource {
+        ArchitectureSource(
+            systemName: systemName,
+            catalogueTag: catalogueTag,
+            technologies: technologies,
+            zones: zones,
+            components: components,
+            flows: flows,
+            mitigates: mitigates,
+            riskTolerance: riskTolerance,
+            assumptions: assumptions,
+            useCases: useCases,
+            exclusions: exclusions,
+            systemAssets: systemAssets,
+            thirdParties: thirdParties,
+            diagrams: diagrams,
+            requiresEvidenceAbove: requiresEvidenceAbove,
+            owner: owner,
+            faces: faces,
+            threatActors: threatActors,
+            description: description,
+            authors: authors,
+            links: links,
+            repositories: repositories,
+            created: created,
+            reviewed: reviewed,
+            version: version,
+            attributes: attributes,
+            users: users
+        )
+    }
+}
+
+/// One human who uses the system. The user block design states the block.
+public struct SourceUser: Equatable, Sendable {
+    public let id: String
+    /// What the canvas and the report call the user, or nil to use the id.
+    public let name: String?
+    /// What the person does with the system. Empty when the file states none.
+    public let role: String
+    /// The privilege the user holds on what the user reaches, with the words
+    /// `runs_as` takes.
+    public let access: String
+    /// The component ids the user reaches, in file order.
+    public let reaches: [String]
+    /// The threat actor this user is, or nil.
+    public let threatActorId: String?
+
+    public init(
+        id: String,
+        name: String? = nil,
+        role: String = "",
+        access: String = "user",
+        reaches: [String] = [],
+        threatActorId: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.role = role
+        self.access = access
+        self.reaches = reaches
+        self.threatActorId = threatActorId
+    }
+
+    /// The word a user with no stated access holds.
+    public static let defaultAccess = "user"
 }
 
 public struct SourceTechnology: Equatable, Sendable {

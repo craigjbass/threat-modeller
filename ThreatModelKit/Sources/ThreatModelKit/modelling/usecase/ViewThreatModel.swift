@@ -47,6 +47,17 @@ public struct ViewedComponent: Equatable, Sendable {
     /// Whether the component runs in Production today or is a planned change:
     /// `live` or `proposed`. The canvas draws a proposed component broken.
     public let statusId: String
+    /// True for a user: a human with no technology, drawn with the actor
+    /// shape. The user block design states it.
+    public let isUser: Bool
+    /// What the user does with the system. Empty for a technology component
+    /// and for a user that states no role.
+    public let role: String
+    /// The component ids the user reaches, in model order. Empty for a
+    /// technology component.
+    public let reaches: [String]
+    /// The threat actor this user is, or nil.
+    public let threatActorId: String?
 
     public init(
         id: String,
@@ -67,8 +78,16 @@ public struct ViewedComponent: Equatable, Sendable {
         holds: [String] = [],
         providedById: String? = nil,
         tags: [String] = [],
-        statusId: String = ComponentStatus.default.rawValue
+        statusId: String = ComponentStatus.default.rawValue,
+        isUser: Bool = false,
+        role: String = "",
+        reaches: [String] = [],
+        threatActorId: String? = nil
     ) {
+        self.isUser = isUser
+        self.role = role
+        self.reaches = reaches
+        self.threatActorId = threatActorId
         self.statusId = statusId
         self.tags = tags
         self.holds = holds
@@ -481,13 +500,16 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
         return ViewThreatModelResponse(
             name: model.name,
             components: model.components.map { component in
-                let technology = lookup.findById(component.technologyId)
+                // A user has no technology, so the lookup is not asked: a
+                // custom technology called `user` is not what a user is.
+                let technology = component.isUser ? nil : lookup.findById(component.technologyId)
                 let providerId = technology?.provider.value ?? ""
                 let categoryId = technology?.category.value ?? ""
                 return ViewedComponent(
                     id: component.id.value,
                     technologyId: component.technologyId.value,
-                    name: component.customName ?? technology?.name ?? component.technologyId.value,
+                    name: component.customName ?? technology?.name
+                        ?? (component.isUser ? component.id.value : component.technologyId.value),
                     customName: component.customName,
                     providerId: providerId,
                     categoryId: categoryId,
@@ -495,7 +517,7 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     y: component.position.y,
                     sensitivityId: component.sensitivity.rawValue,
                     threatsDisabled: component.threatsDisabled,
-                    isUnknownTechnology: technology == nil,
+                    isUnknownTechnology: component.isUser == false && technology == nil,
                     zoneId: component.zoneId?.value,
                     runsAsId: component.runsAs.rawValue,
                     shapeId: component.resolvedShape(
@@ -506,7 +528,11 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     holds: component.holds,
                     providedById: component.providedBy,
                     tags: component.tags,
-                    statusId: component.status.rawValue
+                    statusId: component.status.rawValue,
+                    isUser: component.isUser,
+                    role: component.user?.role ?? "",
+                    reaches: component.user?.reaches ?? [],
+                    threatActorId: component.user?.threatActorId
                 )
             },
             connections: model.connections.map {

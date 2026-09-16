@@ -119,6 +119,7 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `category`, `description`, `threats`, `encrypts`, `zone`, `kind`, `network`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
 `shape`, `asset`, `holds`, `carries`, `tags`, `status`, `classification`, `third_party`,
+`user`, `role`, `access`, `reaches`,
 `provided_by`, `paying_customer`, `uptime`, `uptime_notes`, `kind`, `link`,
 `diagram`, `text`, `flow`, `mitigates`,
 `status`, `recommendation`, `note`,
@@ -364,6 +365,7 @@ SystemEntry  = CatalogueAttr
              | TechnologyBlock
              | ZoneBlock
              | ComponentBlock
+             | UserBlock
              | FlowStatement
              | MitigatesBlock
              | AssumptionBlock
@@ -430,6 +432,13 @@ ComponentEntry = "technology"  "=" String
                | AssetBlock ;
 
 AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;
+
+UserBlock = "user" String "{" { UserEntry } "}" ;
+UserEntry = "name"         "=" String
+          | "role"         "=" String
+          | "access"       "=" String
+          | "reaches"      "=" StringList
+          | "threat_actor" "=" String ;
 
 SystemAssetBlock = "asset" String "{" { SystemAssetEntry } "}" ;
 
@@ -1009,7 +1018,66 @@ A component scores at the highest sensitivity among its own `data` value and
 every asset it holds. An asset never lowers what the component states: an
 asset with a lower `data` value than the component changes nothing.
 
-### 4.6 `flow`
+### 4.6 `user`
+
+```hcl
+user "alice" {
+  name         = "Alice"
+  role         = "Operator"
+  access       = "admin"
+  reaches      = ["api", "ledger"]
+  threat_actor = "insider"
+}
+```
+
+A `user` block declares a human who uses the system. The label is the user's
+identifier, and a user shares the component namespace: a flow names a user at
+either end the way it names a component. A user block sits at the top level
+of a system or of a part file, never inside a zone, and a user sits in no
+zone.
+
+| Attribute | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `name` | string | the label | what the canvas and the report call the user |
+| `role` | string | empty | what the person does with the system |
+| `access` | string | `user` | the privilege the user holds: `user`, `admin`, `root`, `system` or `kernel`, the words `runs_as` takes |
+| `reaches` | list of strings | empty | the component ids the user reaches |
+| `threat_actor` | string | none | the id of a threat actor this user is |
+
+A user is not a technology. It raises no threats, states no `data`, holds no
+asset and has no `status`. The canvas draws it with the actor shape, the
+palette lists it under Users, and the report lists it in the Scope section
+rather than in the component table. A file that holds `actor-user`,
+`actor-admin` or `actor-attacker` components reads and writes unchanged;
+nothing converts a component into a user.
+
+`access` takes the words `runs_as` takes, so a flow between a user and a
+component at another privilege is a privilege crossing. A value outside the
+five is the error `access is "<value>"; this application holds "admin",
+"kernel", "root", "system", "user"`.
+
+`reaches` states which components the user has access to. It draws no flow
+and changes no score; the report states it. An entry naming a component this
+file does not declare is the error `the user "<id>" reaches "<component>",
+which this file does not declare`; in a split system the merge states
+`which this system does not declare`.
+
+`threat_actor` names an actor a `threat_actor` block in this file or in a
+library declares, or the built-in `commodity-crimeware`. A user that names an
+actor is faced, whether or not `faces` lists the id: the likelihood rule of
+section 6.3 reads the actor, the report's Threat actors section lists it, and
+the actors sheet in the window shows it as faced. An id nothing declares is
+the error `the user "<id>" names the threat actor "<actor>", which no
+threat_actor block declares`, raised by `ImportArchitecture`, and the project
+does not open.
+
+A flow to or from a user is written the way every flow is written:
+
+```hcl
+flow alice -> api
+```
+
+### 4.7 `flow`
 
 ```hcl
 flow api -> ledger
@@ -1041,7 +1109,7 @@ A flow with no body is a network flow: `flow a -> b` is the same as
 A flow whose two ends run at different `runs_as` levels raises the privilege
 threat set as well as its own.
 
-### 4.7 `mitigates`
+### 4.8 `mitigates`
 
 A `mitigates` edge states that one component lowers the risk of a named threat
 set on another component.
@@ -1142,7 +1210,7 @@ drops with no message under those three commands, and the report then has no
 leverage section and gives no reason why. Run `threatmodeller format` to see
 the warning.
 
-### 4.8 Identity and namespaces
+### 4.9 Identity and namespaces
 
 An identifier in quotation marks is identity, not display text. `component "api"`
 is the component `api`, whatever its `name` says.
@@ -1153,23 +1221,24 @@ A flow takes its identifier from its two ends: `flow api -> ledger` is the flow
 The parser checks two namespaces:
 
 - technologies and zones share one namespace
-- components have their own namespace, across every zone and the top level
+- components and users share one namespace, across every zone and the top
+  level
 
 So a zone and a component may both be called `app`, but a zone and a technology
-may not.
+may not, and a component and a user may not.
 
 WARNING: the `.controls` file keys on these identifiers. When you rename an
 identifier in `.arch`, the answers held against the old identifier are orphaned,
 and the next compile moves them into a `stale` block.
 
-### 4.9 Layout
+### 4.10 Layout
 
 The source holds no coordinates. The application lays the diagram out from
 declaration order, so the same source always draws the same picture, and a
 layout a user moves by hand is not written back. To change the picture, change
 the order of the declarations.
 
-### 4.10 Static checks
+### 4.11 Static checks
 
 The parser runs these checks after the whole file parses. Each one reports the
 first line of the file, because it is a fault of the file and not of one token.
@@ -1189,6 +1258,13 @@ Errors, which stop the import and produce no model:
 | a mitigates edge from a component to itself | `the mitigates edge "<id>" starts and ends at the same component` |
 | the same mitigates edge declared twice | `the mitigates edge "<id>" is declared twice` |
 | an assumption label declared twice | `the assumption "<label>" is declared twice` |
+| a user identifier declared twice | `the user "<id>" is declared twice` |
+| a user identifier that is a component identifier | `"<id>" is declared as a component and as a user` |
+| a user reaching an undeclared component | `the user "<id>" reaches "<component>", which this file does not declare` |
+| a user naming a threat actor nothing declares | `the user "<id>" names the threat actor "<actor>", which no threat_actor block declares` |
+
+The last of those is raised by `ImportArchitecture`, not by the parser,
+because only the import knows the libraries.
 
 Warnings, which do not stop the import:
 
@@ -1323,7 +1399,7 @@ A threat block takes two labels: the threat identifier, then, after the keyword
 `on`, what raised it. `on` takes a source kind — `component`, `zone` or `flow` —
 and then the identifier of that component, zone or flow **in quotation marks**.
 
-A flow identifier is `"<source>-><target>"`, which is what section 4.8 mints:
+A flow identifier is `"<source>-><target>"`, which is what section 4.9 mints:
 
 ```hcl
 threat "t-mitm" on flow "cdn->api" { }
@@ -2223,7 +2299,7 @@ Both take the two-label shape the controls language uses in section 5.3:
 `component`. One shape, read by one rule, in three languages.
 
 A `step` with no body is that same step with an empty body, which is the rule
-`flow a -> b` already sets in section 4.6.
+`flow a -> b` already sets in section 4.7.
 
 ### 7.4 `all_of` and `any_of`
 
@@ -2254,7 +2330,7 @@ One step that does not bind, or a goal that does not bind, makes the whole tree
 
 A step naming a component the `.arch` file does not declare is not a parser
 fault: the parser reads one file and the architecture is another, the way
-section 4.10 states for the catalogue warning.
+section 4.11 states for the catalogue warning.
 
 ### 7.6 What the parser refuses
 
@@ -2567,7 +2643,8 @@ entry" or "an unknown attribute".
 
 | Language | Block | Message |
 | --- | --- | --- |
-| architecture | `system` | `a system holds catalogue, technology, zone, component, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, faces and threat_actor, not "<word>"` |
+| architecture | `system` | `a system holds catalogue, owner, description, authors, links, repositories, created, reviewed, version, attribute, technology, zone, component, user, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, use_case, exclusion, asset, third_party, diagram, faces and threat_actor, not "<word>"` |
+| architecture | `user` | `a user holds name, role, access, reaches and threat_actor, not "<word>"` |
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
@@ -2635,7 +2712,8 @@ The architecture writer writes, in this order: `risk_tolerance`, then every
 `assumption` block, then `catalogue`, then `faces`, then the `threat_actor`
 blocks, then the technologies, then the zones
 with their components nested in declaration order, then the top-level
-components, then the flows, then the `mitigates` edges. Inside a block the
+components, then the `user` blocks, then the flows, then the `mitigates`
+edges. Inside a block the
 attribute order is fixed, and it is the order of the tables in section 4.
 
 The controls writer writes the live answers before the stale ones. Inside each
@@ -2747,6 +2825,7 @@ SystemEntry  = CatalogueAttr
              | TechnologyBlock
              | ZoneBlock
              | ComponentBlock
+             | UserBlock
              | FlowStatement
              | MitigatesBlock
              | AssumptionBlock
@@ -2810,6 +2889,13 @@ ComponentEntry = "technology"  "=" String
                | AssetBlock ;
 
 AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;
+
+UserBlock = "user" String "{" { UserEntry } "}" ;
+UserEntry = "name"         "=" String
+          | "role"         "=" String
+          | "access"       "=" String
+          | "reaches"      "=" StringList
+          | "threat_actor" "=" String ;
 
 SystemAssetBlock = "asset" String "{" { SystemAssetEntry } "}" ;
 

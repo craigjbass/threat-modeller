@@ -1,15 +1,18 @@
 /// The report's Scope section.
 ///
 /// A reader must be able to tell a flow that was modelled and found safe from
-/// a flow nobody modelled. The use cases say what the model covers, and the
-/// exclusions say what it leaves out and why. A system that states neither
-/// writes no section, so a reader never meets an empty heading.
+/// a flow nobody modelled. The use cases say what the model covers, the users
+/// say who uses it, and the exclusions say what it leaves out and why. A
+/// system that states none of the three writes no section, so a reader never
+/// meets an empty heading.
 public enum MarkdownScope {
     public static func lines(
         useCases: [ReportUseCase],
-        exclusions: [ReportExclusion]
+        exclusions: [ReportExclusion],
+        users: [ReportUser] = []
     ) -> [String] {
-        guard useCases.isEmpty == false || exclusions.isEmpty == false else { return [] }
+        guard useCases.isEmpty == false || exclusions.isEmpty == false || users.isEmpty == false
+        else { return [] }
 
         var lines = ["## Scope", ""]
 
@@ -18,6 +21,15 @@ public enum MarkdownScope {
             lines.append("")
             for useCase in useCases {
                 lines.append("- \(useCase.label): \(useCase.text)")
+            }
+            lines.append("")
+        }
+
+        if users.isEmpty == false {
+            lines.append("### Users")
+            lines.append("")
+            for user in users {
+                lines.append("- " + line(for: user))
             }
             lines.append("")
         }
@@ -33,5 +45,28 @@ public enum MarkdownScope {
         }
 
         return lines
+    }
+
+    /// One user on one line: the name, the role and the access in brackets,
+    /// what the user reaches, and the actor the user is.
+    public static func line(for user: ReportUser) -> String {
+        let facts = user.role.isEmpty
+            ? user.accessLabel
+            : "\(user.role), \(user.accessLabel)"
+        var text = "\(user.name) (\(facts)): reaches \(joined(user.reaches))"
+        if let actor = user.threatActorName {
+            text += "; is the threat actor \(actor)"
+        }
+        return text
+    }
+
+    /// `nothing`, `A`, `A and B`, or `A, B and C`.
+    private static func joined(_ names: [String]) -> String {
+        switch names.count {
+        case 0: return "nothing"
+        case 1: return names[0]
+        default:
+            return names.dropLast().joined(separator: ", ") + " and " + names[names.count - 1]
+        }
     }
 }

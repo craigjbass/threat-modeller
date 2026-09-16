@@ -146,11 +146,12 @@ enum SelectionPlacement {
         var connectionIds: [ConnectionId: ConnectionId] = [:]
         var zoneIds: [ZoneId: ZoneId] = [:]
 
+        for component in snippet.components {
+            componentIds[component.id] = ComponentId(ids.next())
+        }
         let components = snippet.components.map { component -> Component in
-            let fresh = ComponentId(ids.next())
-            componentIds[component.id] = fresh
-            return Component(
-                id: fresh,
+            Component(
+                id: componentIds[component.id] ?? component.id,
                 technologyId: component.technologyId,
                 position: Point(
                     x: component.position.x + offsetX,
@@ -161,7 +162,16 @@ enum SelectionPlacement {
                 threatsDisabled: component.threatsDisabled,
                 runsAs: component.runsAs,
                 assets: component.assets,
-                shape: component.shape
+                shape: component.shape,
+                // A pasted user keeps the reaches that name a pasted
+                // component, under their fresh ids, and drops the rest.
+                user: component.user.map { facts in
+                    UserFacts(
+                        role: facts.role,
+                        reaches: facts.reaches.compactMap { componentIds[ComponentId($0)]?.value },
+                        threatActorId: facts.threatActorId
+                    )
+                }
             )
         }
 

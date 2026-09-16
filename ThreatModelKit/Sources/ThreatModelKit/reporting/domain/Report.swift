@@ -32,6 +32,9 @@ public struct Report: Equatable, Sendable {
     public let assumptions: [ReportAssumption]
     /// What a person does with this system, in file order.
     public let useCases: [ReportUseCase]
+    /// The humans who use the system, in model order. The Scope section
+    /// lists them; the component table does not.
+    public let users: [ReportUser]
     /// One row per named asset: what holds it, what carries it and the worst
     /// open threat on any of them.
     public let dataInventory: [ReportAssetRow]
@@ -97,6 +100,7 @@ public struct Report: Equatable, Sendable {
         rollups: ReportRollupTables = .empty,
         assumptions: [ReportAssumption] = [],
         useCases: [ReportUseCase] = [],
+        users: [ReportUser] = [],
         dataInventory: [ReportAssetRow] = [],
         thirdParties: [ReportThirdParty] = [],
         diagrams: [ReportDiagram] = [],
@@ -133,6 +137,7 @@ public struct Report: Equatable, Sendable {
         self.rollups = rollups
         self.assumptions = assumptions
         self.useCases = useCases
+        self.users = users
         self.dataInventory = dataInventory
         self.thirdParties = thirdParties
         self.diagrams = diagrams
@@ -877,6 +882,34 @@ public struct ReportUseCase: Equatable, Sendable {
     public init(label: String, text: String) {
         self.label = label
         self.text = text
+    }
+}
+
+/// One human who uses the system, in report form.
+public struct ReportUser: Equatable, Sendable {
+    public let name: String
+    /// What the person does with the system. Empty when the model states none.
+    public let role: String
+    /// The privilege the user holds: User, Administrator, Root, System or
+    /// Kernel.
+    public let accessLabel: String
+    /// The names of the components the user reaches, in model order.
+    public let reaches: [String]
+    /// The name of the threat actor this user is, or nil.
+    public let threatActorName: String?
+
+    public init(
+        name: String,
+        role: String = "",
+        accessLabel: String,
+        reaches: [String] = [],
+        threatActorName: String? = nil
+    ) {
+        self.name = name
+        self.role = role
+        self.accessLabel = accessLabel
+        self.reaches = reaches
+        self.threatActorName = threatActorName
     }
 }
 

@@ -282,6 +282,9 @@ public struct ThreatResolver {
 
         for component in model.components {
             guard component.threatsDisabled == false else { continue }
+            // A user raises no threats, whatever a technology of the same
+            // word would raise.
+            guard component.isUser == false else { continue }
             guard let technology = lookup.findById(component.technologyId) else { continue }
 
             let multiplier = ZoneMultiplier.value(for: zonesByComponent[component.id])

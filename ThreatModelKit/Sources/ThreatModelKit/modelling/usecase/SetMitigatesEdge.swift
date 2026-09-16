@@ -85,7 +85,7 @@ public enum SetMitigatesEdgeResponse: Equatable, Sendable {
 
 /// States that one component lowers a named threat set on another.
 ///
-/// Language guide section 4.7. The two ends name the edge, the way they name a
+/// Language guide section 4.8. The two ends name the edge, the way they name a
 /// flow, so writing between the same two ends changes the edge that is there.
 ///
 /// An assumed edge states a mitigation the team plans and has not put in

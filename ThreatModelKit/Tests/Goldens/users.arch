@@ -1,0 +1,52 @@
+system "Payments" {
+  threat_actor "insider" {
+    name       = "Disgruntled operator"
+    capability = "targeted"
+    intent     = "sabotage"
+    performs   = ["credential-theft"]
+  }
+
+  zone "app" {
+    kind    = "private"
+    network = "vpc"
+
+    component "api" {
+      technology = "aws-ec2"
+      data       = "confidential"
+    }
+
+    component "ledger" {
+      technology = "aws-rds"
+      data       = "restricted"
+      runs_as    = "admin"
+    }
+  }
+
+  component "browser" {
+    technology = "actor-user"
+  }
+
+  user "alice" {
+    name         = "Alice"
+    role         = "Operator"
+    access       = "admin"
+    reaches      = ["api", "ledger"]
+    threat_actor = "insider"
+  }
+
+  user "bob" {
+    name    = "Bob"
+    role    = "Customer"
+    reaches = ["api"]
+  }
+
+  user "carol" {
+  }
+
+  flow browser -> api
+  flow alice -> ledger {
+    kind = "human"
+  }
+
+  flow bob -> api
+}

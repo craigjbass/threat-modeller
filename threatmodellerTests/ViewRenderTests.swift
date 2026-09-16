@@ -69,15 +69,16 @@ struct ViewRenderTests {
 
     private func aViewedComponent(
         shapeId: String,
-        statusId: String = "live"
+        statusId: String = "live",
+        isUser: Bool = false
     ) -> ViewedComponent {
         ViewedComponent(
             id: "c1",
-            technologyId: "aws-ec2",
+            technologyId: isUser ? "user" : "aws-ec2",
             name: "Web Server",
             customName: nil,
-            providerId: "aws",
-            categoryId: "compute",
+            providerId: isUser ? "" : "aws",
+            categoryId: isUser ? "" : "compute",
             x: 0,
             y: 0,
             sensitivityId: "confidential",
@@ -87,7 +88,10 @@ struct ViewRenderTests {
             runsAsId: "user",
             shapeId: shapeId,
             shapeOverrideId: nil,
-            statusId: statusId
+            statusId: statusId,
+            isUser: isUser,
+            role: isUser ? "Operator" : "",
+            threatActorId: isUser ? "insider" : nil
         )
     }
 
@@ -95,10 +99,11 @@ struct ViewRenderTests {
         shapeId: String,
         risk: ElementRisk?,
         zoneName: String? = nil,
-        statusId: String = "live"
+        statusId: String = "live",
+        isUser: Bool = false
     ) -> ComponentNodeView {
         ComponentNodeView(
-            component: aViewedComponent(shapeId: shapeId, statusId: statusId),
+            component: aViewedComponent(shapeId: shapeId, statusId: statusId, isUser: isUser),
             risk: risk,
             isSelected: false,
             onSelect: { _ in },
@@ -947,6 +952,27 @@ struct ViewRenderTests {
         )
 
         #expect(unstated == live)
+    }
+
+    // MARK: the mark for a user
+
+    /// A user draws with the actor shape, and its chip row tells it from a
+    /// technology drawn with the same shape.
+    @Test func drawsAUserDifferentlyFromATechnologyWithTheActorShape() async throws {
+        expectDrawn(
+            aNode(shapeId: "actor", risk: nil, isUser: true),
+            width: 200,
+            height: 180,
+            "the user node"
+        )
+        let technology = try #require(
+            pixels(of: aNode(shapeId: "actor", risk: nil), width: 200, height: 180)
+        )
+        let user = try #require(
+            pixels(of: aNode(shapeId: "actor", risk: nil, isUser: true), width: 200, height: 180)
+        )
+
+        #expect(technology != user)
     }
 
     @Test func drawsANodeThatRaisesNoThreat() async {

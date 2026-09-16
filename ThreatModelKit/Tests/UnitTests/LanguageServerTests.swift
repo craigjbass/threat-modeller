@@ -313,6 +313,37 @@ struct LanguageServerTests {
         #expect(labels.contains("db"))
     }
 
+    private let people = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+      }
+
+      user "alice" {
+        r
+      }
+
+      flow a
+    }
+
+    """
+
+    @Test func completesTheAttributesOfAUserBlock() {
+        let labels = completions(opened(people), line: 6, character: 5)
+
+        #expect(labels.contains("role"))
+        #expect(labels.contains("access"))
+        #expect(labels.contains("reaches"))
+        #expect(labels.contains("threat_actor"))
+    }
+
+    @Test func completesAUserIdInAFlow() {
+        let labels = completions(opened(people), line: 9, character: 8)
+
+        #expect(labels.contains("alice"))
+        #expect(labels.contains("api"))
+    }
+
     @Test func completesTheAttributesOfTheBlockTheCursorSitsIn() {
         let labels = completions(opened(), line: 3, character: 4)
 

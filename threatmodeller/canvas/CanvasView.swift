@@ -242,6 +242,8 @@ struct CanvasView: View {
             Group {
                 if let pair = selectedPair {
                     MitigatesPanel(session: session, source: pair.source, target: pair.target)
+                } else if let component = selectedComponent, component.isUser {
+                    UserPanel(session: session, user: component)
                 } else if let component = selectedComponent {
                     ComponentPanel(session: session, canvas: canvas, component: component)
                 } else if let zone = selectedZone {

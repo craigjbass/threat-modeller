@@ -52,7 +52,8 @@ public enum ArchitectureSourceSplit {
                 requiresEvidenceAbove: path == header ? source.requiresEvidenceAbove : nil,
                 owner: path == header ? source.owner : nil,
                 faces: path == header ? source.faces : [],
-                threatActors: path == header ? source.threatActors : []
+                threatActors: path == header ? source.threatActors : [],
+                users: source.users.filter { file(of: .user($0.id)) == path }
             )
 
             written.append(

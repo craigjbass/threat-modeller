@@ -207,4 +207,16 @@ public struct ThreatModel: Equatable, Sendable {
     public func customTechnology(_ id: TechnologyId) -> CustomTechnology? {
         customTechnologies.first { $0.id == id }
     }
+
+    /// Every user on the diagram, in model order.
+    public var users: [Component] { components.filter(\.isUser) }
+
+    /// Every threat actor id this system faces: what `faces` states, then
+    /// the actor each user names, in model order, with a repeat dropped. A
+    /// user that names an actor is faced whether or not `faces` lists it.
+    public var everyFacedActorId: [String] {
+        var seen: Set<String> = []
+        return (facedActorIds + components.compactMap { $0.user?.threatActorId })
+            .filter { seen.insert($0).inserted }
+    }
 }

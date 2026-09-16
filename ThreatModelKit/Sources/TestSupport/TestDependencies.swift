@@ -534,6 +534,14 @@ public final class TestDependencies: UseCaseFactory {
         AddComponent(models: models, catalogue: catalogue, ids: ids)
     }
 
+    public func addUser() -> AddUserUseCase {
+        AddUser(models: models, ids: ids)
+    }
+
+    public func setUserProperties() -> SetUserPropertiesUseCase {
+        SetUserProperties(models: models, catalogue: catalogue)
+    }
+
     public func moveComponents() -> MoveComponentsUseCase {
         MoveComponents(models: models)
     }

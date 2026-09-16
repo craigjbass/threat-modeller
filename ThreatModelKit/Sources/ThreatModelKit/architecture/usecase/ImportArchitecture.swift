@@ -117,8 +117,16 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             }
         )
 
-        let placed = layout?.execute(LayOutModelRequest(source: source, shapes: shapes))
-            ?? LayOutModelResponse(components: [], zones: [])
+        // The layout places a user beside the components, as an actor.
+        let placed = layout?.execute(
+            LayOutModelRequest(
+                source: source,
+                shapes: shapes.merging(
+                    source.users.map { ($0.id, DiagramShape.actor.rawValue) },
+                    uniquingKeysWith: { first, _ in first }
+                )
+            )
+        ) ?? LayOutModelResponse(components: [], zones: [])
         let positions = Dictionary(
             uniqueKeysWithValues: placed.components.map { ($0.id, Point(x: $0.x, y: $0.y)) }
         )
@@ -269,6 +277,28 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     zoneId: zoneByComponent[component.id].map(ZoneId.init),
                     tags: component.tags,
                     status: ComponentStatus(rawValue: component.status) ?? .default
+                )
+            )
+        }
+
+        // A user is a component with no technology: the user's name is the
+        // custom name, the access is the privilege, and the user facts carry
+        // the rest. The user block design states it.
+        for user in source.users {
+            model.components.append(
+                Component(
+                    id: ComponentId(user.id),
+                    technologyId: Component.userTechnologyId,
+                    position: positions[user.id] ?? Point(x: 0, y: 0),
+                    sensitivity: .internalData,
+                    customName: user.name,
+                    runsAs: PrivilegeLevel(rawValue: user.access) ?? .default,
+                    statesOwnSensitivity: false,
+                    user: UserFacts(
+                        role: user.role,
+                        reaches: user.reaches,
+                        threatActorId: user.threatActorId
+                    )
                 )
             )
         }
@@ -425,6 +455,23 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                                 + "run threatmodeller attack sync to bring the ATT&CK groups "
                                 + "onto this machine"
                             : "this project holds no threat actor called \"\($0.value)\""
+                    )
+                }
+            )
+        }
+        // A user that names an actor nothing declares stops the project
+        // opening the way a `faces` entry does: the assessment would face an
+        // actor it cannot read.
+        let unknownUserActors = actors.unknownUserActors()
+        if unknownUserActors.isEmpty == false {
+            return .refused(
+                diagnostics: unknownUserActors.map {
+                    Diagnostic(
+                        severity: .error,
+                        line: 1,
+                        column: 1,
+                        message: "the user \"\($0.userId.value)\" names the threat actor "
+                            + "\"\($0.actorId.value)\", which no threat_actor block declares"
                     )
                 }
             )

@@ -102,6 +102,7 @@ struct ArchitectureParser {
         var reviewed: String?
         var version: String?
         var attributes: [SourceSystemAttribute] = []
+        var users: [SourceUser] = []
 
         while current.kind != .endOfFile && (insideABlock == false || current.kind != .rightBrace) {
             switch current.text {
@@ -113,6 +114,8 @@ struct ArchitectureParser {
                 if let zone = parseZone() { zones.append(zone) }
             case "component":
                 if let component = parseComponent() { components.append(component) }
+            case "user":
+                if let user = parseUser() { users.append(user) }
             case "asset":
                 if let asset = parseSystemAsset() { systemAssets.append(asset) }
             case "third_party":
@@ -198,7 +201,7 @@ struct ArchitectureParser {
                 record(
                     "a system holds catalogue, owner, description, authors, links, "
                         + "repositories, created, reviewed, version, attribute, technology, "
-                        + "zone, component, flow, mitigates, risk_tolerance, "
+                        + "zone, component, user, flow, mitigates, risk_tolerance, "
                         + "requires_evidence_above, assumption, use_case, exclusion, asset, "
                         + "third_party, diagram, faces and threat_actor, not "
                         + "\"\(current.text)\""
@@ -240,7 +243,51 @@ struct ArchitectureParser {
             created: created,
             reviewed: reviewed,
             version: version,
-            attributes: attributes
+            attributes: attributes,
+            users: users
+        )
+    }
+
+    /// A `user` block: one human who uses the system. The user block design
+    /// states the attributes.
+    private mutating func parseUser() -> SourceUser? {
+        advance()
+        guard let id = expect(.string, "the user's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var name: String?
+        var role = ""
+        var access = SourceUser.defaultAccess
+        var reaches: [String] = []
+        var threatActorId: String?
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": name = parseTextAttribute()
+            case "role": role = parseTextAttribute() ?? role
+            case "access":
+                let token = current
+                access = parseTextAttribute() ?? access
+                expectVocabulary(access, Self.privilegeLevels, field: "access", at: token)
+            case "reaches": reaches = parseListAttribute()
+            case "threat_actor": threatActorId = parseTextAttribute()
+            default:
+                record(
+                    "a user holds name, role, access, reaches and threat_actor, not "
+                        + "\"\(current.text)\""
+                )
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        return SourceUser(
+            id: id.text,
+            name: name,
+            role: role,
+            access: access,
+            reaches: reaches,
+            threatActorId: threatActorId
         )
     }
 
@@ -1215,6 +1262,7 @@ struct ArchitectureParser {
         where componentIds.insert(component.id).inserted == false {
             record("the component \"\(component.id)\" is declared twice", at: tokens[0])
         }
+        checkUserIds(source.users, against: componentIds)
 
         var pairs: Set<String> = []
         for flow in source.flows {
@@ -1249,6 +1297,19 @@ struct ArchitectureParser {
         }
     }
 
+    /// A user and a component share one namespace, because a flow names
+    /// either one at an end.
+    private mutating func checkUserIds(_ users: [SourceUser], against componentIds: Set<String>) {
+        var userIds: Set<String> = []
+        for user in users {
+            if userIds.insert(user.id).inserted == false {
+                record("the user \"\(user.id)\" is declared twice", at: tokens[0])
+            } else if componentIds.contains(user.id) {
+                record("\"\(user.id)\" is declared as a component and as a user", at: tokens[0])
+            }
+        }
+    }
+
     private mutating func check(_ source: ArchitectureSource) {
         var seen: Set<String> = []
         for id in source.technologies.map(\.id) + source.zones.map(\.id) {
@@ -1261,6 +1322,20 @@ struct ArchitectureParser {
         for component in source.everyComponent where componentIds.insert(component.id).inserted == false {
             record("the component \"\(component.id)\" is declared twice", at: tokens[0])
         }
+        checkUserIds(source.users, against: componentIds)
+
+        // A whole file declares every component a user reaches. A part file
+        // leaves that to the merge.
+        for user in source.users {
+            for reached in user.reaches where componentIds.contains(reached) == false {
+                record(
+                    "the user \"\(user.id)\" reaches \"\(reached)\", which this file does not declare",
+                    at: tokens[0]
+                )
+            }
+        }
+        // A flow and a mitigates edge name a component or a user at an end.
+        componentIds.formUnion(source.users.map(\.id))
 
         // A whole file declares every zone it holds, so a stated zone it does
         // not declare is known here. A part file leaves that to the merge.

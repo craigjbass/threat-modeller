@@ -195,6 +195,15 @@ struct ComponentJSON: Codable {
     let statesOwnSensitivity: Bool?
     /// The third party that provides this component.
     let providedBy: String?
+    /// What the component states as a user. Absent for a technology
+    /// component, and in a file written before the user block.
+    let user: UserJSON?
+}
+
+struct UserJSON: Codable {
+    let role: String
+    let reaches: [String]
+    let threatActorId: String?
 }
 
 struct ConnectionJSON: Codable {

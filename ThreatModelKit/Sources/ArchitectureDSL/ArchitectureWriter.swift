@@ -4,7 +4,7 @@ import ThreatModelKit
 ///
 /// Two-space indentation, attributes aligned on the equals sign inside one
 /// block, a blank line between blocks, and the block order technologies, zones,
-/// components, flows. A rewrite of an unchanged source produces no diff.
+/// components, users, flows. A rewrite of an unchanged source produces no diff.
 struct ArchitectureWriter {
     /// Writes a source with a fresh writer. A convenience for call sites
     /// that hold no writer instance of their own.
@@ -250,6 +250,25 @@ struct ArchitectureWriter {
 
         for component in source.components {
             body += componentBlock(component, statesZone: true)
+            body.append("")
+        }
+
+        // A user sits in no zone, so every user block is a top-level block.
+        // An attribute holding its default writes no line.
+        for user in source.users {
+            body.append("user \(quoted(user.id)) {")
+            var attributes: [(String, String)] = []
+            if let name = user.name { attributes.append(("name", quoted(name))) }
+            if user.role.isEmpty == false { attributes.append(("role", quoted(user.role))) }
+            if user.access != SourceUser.defaultAccess {
+                attributes.append(("access", quoted(user.access)))
+            }
+            if user.reaches.isEmpty == false { attributes.append(("reaches", list(user.reaches))) }
+            if let actorId = user.threatActorId {
+                attributes.append(("threat_actor", quoted(actorId)))
+            }
+            body += indent(aligned(attributes))
+            body.append("}")
             body.append("")
         }
 

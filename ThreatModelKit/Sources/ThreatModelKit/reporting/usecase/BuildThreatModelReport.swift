@@ -84,8 +84,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         var nameById: [ComponentId: String] = [:]
         for component in model.components {
             nameById[component.id] = component.customName
-                ?? lookup.findById(component.technologyId)?.name
-                ?? component.technologyId.value
+                ?? (component.isUser ? nil : lookup.findById(component.technologyId)?.name)
+                ?? (component.isUser ? component.id.value : component.technologyId.value)
         }
         let nameOf: (ComponentId) -> String = { nameById[$0] ?? $0.value }
 
@@ -392,7 +392,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     controlsRecorded: summary.controlsRecorded,
                     byControlStatus: Self.byStatus(assessment.threats)
                 ),
-                components: model.components.map { component in
+                // A user is not a component: the Scope section lists it.
+                components: model.components.filter { $0.isUser == false }.map { component in
                     ReportComponent(
                         id: component.id.value,
                         name: nameById[component.id] ?? component.technologyId.value,
@@ -433,6 +434,11 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 rollups: ReportRollups.build(threats: threats, zones: zones),
                 assumptions: assumptions,
                 useCases: useCases,
+                users: Self.users(
+                    of: model,
+                    nameOf: nameOf,
+                    actors: ThreatActorLookup(model: model, catalogue: catalogue)
+                ),
                 dataInventory: dataInventory,
                 thirdParties: thirdParties,
                 diagrams: model.diagrams.map {
@@ -471,6 +477,27 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 attackPathCount: attack.paths.count + attack.notListed.count + attack.beyond
             )
         )
+    }
+
+    /// The humans who use the system, with what they reach by name and the
+    /// actor each one is.
+    static func users(
+        of model: ThreatModel,
+        nameOf: (ComponentId) -> String,
+        actors: ThreatActorLookup
+    ) -> [ReportUser] {
+        model.components.compactMap { component in
+            guard let facts = component.user else { return nil }
+            return ReportUser(
+                name: nameOf(component.id),
+                role: facts.role,
+                accessLabel: component.runsAs.label,
+                reaches: facts.reaches.map { nameOf(ComponentId($0)) },
+                threatActorName: facts.threatActorId.flatMap {
+                    actors.findById(ThreatActorId($0))?.name
+                }
+            )
+        }
     }
 
     /// The adversaries this assessment is written against, and how many of

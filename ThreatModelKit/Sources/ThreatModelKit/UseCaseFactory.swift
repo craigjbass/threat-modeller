@@ -103,6 +103,8 @@ public protocol UseCaseFactory: Sendable {
     func listTechnologies() -> ListTechnologiesUseCase
     func viewThreatModel() -> ViewThreatModelUseCase
     func addComponent() -> AddComponentUseCase
+    func addUser() -> AddUserUseCase
+    func setUserProperties() -> SetUserPropertiesUseCase
     func moveComponents() -> MoveComponentsUseCase
     func removeComponents() -> RemoveComponentsUseCase
     func connectComponents() -> ConnectComponentsUseCase

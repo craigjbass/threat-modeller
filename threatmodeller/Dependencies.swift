@@ -535,6 +535,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         AddComponent(models: models, catalogue: catalogue, ids: ids)
     }
 
+    func addUser() -> AddUserUseCase {
+        AddUser(models: models, ids: ids)
+    }
+
+    func setUserProperties() -> SetUserPropertiesUseCase {
+        SetUserProperties(models: models, catalogue: catalogue)
+    }
+
     func moveComponents() -> MoveComponentsUseCase {
         MoveComponents(models: models)
     }

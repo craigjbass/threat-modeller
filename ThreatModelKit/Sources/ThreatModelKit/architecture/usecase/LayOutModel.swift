@@ -13,7 +13,27 @@ public struct LayOutModelRequest: Equatable, Sendable {
     public let shapes: [String: String]
 
     public init(source: ArchitectureSource, shapes: [String: String] = [:]) {
-        self.source = source
+        // A user sits in no zone and draws as an actor, so the layout reads
+        // it as one more loose component. The layout holds no other rule
+        // for a user.
+        self.source = source.users.isEmpty
+            ? source
+            : ArchitectureSource(
+                systemName: source.systemName,
+                catalogueTag: source.catalogueTag,
+                technologies: source.technologies,
+                zones: source.zones,
+                components: source.components + source.users.map {
+                    SourceComponent(
+                        id: $0.id,
+                        technologyId: Component.userTechnologyId.value,
+                        name: $0.name,
+                        shape: DiagramShape.actor.rawValue
+                    )
+                },
+                flows: source.flows,
+                mitigates: source.mitigates
+            )
         self.shapes = shapes
     }
 }

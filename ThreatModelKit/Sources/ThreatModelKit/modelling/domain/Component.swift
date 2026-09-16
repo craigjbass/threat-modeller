@@ -20,6 +20,23 @@ public enum ComponentStatus: String, CaseIterable, Equatable, Sendable {
     }
 }
 
+/// What a user component states beyond what every component states. The
+/// user block design states the block.
+public struct UserFacts: Equatable, Sendable {
+    /// What the person does with the system. Empty when the file states none.
+    public var role: String
+    /// The component ids the user reaches, in file order.
+    public var reaches: [String]
+    /// The threat actor this user is, or nil. A user that names one is faced.
+    public var threatActorId: String?
+
+    public init(role: String = "", reaches: [String] = [], threatActorId: String? = nil) {
+        self.role = role
+        self.reaches = reaches
+        self.threatActorId = threatActorId
+    }
+}
+
 public struct Component: Equatable, Sendable {
     /// The slot a component occupies on the diagram, whatever shape it draws
     /// as.
@@ -59,7 +76,25 @@ public struct Component: Equatable, Sendable {
     /// answers then, and the answer is written here. Reading a `.arch` file
     /// takes the nesting the file states, so nothing lays a diagram out to
     /// know which zone holds what.
-    public var zoneId: ZoneId?
+    ///
+    /// A user sits in no zone, whatever rectangle the canvas draws the user
+    /// inside: a write on a user keeps nil.
+    public var zoneId: ZoneId? {
+        get { heldZoneId }
+        set { heldZoneId = user == nil ? newValue : nil }
+    }
+    private var heldZoneId: ZoneId?
+    /// What this component states as a user, or nil for a technology
+    /// component. A user raises no threats, states no sensitivity and sits
+    /// in no zone; the user block design states the rest.
+    public var user: UserFacts?
+
+    /// The technology id a user component carries. No catalogue holds it,
+    /// so the lookup finds nothing for a user.
+    public static let userTechnologyId = TechnologyId("user")
+
+    /// The word a user is called on the palette and on a fresh node.
+    public static let userDefaultName = "User"
     /// The words a team files this component under, in model order. A tag
     /// groups elements for a reader; it changes no score.
     public var tags: [String]
@@ -83,8 +118,10 @@ public struct Component: Equatable, Sendable {
         shape: DiagramShape? = nil,
         zoneId: ZoneId? = nil,
         tags: [String] = [],
-        status: ComponentStatus = .default
+        status: ComponentStatus = .default,
+        user: UserFacts? = nil
     ) {
+        self.user = user
         self.status = status
         self.tags = tags
         self.id = id
@@ -101,6 +138,9 @@ public struct Component: Equatable, Sendable {
         self.shape = shape
         self.zoneId = zoneId
     }
+
+    /// True for a user, which the canvas draws with the actor shape.
+    public var isUser: Bool { user != nil }
 
     /// The size each shape draws at. `size` stays the slot the component
     /// occupies in a layout; this is what the canvas paints, and it centres on
@@ -148,9 +188,11 @@ public struct Component: Equatable, Sendable {
         )
     }
 
-    /// The shape to draw: the user's own choice, else the map's answer.
+    /// The shape to draw: a user is an actor; else the user's own choice,
+    /// else the map's answer.
     public func resolvedShape(providerId: String, categoryId: String) -> DiagramShape {
-        shape ?? DiagramShapeMap.derived(providerId: providerId, categoryId: categoryId)
+        if isUser { return .actor }
+        return shape ?? DiagramShapeMap.derived(providerId: providerId, categoryId: categoryId)
     }
 
     /// The centre of the slot. `ZoneContainment` tests this point, and every

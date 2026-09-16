@@ -8,7 +8,22 @@ public enum ArchitectureSourceBuilder {
 
             var inZone: [ZoneId: [SourceComponent]] = [:]
             var loose: [SourceComponent] = []
+            var users: [SourceUser] = []
             for component in model.components {
+                // A user writes a `user` block and no `component` block.
+                if let facts = component.user {
+                    users.append(
+                        SourceUser(
+                            id: component.id.value,
+                            name: component.customName,
+                            role: facts.role,
+                            access: component.runsAs.rawValue,
+                            reaches: facts.reaches,
+                            threatActorId: facts.threatActorId
+                        )
+                    )
+                    continue
+                }
                 let written = SourceComponent(
                     id: component.id.value,
                     technologyId: component.technologyId.value,
@@ -166,7 +181,8 @@ public enum ArchitectureSourceBuilder {
                 version: model.documentFacts.version.isEmpty ? nil : model.documentFacts.version,
                 attributes: model.documentFacts.attributes.map {
                     SourceSystemAttribute(name: $0.name, value: $0.value)
-                }
+                },
+                users: users
             )
         return source
     }

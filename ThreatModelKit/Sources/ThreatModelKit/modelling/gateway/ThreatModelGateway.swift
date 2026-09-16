@@ -54,6 +54,8 @@ public extension ThreatModelGateway {
 public enum ChangeLabel {
     public static let unnamed = "Change"
     public static let addComponent = "Add Component"
+    public static let addUser = "Add User"
+    public static let setUserProperties = "Edit User"
     public static let moveComponents = "Move"
     public static let removeComponents = "Delete"
     public static let connectComponents = "Connect"

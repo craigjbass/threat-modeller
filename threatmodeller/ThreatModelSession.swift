@@ -104,7 +104,17 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// What the palette's User row drags. No technology id reads this way, so
+    /// the drop tells a user from a technology by the word alone.
+    static let userDropId = "palette:user"
+
     func add(technologyId: String, x: Double, y: Double) {
+        // The palette's User row drops through the same path a technology
+        // row drops through, and adds a user rather than a component.
+        if technologyId == Self.userDropId {
+            addUser(x: x, y: y)
+            return
+        }
         // Sensitivity is fixed until a later milestone gives the user a
         // control for it.
         let response = useCases.addComponent().execute(
@@ -120,6 +130,14 @@ final class ThreatModelSession {
             errorMessage = "That data sensitivity is not recognised."
         }
 
+        refresh()
+    }
+
+    /// Puts a user on the diagram: a human with no technology, drawn with the
+    /// actor shape. The save writes a `user` block.
+    func addUser(x: Double, y: Double) {
+        _ = useCases.addUser().execute(AddUserRequest(x: x, y: y))
+        errorMessage = nil
         refresh()
     }
 
@@ -1002,6 +1020,41 @@ final class ThreatModelSession {
 
     /// Writes what the node panel shows. One call for the name, the
     /// sensitivity, the shape and whether the node raises threats at all.
+    /// Writes what the user panel shows: the name, the role, the access, the
+    /// reaches and the threat actor the user is.
+    func setUserProperties(
+        componentId: String,
+        name: String?,
+        role: String,
+        accessId: String,
+        reaches: [String],
+        threatActorId: String?
+    ) {
+        switch useCases.setUserProperties().execute(
+            SetUserPropertiesRequest(
+                componentId: componentId,
+                name: name,
+                role: role,
+                access: accessId,
+                reaches: reaches,
+                threatActorId: threatActorId
+            )
+        ) {
+        case .updated:
+            errorMessage = nil
+        case .unknownUser:
+            errorMessage = "That user is no longer on the model."
+        case .unknownAccessLevel:
+            errorMessage = "That access level is not recognised."
+        case .unknownComponent(let id):
+            errorMessage = "This model holds no component called \"\(id)\"."
+        case .unknownActor(let id):
+            errorMessage = "This project holds no threat actor called \"\(id)\"."
+        }
+
+        refresh()
+    }
+
     func setComponentProperties(
         componentId: String,
         name: String?,

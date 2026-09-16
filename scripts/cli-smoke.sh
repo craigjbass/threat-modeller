@@ -128,6 +128,48 @@ diff "$work/split-edge-first.arch" "$work/split/threatmodel/payments/arch/edge.a
 tm compile "$work/split"
 grep -q 'on component "api"' "$work/split/threatmodel/payments/controls/ledger.controls"
 
+step "a user block formats byte for byte and reaches the report"
+mkdir -p "$work/users/threatmodel"
+cat > "$work/users/threatmodel/payments.arch" <<'ARCH'
+system "Payments" {
+  threat_actor "insider" {
+    name       = "Disgruntled operator"
+    capability = "targeted"
+    intent     = "sabotage"
+    performs   = ["credential-theft"]
+  }
+
+  component "api" {
+    technology = "aws-ec2"
+    data       = "confidential"
+  }
+
+  user "alice" {
+    name         = "Alice"
+    role         = "Operator"
+    access       = "admin"
+    reaches      = ["api"]
+    threat_actor = "insider"
+  }
+
+  flow alice -> api
+}
+ARCH
+cp "$work/users/threatmodel/payments.arch" "$work/users-first.arch"
+tm format "$work/users"
+diff "$work/users-first.arch" "$work/users/threatmodel/payments.arch"
+tm compile "$work/users"
+tm report "$work/users"
+grep -q '^### Users' "$work/users/threatmodel/payments.md"
+grep -q 'Alice (Operator, Administrator): reaches EC2' "$work/users/threatmodel/payments.md"
+grep -q 'Disgruntled operator' "$work/users/threatmodel/payments.md"
+
+step "check refuses a user naming a threat actor nothing declares"
+mkdir -p "$work/ghost-actor/threatmodel"
+printf 'system "Payments" {\n  user "alice" {\n    threat_actor = "ghost"\n  }\n}\n' \
+    > "$work/ghost-actor/threatmodel/payments.arch"
+expect_code 2 check "$work/ghost-actor"
+
 step "check refuses a zone no part file declares"
 mkdir -p "$work/ghost/threatmodel/payments/arch"
 printf 'system "Payments" { }\n' > "$work/ghost/threatmodel/payments/arch/payments.arch"

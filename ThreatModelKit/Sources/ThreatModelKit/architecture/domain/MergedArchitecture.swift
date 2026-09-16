@@ -20,6 +20,7 @@ public enum BlockOrigin: Hashable, Sendable {
     case flow(String)
     case mitigates(String)
     case assumption(String)
+    case user(String)
 }
 
 /// Joins the files of one system into one source.
@@ -116,6 +117,7 @@ public enum MergedArchitecture {
         var flows = head.flows
         var mitigates = head.mitigates
         var assumptions = head.assumptions
+        var users = head.users
 
         func remember(_ source: ArchitectureSource, from file: String) {
             for technology in source.technologies { origins[.technology(technology.id)] = file }
@@ -124,6 +126,7 @@ public enum MergedArchitecture {
             for flow in source.flows { origins[.flow(flow.id)] = file }
             for edge in source.mitigates { origins[.mitigates(edge.id)] = file }
             for assumption in source.assumptions { origins[.assumption(assumption.label)] = file }
+            for user in source.users { origins[.user(user.id)] = file }
         }
         remember(head, from: header.part.file)
 
@@ -199,6 +202,29 @@ public enum MergedArchitecture {
                 origins[.assumption(assumption.label)] = one.part.file
                 assumptions.append(assumption)
             }
+            for user in part.users {
+                if let held = origins[.user(user.id)] {
+                    diagnostics.append(
+                        fault(
+                            "the user \"\(user.id)\" is declared twice: \(held) and \(one.part.file)"
+                        )
+                    )
+                    continue
+                }
+                origins[.user(user.id)] = one.part.file
+                users.append(user)
+            }
+        }
+
+        // A user and a component share one namespace, whichever files
+        // declare them.
+        for user in users {
+            guard let held = origins[.component(user.id)], let own = origins[.user(user.id)] else {
+                continue
+            }
+            diagnostics.append(
+                fault("\"\(user.id)\" is declared as a component and as a user: \(held) and \(own)")
+            )
         }
 
         let joined = ArchitectureSource(
@@ -214,7 +240,8 @@ public enum MergedArchitecture {
             requiresEvidenceAbove: head.requiresEvidenceAbove,
             owner: head.owner,
             faces: head.faces,
-            threatActors: head.threatActors
+            threatActors: head.threatActors,
+            users: users
         )
 
         // Every file is read now, so a component that states a zone finds it
@@ -242,7 +269,18 @@ public enum MergedArchitecture {
         }
 
         // The checks that read two identifiers run here, over every file.
-        let declared = Set(merged.everyComponent.map(\.id))
+        let componentIds = Set(merged.everyComponent.map(\.id))
+        for user in merged.users {
+            for reached in user.reaches where componentIds.contains(reached) == false {
+                diagnostics.append(
+                    fault(
+                        "the user \"\(user.id)\" reaches \"\(reached)\", which this system does "
+                            + "not declare"
+                    )
+                )
+            }
+        }
+        let declared = Set(merged.everyNodeId)
         for flow in merged.flows {
             if declared.contains(flow.sourceId) == false {
                 diagnostics.append(
@@ -345,7 +383,8 @@ public enum MergedArchitecture {
                 created: source.created,
                 reviewed: source.reviewed,
                 version: source.version,
-                attributes: source.attributes
+                attributes: source.attributes,
+                users: source.users
             ),
             unknown
         )
@@ -364,6 +403,7 @@ public enum MergedArchitecture {
         for flow in source.flows { origins[.flow(flow.id)] = file }
         for edge in source.mitigates { origins[.mitigates(edge.id)] = file }
         for assumption in source.assumptions { origins[.assumption(assumption.label)] = file }
+        for user in source.users { origins[.user(user.id)] = file }
         return origins
     }
 

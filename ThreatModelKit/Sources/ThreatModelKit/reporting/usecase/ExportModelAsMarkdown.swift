@@ -142,7 +142,8 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         )
         sections[.scope] = MarkdownScope.lines(
             useCases: report.useCases,
-            exclusions: report.exclusions
+            exclusions: report.exclusions,
+            users: report.users
         )
         sections[.dataInventory] = MarkdownDataInventory.lines(report.dataInventory)
         sections[.thirdParties] = MarkdownThirdParties.lines(report.thirdParties)

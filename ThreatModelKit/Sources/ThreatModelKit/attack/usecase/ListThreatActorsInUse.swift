@@ -107,7 +107,7 @@ public struct ListThreatActorsInUse: ListThreatActorsInUseUseCase {
         let threats = catalogue.everyThreat()
         let model = models?.current()
         let localActors = model?.localActors ?? []
-        let faced = Set(model?.facedActorIds ?? [])
+        let faced = Set(model?.everyFacedActorId ?? [])
         let groups = mitre?.actors() ?? []
         let groupsByTechnique = Self.groupNames(by: groups)
 

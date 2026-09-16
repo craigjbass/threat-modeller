@@ -556,7 +556,10 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             zoneId: component.zoneId?.value,
             holds: component.holds.isEmpty ? nil : component.holds,
             statesOwnSensitivity: component.statesOwnSensitivity ? nil : false,
-            providedBy: component.providedBy
+            providedBy: component.providedBy,
+            user: component.user.map {
+                UserJSON(role: $0.role, reaches: $0.reaches, threatActorId: $0.threatActorId)
+            }
         )
     }
 
@@ -635,7 +638,10 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             providedBy: json.providedBy,
             statesOwnSensitivity: json.statesOwnSensitivity ?? true,
             shape: try optionalShape(from: json.shape),
-            zoneId: json.zoneId.map(ZoneId.init)
+            zoneId: json.zoneId.map(ZoneId.init),
+            user: json.user.map {
+                UserFacts(role: $0.role, reaches: $0.reaches, threatActorId: $0.threatActorId)
+            }
         )
     }
 

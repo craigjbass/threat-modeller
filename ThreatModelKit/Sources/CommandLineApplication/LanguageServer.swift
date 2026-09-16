@@ -307,6 +307,8 @@ public final class LanguageServer: @unchecked Sendable {
         case (.architecture, "component"):
             ["technology", "name", "zone", "data", "status", "holds", "provided_by", "source",
              "threats", "runs_as", "shape", "tags"]
+        case (.architecture, "user"):
+            ["name", "role", "access", "reaches", "threat_actor"]
         case (.architecture, "zone"):
             ["kind", "network", "name", "reduces_risk", "reduces_risk_by", "boundary",
              "description", "source", "tags"]
@@ -448,11 +450,13 @@ public final class LanguageServer: @unchecked Sendable {
         guard lineNumber < lines.count else { return NSNull() }
         let line = lines[lineNumber]
 
-        // A component named in a flow is declared in this same document.
+        // A component or a user named in a flow is declared in this same
+        // document.
         if line.trimmingCharacters(in: .whitespaces).hasPrefix("flow ") {
             let character = position["character"] as? Int ?? 0
             let named = Self.wordAt(character, in: line)
-            if let found = Self.line(declaring: "component", named: named, in: lines) {
+            if let found = Self.line(declaring: "component", named: named, in: lines)
+                ?? Self.line(declaring: "user", named: named, in: lines) {
                 return Self.location(uri: uri, line: found)
             }
         }
@@ -572,9 +576,10 @@ public final class LanguageServer: @unchecked Sendable {
 
     // MARK: reading the text
 
-    /// The component ids this document declares.
+    /// The component ids this document declares, and the user ids: a flow
+    /// names either at an end.
     func componentIds(in text: String) -> [String] {
-        Self.declared("component", in: text)
+        Self.declared("component", in: text) + Self.declared("user", in: text)
     }
 
     /// The zone ids this document declares.

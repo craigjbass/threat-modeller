@@ -89,7 +89,7 @@ struct ComponentNodeView: View {
         // separately, and the identifier lands on each of them instead of the
         // node. A user interface test queries this identifier.
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("node-\(component.technologyId)")
+        .accessibilityIdentifier(component.isUser ? "node-user" : "node-\(component.technologyId)")
         // A double-click anywhere on the node edits its name, so the target
         // is the whole node rather than the two lines of text on it.
         .gesture(
@@ -166,18 +166,53 @@ struct ComponentNodeView: View {
     /// The provider, the sensitivity and the zone sit below the shape. A
     /// 104 point circle cannot hold the name and the chips together, and one
     /// rule for all three shapes beats three rules.
+    ///
+    /// A user's row reads USER, the role, the access and a Threat actor chip
+    /// when the user names one. The row is the mark that tells a user from a
+    /// technology drawn with the actor shape.
     private var chips: some View {
         HStack(spacing: 6) {
-            Text(component.providerId.isEmpty ? "unknown" : component.providerId.uppercased())
-                .font(.caption2)
-                .lineLimit(1)
-                .foregroundStyle(.secondary)
-            Text(component.sensitivityId.capitalized)
-                .font(.caption2)
-                .lineLimit(1)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(Capsule().fill(Color.secondary.opacity(0.15)))
+            if component.isUser {
+                Text("USER")
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+                if component.role.isEmpty == false {
+                    Text(component.role)
+                        .font(.caption2)
+                        .lineLimit(1)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                        .accessibilityIdentifier("node-role-\(component.id)")
+                }
+                Text(PrivilegeLevel(rawValue: component.runsAsId)?.label ?? component.runsAsId)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.blue.opacity(0.15)))
+                if component.threatActorId != nil {
+                    Text("Threat actor")
+                        .font(.caption2)
+                        .lineLimit(1)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.red.opacity(0.2)))
+                        .accessibilityIdentifier("node-threat-actor-\(component.id)")
+                }
+            } else {
+                Text(component.providerId.isEmpty ? "unknown" : component.providerId.uppercased())
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+                Text(component.sensitivityId.capitalized)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.secondary.opacity(0.15)))
+            }
             if isProposed {
                 Text(ComponentStatus.proposed.label)
                     .font(.caption2)

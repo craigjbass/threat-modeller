@@ -102,8 +102,22 @@ struct PaletteList: View {
     /// with it. A test states the set to open the palette part way.
     @State var openCategories: Set<String> = []
 
+    /// True while the User row is on the list: always, until a search names
+    /// something else.
+    private var showsUser: Bool {
+        PaletteSearch.showsUser(for: searchText)
+    }
+
     var body: some View {
         List(selection: $selected) {
+            // A user is not a technology, so the row sits in its own section
+            // above every provider. The user block design states it.
+            if showsUser {
+                Section("Users") {
+                    UserRow(session: session)
+                        .tag(ThreatModelSession.userDropId)
+                }
+            }
             ForEach(shown, id: \.id) { provider in
                 Section(provider.displayName) {
                     // One flat sequence of identified rows, never a `Group`
@@ -142,7 +156,12 @@ struct PaletteList: View {
         // that row away leaves the list holding a key nothing draws, so the
         // selection is dropped as the rows go.
         .onChange(of: searchText) { _, _ in
-            if let selected, shownIds.contains(selected) == false { self.selected = nil }
+            guard let selected else { return }
+            if selected == ThreatModelSession.userDropId {
+                if showsUser == false { self.selected = nil }
+            } else if shownIds.contains(selected) == false {
+                self.selected = nil
+            }
         }
         // Return places what the arrow keys picked, so the palette has a
         // keyboard path from end to end.
@@ -183,6 +202,39 @@ struct PaletteList: View {
             openCategories.remove(key)
         } else {
             openCategories.insert(key)
+        }
+    }
+}
+
+/// The palette's User row. Drag it onto the canvas to put a user where it
+/// is dropped, or double-click it to put one near the top left of the
+/// canvas. A user is a human with no technology; the canvas draws it with the
+/// actor shape and the save writes a `user` block.
+struct UserRow: View {
+    let session: ThreatModelSession
+
+    static let name = "User"
+    static let description = "A person who uses the system: a role, an access level and what they reach"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(Self.name)
+            Text(Self.description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .help("\(Self.description)\n\nRaises no threats. May be a threat actor.")
+        .accessibilityIdentifier("palette-user")
+        .draggable(ThreatModelSession.userDropId) {
+            Text(Self.name)
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.2)))
+        }
+        .onTapGesture(count: 2) {
+            session.addAtDefaultPoint(technologyId: ThreatModelSession.userDropId)
         }
     }
 }

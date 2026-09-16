@@ -34,6 +34,15 @@ nonisolated enum PaletteSearch {
         }
     }
 
+    /// True while the User row stays on the palette: with no search, or with
+    /// words the row's name or description holds.
+    static func showsUser(for words: String) -> Bool {
+        let wanted = words.trimmingWhitespace().lowercased()
+        guard wanted.isEmpty == false else { return true }
+        return UserRow.name.lowercased().contains(wanted)
+            || UserRow.description.lowercased().contains(wanted)
+    }
+
     /// Every technology the narrowed palette holds, in the order it draws
     /// them. The arrow keys walk this list.
     static func technologies(of providers: [ListedProvider]) -> [ListedTechnology] {

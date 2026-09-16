@@ -16,10 +16,20 @@ nonisolated enum HoverText {
         zoneName: String?,
         risk: ElementRisk?
     ) -> String {
-        var lines = [component.technologyId]
+        var lines = [component.isUser ? userLine(component) : component.technologyId]
         lines.append(zoneName.map { "In \($0)" } ?? "In no zone")
         lines.append(openCount(risk))
         return lines.joined(separator: "\n")
+    }
+
+    /// What a user is: a user, the role when one is stated, and the actor
+    /// when the user is one.
+    private static func userLine(_ component: ViewedComponent) -> String {
+        var text = component.role.isEmpty ? "User" : "User, \(component.role)"
+        if let actorId = component.threatActorId {
+            text += ", the threat actor \(actorId)"
+        }
+        return text
     }
 
     /// What hovering a badge says: the three worst open threats, and how many
