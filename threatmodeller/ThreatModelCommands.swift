@@ -108,6 +108,14 @@ struct ThreatModelCommands: Commands {
         }
 
         CommandGroup(after: .saveItem) {
+            // The one item that reads the disk again outside the
+            // files-changed notice. `Divider()` below still separates it from
+            // the exports.
+            Button("Reload") { reloadProject() }
+                .keyboardShortcut("r", modifiers: .command)
+                .disabled(project == nil)
+                .accessibilityIdentifier("reload-project-menu")
+
             Divider()
 
             ForEach(ReportExporter.Kind.allCases, id: \.rawValue) { kind in
@@ -394,5 +402,12 @@ struct ThreatModelCommands: Commands {
     private func withSelection(_ act: (_ componentIds: [String], _ zoneIds: [String]) -> Void) {
         guard let canvas else { return }
         act(Array(canvas.selectedComponentIds), Array(canvas.selectedZoneIds))
+    }
+
+    /// Reads the project's files again, and keeps the selection where the
+    /// reloaded model still holds the element.
+    private func reloadProject() {
+        guard let project, let canvas else { return }
+        project.reload(keepingSelectionIn: canvas)
     }
 }

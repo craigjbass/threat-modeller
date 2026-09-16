@@ -371,6 +371,92 @@ struct ProjectSessionTests {
         #expect(session.hasFilesChangedOnDisk == false)
     }
 
+    // MARK: reloading from the toolbar and the File menu
+
+    @Test func reloadKeepingSelectionRedrawsWithNoNoticeVisible() async {
+        let (session, useCases, _) = await aWatchedProject()
+        await session.open(root: "/work")
+        let canvas = CanvasState()
+        useCases.project.put(
+            """
+            system "Payments" {
+              zone "app" {
+                kind    = "private"
+                network = "vpc"
+
+                component "api" {
+                  technology = "aws-ec2"
+                  data       = "confidential"
+                }
+
+                component "db" {
+                  technology = "aws-rds"
+                  data       = "confidential"
+                }
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        session.reload(keepingSelectionIn: canvas)
+        await session.settle()
+
+        #expect(session.model?.canvas.components.map(\.id).sorted() == ["api", "db"])
+        #expect(session.hasFilesChangedOnDisk == false)
+    }
+
+    @Test func reloadKeepingSelectionKeepsASelectedComponentThatStillExists() async {
+        let (session, useCases, _) = await aWatchedProject()
+        await session.open(root: "/work")
+        let canvas = CanvasState()
+        canvas.select(componentId: "api", addingToSelection: false)
+        useCases.project.put(
+            """
+            system "Payments" {
+              zone "app" {
+                kind    = "private"
+                network = "vpc"
+
+                component "api" {
+                  technology = "aws-ec2"
+                  data       = "confidential"
+                }
+
+                component "db" {
+                  technology = "aws-rds"
+                  data       = "confidential"
+                }
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        session.reload(keepingSelectionIn: canvas)
+        await session.settle()
+
+        #expect(canvas.selectedComponentIds == ["api"])
+    }
+
+    @Test func reloadKeepingSelectionDropsASelectedComponentThatIsGone() async {
+        let (session, useCases, _) = await aWatchedProject()
+        await session.open(root: "/work")
+        let canvas = CanvasState()
+        canvas.select(componentId: "api", addingToSelection: false)
+        useCases.project.put(
+            "system \"Payments\" { component \"other\" { technology = \"aws-rds\" } }",
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        session.reload(keepingSelectionIn: canvas)
+        await session.settle()
+
+        #expect(canvas.selectedComponentIds.isEmpty)
+    }
+
     @Test func keepsWhatIsOnScreenWhenTheUserAsksForThat() async {
         let (session, useCases, watcher) = await aWatchedProject()
         await session.open(root: "/work")

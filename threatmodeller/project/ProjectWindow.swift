@@ -221,6 +221,19 @@ struct ProjectWindow: View {
                 .accessibilityIdentifier("check-summary")
             }
 
+            // The one control that reads the disk again outside the
+            // files-changed notice, for a person who wants a reload for any
+            // other reason: an editor outside auto sync, a git checkout, a
+            // change to a file this application does not watch.
+            ToolbarItem {
+                Button("Reload", systemImage: "arrow.clockwise") {
+                    session.reload(keepingSelectionIn: canvas)
+                }
+                .disabled(session.root == nil)
+                .help("Read the project's files again.")
+                .accessibilityIdentifier("reload-project")
+            }
+
             ToolbarItem {
                 // Reading the history compiles the model once per sampled
                 // commit, so it is read when a person asks and never on open.

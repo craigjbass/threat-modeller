@@ -765,6 +765,24 @@ final class ProjectSession {
         inFlight = Task { await reloadFromDisk() }
     }
 
+    /// Reads the files again, the way `reload()` does, and drops the
+    /// selection down to what the reloaded model still holds.
+    ///
+    /// The toolbar and the File menu call this, so a person can ask for a
+    /// reload without waiting for the files-changed notice, and without the
+    /// canvas keeping a selection that points at an element that is gone. The
+    /// notice keeps its own plain `reload()`.
+    func reload(keepingSelectionIn canvas: CanvasState) {
+        inFlight = Task {
+            await reloadFromDisk()
+            canvas.retainOnly(
+                componentIds: Set(model?.canvas.components.map(\.id) ?? []),
+                connectionIds: Set(model?.canvas.connections.map(\.id) ?? []),
+                zoneIds: Set(model?.canvas.zones.map(\.id) ?? [])
+            )
+        }
+    }
+
     /// Writes an example, or a system with a name and nothing else, from
     /// somewhere that cannot wait for it.
     func startWriting(_ from: ProjectStart) {
