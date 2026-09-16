@@ -58,11 +58,6 @@ final class LoadWatcher: NSObject, WKNavigationDelegate {
     private var waiting: CheckedContinuation<Void, Error>?
     private var outcome: Result<Void, Error>?
 
-    /// True while a continuation is stored and nothing has resumed it. The
-    /// tests read this to fire a delegate method at the point the caller
-    /// waits.
-    var isWaiting: Bool { waiting != nil }
-
     func waitForLoad() async throws {
         try await withCheckedThrowingContinuation { continuation in
             if let outcome {
