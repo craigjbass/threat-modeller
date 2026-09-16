@@ -358,8 +358,10 @@ struct ViewRenderTests {
         #expect(hasContent(panel))
     }
 
-    /// The right sidebar draws one of two views: the default content, the
-    /// editor for the one selected element, or the multi-selection view.
+    // MARK: the right sidebar
+
+    // The column draws one of two views: the default content, the editor for
+    // the one selected element, or the multi-selection view.
 
     @Test func drawsTheRightSidebarWithItsDefaultContent() {
         expectHosted(

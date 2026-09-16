@@ -85,12 +85,15 @@ so a test states what the column shows without a window.
 `ComponentPanel`, `UserPanel`, `ZonePanel`, `ConnectionPanel` and
 `MitigatesPanel` keep their name, their fields, their accessibility
 identifiers and their write-through. Each one changes from a horizontal
-`ScrollView` of a row to a vertical `ScrollView` of `LabeledContent` rows,
-the shape `TreeSelectionPanel` already draws. Every flow test that drives a
-panel keeps passing, because only the body changed.
+`ScrollView` of one row to a vertical `ScrollView` of fields, the shape
+`TreeSelectionPanel` already draws. Every flow test that drives a panel keeps
+passing, because only the body changed.
 
-The sidebar is 280 points at its narrowest, so a control is at most 200
-points wide and every row states its label beside it.
+`SelectionEditor` is the shape: a scrolling column with a heading and one
+field per row, with 16 points of padding. `SelectionField` is one field: its
+label, then the control under it. The sidebar is 280 points at its narrowest,
+so a label above its control leaves the control the column's whole width, and
+no control states a width of its own.
 
 ### The multi-selection view
 
@@ -182,12 +185,14 @@ under the canvas so nothing the canvas draws hides under the panel.
   hidden, and after a window resize, and states the component editor is in
   the detail column at the column's width; deselects and states the default
   content is back.
-- `WindowLayoutTests.theWorkflowPanelKeepsTheMarginWithAComponentSelected`
-  states the panel's bottom edge is `WorkflowPanel.bottomMargin` above the
-  column on the Architecture stage with a component selected.
-- `SelectionSidebarTests` states `CanvasSelection.of` for each selection, that
-  two components offer Merge, and that the default content stays in the tree
-  while an editor is in front.
+- `WindowLayoutTests.theWorkflowPanelKeepsTheMarginOnEveryStage` states the
+  panel's bottom edge is `WorkflowPanel.bottomMargin` above the column on the
+  Architecture stage with a component selected, and on the Controls stage.
+- `SelectionSidebarTests` states `CanvasSelection.of` for each selection and
+  that two components offer Merge.
+  `WindowLayoutTests.theDefaultContentStaysInTheTreeWhileAnEditorIsInFront`
+  states the default content keeps its place in the view tree, and with it
+  its scroll position.
 - `ViewRenderTests` draws the sidebar with the default content, with a
   component editor and with the multi-selection view.
 - `NoBottomSelectionPanelTests` reads every file under `threatmodeller/` and
