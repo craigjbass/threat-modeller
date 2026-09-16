@@ -15,13 +15,8 @@ struct StaleAnswersPanel: View {
         let answers = project.staleAnswers
         if answers.isEmpty == false {
             VStack(alignment: .leading, spacing: 6) {
-                Label(
-                    answers.count == 1
-                        ? "1 answer is for a threat this system no longer raises"
-                        : "\(answers.count) answers are for threats this system no longer raises",
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.subheadline.weight(.semibold))
+                Label(Self.label(for: answers.count), systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline.weight(.semibold))
 
                 ForEach(answers, id: \.described) { answer in
                     row(answer)
@@ -32,6 +27,13 @@ struct StaleAnswersPanel: View {
             .background(Color.yellow.opacity(0.18))
             .accessibilityIdentifier("stale-answers")
         }
+    }
+
+    /// What the heading says for a count of stale answers.
+    static func label(for count: Int) -> String {
+        count == 1
+            ? "1 answer is for a threat this system no longer raises"
+            : "\(count) answers are for threats this system no longer raises"
     }
 
     private func row(_ answer: StaleAnswer) -> some View {

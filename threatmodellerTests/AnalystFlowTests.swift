@@ -331,4 +331,80 @@ struct AnalystFlowTests {
 
         expectDrawn(StaleAnswersPanel(project: project), width: 420, height: 140, "the stale answers panel")
     }
+
+    /// A project whose controls file answers two threats the architecture no
+    /// longer raises.
+    private func aProjectWithTwoStaleAnswers() async -> ProjectSession {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" { technology = "aws-ec2" }
+            }
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        useCases.project.put(
+            """
+            controls for "Payments" {
+              stale threat "t-old" on component "gone" {
+                control "Something a person answered" { status = "implemented" }
+              }
+              stale threat "t-older" on component "gone-too" {
+                control "Something else a person answered" { status = "implemented" }
+              }
+            }
+            """,
+            at: "/work/threatmodel/payments.controls"
+        )
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+        return session
+    }
+
+    /// A delete has to change what the panel draws at once. The property the
+    /// panel reads has to be a stored one the delete sets, not a computed one
+    /// `@Observable` never sees change.
+    @Test func theRowGoesFromThePanelWhenTheDeleteCompletes() async throws {
+        let project = await aProjectWithTwoStaleAnswers()
+        let deleted = try #require(
+            project.staleAnswers.first { $0.threatId == "t-old" }
+        )
+
+        await project.removeStaleAnswer(deleted)
+
+        #expect(project.staleAnswers.map(\.threatId) == ["t-older"])
+        #expect(
+            StaleAnswersPanel.label(for: project.staleAnswers.count)
+                == "1 answer is for a threat this system no longer raises"
+        )
+        expectDrawn(
+            StaleAnswersPanel(project: project),
+            width: 420,
+            height: 140,
+            "the stale answers panel with one answer left"
+        )
+    }
+
+    @Test func thePanelHidesWhenTheLastStaleAnswerIsDeleted() async throws {
+        let project = await aProjectWithAStaleAnswer()
+        let answer = try #require(project.staleAnswers.first)
+
+        await project.removeStaleAnswer(answer)
+
+        #expect(project.staleAnswers.isEmpty)
+        guard let drawn = hostedDrawing(
+            of: StaleAnswersPanel(project: project),
+            width: 420,
+            height: 140
+        ) else {
+            Issue.record("the stale answers panel drew nothing at all")
+            return
+        }
+        #expect(hasContent(drawn.image) == false)
+    }
 }

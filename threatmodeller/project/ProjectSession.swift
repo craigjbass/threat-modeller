@@ -302,11 +302,17 @@ final class ProjectSession {
             watcher.stop()
             watcher.watch(directory: directory) { [weak self] in self?.filesChanged() }
             let chosen = systems.contains(wanted ?? "") ? wanted : systems.first
-            if let chosen { await choose(chosen) } else { checkedSystems = [] }
+            if let chosen {
+                await choose(chosen)
+            } else {
+                checkedSystems = []
+                staleAnswers = []
+            }
         case .notAProject(let reason):
             self.root = nil
             systems = []
             model = nil
+            staleAnswers = []
             watcher.stop()
             readPolicyRules()
             readCheckFindings()
@@ -330,6 +336,7 @@ final class ProjectSession {
             // A check without the libraries would say the wrong things, so
             // the summary empties until the library parses.
             checkedSystems = []
+            staleAnswers = []
             diagnostics = faults
             diagnosticsFileName = fileName
             errorMessage = "\(fileName) did not parse."
@@ -337,6 +344,7 @@ final class ProjectSession {
         case .notAProject(let reason):
             useCases.useLibraries([])
             model = nil
+            staleAnswers = []
             errorMessage = "That is not a project: \(reason)"
             return false
         }
@@ -345,17 +353,29 @@ final class ProjectSession {
     // MARK: answers the architecture no longer raises
 
     /// The answers in the controls file for threats the architecture stopped
-    /// raising. Language guide 5.4: nothing deletes one, a person does, and
-    /// `threatmodeller check` exits 1 while one remains.
+    /// raising, as of the last read. Language guide 5.4: nothing deletes one,
+    /// a person does, and `threatmodeller check` exits 1 while one remains.
+    ///
+    /// It is a stored property, not read fresh on every access. `@Observable`
+    /// draws a view again only when a stored property the view read changes,
+    /// so `readStaleAnswers` and `removeStaleAnswer` are the only two places
+    /// that set it, and the panel draws again the moment either does.
+    private(set) var staleAnswers: [StaleAnswer] = []
+
+    /// Reads the controls file again for the answers it holds against
+    /// threats the architecture no longer raises, and stores what it found.
     ///
     /// It reads the file rather than the model, because a stale answer never
     /// reaches the model.
-    var staleAnswers: [StaleAnswer] {
-        guard let root, let chosenSystem else { return [] }
-        guard case .listed(let answers) = useCases.listStaleAnswers().execute(
-            ListStaleAnswersRequest(root: root, systemName: chosenSystem)
-        ) else { return [] }
-        return answers
+    private func readStaleAnswers() {
+        guard let root, let chosenSystem,
+              case .listed(let answers) = useCases.listStaleAnswers().execute(
+                  ListStaleAnswersRequest(root: root, systemName: chosenSystem)
+              ) else {
+            staleAnswers = []
+            return
+        }
+        staleAnswers = answers
     }
 
     /// Deletes one, because a person decided to, and reads the project again
@@ -376,6 +396,7 @@ final class ProjectSession {
             .describe(into: &errorMessage)
 
         fingerprint = currentFingerprint()
+        readStaleAnswers()
         readCheckFindings()
     }
 
@@ -821,6 +842,7 @@ final class ProjectSession {
             drawn.onChange = { [weak self] in self?.modelDidChange() }
             readPolicyRules()
             readCheckFindings()
+            readStaleAnswers()
             readCatalogueDrift(statedTag: statedTag, systemName: systemName)
         case .refused(let fileName, let faults):
             chosenSystem = systemName
@@ -832,6 +854,7 @@ final class ProjectSession {
             hasFilesChangedOnDisk = false
             readPolicyRules()
             readCheckFindings()
+            readStaleAnswers()
             errorMessage = "\(fileName) did not parse."
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(systemName)\"."
@@ -1019,6 +1042,7 @@ final class ProjectSession {
             await saveAnswers(root: root, systemName: chosenSystem)
             readPolicyRules()
             readCheckFindings()
+            readStaleAnswers()
             savedRevision = model?.revision ?? 0
             fingerprint = currentFingerprint()
             hasFilesChangedOnDisk = false
