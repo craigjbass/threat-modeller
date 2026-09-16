@@ -710,6 +710,56 @@ final class ProjectSession {
         }
     }
 
+    // MARK: what a threat harms
+
+    /// Writes one threat's whole `impacts` list into the controls file and
+    /// reads the project again, so the filter reads what the chips now show.
+    func writeImpacts(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        impacts: [String]
+    ) async {
+        guard let root, let chosenSystem else { return }
+
+        let response = useCases.writeImpacts()
+            .execute(
+                WriteImpactsRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    systemDisplayName: model?.canvas.name,
+                    threatId: threatId,
+                    sourceKind: sourceKind,
+                    sourceId: sourceId,
+                    impacts: impacts
+                )
+            )
+        response.describe(into: &errorMessage)
+
+        // A refused write changed no file, and reading the project again
+        // clears the message that says why.
+        guard case .written = response else { return }
+        await reloadFromDisk()
+    }
+
+    /// Writes an impacts list from somewhere that cannot wait for it, such
+    /// as a chip's tap.
+    func saveImpacts(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        impacts: [String]
+    ) {
+        inFlight = Task {
+            await writeImpacts(
+                threatId: threatId,
+                sourceKind: sourceKind,
+                sourceId: sourceId,
+                impacts: impacts
+            )
+        }
+    }
+
     /// Writes an acceptance from somewhere that cannot wait for it.
     func saveRiskAcceptance(
         threatId: String,

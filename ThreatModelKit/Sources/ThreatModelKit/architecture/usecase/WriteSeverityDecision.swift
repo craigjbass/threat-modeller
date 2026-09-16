@@ -353,6 +353,27 @@ enum ControlsFile {
         )
     }
 
+    /// The answer with a different `impacts` list and nothing else moved.
+    static func changing(
+        _ answer: SourceThreatAnswer,
+        impactsTo impacts: [String]
+    ) -> SourceThreatAnswer {
+        SourceThreatAnswer(
+            threatId: answer.threatId,
+            sourceKind: answer.sourceKind,
+            sourceId: answer.sourceId,
+            severityLabel: answer.severityLabel,
+            score: answer.score,
+            likelihood: answer.likelihood,
+            severityDecision: answer.severityDecision,
+            impacts: impacts,
+            controls: answer.controls,
+            compensating: answer.compensating,
+            recommendations: answer.recommendations,
+            isStale: answer.isStale
+        )
+    }
+
     /// The source with different answers and nothing else moved.
     static func replacing(
         answers: [SourceThreatAnswer],

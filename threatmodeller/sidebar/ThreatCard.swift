@@ -24,6 +24,10 @@ struct ThreatCard: View {
     var onDecideSeverity: (() -> Void)?
     let onOverride: (_ severityId: String) -> Void
     let onClearOverride: () -> Void
+    /// Writes the whole `impacts` list, or nil in a window that has no
+    /// project to write the `.controls` file into. With a project, each chip
+    /// is a toggle; with none, the chips are read-only tags.
+    var onSetImpacts: ((_ impacts: [String]) -> Void)?
 
     /// Puts the threat's id on the clipboard, so a person can name it in a
     /// file or a ticket. A test gives its own.
@@ -311,13 +315,8 @@ struct ThreatCard: View {
                     .background(Capsule().fill(Color.secondary.opacity(0.15)))
             }
 
-            ForEach(threat.impacts, id: \.self) { impact in
-                Text(ThreatImpact(rawValue: impact)?.label ?? impact)
-                    .font(.caption2)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Color.accentColor.opacity(0.15)))
-                    .help("This threat harms \(ThreatImpact(rawValue: impact)?.label.lowercased() ?? impact).")
+            ForEach(ThreatImpact.allCases, id: \.self) { impact in
+                impactChip(impact)
             }
 
             if threat.isTlsMitigated {
@@ -328,6 +327,52 @@ struct ThreatCard: View {
 
             Spacer(minLength: 0)
         }
+    }
+
+    /// One impact chip. Filled is on, outlined is off. A tap toggles it and
+    /// writes the whole list. The last chip a threat holds stays on: an
+    /// empty write cannot mean "harms nothing", so the window never offers
+    /// one.
+    private func impactChip(_ impact: ThreatImpact) -> some View {
+        let isOn = threat.impacts.contains(impact.rawValue)
+        let isLastOn = isOn && threat.impacts.count == 1
+
+        return Button {
+            toggleImpact(impact)
+        } label: {
+            Text(impact.label)
+                .font(.caption2)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(
+                    Capsule()
+                        .fill(isOn ? Color.accentColor.opacity(0.15) : Color.clear)
+                )
+                .overlay(
+                    Capsule().strokeBorder(
+                        isOn ? Color.accentColor.opacity(0.4) : Color.secondary.opacity(0.3)
+                    )
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(onSetImpacts == nil || isLastOn)
+        .help(
+            isLastOn
+                ? "This threat needs at least one impact."
+                : "This threat harms \(impact.label.lowercased())."
+        )
+        .accessibilityIdentifier("impact-\(impact.rawValue)-\(threat.threatKey)")
+    }
+
+    private func toggleImpact(_ impact: ThreatImpact) {
+        guard let onSetImpacts else { return }
+        var updated = threat.impacts
+        if let index = updated.firstIndex(of: impact.rawValue) {
+            updated.remove(at: index)
+        } else {
+            updated.append(impact.rawValue)
+        }
+        onSetImpacts(updated)
     }
 
     /// The severity control: a label, and the one number on the card the

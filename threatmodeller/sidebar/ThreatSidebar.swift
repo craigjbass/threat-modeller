@@ -239,6 +239,20 @@ struct ThreatSidebar: View {
                                                 },
                                                 onClearOverride: {
                                                     session.clearOverride(overrideKey: threat.overrideKey)
+                                                },
+                                                // The writer writes a file in
+                                                // the project, so a window
+                                                // with no project offers no
+                                                // toggle.
+                                                onSetImpacts: project == nil ? nil : { impacts in
+                                                    guard case .threat(let threatId, let sourceKind, let sourceId)?
+                                                        = GovernanceSheet.place(of: threat.threatKey) else { return }
+                                                    project?.saveImpacts(
+                                                        threatId: threatId,
+                                                        sourceKind: sourceKind,
+                                                        sourceId: sourceId,
+                                                        impacts: impacts
+                                                    )
                                                 }
                                             )
                                         }

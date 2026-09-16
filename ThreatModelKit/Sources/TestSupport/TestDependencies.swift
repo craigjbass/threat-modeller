@@ -314,6 +314,10 @@ public final class TestDependencies: UseCaseFactory {
         RemoveSeverityDecision(projects: projects, sources: controlsSources)
     }
 
+    public func writeImpacts() -> WriteImpactsUseCase {
+        WriteImpacts(projects: projects, sources: controlsSources)
+    }
+
     public func checkGovernance() -> CheckGovernanceUseCase {
         CheckGovernance(
             controlsSources: controlsSources,

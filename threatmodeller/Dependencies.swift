@@ -315,6 +315,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveSeverityDecision(projects: projects, sources: controlsSources)
     }
 
+    func writeImpacts() -> WriteImpactsUseCase {
+        WriteImpacts(projects: projects, sources: controlsSources)
+    }
+
     func checkGovernance() -> CheckGovernanceUseCase {
         CheckGovernance(
             controlsSources: controlsSources,
