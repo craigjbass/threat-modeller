@@ -465,32 +465,41 @@ struct CanvasView: View {
         .buttonStyle(.bordered)
     }
 
-    /// Narrows the diagram to the tags a person picks. A model that states no
-    /// tag offers nothing, so a diagram with no tags keeps the toolbar it had.
-    @ViewBuilder
+    /// Narrows the diagram to the tags a person picks. Always on the
+    /// toolbar, even while the model states no tag, so a person always finds
+    /// Neighbours and Clear Filter without writing a tag first.
     private func tagFilterMenu(showsWords: Bool) -> some View {
         let tags = TagFilter.tags(in: session.canvas)
-        if tags.isEmpty == false {
+
+        return Group {
             Divider().frame(height: 16)
 
             Menu {
-                ForEach(tags, id: \.self) { tag in
-                    Toggle(tag, isOn: picked(tag))
-                        .accessibilityIdentifier("tag-filter-\(tag)")
+                if let tagFilterHintRow {
+                    Button(tagFilterHintRow) {}
+                        .disabled(true)
+                } else {
+                    ForEach(tags, id: \.self) { tag in
+                        Toggle(tag, isOn: picked(tag))
+                            .accessibilityIdentifier("tag-filter-\(tag)")
+                    }
                 }
                 Divider()
-                Stepper(
-                    "Neighbours: \(canvas.tagFilter.neighbourDepth)",
-                    value: neighbourDepth,
-                    in: 0...10
-                )
+                // A `Picker` inside a `Menu` draws as a submenu with a tick on
+                // the chosen value. A `Stepper` inside a `Menu` draws no
+                // control at all on macOS.
+                Picker("Neighbours: \(canvas.tagFilter.neighbourDepth)", selection: neighbourDepth) {
+                    ForEach(0...5, id: \.self) { depth in
+                        Text("\(depth)").tag(depth)
+                    }
+                }
                 .accessibilityIdentifier("tag-filter-neighbours")
                 Divider()
                 Button("Clear Filter") { canvas.clearTagFilter() }
-                    .disabled(canvas.tagFilter.isNarrowing == false)
+                    .disabled(isClearFilterEnabled == false)
                     .accessibilityIdentifier("tag-filter-clear")
             } label: {
-                Label(tagFilterLabel, systemImage: "line.3.horizontal.decrease.circle")
+                Label(tagFilterLabel, systemImage: tagFilterIcon)
             }
             // One width for the words, so a long tag name never widens the
             // row, and the width of an icon for the narrow column.
@@ -499,12 +508,43 @@ struct CanvasView: View {
         }
     }
 
-    /// What the closed menu reads, so a person knows the canvas is narrowed
-    /// without opening it.
-    private var tagFilterLabel: String {
+    /// The disabled row the menu shows in place of the tag list while the
+    /// model states no tag, or nil while it states one and the tag list
+    /// draws instead.
+    var tagFilterHintRow: String? {
+        TagFilter.tags(in: session.canvas).isEmpty
+            ? "No tags yet. Add a tag on the component panel."
+            : nil
+    }
+
+    /// What the closed menu reads, so a person knows what narrows the
+    /// diagram without opening it: what Focus names, else the picked tags
+    /// joined by commas, else that nothing narrows it.
+    var tagFilterLabel: String {
+        if let focusedComponentName {
+            return "Focus: \(focusedComponentName)"
+        }
         let picked = canvas.tagFilter.pickedTags.sorted()
-        if picked.isEmpty { return "Every tag" }
-        return picked.count == 1 ? picked[0] : "\(picked.count) tags"
+        return picked.isEmpty ? "Filter" : picked.joined(separator: ", ")
+    }
+
+    /// The name the label states for Focus, or nil while Focus is off.
+    private var focusedComponentName: String? {
+        guard let focusedComponentId = canvas.focusedComponentId else { return nil }
+        return session.canvas.components.first { $0.id == focusedComponentId }?.name
+    }
+
+    /// True while Clear Filter answers a click: a picked tag or Focus
+    /// narrows the diagram. The same condition fills the menu's icon, so a
+    /// person who sees fewer components knows why.
+    var isClearFilterEnabled: Bool {
+        canvas.tagFilter.isNarrowing || canvas.focusedComponentId != nil
+    }
+
+    private var tagFilterIcon: String {
+        isClearFilterEnabled
+            ? "line.3.horizontal.decrease.circle.fill"
+            : "line.3.horizontal.decrease.circle"
     }
 
     private func picked(_ tag: String) -> Binding<Bool> {
@@ -514,8 +554,8 @@ struct CanvasView: View {
         )
     }
 
-    /// What the neighbours stepper reads and writes.
-    private var neighbourDepth: Binding<Int> {
+    /// What the neighbours submenu reads and writes.
+    var neighbourDepth: Binding<Int> {
         Binding(
             get: { canvas.tagFilter.neighbourDepth },
             set: { canvas.setNeighbourDepth($0) }

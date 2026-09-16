@@ -539,6 +539,80 @@ struct ViewRenderTests {
         expectDrawn(CanvasView(session: aModel(), canvas: CanvasState()), "the canvas")
     }
 
+    // MARK: the tag filter control
+
+    /// `aModel()` states no tag, so the control shows the disabled hint row
+    /// in place of a tag list, and still draws on the toolbar.
+    @Test func theFilterControlShowsADisabledHintRowWithNoTags() async {
+        let view = CanvasView(session: aModel(), canvas: CanvasState())
+
+        #expect(view.tagFilterHintRow == "No tags yet. Add a tag on the component panel.")
+        expectDrawn(view, "the canvas with the tag filter control and no tags")
+    }
+
+    @Test func theFilterLabelReadsFilterWhenNothingNarrowsTheDiagram() async {
+        let view = CanvasView(session: aModel(), canvas: CanvasState())
+
+        #expect(view.tagFilterLabel == "Filter")
+        #expect(view.isClearFilterEnabled == false)
+    }
+
+    @Test func theFilterLabelJoinsThePickedTagsByCommas() async {
+        let canvas = CanvasState()
+        canvas.pick(tag: "payments")
+        canvas.pick(tag: "pci")
+        let view = CanvasView(session: aModel(), canvas: canvas)
+
+        #expect(view.tagFilterLabel == "payments, pci")
+        #expect(view.isClearFilterEnabled)
+    }
+
+    /// The new control is a `Picker` submenu, not a `Stepper`, and the same
+    /// binding the control writes through sets the depth on the canvas.
+    @Test func settingNeighboursThroughTheControlWritesTheDepthOnTheCanvas() async {
+        let canvas = CanvasState()
+        let view = CanvasView(session: aModel(), canvas: canvas)
+
+        view.neighbourDepth.wrappedValue = 2
+
+        #expect(canvas.tagFilter.neighbourDepth == 2)
+    }
+
+    @Test func turningFocusOnWithNoTagsNamesTheComponentAndEnablesClearFilter() async throws {
+        let session = aModel()
+        let component = try #require(session.canvas.components.first)
+        let componentId = component.id
+        let componentName = component.name
+        let canvas = CanvasState()
+        let view = CanvasView(session: session, canvas: canvas)
+
+        canvas.focus(componentId: componentId)
+
+        #expect(view.tagFilterLabel == "Focus: \(componentName)")
+        #expect(view.isClearFilterEnabled)
+
+        canvas.clearTagFilter()
+
+        #expect(canvas.focusedComponentId == nil)
+        #expect(canvas.tagFilter.narrow(session.canvas).components.count == session.canvas.components.count)
+    }
+
+    /// A pixel test proves the badge itself differs, not only the state
+    /// behind it.
+    @Test func drawsADifferentBadgeWhileTheFilterNarrowsTheDiagram() async throws {
+        let unfiltered = try #require(
+            pixels(of: CanvasView(session: aModel(), canvas: CanvasState()), width: 900, height: 700)
+        )
+
+        let narrowedCanvas = CanvasState()
+        narrowedCanvas.pick(tag: "payments")
+        let narrowed = try #require(
+            pixels(of: CanvasView(session: aModel(), canvas: narrowedCanvas), width: 900, height: 700)
+        )
+
+        #expect(unfiltered != narrowed)
+    }
+
     @Test func drawsThePalette() async {
         expectDrawn(
             PaletteView(session: aModel(), canvas: CanvasState()),
