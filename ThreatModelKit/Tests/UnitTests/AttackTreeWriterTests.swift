@@ -1,4 +1,5 @@
 import ArchitectureDSL
+import Foundation
 import Testing
 import ThreatModelKit
 
@@ -40,6 +41,43 @@ struct AttackTreeWriterTests {
         let read = try #require(gateway.read(canonical).source)
 
         #expect(gateway.write(read) == canonical)
+    }
+
+    @Test func writesAChainInTheOrderItWasRead() throws {
+        let chain = """
+        attack_trees for "P" {
+          tree "t" {
+            goal "g" on component "c"
+
+            then {
+              step "steal-x" on component "x"
+              step "break-y" on component "y"
+              step "use-y" on component "y"
+            }
+          }
+        }
+
+        """
+        let read = try #require(gateway.read(chain).source)
+
+        #expect(gateway.write(read) == chain)
+    }
+
+    private static let golden = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("Goldens")
+        .appendingPathComponent("chain.attacktree")
+
+    /// The golden holds a chain with a note, a chain as one child of an
+    /// `all_of`, and a branch beside it. Reading it and writing it changes
+    /// no byte.
+    @Test func theChainGoldenReadsAndWritesByteForByte() throws {
+        let text = try String(contentsOf: Self.golden, encoding: .utf8)
+        let read = gateway.read(text)
+
+        #expect(read.hasErrors == false)
+        #expect(gateway.write(try #require(read.source)) == text)
     }
 
     @Test func writesNoAttributeHoldingItsDefault() throws {

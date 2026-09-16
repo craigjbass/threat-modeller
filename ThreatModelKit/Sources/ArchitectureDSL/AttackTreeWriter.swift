@@ -63,10 +63,14 @@ struct AttackTreeWriter {
             return group("all_of", children)
         case .any(let children):
             return group("any_of", children)
+        case .then(let links):
+            // The links write in the order the source states them, because
+            // that order is the chain.
+            return group("then", links)
         }
     }
 
-    /// Writes the children of `all_of` or `any_of`.
+    /// Writes the children of `all_of`, `any_of` or `then`.
     ///
     /// A blank line separates two children when either one is a block — a
     /// step with a note, or a nested `all_of` or `any_of` — because that is

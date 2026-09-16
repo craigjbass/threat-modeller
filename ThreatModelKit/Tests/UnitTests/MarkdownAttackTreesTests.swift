@@ -3,7 +3,13 @@ import ThreatModelKit
 
 @Suite("The attack tree section of the report")
 struct MarkdownAttackTreesTests {
-    private func step(_ name: String, _ state: StepState, closedBy: String? = nil) -> BoundStep {
+    private func step(
+        _ name: String,
+        _ state: StepState,
+        closedBy: String? = nil,
+        chain: Int? = nil,
+        position: Int? = nil
+    ) -> BoundStep {
         BoundStep(
             key: ThreatKey(threatId: name, sourceId: "component:api"),
             threatName: name,
@@ -11,7 +17,9 @@ struct MarkdownAttackTreesTests {
             state: state,
             closedBy: closedBy,
             factor: 1.0,
-            note: nil
+            note: nil,
+            chain: chain,
+            position: position
         )
     }
 
@@ -76,6 +84,66 @@ struct MarkdownAttackTreesTests {
         #expect(
             lines.contains("| Credential Theft | Application Server | open | \u{2014} |")
         )
+    }
+
+    /// A chain prints as an ordered route, one line per link with its
+    /// position, not as a bag.
+    @Test func printsTheLinksOfAChainNumberedInOrder() {
+        let lines = MarkdownAttackTrees.lines(
+            [tree(steps: [
+                step("Server-Side Request Forgery", .open, chain: 1, position: 1),
+                step("Credential Theft", .closed, closedBy: "Enforce IMDSv2", chain: 1, position: 2),
+                step("Privilege Escalation", .open, chain: 1, position: 3),
+            ])],
+            routes: 1
+        )
+
+        let text = lines.joined(separator: "\n")
+        #expect(text.contains("""
+        The chain, in order:
+
+        1. Server-Side Request Forgery on Application Server, open
+        2. Credential Theft on Application Server, closed by Enforce IMDSv2
+        3. Privilege Escalation on Application Server, open
+        """))
+    }
+
+    @Test func numbersEachChainOfATreeThatHoldsTwo() {
+        let lines = MarkdownAttackTrees.lines(
+            [tree(steps: [
+                step("A", .open, chain: 1, position: 1),
+                step("B", .open, chain: 1, position: 2),
+                step("C", .open, chain: 2, position: 1),
+                step("D", .open, chain: 2, position: 2),
+            ])],
+            routes: 1
+        )
+
+        #expect(lines.contains("Chain 1, in order:"))
+        #expect(lines.contains("Chain 2, in order:"))
+        #expect(lines.contains("2. D on Application Server, open"))
+    }
+
+    /// Two steps of a branch that is the first link share position 1 and
+    /// print on one line.
+    @Test func printsABranchLinkOnOneLine() {
+        let lines = MarkdownAttackTrees.lines(
+            [tree(steps: [
+                step("A", .open, chain: 1, position: 1),
+                step("B", .open, chain: 1, position: 1),
+                step("C", .open, chain: 1, position: 2),
+            ])],
+            routes: 1
+        )
+
+        #expect(lines.contains("1. A on Application Server, open; B on Application Server, open"))
+        #expect(lines.contains("2. C on Application Server, open"))
+    }
+
+    @Test func printsNoChainForATreeOfBranchesAlone() {
+        let lines = MarkdownAttackTrees.lines([tree(steps: [step("A", .open)])], routes: 1)
+
+        #expect(lines.contains { $0.contains("in order:") } == false)
     }
 
     @Test func saysATreeNoLongerBindsRatherThanNamingAScore() {

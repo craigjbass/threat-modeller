@@ -46,18 +46,22 @@ public struct SourceAttackTree: Equatable, Sendable {
     public var displayName: String { name ?? id }
 }
 
-/// A branch of a tree, or a step at the end of one.
+/// A branch of a tree, a chain through it, or a step at the end of one.
 public indirect enum SourceTreeNode: Equatable, Sendable {
     case step(SourceTreeStep)
     /// Open while every child is open.
     case all([SourceTreeNode])
     /// Open while any child is open.
     case any([SourceTreeNode])
+    /// A chain: the links in the order the attacker walks them. Open while
+    /// every link is open. The first link is any node; every later link is
+    /// a step, which the parser and the canvas both hold to.
+    case then([SourceTreeNode])
 
     public var steps: [SourceTreeStep] {
         switch self {
         case .step(let step): [step]
-        case .all(let children), .any(let children): children.flatMap(\.steps)
+        case .all(let children), .any(let children), .then(let children): children.flatMap(\.steps)
         }
     }
 }

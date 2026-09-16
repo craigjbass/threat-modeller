@@ -307,7 +307,7 @@ struct ControlsParserTests {
         }
         """)
 
-        #expect(read.diagnostics.map(\.message) == ["a step holds state and by, not \"colour\""])
+        #expect(read.diagnostics.map(\.message) == ["a step holds state, by and position, not \"colour\""])
     }
 
 }

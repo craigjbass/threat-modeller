@@ -139,17 +139,19 @@ struct ControlsParser {
 
         var state = "open"
         var closedBy: String?
+        var position: Int?
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
             case "state": state = parseTextAttribute() ?? "open"
             case "by": closedBy = parseTextAttribute()
+            case "position": position = parseNumberAttribute()
             default:
-                record("a step holds state and by, not \"\(current.text)\"")
+                record("a step holds state, by and position, not \"\(current.text)\"")
                 skipAttribute()
             }
         }
         _ = expect(.rightBrace, "}")
-        return SourceTreeStepAnswer(key: key.text, state: state, closedBy: closedBy)
+        return SourceTreeStepAnswer(key: key.text, state: state, closedBy: closedBy, position: position)
     }
 
     private mutating func parseThreat(isStale: Bool) -> SourceThreatAnswer? {

@@ -21,7 +21,8 @@ public enum AttackTreeBinding {
         }
 
         return trees.map { tree in
-            let steps = tree.steps.map { self.step($0, in: byKey) }
+            var chains = 0
+            let steps = links(of: tree.root, in: byKey, chain: nil, counting: &chains)
             let goal = byKey[tree.goal.key]
             let isStale = goal == nil || steps.contains { $0.state == .unbound }
 
@@ -49,9 +50,42 @@ public enum AttackTreeBinding {
         }
     }
 
+    /// Every step of a node in file order, each one told which chain it is
+    /// a link of and where. A `then` numbers a new chain and hands each link
+    /// its position; a branch hands its children the link it sits in, so a
+    /// nested chain wins over the one around it.
+    private static func links(
+        of node: SourceTreeNode,
+        in byKey: [ThreatKey: ResolvedThreat],
+        chain: (number: Int, position: Int)?,
+        counting chains: inout Int
+    ) -> [BoundStep] {
+        switch node {
+        case .step(let step):
+            return [self.step(step, in: byKey, chain: chain?.number, position: chain?.position)]
+        case .all(let children), .any(let children):
+            return children.flatMap { links(of: $0, in: byKey, chain: chain, counting: &chains) }
+        case .then(let chainLinks):
+            chains += 1
+            let number = chains
+            var steps: [BoundStep] = []
+            for (index, link) in chainLinks.enumerated() {
+                steps += links(
+                    of: link,
+                    in: byKey,
+                    chain: (number: number, position: index + 1),
+                    counting: &chains
+                )
+            }
+            return steps
+        }
+    }
+
     private static func step(
         _ step: SourceTreeStep,
-        in byKey: [ThreatKey: ResolvedThreat]
+        in byKey: [ThreatKey: ResolvedThreat],
+        chain: Int? = nil,
+        position: Int? = nil
     ) -> BoundStep {
         let key = step.target.key
         guard let threat = byKey[key] else {
@@ -61,7 +95,9 @@ public enum AttackTreeBinding {
                 sourceName: step.target.sourceId,
                 state: .unbound,
                 factor: 0,
-                note: step.note
+                note: step.note,
+                chain: chain,
+                position: position
             )
         }
 
@@ -79,7 +115,9 @@ public enum AttackTreeBinding {
             state: isClosed ? .closed : .open,
             closedBy: closingControl?.description ?? threat.compensating.first?.label,
             factor: threat.likelihood.factor,
-            note: step.note
+            note: step.note,
+            chain: chain,
+            position: position
         )
     }
 
@@ -92,10 +130,12 @@ public enum AttackTreeBinding {
             let bound = self.step(step, in: byKey)
             return NodeState(isOpen: bound.state == .open, factor: bound.factor)
 
-        case .all(let children):
+        case .all(let children), .then(let children):
             let states = children.map { state(of: $0, in: byKey) }
-            // Every child is needed, so the chain is as likely as its weakest
-            // one, and one closed child closes the branch.
+            // Every child is needed, so the branch is as likely as its weakest
+            // one, and one closed child closes it. A chain reads the same
+            // way: a closed link stops the attacker before the next one, and
+            // the order changes no number.
             return NodeState(
                 isOpen: states.allSatisfy(\.isOpen),
                 factor: states.map(\.factor).min() ?? 0

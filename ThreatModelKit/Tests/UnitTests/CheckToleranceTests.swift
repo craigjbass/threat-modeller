@@ -120,6 +120,29 @@ struct CheckToleranceTests {
         #expect(response.isClean == false)
     }
 
+    @Test func failsWhileOneLinkOfAChainNoLongerBinds() {
+        let response = check(trees: """
+        attack_trees for "P" {
+          tree "t" {
+            goal "misconfiguration" on component "db"
+
+            then {
+              step "dos-attack" on component "api"
+              step "credential-theft" on component "gone"
+              step "misconfiguration" on component "api"
+            }
+          }
+        }
+        """)
+
+        guard case .checked(_, _, let staleTrees, _, _, _) = response else {
+            Issue.record("the check refused: \(response)")
+            return
+        }
+        #expect(staleTrees == ["the tree \"t\" is written but no longer binds"])
+        #expect(response.isClean == false)
+    }
+
     @Test func passesForATreeThatStillBinds() {
         let response = check(trees: """
         attack_trees for "P" {

@@ -76,6 +76,67 @@ struct AttackTreeParserTests {
         #expect(tree.raisesRiskBy == 0)
     }
 
+    @Test func readsAChainInTheOrderTheFileStatesIt() throws {
+        let read = read("""
+        attack_trees for "P" {
+          tree "obtain-z" {
+            goal "obtain-z" on component "z"
+
+            then {
+              step "steal-x" on component "x"
+              step "break-y" on component "y"
+              step "use-y" on component "y"
+            }
+          }
+        }
+        """)
+
+        let tree = try #require(read.source?.trees.first)
+        #expect(read.diagnostics.isEmpty)
+        #expect(tree.root == .then([
+            .step(SourceTreeStep(target: SourceTreeTarget(
+                threatId: "steal-x", sourceKind: "component", sourceId: "x"
+            ))),
+            .step(SourceTreeStep(target: SourceTreeTarget(
+                threatId: "break-y", sourceKind: "component", sourceId: "y"
+            ))),
+            .step(SourceTreeStep(target: SourceTreeTarget(
+                threatId: "use-y", sourceKind: "component", sourceId: "y"
+            ))),
+        ]))
+        #expect(tree.steps.map(\.target.threatId) == ["steal-x", "break-y", "use-y"])
+    }
+
+    @Test func readsABranchAsTheFirstLinkOfAChain() throws {
+        let read = read("""
+        attack_trees for "P" {
+          tree "t" {
+            goal "g" on component "c"
+
+            then {
+              any_of {
+                step "a" on component "c"
+                step "b" on component "c"
+              }
+
+              step "d" on component "c"
+            }
+          }
+        }
+        """)
+
+        let tree = try #require(read.source?.trees.first)
+        guard case .then(let links) = tree.root else {
+            Issue.record("the root is not a chain")
+            return
+        }
+        #expect(links.count == 2)
+        guard case .any = links[0] else {
+            Issue.record("the first link is not a branch")
+            return
+        }
+    }
+
     @Test func readsAFlowStep() throws {
         let read = read("""
         attack_trees for "P" {
@@ -169,6 +230,33 @@ struct AttackTreeParserTests {
             attack_trees for "P" {
               tree "t" {
                 goal "g" on component "c"
+                then { }
+              }
+            }
+            """,
+            "the then in the tree \"t\" holds nothing"
+        ),
+        (
+            """
+            attack_trees for "P" {
+              tree "t" {
+                goal "g" on component "c"
+                then {
+                  step "a" on component "c"
+                  all_of {
+                    step "b" on component "c"
+                  }
+                }
+              }
+            }
+            """,
+            "the then in the tree \"t\" holds a branch after its first link; a later link is a step"
+        ),
+        (
+            """
+            attack_trees for "P" {
+              tree "t" {
+                goal "g" on component "c"
                 step "s" on gateway "c"
               }
             }
@@ -208,7 +296,7 @@ struct AttackTreeParserTests {
               }
             }
             """,
-            "a tree holds name, description, raises_risk_by, goal, all_of, any_of and step, not \"owner\""
+            "a tree holds name, description, raises_risk_by, goal, all_of, any_of, then and step, not \"owner\""
         ),
     ])
     func refusesTheFault(text: String, message: String) {

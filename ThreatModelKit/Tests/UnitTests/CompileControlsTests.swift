@@ -390,6 +390,50 @@ struct CompileControlsTests {
         #expect(staleTrees == 0)
     }
 
+    /// The stanza states each link's position, so a reader of the compiled
+    /// file sees the order without the `.attacktree` file.
+    @Test func writesThePositionOfEachLinkOfAChain() {
+        let response = compile(architecture: twoTier, trees: """
+        attack_trees for "P" {
+          tree "t" {
+            goal "misconfiguration" on component "db"
+
+            then {
+              step "dos-attack" on component "api"
+              step "credential-theft" on component "api"
+              step "misconfiguration" on component "api"
+            }
+          }
+        }
+        """)
+
+        guard case .compiled(let text, _, _, _, let staleTrees, _, _) = response else {
+            Issue.record("the compile refused: \(response)")
+            return
+        }
+        #expect(staleTrees == 0)
+        #expect(text.contains("""
+            step "dos-attack@component:api" {
+              state    = "open"
+              position = 1
+            }
+
+            step "credential-theft@component:api" {
+              state    = "open"
+              position = 2
+            }
+
+            step "misconfiguration@component:api" {
+              state    = "open"
+              position = 3
+            }
+        """))
+
+        // The compiled file reads back with the order it states.
+        let read = HclControlsSource().read(text)
+        #expect(read.source?.trees.first?.steps.map(\.position) == [1, 2, 3])
+    }
+
     @Test func movesATreeIntoStaleWhenAStepNoLongerBinds() {
         let response = compile(architecture: twoTier, trees: """
         attack_trees for "P" {

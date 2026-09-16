@@ -330,6 +330,14 @@ public final class LanguageServer: @unchecked Sendable {
              "zone_context", "applies_to", "boundary", "runs_as", "pathway", "likelihood"]
         case (.library, "technology"):
             ["name", "category", "description", "threats", "encrypts"]
+        case (.attackTree, "attack_trees"):
+            ["catalogue", "tree"]
+        case (.attackTree, "tree"):
+            ["name", "description", "raises_risk_by", "goal", "all_of", "any_of", "then", "step"]
+        case (.attackTree, "all_of"), (.attackTree, "any_of"), (.attackTree, "then"):
+            ["step", "all_of", "any_of", "then"]
+        case (.attackTree, "step"):
+            ["note"]
         case (.governance, "accepted"), (.governance, "work"):
             ["owner", "accepted_on", "review_by", "due_by", "rationale", "effort", "status"]
         case (.policy, _):

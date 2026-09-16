@@ -255,7 +255,8 @@ public struct CompileControls: CompileControlsUseCase {
                     SourceTreeStepAnswer(
                         key: step.key.value,
                         state: step.state.rawValue,
-                        closedBy: step.closedBy
+                        closedBy: step.closedBy,
+                        position: step.position
                     )
                 },
                 isStale: tree.isStale

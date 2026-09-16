@@ -1340,8 +1340,9 @@ TreeAnswerEntry = "goal"           "=" String
                 | StepAnswerBlock ;
 
 StepAnswerBlock = "step" String "{" { StepAnswerAttr } "}" ;
-StepAnswerAttr  = "state" "=" String
-                | "by"    "=" String ;
+StepAnswerAttr  = "state"    "=" String
+                | "by"       "=" String
+                | "position" "=" Number ;
 
 ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String "{" { ThreatEntry } "}" ;
 SourceKind  = "component" | "zone" | "flow" ;
@@ -1553,6 +1554,24 @@ tree "read-every-customer-record" {
     by    = "Enforce IMDSv2 with a hop limit of 1"
   }
 }
+
+tree "obtain-the-customer-records" {
+  goal           = "data-exfiltration@component:db"
+  chain          = 100
+  raises_risk_by = 40
+  score          = 7
+  score_before   = 5
+
+  step "ssrf-attack@component:appserver" {
+    state    = "open"
+    position = 1
+  }
+
+  step "credential-theft@component:appserver" {
+    state    = "open"
+    position = 2
+  }
+}
 ```
 
 | Attribute | Meaning |
@@ -1564,6 +1583,7 @@ tree "read-every-customer-record" {
 | `score_before` | the goal's score before it |
 | `step.state` | `open` or `closed` |
 | `step.by` | the control description that closed the step, when one did |
+| `step.position` | the step's place in its `then` chain, counted from 1; absent outside a chain |
 
 A live `tree` stanza never holds `unbound`, because one unbound step moves the
 whole tree into `stale tree`:
@@ -2268,7 +2288,7 @@ TreeEntry = "name"           "=" String
 GoalStatement = "goal" String "on" SourceKind String ;
 SourceKind    = "component" | "zone" | "flow" ;
 
-NodeBlock = ( "all_of" | "any_of" ) "{" { NodeEntry } "}" ;
+NodeBlock = ( "all_of" | "any_of" | "then" ) "{" { NodeEntry } "}" ;
 NodeEntry = StepBlock | NodeBlock ;
 
 StepBlock = "step" String "on" SourceKind String [ "{" { StepEntry } "}" ] ;
@@ -2277,6 +2297,9 @@ StepEntry = "note" "=" String ;
 
 A file holds exactly one `attack_trees for` block. Text after its closing brace
 is not read.
+
+The entries of a `then` are the links of a chain, first link first. The
+first link is any node. Every later link is a `step`; section 7.4 states why.
 
 ### 7.2 The blocks and the attributes
 
@@ -2292,8 +2315,8 @@ is not read.
 `raises_risk_by = 0` is a tree that narrates and scores nothing. The report
 prints it, `check` gates on it, and no number moves.
 
-A tree body holds exactly one root, which is one `all_of`, one `any_of` or one
-`step`.
+A tree body holds exactly one root, which is one `all_of`, one `any_of`, one
+`then` or one `step`.
 
 ```hcl
 attack_trees for "Two-Tier Web Application" {
@@ -2321,6 +2344,18 @@ attack_trees for "Two-Tier Web Application" {
       }
     }
   }
+
+  tree "obtain-the-customer-records" {
+    raises_risk_by = 40
+
+    goal "data-exfiltration" on component "db"
+
+    then {
+      step "ssrf-attack" on component "appserver"
+      step "credential-theft" on component "appserver"
+      step "privilege-escalation" on component "secrets"
+    }
+  }
 }
 ```
 
@@ -2333,17 +2368,38 @@ Both take the two-label shape the controls language uses in section 5.3:
 A `step` with no body is that same step with an empty body, which is the rule
 `flow a -> b` already sets in section 4.7.
 
-### 7.4 `all_of` and `any_of`
+### 7.4 `all_of`, `any_of` and `then`
 
 | Node | Open while | Factor |
 | --- | --- | --- |
 | `step` | nothing has closed it | the threat's own likelihood factor |
 | `any_of` | any child is open | the **strongest** open child |
 | `all_of` | every child is open | the **weakest** child |
+| `then` | every link is open | the **weakest** link |
 
 `any_of` takes the strongest child because an attacker picks the easiest
-branch. `all_of` takes the weakest because the chain needs every one of them.
+branch. `all_of` takes the weakest because the route needs every one of them.
 A tree whose root is closed gives no boost.
+
+`then` states the order the attacker walks the links: the first entry first.
+A closed link stops the attacker before the next one, so a chain is open
+while every link is open and takes the weakest link, the way `all_of` does.
+The order changes no number: three steps under `then` score what the same
+three steps under `all_of` score. The order reaches the compiled stanza, the
+report and the canvas.
+
+The first link of a chain is any node, because a branch is what the attacker
+did before the line starts. Every later link is a `step`, because the canvas
+draws a link as one node feeding the next and a junction takes its own
+children as what feeds it. A person who wants "a, then both b and c" writes
+the branch as the first link of the chain that follows it, once for each
+step that follows. A `then` with one link is a chain of one and states no
+order.
+
+The compiled `tree` stanza in the `.controls` file (section 5.5) writes
+`position = <n>` on each `step` of a chain, counted from 1 in the innermost
+chain that holds it. Every step of a branch that is the first link shares
+position 1. A step outside every chain writes no `position`.
 
 ### 7.5 What binds, and what closes
 
@@ -2377,11 +2433,12 @@ Errors, which stop the read and produce no source:
 | a tree with two `goal` statements | `the tree "<id>" states two goals; it states one` |
 | a tree with no root node | `the tree "<id>" holds no steps` |
 | a tree with two root nodes | `the tree "<id>" holds two roots; it holds one` |
-| an `all_of` or `any_of` with no entries | `the <word> in the tree "<id>" holds nothing` |
+| an `all_of`, `any_of` or `then` with no entries | `the <word> in the tree "<id>" holds nothing` |
+| a `then` with an `all_of`, `any_of` or `then` after its first link | `the then in the tree "<id>" holds a branch after its first link; a later link is a step` |
 | a source kind that is not `component`, `zone` or `flow` | `a step is raised by a component, a zone or a flow, not "<word>"` |
 | a `goal` or `step` with no `on` | `a step says what raises it: on component, on zone or on flow` |
 | `raises_risk_by` outside 0 to 100 | `raises_risk_by is <n>; it runs from 0 to 100` |
-| an entry the grammar does not hold | `a tree holds name, description, raises_risk_by, goal, all_of, any_of and step, not "<word>"` |
+| an entry the grammar does not hold | `a tree holds name, description, raises_risk_by, goal, all_of, any_of, then and step, not "<word>"` |
 
 ## 8. The governance language
 
@@ -3016,8 +3073,9 @@ TreeAnswerEntry = "goal"           "=" String
                 | StepAnswerBlock ;
 
 StepAnswerBlock = "step" String "{" { StepAnswerAttr } "}" ;
-StepAnswerAttr  = "state" "=" String
-                | "by"    "=" String ;
+StepAnswerAttr  = "state"    "=" String
+                | "by"       "=" String
+                | "position" "=" Number ;
 
 ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String
               "{" { ThreatEntry } "}" ;

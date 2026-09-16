@@ -12,13 +12,15 @@ struct AttackTreeScoreTests {
         raises: Int,
         goalScore: Int,
         goalScoreIfAssumptionsHold: Int? = nil,
-        steps: [(String, ControlStatus, Likelihood)]
+        steps: [(String, ControlStatus, Likelihood)],
+        inOrder: Bool = false
     ) -> (threats: [ResolvedThreat], trees: [BoundAttackTree]) {
+        let links: [SourceTreeNode] = steps.map { .step(SourceTreeStep(target: target($0.0, "api"))) }
         let tree = SourceAttackTree(
             id: "t",
             raisesRiskBy: raises,
             goal: target("g", "db"),
-            root: .all(steps.map { .step(SourceTreeStep(target: target($0.0, "api"))) })
+            root: inOrder ? .then(links) : .all(links)
         )
         var resolved = [
             ResolvedThreatFixture.make(
@@ -85,6 +87,45 @@ struct AttackTreeScoreTests {
         ])
 
         #expect(goalScore(result) == expected)
+    }
+
+    // MARK: a chain
+
+    private let threeLinks: [(String, ControlStatus, Likelihood)] = [
+        ("a", .notImplemented, .commodity),
+        ("b", .notImplemented, .targeted),
+        ("c", .notImplemented, .commodity),
+    ]
+
+    @Test func aChainWithOneClosedLinkGivesNoBoost() {
+        let result = run(raises: 40, goalScore: 5, steps: [
+            ("a", .notImplemented, .commodity),
+            ("b", .implemented, .commodity),
+            ("c", .notImplemented, .commodity),
+        ], inOrder: true)
+
+        #expect(goalScore(result) == 5)
+        #expect(result.trees[0].isOpen == false)
+        #expect(result.trees[0].chainFactor == 0)
+    }
+
+    @Test func aChainWithEveryLinkOpenGivesTheWeakestLinksFactor() {
+        let result = run(raises: 40, goalScore: 5, steps: threeLinks, inOrder: true)
+
+        #expect(result.trees[0].chainFactor == 0.6)
+        #expect(goalScore(result) == 6)
+    }
+
+    /// The order changes no number today: a chain scores what the same
+    /// steps under `all_of` score.
+    @Test func aChainScoresWhatTheSameStepsUnderAllOfScore() {
+        let chain = run(raises: 40, goalScore: 5, steps: threeLinks, inOrder: true)
+        let bag = run(raises: 40, goalScore: 5, steps: threeLinks)
+
+        #expect(goalScore(chain) == goalScore(bag))
+        #expect(chain.trees[0].chainFactor == bag.trees[0].chainFactor)
+        #expect(chain.trees[0].steps.map(\.position) == [1, 2, 3])
+        #expect(bag.trees[0].steps.map(\.position) == [nil, nil, nil])
     }
 
     @Test func neverCarriesAScoreAboveSixteen() {

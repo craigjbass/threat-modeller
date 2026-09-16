@@ -167,6 +167,22 @@ struct LanguageServerTests {
         ])
     }
 
+    @Test func coloursThenAsAKeywordInAnAttackTreeFile() {
+        let data = semanticTokens("""
+        attack_trees for "Payments" {
+          then {
+          }
+        }
+        """, at: "file:///work/threatmodel/small.attacktree")
+
+        #expect(data == [
+            0, 0, 12, 0, 0,
+            0, 13, 3, 0, 0,
+            0, 4, 10, 5, 0,
+            1, 2, 4, 0, 0
+        ])
+    }
+
     @Test func encodesTheTokensOfAGovernanceFile() {
         let data = semanticTokens("""
         governance for "Payments" {
@@ -353,6 +369,54 @@ struct LanguageServerTests {
         #expect(labels.contains("zone"))
         #expect(labels.contains("version"))
         #expect(labels.contains("cves"))
+    }
+
+    @Test func completesTheWordsOfATreeBlock() {
+        let trees = """
+        attack_trees for "Payments" {
+          tree "t" {
+            t
+          }
+        }
+
+        """
+        let server = opened(trees, at: "file:///work/threatmodel/payments.attacktree")
+        let labels = completions(
+            server,
+            line: 2,
+            character: 5,
+            at: "file:///work/threatmodel/payments.attacktree"
+        )
+
+        #expect(labels.contains("then"))
+        #expect(labels.contains("all_of"))
+        #expect(labels.contains("step"))
+        #expect(labels.contains("raises_risk_by"))
+    }
+
+    @Test func completesTheWordsOfAJunction() {
+        let trees = """
+        attack_trees for "Payments" {
+          tree "t" {
+            then {
+              s
+            }
+          }
+        }
+
+        """
+        let server = opened(trees, at: "file:///work/threatmodel/payments.attacktree")
+        let labels = completions(
+            server,
+            line: 3,
+            character: 7,
+            at: "file:///work/threatmodel/payments.attacktree"
+        )
+
+        #expect(labels.contains("step"))
+        #expect(labels.contains("then"))
+        #expect(labels.contains("any_of"))
+        #expect(labels.contains("raises_risk_by") == false)
     }
 
     @Test func completesAThreatIdInAControlsFile() {

@@ -281,6 +281,57 @@ grep -q 'Head of Platform' "$work/twice/threatmodel/payments.governance"
 test "$(grep -c 'on flow "api->db"' "$work/twice/threatmodel/payments.governance")" -eq 1
 tm format "$work/twice"
 
+step "a chain of steps runs through check, compile and report"
+# Issue #137. A `then` states the order the attacker walks the steps.
+mkdir -p "$work/chain/threatmodel"
+cat > "$work/chain/threatmodel/payments.arch" <<'ARCH'
+system "Payments" {
+  component "api" {
+    technology = "aws-ec2"
+    data       = "confidential"
+  }
+
+  component "db" {
+    technology = "aws-rds"
+    data       = "restricted"
+  }
+
+  flow api -> db
+}
+ARCH
+cat > "$work/chain/threatmodel/payments.attacktree" <<'TREE'
+attack_trees for "Payments" {
+  tree "obtain-the-records" {
+    name           = "Obtain the records"
+    raises_risk_by = 40
+
+    goal "data-exfiltration" on component "db"
+
+    then {
+      step "ssrf-attack" on component "api"
+      step "credential-theft" on component "api"
+      step "unauthorized-access" on component "db"
+    }
+  }
+}
+TREE
+cp "$work/chain/threatmodel/payments.attacktree" "$work/chain-first.attacktree"
+tm format "$work/chain"
+diff "$work/chain-first.attacktree" "$work/chain/threatmodel/payments.attacktree"
+tm compile "$work/chain"
+grep -q 'tree "obtain-the-records" {' "$work/chain/threatmodel/payments.controls"
+grep -q 'position = 3' "$work/chain/threatmodel/payments.controls"
+grep -q 'stale tree' "$work/chain/threatmodel/payments.controls" && exit 1
+# The chain binds, so check fails only on the unanswered controls.
+expect_code 1 check "$work/chain"
+replace '"not_implemented"' '"implemented"' "$work/chain/threatmodel/payments.controls"
+tm check "$work/chain"
+tm report "$work/chain"
+grep -q '^## Attack trees' "$work/chain/threatmodel/payments.md"
+grep -q '^The chain, in order:' "$work/chain/threatmodel/payments.md"
+grep -q '^3\. ' "$work/chain/threatmodel/payments.md"
+echo "the chain reached the controls file and the report in order"
+
 step "cve sync fetches the feeds from a directory and writes the lock file"
 # The three feeds, in the shape the services answer, as files: no network.
 feeds="$work/feeds"

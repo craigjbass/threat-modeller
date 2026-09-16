@@ -215,10 +215,14 @@ public struct SourceTreeStepAnswer: Equatable, Sendable {
     public let state: String
     /// The control that closed this step, or nil.
     public let closedBy: String?
+    /// The step's position in its chain, counted from 1, or nil for a step
+    /// outside every chain.
+    public let position: Int?
 
-    public init(key: String, state: String, closedBy: String? = nil) {
+    public init(key: String, state: String, closedBy: String? = nil, position: Int? = nil) {
         self.key = key
         self.state = state
         self.closedBy = closedBy
+        self.position = position
     }
 }

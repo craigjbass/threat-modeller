@@ -62,14 +62,11 @@ struct ControlsWriter {
         }
 
         for step in tree.steps {
-            var stepBody = [String]()
-            if let closedBy = step.closedBy {
-                stepBody = aligned([("state", quoted(step.state)), ("by", quoted(closedBy))])
-            } else {
-                stepBody = aligned([("state", quoted(step.state))])
-            }
+            var attributes = [("state", quoted(step.state))]
+            if let closedBy = step.closedBy { attributes.append(("by", quoted(closedBy))) }
+            if let position = step.position { attributes.append(("position", String(position))) }
             body.append("step \(quoted(step.key)) {")
-            body += indent(stepBody)
+            body += indent(aligned(attributes))
             body.append("}")
             body.append("")
         }

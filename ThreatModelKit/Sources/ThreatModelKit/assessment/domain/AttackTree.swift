@@ -19,6 +19,14 @@ public struct BoundStep: Equatable, Sendable {
     /// The likelihood factor this step carries, from 0.0 to 1.0.
     public let factor: Double
     public let note: String?
+    /// Which chain of the tree this step is a link of, counted from 1 in
+    /// the order the file states the chains, or nil for a step outside every
+    /// chain. A step inside a nested chain names the innermost one.
+    public let chain: Int?
+    /// The step's position in that chain, counted from 1, or nil outside
+    /// every chain. Every step of a branch that is one link shares the
+    /// link's position.
+    public let position: Int?
 
     public init(
         key: ThreatKey,
@@ -27,7 +35,9 @@ public struct BoundStep: Equatable, Sendable {
         state: StepState,
         closedBy: String? = nil,
         factor: Double,
-        note: String? = nil
+        note: String? = nil,
+        chain: Int? = nil,
+        position: Int? = nil
     ) {
         self.key = key
         self.threatName = threatName
@@ -36,6 +46,8 @@ public struct BoundStep: Equatable, Sendable {
         self.closedBy = closedBy
         self.factor = factor
         self.note = note
+        self.chain = chain
+        self.position = position
     }
 }
 

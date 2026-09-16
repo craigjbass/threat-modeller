@@ -83,14 +83,14 @@ struct AttackTreeParser {
                 }
             case "goal":
                 if let goal = parseGoal() { goals.append(goal) }
-            case "all_of", "any_of":
+            case "all_of", "any_of", "then":
                 if let node = parseNode(treeId: id.text) { roots.append(node) }
             case "step":
                 if let step = parseStep() { roots.append(.step(step)) }
             default:
                 record(
-                    "a tree holds name, description, raises_risk_by, goal, all_of, any_of and "
-                        + "step, not \"\(current.text)\""
+                    "a tree holds name, description, raises_risk_by, goal, all_of, any_of, then "
+                        + "and step, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -189,10 +189,10 @@ struct AttackTreeParser {
             switch current.text {
             case "step":
                 if let step = parseStep() { children.append(.step(step)) }
-            case "all_of", "any_of":
+            case "all_of", "any_of", "then":
                 if let child = parseNode(treeId: treeId) { children.append(child) }
             default:
-                record("an \(word) holds step, all_of and any_of, not \"\(current.text)\"")
+                record("\(article(word)) \(word) holds step, all_of, any_of and then, not \"\(current.text)\"")
                 skipAttribute()
             }
         }
@@ -202,7 +202,32 @@ struct AttackTreeParser {
             record("the \(word) in the tree \"\(treeId)\" holds nothing", at: token)
             return nil
         }
-        return word == "all_of" ? .all(children) : .any(children)
+        switch word {
+        case "all_of":
+            return .all(children)
+        case "any_of":
+            return .any(children)
+        default:
+            // A chain is a line of steps. The first link may be a branch, the
+            // thing the attacker did before the line starts; every later
+            // link is one step, because the canvas draws a link as one node
+            // feeding the next and a junction takes its own children.
+            for link in children.dropFirst() {
+                guard case .step = link else {
+                    record(
+                        "the then in the tree \"\(treeId)\" holds a branch after its first link; "
+                            + "a later link is a step",
+                        at: token
+                    )
+                    return nil
+                }
+            }
+            return .then(children)
+        }
+    }
+
+    private func article(_ word: String) -> String {
+        word == "then" ? "a" : "an"
     }
 
     // MARK: reading the token list

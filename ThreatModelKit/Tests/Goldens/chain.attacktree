@@ -1,0 +1,36 @@
+attack_trees for "Two-Tier Web Application" {
+  catalogue = "v1.0.1"
+
+  tree "obtain-the-customer-records" {
+    name           = "Obtain the customer records"
+    description    = "An unauthenticated caller walks three steps to the table."
+    raises_risk_by = 40
+
+    goal "data-exfiltration" on component "db"
+
+    then {
+      step "ssrf-attack" on component "appserver" {
+        note = "The avatar import fetches a URL the user gives it."
+      }
+
+      step "credential-theft" on component "appserver"
+      step "privilege-escalation" on component "secrets"
+    }
+  }
+
+  tree "read-a-backup" {
+    goal "backup-exposure" on component "db"
+
+    all_of {
+      then {
+        step "excessive-permissions" on component "secrets"
+        step "credential-theft" on component "appserver"
+      }
+
+      any_of {
+        step "misconfiguration" on component "db"
+        step "unauthorized-access" on component "db"
+      }
+    }
+  }
+}

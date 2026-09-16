@@ -29,6 +29,7 @@ public enum MarkdownAttackTrees {
                 )
             }
             lines.append("")
+            lines += chains(of: tree)
         }
 
         lines.append(
@@ -54,6 +55,37 @@ public enum MarkdownAttackTrees {
         }
         return "### \(tree.name) \u{2014} \(tree.scoreBefore) \u{2192} \(tree.score),"
             + " chain \(tree.chainPercentage)%"
+    }
+
+    /// Every chain of the tree as an ordered route, one line per link with
+    /// its position. A tree of branches alone prints nothing here: the table
+    /// above already holds it.
+    private static func chains(of tree: BoundAttackTree) -> [String] {
+        let numbers = Array(Set(tree.steps.compactMap(\.chain))).sorted()
+        guard numbers.isEmpty == false else { return [] }
+
+        var lines: [String] = []
+        for number in numbers {
+            let links = tree.steps.filter { $0.chain == number }
+            lines.append(numbers.count == 1 ? "The chain, in order:" : "Chain \(number), in order:")
+            lines.append("")
+            let positions = Array(Set(links.compactMap(\.position))).sorted()
+            for position in positions {
+                // The steps of a branch that is one link share its position
+                // and print on one line.
+                let said = links
+                    .filter { $0.position == position }
+                    .map { link -> String in
+                        var line = "\(link.threatName) on \(link.sourceName), \(link.state.rawValue)"
+                        if let closedBy = link.closedBy { line += " by \(closedBy)" }
+                        return line
+                    }
+                    .joined(separator: "; ")
+                lines.append("\(position). \(said)")
+            }
+            lines.append("")
+        }
+        return lines
     }
 
     private static func count(_ number: Int, _ word: String) -> String {

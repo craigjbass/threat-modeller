@@ -692,6 +692,8 @@ enum ComponentMerge {
             .all(children.map { rewritten($0, survivor: survivor, sources: sources, pairs: pairs) })
         case .any(let children):
             .any(children.map { rewritten($0, survivor: survivor, sources: sources, pairs: pairs) })
+        case .then(let links):
+            .then(links.map { rewritten($0, survivor: survivor, sources: sources, pairs: pairs) })
         }
     }
 
