@@ -118,7 +118,7 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `risk_tolerance`, `assumption`, `text`, `owner`, `technology`, `name`,
 `category`, `description`, `threats`, `encrypts`, `zone`, `kind`, `network`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
-`shape`, `asset`, `holds`, `carries`, `classification`, `third_party`,
+`shape`, `asset`, `holds`, `carries`, `tags`, `classification`, `third_party`,
 `provided_by`, `paying_customer`, `uptime`, `uptime_notes`, `kind`, `link`,
 `diagram`, `text`, `flow`, `mitigates`,
 `status`, `recommendation`, `note`,
@@ -382,6 +382,7 @@ ZoneEntry = "kind"            "=" String
           | "description"     "=" String
           | "reduces_risk"    "=" Boolean
           | "reduces_risk_by" "=" Number
+          | "tags"            "=" StringList
           | ComponentBlock ;
 
 ComponentBlock = "component" String "{" { ComponentEntry } "}" ;
@@ -394,6 +395,7 @@ ComponentEntry = "technology"  "=" String
                | "runs_as"     "=" String
                | "shape"       "=" String
                | "threats"     "=" Boolean
+               | "tags"        "=" StringList
                | AssetBlock ;
 
 AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;
@@ -423,7 +425,8 @@ SystemAssetEntry = "name"           "=" String
 FlowStatement = "flow" Identifier "->" Identifier [ "{" { FlowEntry } "}" ] ;
 FlowEntry     = "kind"        "=" String
               | "description" "=" String
-              | "carries"     "=" StringList ;
+              | "carries"     "=" StringList
+              | "tags"        "=" StringList ;
 
 MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
 MitigatesEntry = "threats"         "=" StringList
@@ -678,6 +681,7 @@ The label is the zone's identifier.
 | `description` | string | any | none |
 | `reduces_risk` | boolean | `true`, `false` | `true` |
 | `reduces_risk_by` | number | 0 to 100 | the application's default |
+| `tags` | string list | any | none |
 
 A value outside a vocabulary is an error that names the field, the value and the
 values the application holds. A `reduces_risk_by` outside 0 to 100 is the error
@@ -715,6 +719,7 @@ The label is the component's identifier.
 | `runs_as` | string | `user`, `admin`, `root`, `system`, `kernel` | `user` |
 | `shape` | string | `actor`, `process`, `store` | the derived shape |
 | `threats` | boolean | `true`, `false` | `true` |
+| `tags` | string list | any | none |
 
 `threats = false` stops the component raising threats at all.
 
@@ -782,6 +787,36 @@ flows that carry it and the worst threat nobody has answered on any of them.
 Each threat stanza names the assets at risk on the element that raised it. A
 system that declares no asset writes no section, and scores exactly what it
 scored before.
+
+**`tags` on an element.** A `component`, a `zone` and a `flow` each state the
+words a team files them under. A model of sixty components reads as one picture
+of everything; a tag names a view of it.
+
+```hcl
+zone "app" {
+  kind = "private"
+  tags = ["payments"]
+
+  component "api" {
+    technology = "aws-ec2"
+    tags       = ["payments", "pci"]
+  }
+}
+
+flow api -> ledger {
+  kind = "network"
+  tags = ["payments"]
+}
+```
+
+A tag is any text. The language states no vocabulary, so a team names its own
+tags. An element holds none, one or many, and the file keeps the order the team
+wrote. An element that states no `tags` writes no line.
+
+The canvas toolbar lists every tag the system states and draws only the
+elements that hold a picked tag, with the flows between them. The filter is a
+view: it writes no file and changes no score, so a tagged model scores exactly
+what the same model scored before.
 
 **`diagram`.** A team keeps pictures the data-flow diagram cannot draw: a
 sequence of a login, a deployment. A `diagram` block holds one, and the report
@@ -937,6 +972,7 @@ flow guard -> store {
 | --- | --- | --- | --- |
 | `kind` | string | `network`, `ipc`, `file`, `syscall`, `human` | `network` |
 | `description` | string | any | none |
+| `tags` | string list | any | none |
 
 A flow with no body is a network flow: `flow a -> b` is the same as
 `flow a -> b { kind = "network" }`.

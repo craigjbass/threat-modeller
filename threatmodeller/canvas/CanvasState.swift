@@ -32,6 +32,10 @@ final class CanvasState: CanvasViewport {
     /// True while a pan is in flight, so the pointer shows a closed hand.
     var isPanning = false
 
+    /// Which tags the canvas draws. This is view state: it writes no file and
+    /// changes no score, so the threat list keeps scoring the whole model.
+    private(set) var tagFilter = TagFilter()
+
     /// True while the next background drag draws a zone rather than a marquee.
     private(set) var isDrawingZone = false
     /// Which element's name is being edited in place, or nil.
@@ -170,6 +174,20 @@ final class CanvasState: CanvasViewport {
 
     func stopEditingName() {
         editingName = nil
+    }
+
+    /// Picks a tag the canvas draws, or drops it when it is picked already.
+    ///
+    /// The selection goes with it: a hidden element that stayed selected would
+    /// still show its panel and still move under an arrow key.
+    func pick(tag: String) {
+        tagFilter.pick(tag)
+        clearSelection()
+    }
+
+    /// Draws the whole model again.
+    func clearTagFilter() {
+        tagFilter.clear()
     }
 
     func startDrawingZone() {

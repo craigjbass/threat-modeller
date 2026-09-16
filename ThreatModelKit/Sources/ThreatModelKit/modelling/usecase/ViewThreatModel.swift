@@ -41,6 +41,9 @@ public struct ViewedComponent: Equatable, Sendable {
     public let holds: [String]
     /// The third party that provides this component, or nil when none does.
     public let providedById: String?
+    /// The words a team files this component under, in model order. The canvas
+    /// tag filter reads them; no score does.
+    public let tags: [String]
 
     public init(
         id: String,
@@ -59,8 +62,10 @@ public struct ViewedComponent: Equatable, Sendable {
         shapeId: String = DiagramShape.process.rawValue,
         shapeOverrideId: String? = nil,
         holds: [String] = [],
-        providedById: String? = nil
+        providedById: String? = nil,
+        tags: [String] = []
     ) {
+        self.tags = tags
         self.holds = holds
         self.providedById = providedById
         self.id = id
@@ -91,6 +96,9 @@ public struct ViewedConnection: Equatable, Sendable {
     public let description: String?
     /// The system asset ids this connection carries, in model order.
     public let carries: [String]
+    /// The words a team files this flow under, in model order. The canvas tag
+    /// filter reads them; no score does.
+    public let tags: [String]
 
     public init(
         id: String,
@@ -98,8 +106,10 @@ public struct ViewedConnection: Equatable, Sendable {
         targetComponentId: String,
         kindId: String = FlowKind.default.rawValue,
         description: String? = nil,
-        carries: [String] = []
+        carries: [String] = [],
+        tags: [String] = []
     ) {
+        self.tags = tags
         self.carries = carries
         self.id = id
         self.sourceComponentId = sourceComponentId
@@ -127,6 +137,9 @@ public struct ViewedZone: Equatable, Sendable {
     public let height: Double
     /// What the zone is a boundary of: network or privilege.
     public let boundaryId: String
+    /// The words a team files this zone under, in model order. The canvas tag
+    /// filter reads them; no score does.
+    public let tags: [String]
 
     public init(
         id: String,
@@ -140,8 +153,10 @@ public struct ViewedZone: Equatable, Sendable {
         y: Double,
         width: Double,
         height: Double,
-        boundaryId: String = ZoneBoundary.default.rawValue
+        boundaryId: String = ZoneBoundary.default.rawValue,
+        tags: [String] = []
     ) {
+        self.tags = tags
         self.id = id
         self.name = name
         self.customName = customName
@@ -472,7 +487,8 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     ).rawValue,
                     shapeOverrideId: component.shape?.rawValue,
                     holds: component.holds,
-                    providedById: component.providedBy
+                    providedById: component.providedBy,
+                    tags: component.tags
                 )
             },
             connections: model.connections.map {
@@ -482,7 +498,8 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     targetComponentId: $0.target.value,
                     kindId: $0.kind.rawValue,
                     description: $0.description,
-                    carries: $0.carries
+                    carries: $0.carries,
+                    tags: $0.tags
                 )
             },
             zones: model.zones.map {
@@ -498,7 +515,8 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     y: $0.rect.origin.y,
                     width: $0.rect.size.width,
                     height: $0.rect.size.height,
-                    boundaryId: $0.boundary.rawValue
+                    boundaryId: $0.boundary.rawValue,
+                    tags: $0.tags
                 )
             },
             assumptions: model.assumptions.map {

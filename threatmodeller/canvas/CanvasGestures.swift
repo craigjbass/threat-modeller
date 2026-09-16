@@ -15,9 +15,13 @@ struct CanvasGestures: CanvasZooming {
     /// The rules shared with the tree canvas: pan, marquee, scroll and zoom.
     private var viewport: ViewportGestures { ViewportGestures(viewport: canvas) }
 
+    /// The part of the model the canvas draws. A hidden element is not on
+    /// screen, so no click and no marquee reaches it.
+    private var drawn: DrawnDiagram { canvas.tagFilter.narrow(session.canvas) }
+
     private var boxes: [String: ComponentBox] {
         CanvasHitTest.boxes(
-            for: session.canvas.components,
+            for: drawn.components,
             selected: canvas.selectedComponentIds,
             dragTranslation: canvas.dragTranslation ?? .zero
         )
@@ -27,16 +31,16 @@ struct CanvasGestures: CanvasZooming {
     /// says it should.
     private var flows: FlowGeometry {
         FlowGeometry.of(
-            connections: session.canvas.connections,
+            connections: drawn.connections,
             boxes: boxes,
             componentsById: Dictionary(
-                uniqueKeysWithValues: session.canvas.components.map { ($0.id, $0) }
+                uniqueKeysWithValues: drawn.components.map { ($0.id, $0) }
             ),
-            zones: session.canvas.zones,
+            zones: drawn.zones,
             guards: session.elementGuards,
             risks: session.elementRisks,
             outOfScopeComponentIds: Set(
-                session.canvas.components.filter(\.threatsDisabled).map(\.id)
+                drawn.components.filter(\.threatsDisabled).map(\.id)
             )
         )
     }
@@ -75,7 +79,7 @@ struct CanvasGestures: CanvasZooming {
             within: MitigatesGeometry.hitTolerance / canvas.transform.zoom
         ) {
             canvas.select(componentIds: [mark.sourceComponentId, mark.targetComponentId])
-        } else if let zoneId = CanvasHitTest.zone(under: point, zones: session.canvas.zones) {
+        } else if let zoneId = CanvasHitTest.zone(under: point, zones: drawn.zones) {
             canvas.select(zoneId: zoneId, addingToSelection: false)
         } else {
             canvas.clearSelection()
@@ -224,13 +228,13 @@ struct CanvasGestures: CanvasZooming {
             canvas.select(
                 componentIds: MarqueeSelection.selected(
                     in: rect,
-                    from: session.canvas.components.map {
+                    from: drawn.components.map {
                         (id: $0.id, box: ComponentBox(x: $0.x, y: $0.y))
                     }
                 ),
                 zoneIds: MarqueeSelection.selectedZones(
                     in: rect,
-                    from: session.canvas.zones.map {
+                    from: drawn.zones.map {
                         (id: $0.id, rect: CGRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height))
                     }
                 )

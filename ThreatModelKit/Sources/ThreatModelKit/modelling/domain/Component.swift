@@ -38,6 +38,9 @@ public struct Component: Equatable, Sendable {
     /// takes the nesting the file states, so nothing lays a diagram out to
     /// know which zone holds what.
     public var zoneId: ZoneId?
+    /// The words a team files this component under, in model order. A tag
+    /// groups elements for a reader; it changes no score.
+    public var tags: [String]
 
     public init(
         id: ComponentId,
@@ -52,8 +55,10 @@ public struct Component: Equatable, Sendable {
         providedBy: String? = nil,
         statesOwnSensitivity: Bool = true,
         shape: DiagramShape? = nil,
-        zoneId: ZoneId? = nil
+        zoneId: ZoneId? = nil,
+        tags: [String] = []
     ) {
+        self.tags = tags
         self.id = id
         self.technologyId = technologyId
         self.position = position

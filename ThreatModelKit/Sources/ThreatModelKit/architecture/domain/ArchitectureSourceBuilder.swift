@@ -21,7 +21,8 @@ public enum ArchitectureSourceBuilder {
                     providedBy: component.providedBy,
                     declaredData: component.statesOwnSensitivity
                         ? component.sensitivity.rawValue
-                        : nil
+                        : nil,
+                    tags: component.tags
                 )
                 if let zoneId = component.zoneId,
                    model.zones.contains(where: { $0.id == zoneId }) {
@@ -55,7 +56,8 @@ public enum ArchitectureSourceBuilder {
                         reducesRiskBy: zone.riskReductionPercent,
                         components: inZone[zone.id] ?? [],
                         boundary: zone.boundary.rawValue,
-                        description: zone.description
+                        description: zone.description,
+                        tags: zone.tags
                     )
                 },
                 components: loose,
@@ -64,7 +66,8 @@ public enum ArchitectureSourceBuilder {
                         sourceId: $0.source.value,
                         targetId: $0.target.value,
                         kind: $0.kind.rawValue,
-                        description: $0.description
+                        description: $0.description,
+                        tags: $0.tags
                     )
                 },
                 mitigates: model.mitigatesEdges.map { edge in

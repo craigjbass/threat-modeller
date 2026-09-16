@@ -824,6 +824,7 @@ struct ArchitectureParser {
         var boundary = "network"
         var description: String?
         var zoneSource: String?
+        var tags: [String] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -855,10 +856,13 @@ struct ArchitectureParser {
                 description = parseTextAttribute()
             case "source":
                 zoneSource = parseTextAttribute()
+            case "tags":
+                tags = parseListAttribute()
             default:
                 record(
                     "a zone holds kind, network, name, reduces_risk, reduces_risk_by, "
-                        + "component, boundary, description and source, not \"\(current.text)\""
+                        + "component, boundary, description, source and tags, not "
+                        + "\"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -875,7 +879,8 @@ struct ArchitectureParser {
             components: components,
             boundary: boundary,
             description: description,
-            source: zoneSource
+            source: zoneSource,
+            tags: tags
         )
     }
 
@@ -895,6 +900,7 @@ struct ArchitectureParser {
         var providedBy: String?
         var source: String?
         var declaredData: String?
+        var tags: [String] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -927,10 +933,12 @@ struct ArchitectureParser {
                 expectVocabulary(shape ?? "", Self.diagramShapes, field: "shape", at: token)
             case "asset":
                 if let asset = parseAsset() { assets.append(asset) }
+            case "tags":
+                tags = parseListAttribute()
             default:
                 record(
                     "a component holds technology, name, data, holds, provided_by, source, "
-                        + "threats, runs_as, shape and asset, not \"\(current.text)\""
+                        + "threats, runs_as, shape, tags and asset, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -953,7 +961,8 @@ struct ArchitectureParser {
             providedBy: providedBy,
             source: source,
             declaredData: declaredData,
-            shape: shape
+            shape: shape,
+            tags: tags
         )
     }
 
@@ -996,6 +1005,7 @@ struct ArchitectureParser {
         var kind = "network"
         var description: String?
         var carries: [String] = []
+        var tags: [String] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -1007,8 +1017,13 @@ struct ArchitectureParser {
                 description = parseTextAttribute()
             case "carries":
                 carries = parseListAttribute()
+            case "tags":
+                tags = parseListAttribute()
             default:
-                record("a flow holds kind, description and carries, not \"\(current.text)\"")
+                record(
+                    "a flow holds kind, description, carries and tags, not "
+                        + "\"\(current.text)\""
+                )
                 skipAttribute()
             }
         }
@@ -1019,7 +1034,8 @@ struct ArchitectureParser {
             targetId: target.text,
             kind: kind,
             description: description,
-            carries: carries
+            carries: carries,
+            tags: tags
         )
     }
 

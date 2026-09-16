@@ -266,7 +266,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     providedBy: component.providedBy,
                     statesOwnSensitivity: component.declaredData != nil,
                     shape: component.shape.flatMap(DiagramShape.init(rawValue:)),
-                    zoneId: zoneByComponent[component.id].map(ZoneId.init)
+                    zoneId: zoneByComponent[component.id].map(ZoneId.init),
+                    tags: component.tags
                 )
             )
         }
@@ -291,7 +292,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     riskReductionEnabled: zone.reducesRisk,
                     riskReductionPercent: zone.reducesRiskBy ?? Zone.defaultRiskReductionPercent,
                     boundary: ZoneBoundary(rawValue: zone.boundary) ?? .default,
-                    description: zone.description
+                    description: zone.description,
+                    tags: zone.tags
                 )
             )
         }
@@ -304,7 +306,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     target: ComponentId(flow.targetId),
                     kind: FlowKind(rawValue: flow.kind) ?? .default,
                     description: flow.description,
-                    carries: flow.carries
+                    carries: flow.carries,
+                    tags: flow.tags
                 )
             )
         }

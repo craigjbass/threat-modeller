@@ -159,6 +159,9 @@ public struct SourceZone: Equatable, Sendable {
     public let components: [SourceComponent]
     public let boundary: String
     public let description: String?
+    /// The words a team files this zone under, in file order. A tag groups
+    /// elements for a reader; it changes no score.
+    public let tags: [String]
 
     public init(
         id: String,
@@ -170,8 +173,10 @@ public struct SourceZone: Equatable, Sendable {
         components: [SourceComponent] = [],
         boundary: String = "network",
         description: String? = nil,
-        source: String? = nil
+        source: String? = nil,
+        tags: [String] = []
     ) {
+        self.tags = tags
         self.source = source
         self.id = id
         self.kind = kind
@@ -205,6 +210,9 @@ public struct SourceComponent: Equatable, Sendable {
     public let declaredData: String?
     /// The diagram shape the file forces, or nil to let the derivation decide.
     public let shape: String?
+    /// The words a team files this component under, in file order. A tag
+    /// groups elements for a reader; it changes no score.
+    public let tags: [String]
 
     public init(
         id: String,
@@ -218,8 +226,10 @@ public struct SourceComponent: Equatable, Sendable {
         providedBy: String? = nil,
         source: String? = nil,
         declaredData: String? = nil,
-        shape: String? = nil
+        shape: String? = nil,
+        tags: [String] = []
     ) {
+        self.tags = tags
         self.id = id
         self.technologyId = technologyId
         self.name = name
@@ -252,14 +262,19 @@ public struct SourceFlow: Equatable, Sendable {
     public let description: String?
     /// The system asset ids this flow carries, in file order.
     public let carries: [String]
+    /// The words a team files this flow under, in file order. A tag groups
+    /// elements for a reader; it changes no score.
+    public let tags: [String]
 
     public init(
         sourceId: String,
         targetId: String,
         kind: String = "network",
         description: String? = nil,
-        carries: [String] = []
+        carries: [String] = [],
+        tags: [String] = []
     ) {
+        self.tags = tags
         self.carries = carries
         self.sourceId = sourceId
         self.targetId = targetId

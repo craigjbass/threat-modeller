@@ -56,6 +56,9 @@ public struct Zone: Equatable, Sendable {
     public var riskReductionPercent: Int
     public var boundary: ZoneBoundary
     public var description: String?
+    /// The words a team files this zone under, in model order. A tag groups
+    /// elements for a reader; it changes no score.
+    public var tags: [String]
 
     public init(
         id: ZoneId,
@@ -66,8 +69,10 @@ public struct Zone: Equatable, Sendable {
         riskReductionEnabled: Bool = true,
         riskReductionPercent: Int = Zone.defaultRiskReductionPercent,
         boundary: ZoneBoundary = .default,
-        description: String? = nil
+        description: String? = nil,
+        tags: [String] = []
     ) {
+        self.tags = tags
         self.id = id
         self.rect = rect
         self.name = name

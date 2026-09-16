@@ -54,9 +54,15 @@ struct CanvasView: View {
         scrollMonitor = nil
     }
 
+    /// The part of the model the canvas draws. The tag filter narrows it;
+    /// with no tag picked it is the whole model.
+    private var drawn: DrawnDiagram {
+        canvas.tagFilter.narrow(session.canvas)
+    }
+
     private var boxes: [String: ComponentBox] {
         CanvasHitTest.boxes(
-            for: session.canvas.components,
+            for: drawn.components,
             selected: canvas.selectedComponentIds,
             dragTranslation: canvas.dragTranslation ?? .zero
         )
@@ -189,7 +195,7 @@ struct CanvasView: View {
 
     private var content: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(session.canvas.zones, id: \.id) { zone in
+            ForEach(drawn.zones, id: \.id) { zone in
                 let rect = CanvasHitTest.rect(
                     for: zone,
                     drag: canvas.zoneDrag,
@@ -227,10 +233,10 @@ struct CanvasView: View {
 
             ConnectionsLayer(
                 origin: contentRect.origin,
-                connections: session.canvas.connections,
+                connections: drawn.connections,
                 boxes: boxes,
                 componentsById: componentsById,
-                zones: session.canvas.zones,
+                zones: drawn.zones,
                 risks: session.elementRisks,
                 guards: session.elementGuards,
                 outOfScopeComponentIds: outOfScopeComponentIds,
@@ -244,7 +250,7 @@ struct CanvasView: View {
             // rather than at the origin the rest of this stack draws from.
             .offset(x: contentRect.minX, y: contentRect.minY)
 
-            ForEach(session.canvas.components, id: \.id) { component in
+            ForEach(drawn.components, id: \.id) { component in
                 let componentBox = boxes[component.id] ?? ComponentBox(x: component.x, y: component.y)
                 ComponentNodeView(
                     component: component,
@@ -255,7 +261,7 @@ struct CanvasView: View {
                     onDragEnded: { gestures.nodeDragEnded($0) },
                     onAnchorDragChanged: { gestures.anchorDragChanged(component.id, $0) },
                     onAnchorDragEnded: { gestures.anchorDragEnded(component.id, $0) },
-                    zoneName: session.canvas.zones.first { $0.id == component.zoneId }?.name,
+                    zoneName: drawn.zones.first { $0.id == component.zoneId }?.name,
                     isEditingName: canvas.isEditingName(.component(component.id)),
                     onStartEditingName: { canvas.startEditingName(.component(component.id)) },
                     onCommitName: { gestures.renameComponent(component.id, to: $0) },
@@ -343,12 +349,54 @@ struct CanvasView: View {
                 Image(systemName: "plus.magnifyingglass")
             }
             .accessibilityIdentifier("zoom-in")
+
+            tagFilterMenu
         }
         .buttonStyle(.bordered)
         // Collapsing the palette column puts the canvas at the window's own
         // leading edge, so this margin is all that stands between the Draw
         // zone control and that edge.
         .padding(CanvasView.windowEdgeMargin)
+    }
+
+    /// Narrows the diagram to the tags a person picks. A model that states no
+    /// tag offers nothing, so a diagram with no tags keeps the toolbar it had.
+    @ViewBuilder
+    private var tagFilterMenu: some View {
+        let tags = TagFilter.tags(in: session.canvas)
+        if tags.isEmpty == false {
+            Divider().frame(height: 16)
+
+            Menu {
+                ForEach(tags, id: \.self) { tag in
+                    Toggle(tag, isOn: picked(tag))
+                        .accessibilityIdentifier("tag-filter-\(tag)")
+                }
+                Divider()
+                Button("Clear Filter") { canvas.clearTagFilter() }
+                    .disabled(canvas.tagFilter.isNarrowing == false)
+                    .accessibilityIdentifier("tag-filter-clear")
+            } label: {
+                Label(tagFilterLabel, systemImage: "line.3.horizontal.decrease.circle")
+            }
+            .frame(width: 180)
+            .accessibilityIdentifier("tag-filter")
+        }
+    }
+
+    /// What the closed menu reads, so a person knows the canvas is narrowed
+    /// without opening it.
+    private var tagFilterLabel: String {
+        let picked = canvas.tagFilter.pickedTags.sorted()
+        if picked.isEmpty { return "Every tag" }
+        return picked.count == 1 ? picked[0] : "\(picked.count) tags"
+    }
+
+    private func picked(_ tag: String) -> Binding<Bool> {
+        Binding(
+            get: { canvas.tagFilter.isPicked(tag) },
+            set: { _ in canvas.pick(tag: tag) }
+        )
     }
 
     /// The panel edits one zone at a time, so it appears only when exactly one
@@ -381,24 +429,24 @@ struct CanvasView: View {
         return session.canvas.connections.first { $0.id == connectionId }
     }
 
-    /// Every component by id, so the link layer can read the zone each end of
-    /// a link sits in.
+    /// Every drawn component by id, so the link layer can read the zone each
+    /// end of a link sits in.
     private var componentsById: [String: ViewedComponent] {
-        Dictionary(uniqueKeysWithValues: session.canvas.components.map { ($0.id, $0) })
+        Dictionary(uniqueKeysWithValues: drawn.components.map { ($0.id, $0) })
     }
 
     /// The components the user turned threats off for. A flow either end of
     /// which is one of these is out of scope too.
     private var outOfScopeComponentIds: Set<String> {
-        Set(session.canvas.components.filter(\.threatsDisabled).map(\.id))
+        Set(drawn.components.filter(\.threatsDisabled).map(\.id))
     }
 
     /// The drawing layer follows the model, so a diagram that reaches far from
     /// the origin still draws its links, whichever way it reaches.
     private var contentRect: CGRect {
         CanvasHitTest.contentRect(
-            components: session.canvas.components,
-            zones: session.canvas.zones
+            components: drawn.components,
+            zones: drawn.zones
         )
     }
 

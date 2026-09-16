@@ -306,12 +306,12 @@ public final class LanguageServer: @unchecked Sendable {
             ]
         case (.architecture, "component"):
             ["technology", "name", "data", "holds", "provided_by", "source", "threats",
-             "runs_as", "shape"]
+             "runs_as", "shape", "tags"]
         case (.architecture, "zone"):
             ["kind", "network", "name", "reduces_risk", "reduces_risk_by", "boundary",
-             "description", "source"]
+             "description", "source", "tags"]
         case (.architecture, "flow"):
-            ["kind", "description", "carries"]
+            ["kind", "description", "carries", "tags"]
         case (.architecture, "asset"):
             ["name", "classification", "description", "owner"]
         case (.architecture, "third_party"):

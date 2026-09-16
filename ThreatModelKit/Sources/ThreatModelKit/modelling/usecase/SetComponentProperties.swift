@@ -18,6 +18,9 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
     /// The system asset ids this component holds. Nil leaves what it holds
     /// alone, so a panel that does not offer assets changes none.
     public let holds: [String]?
+    /// The words the component is filed under. Nil leaves the tags alone, so a
+    /// panel that does not offer tags changes none.
+    public let tags: [String]?
 
     public init(
         componentId: String,
@@ -26,8 +29,10 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
         threatsDisabled: Bool,
         runsAs: String,
         shape: String? = nil,
-        holds: [String]? = nil
+        holds: [String]? = nil,
+        tags: [String]? = nil
     ) {
+        self.tags = tags
         self.holds = holds
         self.componentId = componentId
         self.name = name
@@ -88,6 +93,9 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
                 let declared = Set(model.systemAssets.map(\.id))
                 guard holds.allSatisfy(declared.contains) else { return .unknownAsset }
                 model.components[index].holds = holds
+            }
+            if let tags = request.tags {
+                model.components[index].tags = tags
             }
 
             model.components[index].customName = name.isEmpty ? nil : name

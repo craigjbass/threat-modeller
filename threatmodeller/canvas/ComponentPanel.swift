@@ -27,7 +27,7 @@ struct ComponentPanel: View {
 
     var body: some View {
         // The controls scroll sideways. Their widths are fixed and they need
-        // 982 points; the canvas column can be 400. Without the scroll the
+        // 1198 points; the canvas column can be 400. Without the scroll the
         // row reflowed and the bar grew to 208 points, taking that height
         // from the diagram above it.
         ScrollView(.horizontal) {
@@ -110,6 +110,16 @@ struct ComponentPanel: View {
                 .accessibilityIdentifier("component-provided-by")
             }
 
+            // The tags a component is filed under, as one line. The canvas
+            // tag filter draws the view a tag names.
+            DeferredTextField(
+                title: "Tags",
+                text: tagsText,
+                width: 200,
+                identifier: "component-tags",
+                commit: { commitTags($0) }
+            )
+
             Toggle("Raise threats", isOn: threatsRaised)
                 .toggleStyle(.switch)
                 .accessibilityIdentifier("component-threats-raised")
@@ -118,6 +128,16 @@ struct ComponentPanel: View {
         }
         .padding(.horizontal, CanvasView.windowEdgeMargin)
         .padding(.vertical, 8)
+    }
+
+    /// The line the tag field shows: every tag the component holds, separated
+    /// by commas.
+    var tagsText: String { TagFilter.text(from: component.tags) }
+
+    /// Writes what a person typed in the tag field. An empty line takes every
+    /// tag off the component.
+    func commitTags(_ text: String) {
+        write(tags: TagFilter.tags(from: text))
     }
 
     /// What the menu reads when it is closed.
@@ -171,7 +191,8 @@ struct ComponentPanel: View {
         threatsDisabled newThreatsDisabled: Bool? = nil,
         runsAs newRunsAs: String? = nil,
         shape newShape: String? = nil,
-        holds newHolds: [String]? = nil
+        holds newHolds: [String]? = nil,
+        tags newTags: [String]? = nil
     ) {
         let picked = newShape ?? component.shapeOverrideId ?? ""
 
@@ -182,7 +203,8 @@ struct ComponentPanel: View {
             threatsDisabled: newThreatsDisabled ?? component.threatsDisabled,
             runsAsId: newRunsAs ?? component.runsAsId,
             shapeId: picked.isEmpty ? nil : picked,
-            holds: newHolds
+            holds: newHolds,
+            tags: newTags
         )
     }
 

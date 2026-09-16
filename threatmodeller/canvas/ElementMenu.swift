@@ -244,9 +244,12 @@ struct ElementMenu {
                 canvas.selectAll(componentIds: pasted.componentIds, zoneIds: pasted.zoneIds)
             },
             .item(id: "context-canvas-select-all", title: "Select All", shortcut: .selectAll) {
+                // Only what the canvas draws: with a tag filter on, the
+                // elements it hides are not there to select.
+                let drawn = canvas.tagFilter.narrow(session.canvas)
                 canvas.selectAll(
-                    componentIds: session.canvas.components.map(\.id),
-                    zoneIds: session.canvas.zones.map(\.id)
+                    componentIds: drawn.components.map(\.id),
+                    zoneIds: drawn.zones.map(\.id)
                 )
             },
             .separator(id: "context-canvas-separator-1"),

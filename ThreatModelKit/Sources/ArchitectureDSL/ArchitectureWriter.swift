@@ -186,6 +186,9 @@ struct ArchitectureWriter {
             if let source = zone.source {
                 attributes.append(("source", quoted(source)))
             }
+            if zone.tags.isEmpty == false {
+                attributes.append(("tags", list(zone.tags)))
+            }
             body += indent(aligned(attributes))
 
             for component in zone.components {
@@ -251,7 +254,8 @@ struct ArchitectureWriter {
         }
 
         for flow in source.flows {
-            if flow.kind == "network" && flow.description == nil && flow.carries.isEmpty {
+            if flow.kind == "network" && flow.description == nil && flow.carries.isEmpty
+                && flow.tags.isEmpty {
                 body.append("flow \(flow.sourceId) -> \(flow.targetId)")
                 continue
             }
@@ -264,6 +268,9 @@ struct ArchitectureWriter {
                 attributes.append(
                     ("carries", "[" + flow.carries.map(quoted).joined(separator: ", ") + "]")
                 )
+            }
+            if flow.tags.isEmpty == false {
+                attributes.append(("tags", list(flow.tags)))
             }
             body += indent(aligned(attributes))
             body.append("}")
@@ -338,6 +345,9 @@ struct ArchitectureWriter {
         if component.runsAs != "user" { attributes.append(("runs_as", quoted(component.runsAs))) }
         if component.raisesThreats == false { attributes.append(("threats", "false")) }
         if let shape = component.shape { attributes.append(("shape", quoted(shape))) }
+        if component.tags.isEmpty == false {
+            attributes.append(("tags", list(component.tags)))
+        }
         lines += indent(aligned(attributes))
         for asset in component.assets {
             lines.append("")

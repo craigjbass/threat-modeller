@@ -12,6 +12,9 @@ public struct Connection: Equatable, Sendable {
     public var description: String?
     /// The system asset ids this connection carries, in file order.
     public var carries: [String]
+    /// The words a team files this flow under, in model order. A tag groups
+    /// elements for a reader; it changes no score.
+    public var tags: [String]
 
     public init(
         id: ConnectionId,
@@ -19,8 +22,10 @@ public struct Connection: Equatable, Sendable {
         target: ComponentId,
         kind: FlowKind = .default,
         description: String? = nil,
-        carries: [String] = []
+        carries: [String] = [],
+        tags: [String] = []
     ) {
+        self.tags = tags
         self.carries = carries
         self.id = id
         self.source = source
