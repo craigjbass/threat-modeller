@@ -658,4 +658,74 @@ struct WindowLayoutTests {
         return window
     }
 
+    /// A project whose model holds one assumption and one mitigates edge.
+    private func aSidebarProject() async -> ProjectSession {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" {
+                technology = "aws-ec2"
+                data       = "confidential"
+              }
+
+              component "guard" { technology = "aws-waf" }
+
+              mitigates guard -> api {
+                threats         = ["credential-theft"]
+                reduces_risk_by = 80
+                status          = "assumed"
+              }
+
+              assumption "network-segmented" {
+                text  = "The network is segmented."
+                owner = "platform"
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
+        await session.open(root: "/work")
+        return session
+    }
+
+    /// The sidebar keeps three sections after the System sheets take the
+    /// other seven editors, so its content fits the column the default window
+    /// height gives it and a person reads the assumptions with no scroll.
+    @Test func theSidebarFitsTheDefaultWindowHeightWithNoScroll() async throws {
+        let project = await aSidebarProject()
+        let model = try #require(project.model)
+        let window = laidOut(ProjectWindow(session: project), width: 1400, height: 900)
+        let content = try #require(window.contentView)
+        let split = try #require(columns(in: content))
+        let column = try #require(split.arrangedSubviews.last).frame
+
+        let host = NSHostingView(rootView: AssumptionsPanel(session: model))
+        host.frame = CGRect(x: 0, y: 0, width: column.width, height: 0)
+        let drawn = host.fittingSize.height
+
+        #expect(column.height > 0, "the sidebar column measured no height")
+        #expect(
+            drawn <= column.height,
+            "the sidebar draws at \(drawn) in a column of \(column.height)"
+        )
+    }
+
+    private func laidOut(_ view: some View, width: Double, height: Double) -> NSWindow {
+        let hosting = NSHostingView(rootView: view)
+        hosting.frame = NSRect(x: 0, y: 0, width: width, height: height)
+        let window = NSWindow(
+            contentRect: hosting.frame,
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hosting
+        hosting.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        hosting.layoutSubtreeIfNeeded()
+        return window
+    }
 }

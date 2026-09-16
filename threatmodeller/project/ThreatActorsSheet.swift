@@ -16,7 +16,17 @@ struct ThreatActorsSheet: View {
     /// about 180 groups in this list, so the list needs a filter.
     @State private var search = ""
     /// The local block a person is writing.
-    @State private var draft = Draft()
+    @State private var draft: Draft
+
+    init(
+        session: ThreatModelSession,
+        dismiss: @escaping () -> Void,
+        draft: Draft = Draft()
+    ) {
+        self.session = session
+        self.dismiss = dismiss
+        _draft = State(initialValue: draft)
+    }
 
     /// The fields of one local `threat_actor` block, as a person edits them.
     struct Draft: Equatable {
@@ -76,16 +86,19 @@ struct ThreatActorsSheet: View {
                     .accessibilityIdentifier("threat-actor-error")
             }
 
-            HStack {
-                Text(says)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("threat-actors-faced")
-                Spacer()
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.defaultAction)
-                    .accessibilityIdentifier("threat-actors-done")
-            }
+            Text(says)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("threat-actors-faced")
+
+            SystemSheetFooter(
+                kind: .threatActors,
+                fileName: session.architectureFileName,
+                isWritable: isWritable,
+                isEditing: false,
+                dismiss: dismiss,
+                write: write
+            )
         }
         .padding(20)
         .frame(minWidth: 760, minHeight: 520)
@@ -287,9 +300,6 @@ struct ThreatActorsSheet: View {
                 TextField("Technique ids, separated by a comma", text: $draft.techniques)
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("threat-actor-techniques")
-                Button("Add", action: write)
-                    .disabled(isWritable == false)
-                    .accessibilityIdentifier("add-threat-actor")
             }
         }
     }
@@ -299,7 +309,9 @@ struct ThreatActorsSheet: View {
             && draft.name.trimmingCharacters(in: .whitespaces).isEmpty == false
     }
 
-    private func write() {
+    /// Writes this system's own `threat_actor` block. Writing an identifier
+    /// that is already there replaces that actor for this system.
+    func write() {
         session.setLocalThreatActor(
             id: draft.id,
             name: draft.name,

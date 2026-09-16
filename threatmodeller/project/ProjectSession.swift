@@ -18,6 +18,10 @@ final class ProjectSession {
     /// that holds none has nothing for the button to change, so the window
     /// holds it here and the button, the menu item and the key all write it.
     var paletteColumns: NavigationSplitViewVisibility = .all
+    /// Which System sheet is on screen, or nil while none is. The System menu
+    /// and the toolbar control both write it, and the project window presents
+    /// the sheet it names.
+    var systemSheet: SystemSheetKind?
     private let watcher: ProjectWatching
     private let defaults: UserDefaults
     private let coalescer: ChangeCoalescing

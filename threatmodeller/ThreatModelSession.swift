@@ -91,6 +91,15 @@ final class ThreatModelSession {
     /// rewrites. Nil when no project holds this model.
     private let projectSystem: String?
 
+    /// The file every architecture write goes to, by name. A System sheet
+    /// states it, so a person reads which file the sheet changed.
+    var architectureFileName: String {
+        guard let projectSystem, projectSystem.isEmpty == false else {
+            return "the architecture file"
+        }
+        return projectSystem.hasSuffix(".arch") ? projectSystem : "\(projectSystem).arch"
+    }
+
     /// Where a double-click on a palette row puts a component, in model
     /// coordinates. A drag from the palette uses the drop point instead.
     static let defaultDropPoint = (x: 80.0, y: 80.0)
