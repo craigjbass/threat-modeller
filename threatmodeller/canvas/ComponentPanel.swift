@@ -7,6 +7,10 @@ import ThreatModelKit
 /// rescores, so the user sees what a sensitivity costs as they change it.
 struct ComponentPanel: View {
     let session: ThreatModelSession
+    /// Focus writes here, not through `session`, so a click that narrows the
+    /// canvas to this component writes no file. Defaults to an unused state
+    /// for the tests that read this panel and never open Focus.
+    var canvas: CanvasState = CanvasState()
     let component: ViewedComponent
 
     /// The empty tag is Auto: the derivation decides.
@@ -139,6 +143,9 @@ struct ComponentPanel: View {
             Toggle("Raise threats", isOn: threatsRaised)
                 .toggleStyle(.switch)
                 .accessibilityIdentifier("component-threats-raised")
+
+            Button("Focus") { canvas.focus(componentId: component.id) }
+                .accessibilityIdentifier("component-focus")
 
             Spacer(minLength: 0)
         }

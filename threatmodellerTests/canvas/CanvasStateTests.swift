@@ -181,4 +181,37 @@ struct CanvasStateTests {
 
         #expect(canvas.tagFilter.neighbourDepth == 2)
     }
+
+    // MARK: Focus
+
+    @Test func focusSetsTheFocusedComponentAndClearsTheSelection() {
+        let canvas = CanvasState()
+        canvas.select(componentId: "x", addingToSelection: false)
+
+        canvas.focus(componentId: "c1")
+
+        #expect(canvas.focusedComponentId == "c1")
+        #expect(canvas.hasSelection == false)
+    }
+
+    /// Focus and the tag filter never both narrow the canvas: turning Focus
+    /// on always clears the tag filter, so a component the filter was hiding
+    /// is drawn once Focus picks it.
+    @Test func focusingAComponentClearsAnActiveTagFilter() {
+        let canvas = CanvasState()
+        canvas.pick(tag: "payments")
+
+        canvas.focus(componentId: "c1")
+
+        #expect(canvas.tagFilter.isNarrowing == false)
+    }
+
+    @Test func clearingTheTagFilterAlsoClearsFocus() {
+        let canvas = CanvasState()
+        canvas.focus(componentId: "c1")
+
+        canvas.clearTagFilter()
+
+        #expect(canvas.focusedComponentId == nil)
+    }
 }

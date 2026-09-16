@@ -57,6 +57,7 @@ struct ElementMenuTests {
                 "context-component-rename",
                 "context-component-show-threats",
                 "context-component-show-controls",
+                "context-component-focus",
                 "context-component-separator-1",
                 "context-component-raise-threats",
                 "context-component-sensitivity",
@@ -174,6 +175,14 @@ struct ElementMenuTests {
 
         #expect(asked == .threats)
         #expect(session.focusedElementId == "component:\(api)")
+    }
+
+    @Test func focusSetsTheFocusedComponent() {
+        let (_, canvas, menu, api, _) = twoNodes()
+
+        run(menu.component(api), "context-component-focus")
+
+        #expect(canvas.focusedComponentId == api)
     }
 
     @Test func showControlsChangesTheStageAndOpensTheGroup() {

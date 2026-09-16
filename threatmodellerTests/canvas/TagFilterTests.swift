@@ -246,6 +246,29 @@ struct TagFilterTests {
         #expect(filter.neighbourDepth == 2)
     }
 
+    // MARK: Focus
+
+    @Test func focusAtDepthZeroDrawsThatComponentAlone() {
+        let drawn = TagFilter.focus(on: "a", depth: 0, in: chain)
+
+        #expect(drawn.components.map(\.id) == ["a"])
+        #expect(drawn.zones.isEmpty)
+        #expect(drawn.connections.isEmpty)
+    }
+
+    @Test func focusAtDepthOneDrawsTheComponentItsNeighboursAndTheFlowsBetweenThem() {
+        let drawn = TagFilter.focus(on: "c", depth: 1, in: chain)
+
+        #expect(drawn.components.map(\.id) == ["b", "c", "d"])
+        #expect(drawn.connections.map(\.id) == ["b->c", "c->d"])
+    }
+
+    @Test func focusDrawsNoZone() {
+        let drawn = TagFilter.focus(on: "a", depth: 5, in: model)
+
+        #expect(drawn.zones.isEmpty)
+    }
+
     // MARK: the words a person types
 
     @Test func readsACommaSeparatedLineAsTags() {

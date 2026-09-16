@@ -168,4 +168,52 @@ struct TagEditorFlowTests {
         #expect(drawn.components.map(\.id) == ["api", "db"])
         #expect(drawn.connections.map(\.id) == ["api->db"])
     }
+
+    // MARK: Focus
+
+    @Test func focusChangesNoFileAndNoScore() async throws {
+        let (session, useCases) = await aProject(tagged)
+        let model = try #require(session.model)
+        let canvas = CanvasState()
+        let threatsBefore = model.threats.count
+        let before = architecture(useCases)
+
+        canvas.focus(componentId: "api")
+
+        #expect(model.threats.count == threatsBefore)
+        #expect(architecture(useCases) == before)
+        #expect(model.canvas.components.count == 2)
+    }
+
+    /// The tag filter picks a tag `api` does not hold, so the filter hides
+    /// it. Focus on `api` clears that filter, and `api` is drawn.
+    @Test func focusClearsATagFilterThatHidesTheFocusedComponent() async throws {
+        let (session, _) = await aProject(tagged)
+        let model = try #require(session.model)
+        let canvas = CanvasState()
+        canvas.pick(tag: "pci")
+        #expect(canvas.tagFilter.narrow(model.canvas).components.map(\.id) == ["api"])
+        canvas.pick(tag: "pci")
+        canvas.pick(tag: "made-up")
+        #expect(canvas.tagFilter.narrow(model.canvas).components.isEmpty)
+
+        canvas.focus(componentId: "api")
+
+        #expect(canvas.tagFilter.isNarrowing == false)
+        let drawn = TagFilter.focus(on: "api", depth: 0, in: model.canvas)
+        #expect(drawn.components.map(\.id) == ["api"])
+    }
+
+    @Test func clearFilterAlsoClearsFocus() async throws {
+        let (session, _) = await aProject(tagged)
+        let model = try #require(session.model)
+        let canvas = CanvasState()
+        canvas.focus(componentId: "api")
+
+        canvas.clearTagFilter()
+
+        #expect(canvas.focusedComponentId == nil)
+        let drawn = canvas.tagFilter.narrow(model.canvas)
+        #expect(drawn.components.map(\.id) == ["api", "db"])
+    }
 }

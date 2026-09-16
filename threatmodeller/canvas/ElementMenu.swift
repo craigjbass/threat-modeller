@@ -103,6 +103,9 @@ struct ElementMenu {
             .item(id: "context-component-show-controls", title: "Show Controls") {
                 show(.controls, elementId: "component:\(componentId)")
             },
+            .item(id: "context-component-focus", title: "Focus") {
+                canvas.focus(componentId: componentId)
+            },
             .separator(id: "context-component-separator-1"),
             .item(
                 id: "context-component-raise-threats",

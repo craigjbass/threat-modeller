@@ -36,6 +36,11 @@ final class CanvasState: CanvasViewport {
     /// changes no score, so the threat list keeps scoring the whole model.
     private(set) var tagFilter = TagFilter()
 
+    /// The one component Focus draws, and its neighbours out to
+    /// `tagFilter.neighbourDepth` flows. Nil draws by the tag filter alone.
+    /// This is view state: it writes no file and changes no score.
+    private(set) var focusedComponentId: String?
+
     /// True while the next background drag draws a zone rather than a marquee.
     private(set) var isDrawingZone = false
     /// Which element's name is being edited in place, or nil.
@@ -185,9 +190,11 @@ final class CanvasState: CanvasViewport {
         clearSelection()
     }
 
-    /// Draws the whole model again.
+    /// Draws the whole model again. Clears Focus too, so the one button
+    /// undoes whichever of the two narrowed the canvas.
     func clearTagFilter() {
         tagFilter.clear()
+        focusedComponentId = nil
     }
 
     /// Sets how many flows out the tag filter and Focus draw around what
@@ -195,6 +202,15 @@ final class CanvasState: CanvasViewport {
     /// the picked tags or Focus does not reset it.
     func setNeighbourDepth(_ depth: Int) {
         tagFilter.setNeighbourDepth(depth)
+    }
+
+    /// Draws one component and its neighbours. Focus and the tag filter
+    /// never both narrow the canvas, so this clears the tag filter first: a
+    /// component the filter was hiding is drawn once Focus picks it.
+    func focus(componentId: String) {
+        tagFilter.clear()
+        focusedComponentId = componentId
+        clearSelection()
     }
 
     func startDrawingZone() {

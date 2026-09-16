@@ -86,6 +86,24 @@ nonisolated struct TagFilter: Equatable {
         )
     }
 
+    /// What Focus draws: one component, every component the walk reaches
+    /// from it within `depth` flows, either direction, and the flows between
+    /// the drawn components. Draws no zone.
+    ///
+    /// Focus is view state on `CanvasState`, not on this filter: a person
+    /// focuses one component with no tag written on the model at all.
+    static func focus(on componentId: String, depth: Int, in model: ViewThreatModelResponse) -> DrawnDiagram {
+        let drawnIds = walk(from: [componentId], depth: depth, in: model)
+        return DrawnDiagram(
+            components: model.components.filter { drawnIds.contains($0.id) },
+            zones: [],
+            connections: model.connections.filter {
+                drawnIds.contains($0.sourceComponentId)
+                    && drawnIds.contains($0.targetComponentId)
+            }
+        )
+    }
+
     /// Every component id in `seedIds`, and every component id the walk
     /// reaches from them within `depth` flows, either direction.
     ///

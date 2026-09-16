@@ -54,10 +54,18 @@ struct CanvasView: View {
         scrollMonitor = nil
     }
 
-    /// The part of the model the canvas draws. The tag filter narrows it;
-    /// with no tag picked it is the whole model.
+    /// The part of the model the canvas draws. Focus narrows it to one
+    /// component and its neighbours; else the tag filter narrows it, and
+    /// with no tag picked that is the whole model.
     private var drawn: DrawnDiagram {
-        canvas.tagFilter.narrow(session.canvas)
+        if let focusedComponentId = canvas.focusedComponentId {
+            return TagFilter.focus(
+                on: focusedComponentId,
+                depth: canvas.tagFilter.neighbourDepth,
+                in: session.canvas
+            )
+        }
+        return canvas.tagFilter.narrow(session.canvas)
     }
 
     private var boxes: [String: ComponentBox] {
@@ -173,7 +181,7 @@ struct CanvasView: View {
                 if let pair = selectedPair {
                     MitigatesPanel(session: session, source: pair.source, target: pair.target)
                 } else if let component = selectedComponent {
-                    ComponentPanel(session: session, component: component)
+                    ComponentPanel(session: session, canvas: canvas, component: component)
                 } else if let zone = selectedZone {
                     ZonePanel(session: session, zone: zone)
                 } else if let connection = selectedConnection {
