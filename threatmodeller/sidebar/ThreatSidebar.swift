@@ -126,7 +126,9 @@ struct ThreatSidebar: View {
                 CompensatingControlSheet(threat: chosen.threat, session: session)
             }
             .sheet(item: $likelihooding) { chosen in
-                LikelihoodSheet(threat: chosen.threat, session: session)
+                if let project {
+                    LikelihoodSheet(threat: chosen.threat, session: session, project: project)
+                }
             }
             .sheet(item: $evidencing) { chosen in
                 EvidenceSheet(

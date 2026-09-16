@@ -7,9 +7,14 @@ import ThreatModelKit
 /// findings use; the percentage is for a team that has a number of its own.
 /// The rationale is required, because a score a reader cannot check is a
 /// number somebody made up.
+///
+/// It writes the `likelihood` block of the `.controls` file, the way the
+/// severity decision sheet writes the `severity_override` block, so a
+/// finding survives the project closing and reopening.
 struct LikelihoodSheet: View {
     let threat: AssessedThreat
     let session: ThreatModelSession
+    let project: ProjectSession
 
     @Environment(\.dismiss) private var dismiss
 
@@ -120,8 +125,13 @@ struct LikelihoodSheet: View {
     }
 
     private func write() {
-        session.setLikelihoodFinding(
-            threatKey: threat.threatKey,
+        guard case .threat(let threatId, let sourceKind, let sourceId)?
+            = GovernanceSheet.place(of: threat.threatKey) else { return }
+
+        project.saveLikelihoodFinding(
+            threatId: threatId,
+            sourceKind: sourceKind,
+            sourceId: sourceId,
             label: label.trimmingCharacters(in: .whitespaces),
             tier: usesPrior ? nil : tier,
             prior: usesPrior ? Int(prior) : nil,

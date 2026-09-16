@@ -589,6 +589,71 @@ final class ProjectSession {
         }
     }
 
+    // MARK: how often a threat happens
+
+    /// Writes one likelihood finding into the controls file and reads the
+    /// project again, so the threat re-scores with it.
+    func writeLikelihoodFinding(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        label: String,
+        tier: String?,
+        prior: Int?,
+        rationale: String,
+        sources: [String]
+    ) async {
+        guard let root, let chosenSystem else { return }
+
+        let response = useCases.writeLikelihoodFinding()
+            .execute(
+                WriteLikelihoodFindingRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    systemDisplayName: model?.canvas.name,
+                    threatId: threatId,
+                    sourceKind: sourceKind,
+                    sourceId: sourceId,
+                    label: label,
+                    tier: tier,
+                    prior: prior,
+                    rationale: rationale,
+                    sources: sources
+                )
+            )
+        response.describe(into: &errorMessage)
+
+        // A refused write changed no file, and reading the project again
+        // clears the message that says why.
+        guard case .written = response else { return }
+        await reloadFromDisk()
+    }
+
+    /// Writes a finding from somewhere that cannot wait for it.
+    func saveLikelihoodFinding(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        label: String,
+        tier: String?,
+        prior: Int?,
+        rationale: String,
+        sources: [String]
+    ) {
+        inFlight = Task {
+            await writeLikelihoodFinding(
+                threatId: threatId,
+                sourceKind: sourceKind,
+                sourceId: sourceId,
+                label: label,
+                tier: tier,
+                prior: prior,
+                rationale: rationale,
+                sources: sources
+            )
+        }
+    }
+
     /// Deletes a decision from somewhere that cannot wait for it.
     func deleteSeverityDecision(threatId: String, sourceKind: String, sourceId: String) {
         inFlight = Task {

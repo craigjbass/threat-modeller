@@ -174,6 +174,10 @@ public final class TestDependencies: UseCaseFactory {
         RemoveLikelihoodFinding(models: models)
     }
 
+    public func writeLikelihoodFinding() -> WriteLikelihoodFindingUseCase {
+        WriteLikelihoodFinding(projects: projects, sources: controlsSources)
+    }
+
     public func setMitigatesEdge() -> SetMitigatesEdgeUseCase {
         SetMitigatesEdge(models: models)
     }

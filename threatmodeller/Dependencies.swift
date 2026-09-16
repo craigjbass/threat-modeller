@@ -175,6 +175,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveLikelihoodFinding(models: models)
     }
 
+    func writeLikelihoodFinding() -> WriteLikelihoodFindingUseCase {
+        WriteLikelihoodFinding(projects: projects, sources: controlsSources)
+    }
+
     func setMitigatesEdge() -> SetMitigatesEdgeUseCase {
         SetMitigatesEdge(models: models)
     }

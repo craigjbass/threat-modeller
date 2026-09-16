@@ -99,6 +99,10 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                 sourceId: answer.sourceId,
                 severityLabel: answer.severityLabel,
                 score: answer.score,
+                // This merge keeps the file's own likelihood block as it
+                // stands. `WriteLikelihoodFinding` is the one place that
+                // changes a likelihood block, so this save and that writer
+                // never disagree about the same block.
                 likelihood: answer.likelihood,
                 severityDecision: answer.severityDecision,
                 impacts: answer.impacts,

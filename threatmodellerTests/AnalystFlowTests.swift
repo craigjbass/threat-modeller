@@ -176,9 +176,14 @@ struct AnalystFlowTests {
     @Test func drawsTheSheetThatSaysHowOftenAThreatHappens() throws {
         let session = aModelThatTakesSomethingOnTrust()
         let threat = try #require(session.threats.first)
+        let project = ProjectSession(
+            useCases: TestDependencies(),
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
 
         expectDrawn(
-            LikelihoodSheet(threat: threat, session: session),
+            LikelihoodSheet(threat: threat, session: session, project: project),
             width: 460,
             height: 560,
             "the likelihood sheet"

@@ -229,9 +229,10 @@ enum LayoutPreview {
 
 #Preview("How often a threat happens, 460x560", traits: .fixedLayout(width: 460, height: 560)) {
     let session = LayoutPreview.session()
+    let project = LayoutPreview.emptyProjectSession()
     return Group {
         if let threat = session.threats.first {
-            LikelihoodSheet(threat: threat, session: session)
+            LikelihoodSheet(threat: threat, session: session, project: project)
         }
     }
 }
