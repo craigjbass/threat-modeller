@@ -17,11 +17,6 @@ final class CanvasState: CanvasViewport {
     private(set) var selectedConnectionIds: Set<String> = []
     private(set) var selectedZoneIds: Set<String> = []
 
-    /// How tall the selection panel under the canvas is, or zero while no
-    /// selection panel is shown. The floating workflow panel reads it and
-    /// floats above it, so the two never cover each other.
-    var selectionPanelHeight: CGFloat = 0
-
     /// Changes the stage the window draws. The window sets it; a context menu
     /// on the diagram calls it. Nil in a window that has no stages.
     var showStage: ((WorkStage) -> Void)?

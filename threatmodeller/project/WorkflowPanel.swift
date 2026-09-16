@@ -13,8 +13,6 @@ import ThreatModelKit
 struct WorkflowPanel: View {
     /// How far the panel floats above the bottom edge of the column.
     static let bottomMargin: CGFloat = 16
-    /// The gap the panel keeps above a selection panel.
-    static let gapAboveSelectionPanel: CGFloat = 12
 
     let session: ProjectSession
 
@@ -49,10 +47,6 @@ struct WorkflowPanel: View {
     /// in a stage that draws no tree.
     var trees: TreeEditor?
     var treeCanvas: TreeCanvasState?
-
-    /// How tall the selection panel under the canvas is, or zero when no
-    /// selection panel is shown. The panel floats above it.
-    var liftedBy: CGFloat = 0
 
     /// How wide the column the panel floats over is, or zero when the caller
     /// has not measured it. The panel drops the words it cannot fit, so it
@@ -95,8 +89,7 @@ struct WorkflowPanel: View {
             stageWords: Self.showsStageWords(inColumnOfWidth: columnWidth),
             verbWords: Self.showsVerbWords(inColumnOfWidth: columnWidth)
         )
-        .padding(.bottom, lift)
-        .animation(.easeOut(duration: 0.2), value: liftedBy)
+        .padding(.bottom, Self.bottomMargin)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Workflow")
         .accessibilityIdentifier("workflow-bar")
@@ -114,54 +107,6 @@ struct WorkflowPanel: View {
             // on the diagram, so the drop stops here and places nothing.
             .dropDestination(for: String.self) { _, _ in false }
     }
-
-    /// Where the panel draws inside a column, given how big the panel is and
-    /// how tall the selection panel under it is.
-    ///
-    /// The view draws this with `.overlay(alignment: .bottom)` and a bottom
-    /// padding. A test reads the same rule, so a change to the padding changes
-    /// what the test measures.
-    static func rect(in bounds: CGRect, panelSize: CGSize, liftedBy: CGFloat) -> CGRect {
-        // With a selection panel under it the panel keeps the gap above that
-        // panel. With none it keeps the margin from the bottom edge.
-        let bottom = bounds.maxY - lift(over: liftedBy)
-        return CGRect(
-            x: bounds.midX - panelSize.width / 2,
-            y: bottom - panelSize.height,
-            width: panelSize.width,
-            height: panelSize.height
-        )
-    }
-
-    /// Where a selection panel of that height draws.
-    ///
-    /// The column keeps `reservedHeight + bottomMargin` at its bottom edge for
-    /// this floating panel, and the selection panel sits on top of that room,
-    /// because the column insets the room outside the canvas's own inset.
-    static func selectionPanelRect(in bounds: CGRect, height: CGFloat) -> CGRect {
-        CGRect(
-            x: bounds.minX,
-            y: bounds.maxY - reservedRoom - height,
-            width: bounds.width,
-            height: height
-        )
-    }
-
-    /// The room the column keeps at its bottom edge for this panel.
-    static var reservedRoom: CGFloat { reservedHeight + bottomMargin }
-
-    /// How far above the column's bottom edge the panel draws.
-    ///
-    /// With no selection panel it keeps the margin. With one it clears the
-    /// room kept for itself, then that panel, then the gap: the selection
-    /// panel is drawn above the reserved room, so lifting by its height alone
-    /// left this panel over its controls.
-    static func lift(over selectionPanelHeight: CGFloat) -> CGFloat {
-        guard selectionPanelHeight > 0 else { return bottomMargin }
-        return reservedRoom + selectionPanelHeight + gapAboveSelectionPanel
-    }
-
-    private var lift: CGFloat { Self.lift(over: liftedBy) }
 
     /// The controls of the panel.
     ///
