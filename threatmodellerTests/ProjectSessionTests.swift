@@ -742,6 +742,96 @@ struct ProjectSessionTests {
         #expect(session.terraformImportResult == nil)
         #expect(useCases.project.text(at: "/work/threatmodel/payments.arch") == payments)
     }
+
+    // MARK: splitting a flat system into a directory
+
+    @Test func statesTheOpenFlatSystemIsNotSplit() async {
+        let (session, _) = await aProject()
+        await session.open(root: "/work")
+
+        #expect(session.chosenSystemIsSplit == false)
+    }
+
+    @Test func splitsTheOpenSystemAndShowsItReadFromTheDirectoryWithItsAnswersAndTrees() async throws {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        useCases.project.put(
+            """
+            controls for "Payments" {
+              threat "credential-theft" on component "api" {
+                control "Enforce IMDSv2 to block SSRF-based credential theft" {
+                  status = "accepted"
+                }
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.controls"
+        )
+        useCases.project.put(
+            """
+            attack_trees for "Payments" {
+              tree "phishing" {
+                goal "misconfiguration" on component "api"
+
+                step "credential-theft" on component "api"
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.attacktree"
+        )
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
+        await session.open(root: "/work")
+
+        func credentialTheftControlStatuses() -> [String] {
+            let everyThreat: [AssessedThreat] = session.model?.threats ?? []
+            var found: AssessedThreat?
+            for threat in everyThreat where threat.threatId == "credential-theft" {
+                guard case .component(let id, _, _) = threat.source, id == "api" else { continue }
+                found = threat
+            }
+            guard let found else { return [] }
+            return found.controls.map { $0.statusId }
+        }
+
+        let componentsBefore = session.model?.canvas.components.map(\.technologyId)
+        let answeredBefore = credentialTheftControlStatuses()
+        let treesBefore = session.attackTreeSources.map(\.id)
+
+        await session.splitSystem()
+
+        #expect(session.errorMessage == nil)
+        #expect(useCases.project.text(at: "/work/threatmodel/payments/arch/payments.arch") != nil)
+        #expect(
+            useCases.project.text(at: "/work/threatmodel/payments/controls/payments.controls") != nil
+        )
+        #expect(
+            useCases.project.text(at: "/work/threatmodel/payments/attacktree/payments.attacktree")
+                != nil
+        )
+        #expect(useCases.project.text(at: "/work/threatmodel/payments.arch") == nil)
+        // The window shows the same system, now read from the directory.
+        #expect(session.chosenSystem == "payments")
+        #expect(session.chosenSystemIsSplit)
+        #expect(session.model?.canvas.components.map(\.technologyId) == componentsBefore)
+        #expect(credentialTheftControlStatuses() == answeredBefore)
+        #expect(answeredBefore.contains("accepted"))
+        #expect(session.attackTreeSources.map(\.id) == treesBefore)
+    }
+
+    @Test func aSystemAlreadySplitShowsTheItemDisabledAndRefusesASecondSplit() async throws {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments/arch/payments.arch")
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
+        await session.open(root: "/work")
+
+        #expect(session.chosenSystemIsSplit)
+
+        await session.splitSystem()
+
+        #expect(session.errorMessage == "\"payments\" is already a directory.")
+    }
 }
 
 /// What a project window writes back: the architecture, the answers, and the

@@ -134,4 +134,36 @@ struct ListSystemTests {
 
         #expect(response == .noSuchSystem)
     }
+
+    /// A flat system's summary says so, so a menu item that only makes sense
+    /// for a flat system can read it.
+    @Test func statesAFlatSystemIsNotSplit() throws {
+        let useCases = aProjectWithOneUnansweredThreat()
+
+        guard case .listed(let summary) = useCases.listSystem().execute(
+            ListSystemRequest(root: "/work", systemName: "payments")
+        ) else {
+            Issue.record("payments did not list")
+            return
+        }
+
+        #expect(summary.isSplit == false)
+    }
+
+    @Test func statesASplitSystemIsSplit() throws {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            "system \"Payments\" {\n  component \"api\" { technology = \"aws-ec2\" }\n}\n",
+            at: "/work/threatmodel/payments/arch/payments.arch"
+        )
+
+        guard case .listed(let summary) = useCases.listSystem().execute(
+            ListSystemRequest(root: "/work", systemName: "payments")
+        ) else {
+            Issue.record("payments did not list")
+            return
+        }
+
+        #expect(summary.isSplit)
+    }
 }

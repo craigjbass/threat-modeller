@@ -1339,6 +1339,38 @@ final class ProjectSession {
         terraformImportResult = nil
     }
 
+    // MARK: splitting a flat system into a directory
+
+    /// True when the open system's files already sit in the directory form,
+    /// so *Split into Directory* has nothing to do. False while nothing is
+    /// known about the system yet.
+    var chosenSystemIsSplit: Bool {
+        guard let chosenSystem else { return false }
+        return systemSummaries[chosenSystem]?.isSplit ?? false
+    }
+
+    /// Moves the open system's files into the directory form:
+    /// `threatmodel/<name>/arch/`, `controls/` and `attacktree/`, and reads
+    /// the project again so the window shows the same system read from the
+    /// directory.
+    func splitSystem() async {
+        guard let root, let chosenSystem else { return }
+
+        switch useCases.splitSystem().execute(
+            SplitSystemRequest(root: root, systemName: chosenSystem)
+        ) {
+        case .split:
+            errorMessage = nil
+            await reloadFromDisk()
+        case .noSuchSystem:
+            errorMessage = "This project no longer holds \"\(chosenSystem)\"."
+        case .alreadySplit:
+            errorMessage = "\"\(chosenSystem)\" is already a directory."
+        case .cannotWrite(let reason):
+            errorMessage = "The system could not be split: \(reason)"
+        }
+    }
+
     /// True once this session has written a report, so the two controls and
     /// the File menu item have something to open. A report written by
     /// `threatmodeller compile` outside the application is not known to this

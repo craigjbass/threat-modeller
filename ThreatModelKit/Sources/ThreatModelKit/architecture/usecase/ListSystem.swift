@@ -24,12 +24,23 @@ public struct SystemSummary: Equatable, Sendable {
     public let isUnparsed: Bool
     public let unanswered: Int
     public let worstLevel: String
+    /// True when the system's files already sit in the directory form,
+    /// `threatmodel/<name>/arch/`, rather than `threatmodel/<name>.arch`. A
+    /// system already split cannot be split again.
+    public let isSplit: Bool
 
-    public init(name: String, isUnparsed: Bool, unanswered: Int = 0, worstLevel: String = "") {
+    public init(
+        name: String,
+        isUnparsed: Bool,
+        unanswered: Int = 0,
+        worstLevel: String = "",
+        isSplit: Bool = false
+    ) {
         self.name = name
         self.isUnparsed = isUnparsed
         self.unanswered = unanswered
         self.worstLevel = worstLevel
+        self.isSplit = isSplit
     }
 }
 
@@ -72,7 +83,7 @@ public struct ListSystem: ListSystemUseCase {
             return .noSuchSystem
         }
         guard let architectureText = try? projects.read(path: system.architecturePath) else {
-            return .listed(SystemSummary(name: system.name, isUnparsed: true))
+            return .listed(SystemSummary(name: system.name, isUnparsed: true, isSplit: system.isSplit))
         }
 
         // A store of its own: the same rule `CompileControls` follows, so
@@ -94,7 +105,7 @@ public struct ListSystem: ListSystemUseCase {
             )
         )
         guard case .imported = imported else {
-            return .listed(SystemSummary(name: system.name, isUnparsed: true))
+            return .listed(SystemSummary(name: system.name, isUnparsed: true, isSplit: system.isSplit))
         }
 
         if projects.exists(path: system.controlsPath),
@@ -112,7 +123,8 @@ public struct ListSystem: ListSystemUseCase {
                 name: system.name,
                 isUnparsed: false,
                 unanswered: assessment.threats.filter(Self.isUnanswered).count,
-                worstLevel: worst?.riskLevel ?? ""
+                worstLevel: worst?.riskLevel ?? "",
+                isSplit: system.isSplit
             )
         )
     }

@@ -157,6 +157,12 @@ struct ThreatModellerApp: App {
                 Button("Import from Terraform\u{2026}") { importFromTerraform() }
                     .disabled(project?.chosenSystem == nil)
                     .accessibilityIdentifier("import-terraform")
+
+                Button("Split into Directory") { Task { await project?.splitSystem() } }
+                    .disabled(
+                        (project?.chosenSystem == nil) || (project?.chosenSystemIsSplit ?? true)
+                    )
+                    .accessibilityIdentifier("split-system")
             }
             CommandGroup(after: .windowList) {
                 Button("Welcome") { openWindow(id: Self.welcomeWindowId) }

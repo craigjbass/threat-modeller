@@ -90,6 +90,7 @@ public protocol UseCaseFactory: Sendable {
     func initialiseProject() -> InitialiseProjectUseCase
     func openSystem() -> OpenSystemUseCase
     func saveSystem() -> SaveSystemUseCase
+    func splitSystem() -> SplitSystemUseCase
     func saveSystemAnswers() -> SaveSystemAnswersUseCase
     func compileSystemReport() -> CompileSystemReportUseCase
     /// The template the project states for its reports.

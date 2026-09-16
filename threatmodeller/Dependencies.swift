@@ -456,6 +456,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         )
     }
 
+    func splitSystem() -> SplitSystemUseCase {
+        SplitSystem(projects: projects)
+    }
+
     func loadLibraries() -> LoadLibrariesUseCase {
         LoadLibraries(projects: projects, sources: librarySources, catalogue: base)
     }

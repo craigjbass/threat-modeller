@@ -490,6 +490,10 @@ public final class TestDependencies: UseCaseFactory {
         )
     }
 
+    public func splitSystem() -> SplitSystemUseCase {
+        SplitSystem(projects: projects)
+    }
+
     public func adoptCatalogueVersion() -> AdoptCatalogueVersionUseCase {
         AdoptCatalogueVersion(models: models, catalogue: catalogue)
     }
