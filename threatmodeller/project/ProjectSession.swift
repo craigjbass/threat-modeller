@@ -424,6 +424,121 @@ final class ProjectSession {
         await reloadFromDisk()
     }
 
+    // MARK: the governance this system states
+
+    /// The stanzas the system's `.governance` file states, for the editors.
+    /// They read the file rather than the model, because the editors write
+    /// the file.
+    var governanceSource: GovernanceSource? {
+        guard let root, let chosenSystem else { return nil }
+        guard case .listed(let source, _) = useCases.listGovernance().execute(
+            ListGovernanceRequest(root: root, systemName: chosenSystem)
+        ) else { return nil }
+        return source
+    }
+
+    /// The work and action stanzas the file states, for the planned-work
+    /// list. A stale stanza is a person's to delete in the file, so the list
+    /// leaves it out.
+    var plannedWork: [PlannedWorkItem] {
+        guard let source = governanceSource else { return [] }
+
+        var items: [PlannedWorkItem] = []
+        for threat in source.threats where threat.isStale == false {
+            for work in threat.work where work.isStale == false {
+                items.append(
+                    PlannedWorkItem(
+                        place: .threat(
+                            threatId: threat.threatId,
+                            sourceKind: threat.sourceKind,
+                            sourceId: threat.sourceId
+                        ),
+                        work: work,
+                        placeSays: "\(threat.threatId) on \(threat.sourceKind) \"\(threat.sourceId)\""
+                    )
+                )
+            }
+        }
+        for action in source.actions where action.isStale == false {
+            items.append(
+                PlannedWorkItem(
+                    place: .action,
+                    work: action,
+                    placeSays: "an action the architecture declares"
+                )
+            )
+        }
+        return items
+    }
+
+    /// Writes who carries one accepted risk and reads the project again, so
+    /// the card and the check summary state the entry.
+    func writeRiskAcceptance(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        accepted: SourceAcceptedRisk
+    ) async {
+        guard let root, let chosenSystem else { return }
+
+        useCases.writeRiskAcceptance()
+            .execute(
+                WriteRiskAcceptanceRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    systemDisplayName: model?.canvas.name,
+                    threatId: threatId,
+                    sourceKind: sourceKind,
+                    sourceId: sourceId,
+                    accepted: accepted
+                )
+            )
+            .describe(into: &errorMessage)
+
+        await reloadFromDisk()
+    }
+
+    /// Writes one piece of planned work and reads the project again.
+    func writePlannedWork(place: PlannedWorkPlace, work: SourcePlannedWork) async {
+        guard let root, let chosenSystem else { return }
+
+        useCases.writePlannedWork()
+            .execute(
+                WritePlannedWorkRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    systemDisplayName: model?.canvas.name,
+                    place: place,
+                    work: work
+                )
+            )
+            .describe(into: &errorMessage)
+
+        await reloadFromDisk()
+    }
+
+    /// Writes an acceptance from somewhere that cannot wait for it.
+    func saveRiskAcceptance(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        accepted: SourceAcceptedRisk
+    ) {
+        inFlight = Task {
+            await writeRiskAcceptance(
+                threatId: threatId,
+                sourceKind: sourceKind,
+                sourceId: sourceId,
+                accepted: accepted
+            )
+        }
+    }
+
+    /// Writes planned work from somewhere that cannot wait for it.
+    func savePlannedWork(place: PlannedWorkPlace, work: SourcePlannedWork) {
+        inFlight = Task { await writePlannedWork(place: place, work: work) }
+    }
+
     /// Writes a tree from somewhere that cannot wait for it.
     func saveAttackTree(_ tree: SourceAttackTree) {
         inFlight = Task { await writeAttackTree(tree) }
@@ -935,5 +1050,23 @@ final class ProjectSession {
                 .execute(BuildThreatModelReportRequest()).report.policy
         if read != policyRules { isPolicyNoticeDismissed = false }
         policyRules = read
+    }
+}
+
+/// One piece of planned work the governance file states, and where it sits.
+struct PlannedWorkItem: Identifiable, Equatable {
+    let place: PlannedWorkPlace
+    let work: SourcePlannedWork
+    /// Where the work sits, said for a list row.
+    let placeSays: String
+
+    /// The stanza's identity: where it sits and the label that keys it.
+    var id: String {
+        switch place {
+        case .threat(let threatId, let sourceKind, let sourceId):
+            "\(threatId)@\(sourceKind):\(sourceId)#\(work.label)"
+        case .action:
+            "action#\(work.label)"
+        }
     }
 }

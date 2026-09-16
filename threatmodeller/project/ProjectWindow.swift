@@ -14,6 +14,8 @@ struct ProjectWindow: View {
     @State private var isShowingLibraries = false
     /// True while the attack tree editor is on screen.
     @State private var isShowingAttackTrees = false
+    /// True while the planned-work list is on screen.
+    @State private var isShowingPlannedWork = false
     @State private var isShowingHistory = false
     /// True while the check summary is on screen.
     @State private var isShowingCheckSummary = false
@@ -110,6 +112,15 @@ struct ProjectWindow: View {
                         zones: model.canvas.zones
                     ),
                     dismiss: { isShowingAttackTrees = false }
+                )
+            }
+        }
+        .sheet(isPresented: $isShowingPlannedWork) {
+            if let model = session.model {
+                PlannedWorkSheet(
+                    project: session,
+                    threats: model.threats,
+                    dismiss: { isShowingPlannedWork = false }
                 )
             }
         }
@@ -221,6 +232,15 @@ struct ProjectWindow: View {
                 .disabled(session.model == nil)
                 .help("Write how an attacker reaches a threat.")
                 .accessibilityIdentifier("attack-trees")
+            }
+
+            ToolbarItem {
+                Button("Planned Work", systemImage: "checklist") {
+                    isShowingPlannedWork = true
+                }
+                .disabled(session.model == nil)
+                .help("Who does each recommendation and each action, and by when.")
+                .accessibilityIdentifier("planned-work")
             }
 
             ToolbarItem {

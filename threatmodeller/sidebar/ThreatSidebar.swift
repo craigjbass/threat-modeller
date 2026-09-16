@@ -16,6 +16,15 @@ struct CompensatedThreat: Identifiable {
     var id: String { threat.threatKey }
 }
 
+/// One accepted control under one threat, for the governance sheet.
+/// `sheet(item:)` needs identity, and a control is named by its threat and by
+/// its own key.
+struct GovernedControl: Identifiable {
+    let threat: AssessedThreat
+    let control: AssessedControl
+    var id: String { "\(threat.threatKey)#\(control.key)" }
+}
+
 struct ThreatSidebar: View {
     /// Which part of a threat a stage is about. The threats stage is for
     /// reading what the architecture raises and saying how often it happens.
@@ -45,6 +54,9 @@ struct ThreatSidebar: View {
 
     /// The threat whose likelihood finding the user is writing.
     @State private var likelihooding: CompensatedThreat?
+
+    /// The accepted control whose governance the user is writing.
+    @State private var governing: GovernedControl?
 
     /// The group at the top of the view. Reordering puts it back, so the
     /// place a person was reading stays on screen.
@@ -110,6 +122,15 @@ struct ThreatSidebar: View {
             .sheet(item: $likelihooding) { chosen in
                 LikelihoodSheet(threat: chosen.threat, session: session)
             }
+            .sheet(item: $governing) { chosen in
+                if let project {
+                    GovernanceSheet(
+                        threat: chosen.threat,
+                        control: chosen.control,
+                        project: project
+                    )
+                }
+            }
     }
 
     private var sidebar: some View {
@@ -165,6 +186,15 @@ struct ThreatSidebar: View {
                                                 },
                                                 onCompensate: { compensating = CompensatedThreat(threat: threat) },
                                                 onLikelihood: { likelihooding = CompensatedThreat(threat: threat) },
+                                                // The editor writes a file in
+                                                // the project, so a window
+                                                // with no project offers none.
+                                                onGovern: project == nil ? nil : { control in
+                                                    governing = GovernedControl(
+                                                        threat: threat,
+                                                        control: control
+                                                    )
+                                                },
                                                 onOverride: { severityId in
                                                     session.overrideSeverity(
                                                         overrideKey: threat.overrideKey,

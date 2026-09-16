@@ -243,6 +243,18 @@ nonisolated final class Dependencies: UseCaseFactory {
         ApplyGovernance(models: models, sources: governanceSources)
     }
 
+    func listGovernance() -> ListGovernanceUseCase {
+        ListGovernance(projects: projects, sources: governanceSources)
+    }
+
+    func writeRiskAcceptance() -> WriteRiskAcceptanceUseCase {
+        WriteRiskAcceptance(projects: projects, sources: governanceSources)
+    }
+
+    func writePlannedWork() -> WritePlannedWorkUseCase {
+        WritePlannedWork(projects: projects, sources: governanceSources)
+    }
+
     func checkGovernance() -> CheckGovernanceUseCase {
         CheckGovernance(
             controlsSources: controlsSources,

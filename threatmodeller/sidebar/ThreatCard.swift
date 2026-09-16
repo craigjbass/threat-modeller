@@ -12,6 +12,9 @@ struct ThreatCard: View {
     let onSetControlStatus: (_ key: String, _ statusId: String) -> Void
     let onCompensate: () -> Void
     var onLikelihood: () -> Void = {}
+    /// Opens the governance editor for one accepted control, or nil in a
+    /// window that has no project to write the file into.
+    var onGovern: ((AssessedControl) -> Void)?
     let onOverride: (_ severityId: String) -> Void
     let onClearOverride: () -> Void
 
@@ -80,14 +83,19 @@ struct ThreatCard: View {
         }
     }
 
-    /// Who carries an accepted risk, and when they read it again. Read only:
-    /// the governance file states both, and a person edits that file.
+    /// Who carries an accepted risk, and when they read it again. The
+    /// governance file states both, and the Govern button writes that file.
     @ViewBuilder
     private func governance(_ control: AssessedControl) -> some View {
-        if control.acceptedBy != nil || control.reviewBy != nil {
+        if control.statusId == "accepted" || control.acceptedBy != nil || control.reviewBy != nil {
             HStack(spacing: 4) {
                 if let owner = control.acceptedBy {
                     Text("Accepted by \(owner)")
+                } else {
+                    // The words the check uses, so the gap reads as the
+                    // failure it is.
+                    Text("Accepted by nobody")
+                        .foregroundStyle(Color.red)
                 }
                 if let reviewBy = control.reviewBy {
                     Text(
@@ -96,6 +104,15 @@ struct ThreatCard: View {
                             : "· review by \(reviewBy)"
                     )
                     .foregroundStyle(control.isReviewOverdue ? Color.red : Color.secondary)
+                } else {
+                    Text("· no review date")
+                        .foregroundStyle(Color.red)
+                }
+                if let onGovern {
+                    Spacer(minLength: 4)
+                    Button("Govern\u{2026}") { onGovern(control) }
+                        .font(.caption2)
+                        .accessibilityIdentifier("govern-\(control.key)")
                 }
             }
             .font(.caption2)

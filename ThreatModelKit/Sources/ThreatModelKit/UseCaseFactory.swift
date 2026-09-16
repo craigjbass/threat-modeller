@@ -57,6 +57,9 @@ public protocol UseCaseFactory: Sendable {
     func compileGovernance() -> CompileGovernanceUseCase
     func applyGovernance() -> ApplyGovernanceUseCase
     func checkGovernance() -> CheckGovernanceUseCase
+    func listGovernance() -> ListGovernanceUseCase
+    func writeRiskAcceptance() -> WriteRiskAcceptanceUseCase
+    func writePlannedWork() -> WritePlannedWorkUseCase
     func readRiskHistory() -> ReadRiskHistoryUseCase
     func checkPolicy() -> CheckPolicyUseCase
     func applyPolicy() -> ApplyPolicyUseCase

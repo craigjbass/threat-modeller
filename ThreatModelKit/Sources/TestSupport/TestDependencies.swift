@@ -242,6 +242,18 @@ public final class TestDependencies: UseCaseFactory {
         ApplyGovernance(models: models, sources: governanceSources)
     }
 
+    public func listGovernance() -> ListGovernanceUseCase {
+        ListGovernance(projects: projects, sources: governanceSources)
+    }
+
+    public func writeRiskAcceptance() -> WriteRiskAcceptanceUseCase {
+        WriteRiskAcceptance(projects: projects, sources: governanceSources)
+    }
+
+    public func writePlannedWork() -> WritePlannedWorkUseCase {
+        WritePlannedWork(projects: projects, sources: governanceSources)
+    }
+
     public func checkGovernance() -> CheckGovernanceUseCase {
         CheckGovernance(
             controlsSources: controlsSources,
