@@ -58,6 +58,9 @@ struct ThreatSidebar: View {
     /// The accepted control whose governance the user is writing.
     @State private var governing: GovernedControl?
 
+    /// The threat whose severity decision the user is writing.
+    @State private var deciding: CompensatedThreat?
+
     /// The group at the top of the view. Reordering puts it back, so the
     /// place a person was reading stays on screen.
     @State private var topGroup: String?
@@ -131,6 +134,15 @@ struct ThreatSidebar: View {
                     )
                 }
             }
+            .sheet(item: $deciding) { chosen in
+                if let project {
+                    SeverityDecisionSheet(
+                        threat: chosen.threat,
+                        severityChoices: session.severityChoices,
+                        project: project
+                    )
+                }
+            }
     }
 
     private var sidebar: some View {
@@ -194,6 +206,12 @@ struct ThreatSidebar: View {
                                                         threat: threat,
                                                         control: control
                                                     )
+                                                },
+                                                // The editor writes a file in
+                                                // the project, so a window
+                                                // with no project offers none.
+                                                onDecideSeverity: project == nil ? nil : {
+                                                    deciding = CompensatedThreat(threat: threat)
                                                 },
                                                 onOverride: { severityId in
                                                     session.overrideSeverity(

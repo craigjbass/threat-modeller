@@ -254,6 +254,14 @@ public final class TestDependencies: UseCaseFactory {
         WritePlannedWork(projects: projects, sources: governanceSources)
     }
 
+    public func writeSeverityDecision() -> WriteSeverityDecisionUseCase {
+        WriteSeverityDecision(projects: projects, sources: controlsSources, catalogue: catalogue)
+    }
+
+    public func removeSeverityDecision() -> RemoveSeverityDecisionUseCase {
+        RemoveSeverityDecision(projects: projects, sources: controlsSources)
+    }
+
     public func checkGovernance() -> CheckGovernanceUseCase {
         CheckGovernance(
             controlsSources: controlsSources,

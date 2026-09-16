@@ -15,6 +15,11 @@ struct ThreatCard: View {
     /// Opens the governance editor for one accepted control, or nil in a
     /// window that has no project to write the file into.
     var onGovern: ((AssessedControl) -> Void)?
+    /// Opens the severity decision editor, or nil in a window that has no
+    /// project. With a project, the severity tag opens this editor and the
+    /// technology-wide menu is not offered: the editor writes a rationale the
+    /// file keeps, and the menu's override is not written anywhere.
+    var onDecideSeverity: (() -> Void)?
     let onOverride: (_ severityId: String) -> Void
     let onClearOverride: () -> Void
 
@@ -305,14 +310,40 @@ struct ThreatCard: View {
         }
     }
 
-    /// The severity is a menu, because it is both a label and the one number
-    /// on the card the user is allowed to disagree with.
+    /// The severity control: a label, and the one number on the card the
+    /// user is allowed to disagree with.
     ///
-    /// A controls-file severity decision is a different store to the
-    /// technology-wide override: it names one threat on one source, and the
-    /// resolver reads it ahead of the override. When one applies, the menu
-    /// offers nothing, because a choice from it would change nothing.
+    /// In a window with a project it opens the decision editor, which writes
+    /// the `severity_override` block: one threat on one source, a required
+    /// rationale, kept by the compile. In a window with no project there is
+    /// no controls file, so a menu writes the technology-wide override into
+    /// the model instead.
+    @ViewBuilder
     private var severityMenu: some View {
+        if let onDecideSeverity {
+            Button(action: onDecideSeverity) {
+                severityTag
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("decide-severity-\(threat.threatKey)")
+            .help(severityHelpText)
+        } else {
+            severityOverrideMenu
+        }
+    }
+
+    private var severityTag: some View {
+        HStack(spacing: 3) {
+            Text(threat.severityLabel)
+            if threat.overriddenSeverityId != nil || threat.severityDecision != nil {
+                Image(systemName: "pencil").font(.caption2)
+            }
+        }
+        .font(.caption2)
+    }
+
+    private var severityOverrideMenu: some View {
         Menu {
             ForEach(severityChoices, id: \.id) { severity in
                 Button(severity.label) { onOverride(severity.id) }
@@ -322,13 +353,7 @@ struct ThreatCard: View {
                 Button("Use the catalogue's severity") { onClearOverride() }
             }
         } label: {
-            HStack(spacing: 3) {
-                Text(threat.severityLabel)
-                if threat.overriddenSeverityId != nil || threat.severityDecision != nil {
-                    Image(systemName: "pencil").font(.caption2)
-                }
-            }
-            .font(.caption2)
+            severityTag
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -340,6 +365,9 @@ struct ThreatCard: View {
     private var severityHelpText: String {
         if let decision = threat.severityDecision {
             return decision.rationale
+        }
+        if onDecideSeverity != nil {
+            return "The severity here. Choose one and say why; the controls file keeps both."
         }
         if threat.overriddenSeverityId != nil {
             return "You set this severity. It applies everywhere this threat is raised from the same source kind."

@@ -60,6 +60,8 @@ public protocol UseCaseFactory: Sendable {
     func listGovernance() -> ListGovernanceUseCase
     func writeRiskAcceptance() -> WriteRiskAcceptanceUseCase
     func writePlannedWork() -> WritePlannedWorkUseCase
+    func writeSeverityDecision() -> WriteSeverityDecisionUseCase
+    func removeSeverityDecision() -> RemoveSeverityDecisionUseCase
     func readRiskHistory() -> ReadRiskHistoryUseCase
     func checkPolicy() -> CheckPolicyUseCase
     func applyPolicy() -> ApplyPolicyUseCase

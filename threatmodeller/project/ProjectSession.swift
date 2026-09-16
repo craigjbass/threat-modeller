@@ -517,6 +517,89 @@ final class ProjectSession {
         await reloadFromDisk()
     }
 
+    /// Writes one severity decision into the controls file and reads the
+    /// project again, so the threat re-scores with it.
+    func writeSeverityDecision(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        decision: SeverityDecision
+    ) async {
+        guard let root, let chosenSystem else { return }
+
+        let response = useCases.writeSeverityDecision()
+            .execute(
+                WriteSeverityDecisionRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    systemDisplayName: model?.canvas.name,
+                    threatId: threatId,
+                    sourceKind: sourceKind,
+                    sourceId: sourceId,
+                    decision: decision
+                )
+            )
+        response.describe(into: &errorMessage)
+
+        // A refused write changed no file, and reading the project again
+        // clears the message that says why.
+        guard case .written = response else { return }
+        await reloadFromDisk()
+    }
+
+    /// Removes one severity decision and reads the project again, so the
+    /// catalogue's severity stands.
+    func removeSeverityDecision(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String
+    ) async {
+        guard let root, let chosenSystem else { return }
+
+        let response = useCases.removeSeverityDecision()
+            .execute(
+                RemoveSeverityDecisionRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    threatId: threatId,
+                    sourceKind: sourceKind,
+                    sourceId: sourceId
+                )
+            )
+        response.describe(into: &errorMessage)
+
+        guard case .removed = response else { return }
+        await reloadFromDisk()
+    }
+
+    /// Writes a decision from somewhere that cannot wait for it.
+    func saveSeverityDecision(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        decision: SeverityDecision
+    ) {
+        inFlight = Task {
+            await writeSeverityDecision(
+                threatId: threatId,
+                sourceKind: sourceKind,
+                sourceId: sourceId,
+                decision: decision
+            )
+        }
+    }
+
+    /// Deletes a decision from somewhere that cannot wait for it.
+    func deleteSeverityDecision(threatId: String, sourceKind: String, sourceId: String) {
+        inFlight = Task {
+            await removeSeverityDecision(
+                threatId: threatId,
+                sourceKind: sourceKind,
+                sourceId: sourceId
+            )
+        }
+    }
+
     /// Writes an acceptance from somewhere that cannot wait for it.
     func saveRiskAcceptance(
         threatId: String,
