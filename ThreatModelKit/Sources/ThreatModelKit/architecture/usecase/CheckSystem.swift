@@ -203,7 +203,9 @@ public struct CheckSystem: CheckSystemUseCase {
                 architectureParts: system.isSplit ? parts(of: system) : [],
                 directoryName: system.isSplit ? system.name : nil,
                 controlsParts: system.isSplit ? controlsTexts(of: system) : [:],
-                attackTreeTexts: system.isSplit ? treeTexts(of: system) : []
+                attackTreeTexts: system.isSplit ? treeTexts(of: system) : [],
+                architecturePath: system.architecturePath,
+                vulnerabilityLockText: text(at: layout.vulnerabilityLockPath)
             )
         )
 

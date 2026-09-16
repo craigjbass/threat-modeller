@@ -377,7 +377,8 @@ public final class TestDependencies: UseCaseFactory {
             compiles: compileControls(),
             sources: controlsSources,
             governance: checkGovernance(),
-            policy: checkPolicy()
+            policy: checkPolicy(),
+            vulnerabilities: checkVulnerabilities()
         )
     }
 
@@ -600,6 +601,21 @@ public final class TestDependencies: UseCaseFactory {
     /// holds and nothing reaches a network.
     public let attackData = InMemoryAttackData()
     public let attackDownloader = FakeAttackDownloader()
+    /// The CVE feeds this root wires, so a test states what the three
+    /// services answer and nothing reaches a network.
+    public let vulnerabilitySource = FakeVulnerabilitySource()
+
+    public func synchroniseVulnerabilities() -> SynchroniseVulnerabilitiesUseCase {
+        SynchroniseVulnerabilities(
+            projects: project,
+            architecture: architectureSources,
+            source: vulnerabilitySource
+        )
+    }
+
+    public func checkVulnerabilities() -> CheckVulnerabilitiesUseCase {
+        CheckVulnerabilities(architecture: architectureSources)
+    }
     /// The groups on the machine, read the first time something asks.
     public let mitreActors: MitreActorSource
 

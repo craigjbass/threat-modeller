@@ -22,6 +22,12 @@ public struct CheckControlAnswersRequest: Equatable, Sendable {
     public let directoryName: String?
     public let controlsParts: [String: String]
     public let attackTreeTexts: [String]
+    /// Where the architecture file is, so a warning about a component names
+    /// the file it sits in. Empty when the caller does not say.
+    public let architecturePath: String
+    /// The facts about the CVEs the project names, or nil when it holds no
+    /// lock file.
+    public let vulnerabilityLockText: String?
 
     public init(
         architectureText: String,
@@ -33,8 +39,12 @@ public struct CheckControlAnswersRequest: Equatable, Sendable {
         architectureParts: [SourcePart] = [],
         directoryName: String? = nil,
         controlsParts: [String: String] = [:],
-        attackTreeTexts: [String] = []
+        attackTreeTexts: [String] = [],
+        architecturePath: String = "",
+        vulnerabilityLockText: String? = nil
     ) {
+        self.architecturePath = architecturePath
+        self.vulnerabilityLockText = vulnerabilityLockText
         self.architectureParts = architectureParts
         self.directoryName = directoryName
         self.controlsParts = controlsParts
@@ -100,17 +110,20 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
     private let sources: ControlsSourceGateway
     private let governance: CheckGovernanceUseCase?
     private let policy: CheckPolicyUseCase?
+    private let vulnerabilities: CheckVulnerabilitiesUseCase?
 
     public init(
         compiles: CompileControlsUseCase,
         sources: ControlsSourceGateway,
         governance: CheckGovernanceUseCase? = nil,
-        policy: CheckPolicyUseCase? = nil
+        policy: CheckPolicyUseCase? = nil,
+        vulnerabilities: CheckVulnerabilitiesUseCase? = nil
     ) {
         self.compiles = compiles
         self.sources = sources
         self.governance = governance
         self.policy = policy
+        self.vulnerabilities = vulnerabilities
     }
 
     public func execute(_ request: CheckControlAnswersRequest) -> CheckControlAnswersResponse {
@@ -225,12 +238,28 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
             }
         }
 
+        // A CVE the lock file does not hold is a warning: a fact the model
+        // does not yet hold, not a wrong answer.
+        var unsynchronised: [Diagnostic] = []
+        if let vulnerabilities {
+            let parts = request.architectureParts.isEmpty
+                ? [SourcePart(file: request.architecturePath, text: request.architectureText)]
+                : request.architectureParts
+            unsynchronised = vulnerabilities.execute(
+                CheckVulnerabilitiesRequest(
+                    parts: parts,
+                    directoryName: request.directoryName,
+                    lockText: request.vulnerabilityLockText
+                )
+            )
+        }
+
         return .checked(
             unanswered: unanswered,
             stale: stale,
             staleTrees: staleTrees,
             governance: governanceFailures + unevidenced + policyBreaches,
-            diagnostics: read.warnings + compileWarnings,
+            diagnostics: read.warnings + compileWarnings + unsynchronised,
             tolerance: tolerance.rawValue
         )
     }

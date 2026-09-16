@@ -31,6 +31,9 @@ public struct CommandLineApplication {
     /// Where the ATT&CK data sits on this machine, and what fetches it.
     private let attackData: AttackDataGateway
     private let downloader: AttackDownloading
+    /// What fetches the facts about a CVE, or nil to build the web source
+    /// with a progress line the first time `cve sync` runs.
+    private let vulnerabilities: (any VulnerabilitySource)?
     /// The groups on this machine, read the first time a verb asks.
     private let mitreActors: MitreActorSource
     /// Built once a catalogue is known, which is only when a verb needs one.
@@ -49,12 +52,14 @@ public struct CommandLineApplication {
         fetcher: LibraryFetching = GitLibraryFetcher(),
         attackData: AttackDataGateway = FileSystemAttackData(),
         downloader: AttackDownloading = CurlDownloader(),
+        vulnerabilities: (any VulnerabilitySource)? = nil,
         catalogue: @escaping () throws -> TechnologyCatalogue = { try BundledTechnologyCatalogue() },
         standardInput: @escaping () -> String = CommandLineApplication.everyLineOfStandardInput
     ) {
         self.standardInput = standardInput
         self.attackData = attackData
         self.downloader = downloader
+        self.vulnerabilities = vulnerabilities
         mitreActors = MitreActorSource(data: attackData)
         self.projects = projects
         self.architecture = architecture
@@ -198,6 +203,8 @@ public struct CommandLineApplication {
             return split(words: Array(words.dropFirst()), output: output)
         case "attack":
             return attack(words: Array(words.dropFirst()), output: output)
+        case "cve":
+            return cve(words: Array(words.dropFirst()), output: output)
         case "actors":
             return actors(words: Array(words.dropFirst()), output: output)
         case "report":
@@ -609,6 +616,95 @@ public struct CommandLineApplication {
             output("threatmodeller: attack holds sync and verify, not \"\(verb)\"")
             return ExitCode.didNotParse.rawValue
         }
+    }
+
+    // MARK: cve
+
+    /// `threatmodeller cve sync [<root>]` and `threatmodeller cve list [<root>]`.
+    private func cve(words: [String], output: (String) -> Void) -> Int32 {
+        let verb = words.first ?? ""
+        let root = words.dropFirst().first { $0.hasPrefix("-") == false } ?? "."
+        switch verb {
+        case "sync":
+            // A person typed the verb, so it says what it will do and does
+            // it. The web source names each CVE as it arrives, so a person
+            // sees the NVD's wait is the wait.
+            let source = vulnerabilities ?? WebVulnerabilitySource.fromEnvironment(
+                progress: { print("threatmodeller: fetched \($0)") }
+            )
+            output(
+                "threatmodeller: fetching CVSS from the NVD, EPSS from FIRST and "
+                    + "the CISA KEV catalogue for every CVE this project names"
+            )
+            let response = SynchroniseVulnerabilities(
+                projects: projects,
+                architecture: architecture,
+                source: source
+            ).execute(SynchroniseVulnerabilitiesRequest(root: root))
+            switch response {
+            case .synchronised(let count, let changed):
+                let dates = ListVulnerabilities(projects: projects)
+                    .execute(ListVulnerabilitiesRequest(root: root))
+                if case .listed(_, let epssDate, let kevVersion) = dates {
+                    output(
+                        "threatmodeller: \(count) CVEs, EPSS \(epssDate ?? "undated"), "
+                            + "KEV \(kevVersion ?? "unversioned")"
+                    )
+                }
+                output(
+                    changed
+                        ? "threatmodeller: written \(VulnerabilityLock.fileName)"
+                        : "threatmodeller: \(VulnerabilityLock.fileName) is unchanged"
+                )
+                return ExitCode.success.rawValue
+            case .nothingToSynchronise:
+                output("threatmodeller: no component states a CVE, so there is nothing to fetch")
+                return ExitCode.success.rawValue
+            case .notAProject(let reason), .cannotWrite(let reason):
+                output("threatmodeller: \(reason)")
+                return ExitCode.fileFault.rawValue
+            case .cannotFetch(let reason):
+                output("threatmodeller: \(reason)")
+                return ExitCode.fetchFailed.rawValue
+            }
+        case "list":
+            switch ListVulnerabilities(projects: projects)
+                .execute(ListVulnerabilitiesRequest(root: root)) {
+            case .listed(let records, let epssDate, let kevVersion):
+                output("CVE             CVSS  EPSS   KEV")
+                for record in records {
+                    output(
+                        record.id.padding(toLength: 16, withPad: " ", startingAt: 0)
+                            + Self.number(record.cvss, width: 6)
+                            + Self.number(record.epss, width: 7)
+                            + (record.isKnownExploited ? "KEV" : "-")
+                    )
+                }
+                output(
+                    "threatmodeller: EPSS \(epssDate ?? "undated"), "
+                        + "KEV \(kevVersion ?? "unversioned")"
+                )
+                return ExitCode.success.rawValue
+            case .noLockFile:
+                output(
+                    "threatmodeller: this project holds no \(VulnerabilityLock.fileName); "
+                        + "run threatmodeller cve sync"
+                )
+                return ExitCode.success.rawValue
+            case .notAProject(let reason):
+                output("threatmodeller: \(reason)")
+                return ExitCode.fileFault.rawValue
+            }
+        default:
+            output("threatmodeller: cve holds sync and list, not \"\(verb)\"")
+            return ExitCode.didNotParse.rawValue
+        }
+    }
+
+    /// A number in a column, or a dash when the feed states none.
+    private static func number(_ value: Double?, width: Int) -> String {
+        let text = value.map { String(format: "%.2f", $0) } ?? "-"
+        return text.padding(toLength: width, withPad: " ", startingAt: 0)
     }
 
     // MARK: actors
@@ -2285,6 +2381,9 @@ public struct CommandLineApplication {
       threatmodeller attack sync [<tag>] [<root>]             download and extract MITRE ATT&CK
       threatmodeller attack verify [<root>]                   check this machine against the lock file
       threatmodeller actors list [--mitre] [<root>]           say what actors this project may face
+
+      threatmodeller cve sync [<root>]                        fetch CVSS, EPSS and KEV for every CVE named
+      threatmodeller cve list [<root>]                        say what cve.lock.json holds
 
     Options:
       -o <dir>              write the reports into this directory

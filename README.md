@@ -197,6 +197,9 @@ threatmodeller split <system> [<root>]                  # move a flat system int
 threatmodeller attack sync [<tag>] [<root>]             # download and extract MITRE ATT&CK
 threatmodeller attack verify [<root>]                   # check this machine against the lock file
 threatmodeller actors list [--mitre] [<root>]           # say what actors this project may face
+
+threatmodeller cve sync [<root>]                        # fetch CVSS, EPSS and KEV for every CVE named
+threatmodeller cve list [<root>]                        # say what cve.lock.json holds
 ```
 
 `add` writes the files into `threatmodel/library/` and writes
@@ -234,6 +237,35 @@ says which systems. `--force` removes it anyway.
 
 `update` fetches again at the tag the lock file already records and changes no
 tag. To move version, run `add` with the new tag.
+
+### Known vulnerabilities
+
+A component states the version it runs and the CVEs that version carries:
+
+```hcl
+component "api" {
+  technology = "nginx"
+  version    = "1.24.0"
+  cves       = ["CVE-2023-44487", "CVE-2024-7347"]
+}
+```
+
+`cve sync` reads every CVE the project names and fetches the CVSS base score
+and summary from the NVD, the EPSS probability from FIRST, and whether the
+CISA Known Exploited Vulnerabilities catalogue lists it. It writes the records
+into `threatmodel/cve.lock.json`, with the date the EPSS feed states and the
+version the KEV catalogue states, and a team commits that file: the score
+reads it, so every machine scores the same. A second sync against an
+unchanged upstream writes the same bytes. `cve list` prints what the lock
+file holds and makes no network call. `check` warns for a CVE a component
+states that the lock file does not hold, and does not fail for it.
+
+WARNING: the NVD answers five requests in thirty seconds to a caller with no
+key, so `cve sync` waits six seconds between NVD requests after the fifth.
+`THREATMODELLER_CVE_FEEDS=<directory>` reads the three feeds from files in
+that directory instead of the network, which is what `scripts/cli-smoke.sh`
+does. The design is
+[the known vulnerabilities design](docs/superpowers/specs/2026-09-16-known-vulnerabilities-design.md).
 
 ## Scoring
 

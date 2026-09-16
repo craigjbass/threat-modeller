@@ -71,12 +71,17 @@ struct CommandLineDependencies {
         )
     }
 
+    func checkVulnerabilities() -> CheckVulnerabilitiesUseCase {
+        CheckVulnerabilities(architecture: architectureSources)
+    }
+
     func checkControlAnswers() -> CheckControlAnswersUseCase {
         CheckControlAnswers(
             compiles: compileControls(),
             sources: controlsSources,
             governance: checkGovernance(),
-            policy: checkPolicy()
+            policy: checkPolicy(),
+            vulnerabilities: checkVulnerabilities()
         )
     }
 

@@ -157,6 +157,12 @@ public struct ProjectLayout: Equatable, Sendable {
         ProjectConvention.path(directory, ProjectConvention.policyFileName)
     }
 
+    /// The facts about every CVE the project names. One file for the whole
+    /// project, and it may not exist.
+    public var vulnerabilityLockPath: String {
+        ProjectConvention.path(directory, VulnerabilityLock.fileName)
+    }
+
     public func system(named name: String) -> ProjectSystem? {
         systems.first { $0.name == name }
     }

@@ -281,6 +281,65 @@ grep -q 'Head of Platform' "$work/twice/threatmodel/payments.governance"
 test "$(grep -c 'on flow "api->db"' "$work/twice/threatmodel/payments.governance")" -eq 1
 tm format "$work/twice"
 
+step "cve sync fetches the feeds from a directory and writes the lock file"
+# The three feeds, in the shape the services answer, as files: no network.
+feeds="$work/feeds"
+mkdir -p "$feeds/nvd"
+cat > "$feeds/nvd/CVE-2023-44487.json" <<'JSON'
+{ "vulnerabilities": [ { "cve": { "id": "CVE-2023-44487", "lastModified": "2024-08-01T15:23:00.000",
+  "descriptions": [ { "lang": "en", "value": "The HTTP/2 protocol allows a denial of service." } ],
+  "metrics": { "cvssMetricV31": [ { "cvssData": { "version": "3.1", "baseScore": 7.5 } } ] } } } ] }
+JSON
+cat > "$feeds/nvd/CVE-2024-7347.json" <<'JSON'
+{ "vulnerabilities": [ { "cve": { "id": "CVE-2024-7347", "lastModified": "2024-08-14T10:00:00.000",
+  "descriptions": [ { "lang": "en", "value": "A buffer over-read in the ngx_http_mp4_module." } ],
+  "metrics": { "cvssMetricV31": [ { "cvssData": { "version": "3.1", "baseScore": 5.5 } } ] } } } ] }
+JSON
+cat > "$feeds/epss.json" <<'JSON'
+{ "status": "OK", "data": [
+  { "cve": "CVE-2023-44487", "epss": "0.94085", "percentile": "0.99", "date": "2026-09-15" },
+  { "cve": "CVE-2024-7347", "epss": "0.0102", "percentile": "0.40", "date": "2026-09-15" } ] }
+JSON
+cat > "$feeds/kev.json" <<'JSON'
+{ "catalogVersion": "2026.09.15", "dateReleased": "2026-09-15T14:00:00.000Z", "count": 1,
+  "vulnerabilities": [ { "cveID": "CVE-2023-44487", "dateAdded": "2023-10-10" } ] }
+JSON
+mkdir -p "$work/cves/threatmodel"
+cat > "$work/cves/threatmodel/payments.arch" <<'ARCH'
+system "Payments" {
+  component "api" {
+    technology = "aws-ec2"
+    data       = "confidential"
+    version    = "1.24.0"
+    cves       = ["CVE-2023-44487", "CVE-2024-7347"]
+  }
+}
+ARCH
+cp "$work/cves/threatmodel/payments.arch" "$work/cves-first.arch"
+tm format "$work/cves"
+diff "$work/cves-first.arch" "$work/cves/threatmodel/payments.arch"
+tm compile "$work/cves"
+# Before the sync, check warns for each CVE the lock file does not hold.
+set +e
+tm check "$work/cves" > "$work/cves-check.txt"
+set -e
+grep -q 'warning: the component "api" states CVE-2023-44487, which cve.lock.json does not hold' \
+    "$work/cves-check.txt"
+THREATMODELLER_CVE_FEEDS="$feeds" tm cve sync "$work/cves"
+test -f "$work/cves/threatmodel/cve.lock.json"
+grep -q '"epssDate" : "2026-09-15"' "$work/cves/threatmodel/cve.lock.json"
+grep -q '"isKnownExploited" : true' "$work/cves/threatmodel/cve.lock.json"
+cp "$work/cves/threatmodel/cve.lock.json" "$work/cves-lock-first.json"
+THREATMODELLER_CVE_FEEDS="$feeds" tm cve sync "$work/cves" | grep -q unchanged
+diff "$work/cves-lock-first.json" "$work/cves/threatmodel/cve.lock.json"
+tm cve list "$work/cves" > "$work/cves-list.txt"
+grep -q 'CVE-2023-44487 *7.50 *0.94 *KEV' "$work/cves-list.txt"
+set +e
+tm check "$work/cves" > "$work/cves-check.txt"
+set -e
+grep -q 'does not hold' "$work/cves-check.txt" && exit 1
+echo "check says nothing about a CVE the lock file holds"
+
 step "lsp answers a client"
 # The Language Server Protocol frames each message with its length.
 frame() {
