@@ -1096,3 +1096,108 @@ struct ProjectPolicyTests {
         #expect(session.hasPolicyBreach == false)
     }
 }
+
+/// The systems picker states the unanswered count and the worst level beside
+/// each name, the same numbers `threatmodeller list` prints. These tests hold
+/// `ProjectSession.systemSummaries` to that.
+@MainActor
+@Suite("The systems picker states more than a name")
+struct SystemsPickerTests {
+    private let payments = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      component "db" {
+        technology = "aws-rds"
+        data       = "restricted"
+      }
+
+      flow api -> db
+    }
+
+    """
+
+    private let paymentsAnswered = """
+    controls for "Payments" {
+      threat "credential-theft" on component "api" {
+        control "Enforce IMDSv2 to block SSRF-based credential theft" {
+          status = "accepted"
+        }
+
+        control "Use IAM roles with minimal permissions" {
+          status = "accepted"
+        }
+      }
+    }
+
+    """
+
+    private func aProject() async -> (ProjectSession, TestDependencies) {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
+        await session.open(root: "/work")
+        return (session, useCases)
+    }
+
+    @Test func statesTheUnansweredCountAndTheWorstLevelListStates() async throws {
+        let (session, useCases) = await aProject()
+
+        guard case .listed(let expected) = useCases.listSystem().execute(
+            ListSystemRequest(root: "/work", systemName: "payments")
+        ) else {
+            Issue.record("payments did not list")
+            return
+        }
+
+        let summary = try #require(session.systemSummaries["payments"])
+        #expect(summary.unanswered == expected.unanswered)
+        #expect(summary.worstLevel == expected.worstLevel)
+        #expect(summary.unanswered > 0)
+    }
+
+    @Test func theUnansweredCountDropsByOneAfterAThreatIsAnswered() async throws {
+        let (session, _) = await aProject()
+        let before = try #require(session.systemSummaries["payments"])
+        let control = try #require(session.model?.threats.first?.controls.first)
+
+        session.model?.setControlStatus(key: control.key, statusId: "accepted")
+        await session.save()
+
+        let after = try #require(session.systemSummaries["payments"])
+        #expect(after.unanswered == before.unanswered - 1)
+    }
+
+    @Test func theRowUpdatesAfterAReload() async throws {
+        let (session, useCases) = await aProject()
+        let before = try #require(session.systemSummaries["payments"])
+        #expect(before.unanswered > 0)
+
+        // Somebody else answers a threat and this session reloads from disk.
+        useCases.project.put(paymentsAnswered, at: "/work/threatmodel/payments.controls")
+        await session.reloadFromDisk()
+
+        let after = try #require(session.systemSummaries["payments"])
+        #expect(after.unanswered < before.unanswered)
+    }
+
+    @Test func aSystemWhoseFileDoesNotParseShowsADiagnosticMarkAndOpensTheOthers() async throws {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        useCases.project.put("system \"Broken\" {", at: "/work/threatmodel/broken.arch")
+        let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
+
+        await session.open(root: "/work")
+
+        #expect(session.systems.sorted() == ["broken", "payments"])
+        let broken = try #require(session.systemSummaries["broken"])
+        #expect(broken.isUnparsed)
+        // The picker still opens the system that did parse.
+        await session.choose("payments")
+        #expect(session.model != nil)
+        #expect(session.systemSummaries["payments"]?.isUnparsed == false)
+    }
+}

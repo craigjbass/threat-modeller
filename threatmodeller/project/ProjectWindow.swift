@@ -153,7 +153,7 @@ struct ProjectWindow: View {
             ToolbarItem(placement: .navigation) {
                 Picker("System", selection: chosen) {
                     ForEach(session.systems, id: \.self) { name in
-                        Text(name).tag(name as String?)
+                        systemRow(name).tag(name as String?)
                     }
                 }
                 .labelsHidden()
@@ -520,5 +520,31 @@ struct ProjectWindow: View {
                 canvas.clearSelection()
             }
         )
+    }
+
+    /// One row of the systems picker: the name, and beside it the unanswered
+    /// count and the worst level `threatmodeller list` prints for the same
+    /// system. A system whose files do not parse shows a diagnostic mark
+    /// instead, and the picker still opens the other systems.
+    @ViewBuilder
+    private func systemRow(_ name: String) -> some View {
+        if let summary = session.systemSummaries[name] {
+            if summary.isUnparsed {
+                Label(name, systemImage: "exclamationmark.triangle.fill")
+            } else {
+                Text(systemCaption(name: name, summary: summary))
+            }
+        } else {
+            Text(name)
+        }
+    }
+
+    /// What one row of the systems picker states beside a parsed system's
+    /// name.
+    private func systemCaption(name: String, summary: SystemSummary) -> String {
+        guard summary.worstLevel.isEmpty == false else {
+            return "\(name) — \(summary.unanswered) unanswered"
+        }
+        return "\(name) — \(summary.unanswered) unanswered, \(summary.worstLevel)"
     }
 }

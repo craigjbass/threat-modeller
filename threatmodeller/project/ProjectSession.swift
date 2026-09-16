@@ -70,6 +70,11 @@ final class ProjectSession {
     /// or fail from it and the check summary sheet lists it.
     private(set) var checkedSystems: [SystemCheck] = []
 
+    /// What the systems picker states beside each name: the same unanswered
+    /// count and worst level `threatmodeller list` prints for it. Keyed by
+    /// system name.
+    private(set) var systemSummaries: [String: SystemSummary] = [:]
+
     /// True when `threatmodeller check` would exit 0 for the open project.
     var passesCheck: Bool {
         checkedSystems.allSatisfy(\.passes)
@@ -307,6 +312,7 @@ final class ProjectSession {
             } else {
                 checkedSystems = []
                 staleAnswers = []
+                systemSummaries = [:]
             }
         case .notAProject(let reason):
             self.root = nil
@@ -316,6 +322,7 @@ final class ProjectSession {
             watcher.stop()
             readPolicyRules()
             readCheckFindings()
+            readSystemSummaries()
             errorMessage = "That is not a project: \(reason)"
         }
     }
@@ -337,6 +344,7 @@ final class ProjectSession {
             // the summary empties until the library parses.
             checkedSystems = []
             staleAnswers = []
+            systemSummaries = [:]
             diagnostics = faults
             diagnosticsFileName = fileName
             errorMessage = "\(fileName) did not parse."
@@ -398,6 +406,7 @@ final class ProjectSession {
         fingerprint = currentFingerprint()
         readStaleAnswers()
         readCheckFindings()
+        readSystemSummaries()
     }
 
     // MARK: the attack trees this system states
@@ -843,6 +852,7 @@ final class ProjectSession {
             readPolicyRules()
             readCheckFindings()
             readStaleAnswers()
+            readSystemSummaries()
             readCatalogueDrift(statedTag: statedTag, systemName: systemName)
         case .refused(let fileName, let faults):
             chosenSystem = systemName
@@ -855,6 +865,7 @@ final class ProjectSession {
             readPolicyRules()
             readCheckFindings()
             readStaleAnswers()
+            readSystemSummaries()
             errorMessage = "\(fileName) did not parse."
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(systemName)\"."
@@ -1043,6 +1054,7 @@ final class ProjectSession {
             readPolicyRules()
             readCheckFindings()
             readStaleAnswers()
+            readSystemSummaries()
             savedRevision = model?.revision ?? 0
             fingerprint = currentFingerprint()
             hasFilesChangedOnDisk = false
@@ -1196,6 +1208,23 @@ final class ProjectSession {
         diagnostics = []
         errorMessage = nil
         isPolicyNoticeDismissed = true
+    }
+
+    /// Reads every system's files again and keeps what `list` would print
+    /// about each, so the picker states the same numbers as the verb.
+    private func readSystemSummaries() {
+        guard let root else {
+            systemSummaries = [:]
+            return
+        }
+        var found: [String: SystemSummary] = [:]
+        for name in systems {
+            guard case .listed(let summary) = useCases.listSystem().execute(
+                ListSystemRequest(root: root, systemName: name)
+            ) else { continue }
+            found[name] = summary
+        }
+        systemSummaries = found
     }
 
     /// Reads every system's files again and keeps what `check` would print

@@ -329,6 +329,16 @@ public final class TestDependencies: UseCaseFactory {
         CheckSystem(projects: projects, checks: checkControlAnswers())
     }
 
+    public func listSystem() -> ListSystemUseCase {
+        ListSystem(
+            projects: projects,
+            catalogue: catalogue,
+            architectureSources: architectureSources,
+            controlsSources: controlsSources,
+            attackTreeSources: attackTreeSources
+        )
+    }
+
     public func initialiseProject() -> InitialiseProjectUseCase {
         InitialiseProject(
             projects: projects,

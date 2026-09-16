@@ -330,6 +330,16 @@ nonisolated final class Dependencies: UseCaseFactory {
         CheckSystem(projects: projects, checks: checkControlAnswers())
     }
 
+    func listSystem() -> ListSystemUseCase {
+        ListSystem(
+            projects: projects,
+            catalogue: catalogue,
+            architectureSources: architectureSources,
+            controlsSources: controlsSources,
+            attackTreeSources: attackTreeSources
+        )
+    }
+
     func initialiseProject() -> InitialiseProjectUseCase {
         InitialiseProject(
             projects: projects,

@@ -174,6 +174,45 @@ struct ViewRenderTests {
         expectDrawn(ProjectWindow(session: session), "the project window")
     }
 
+    /// A project holding a system that parses and one that does not, so the
+    /// picker draws a name beside a count and a name beside a diagnostic
+    /// mark.
+    private func aProjectWithAnUnparsedSystem() async -> ProjectSession {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" {
+                technology = "aws-ec2"
+                data       = "confidential"
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        useCases.project.put("system \"Broken\" {", at: "/work/threatmodel/broken.arch")
+        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
+        await session.open(root: "/work")
+        return session
+    }
+
+    /// The systems picker states the unanswered count and the worst level
+    /// beside a parsed system's name, and a diagnostic mark beside one that
+    /// did not parse. Neither row stops the window drawing.
+    @Test func drawsTheSystemsPickerWithACountAndADiagnosticMark() async throws {
+        let session = await aProjectWithAnUnparsedSystem()
+
+        #expect(session.systemSummaries["payments"]?.isUnparsed == false)
+        #expect(session.systemSummaries["broken"]?.isUnparsed == true)
+        expectDrawn(ProjectWindow(session: session), "the project window with a mixed picker")
+
+        await session.choose("payments")
+
+        #expect(session.model != nil)
+        expectDrawn(ProjectWindow(session: session), "the project window with payments chosen")
+    }
+
     @Test func drawsTheOfferAndThenTheSystemItWrote() async {
         let session = await anEmptyProject()
         expectDrawn(ProjectWindow(session: session), "the empty project window")
