@@ -86,6 +86,9 @@ public protocol UseCaseFactory: Sendable {
     func checkPolicy() -> CheckPolicyUseCase
     func applyPolicy() -> ApplyPolicyUseCase
     func applyVulnerabilityLock() -> ApplyVulnerabilityLockUseCase
+    /// Runs the vulnerability search tool the person installed for one
+    /// component.
+    func lookUpVulnerabilities() -> LookUpVulnerabilitiesUseCase
     func openProject() -> OpenProjectUseCase
     func readProjectFingerprint() -> ReadProjectFingerprintUseCase
     func initialiseProject() -> InitialiseProjectUseCase
