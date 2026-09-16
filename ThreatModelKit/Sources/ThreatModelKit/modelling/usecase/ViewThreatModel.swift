@@ -239,6 +239,55 @@ public struct ViewedThirdParty: Equatable, Sendable {
     }
 }
 
+/// One thing the team states that the language does not name.
+public struct ViewedSystemAttribute: Equatable, Sendable {
+    public let name: String
+    public let value: String
+
+    public init(name: String, value: String) {
+        self.name = name
+        self.value = value
+    }
+}
+
+/// What the document states about itself, as the interface reads it. Every
+/// text is empty and every list is empty when the file states none.
+public struct ViewedSystemFacts: Equatable, Sendable {
+    public let owner: String
+    public let description: String
+    public let authors: [String]
+    public let version: String
+    /// `YYYY-MM-DD`, or empty when the file states no date.
+    public let created: String
+    public let reviewed: String
+    public let links: [String]
+    public let repositories: [String]
+    /// The free-form attribute blocks, in file order.
+    public let attributes: [ViewedSystemAttribute]
+
+    public init(
+        owner: String = "",
+        description: String = "",
+        authors: [String] = [],
+        version: String = "",
+        created: String = "",
+        reviewed: String = "",
+        links: [String] = [],
+        repositories: [String] = [],
+        attributes: [ViewedSystemAttribute] = []
+    ) {
+        self.owner = owner
+        self.description = description
+        self.authors = authors
+        self.version = version
+        self.created = created
+        self.reviewed = reviewed
+        self.links = links
+        self.repositories = repositories
+        self.attributes = attributes
+    }
+}
+
 /// One thing a person does with the system, as the interface reads it.
 public struct ViewedUseCase: Equatable, Sendable {
     public let label: String
@@ -311,6 +360,8 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     public let systemAssets: [ViewedSystemAsset]
     /// The parties outside this team the system depends on, in file order.
     public let thirdParties: [ViewedThirdParty]
+    /// What the document states about itself.
+    public let systemFacts: ViewedSystemFacts
     /// What one component lowers on another.
     public let mitigations: [ViewedMitigation]
     /// Whether there is anything to take back or put in again, so a menu item
@@ -332,6 +383,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         exclusions: [ViewedExclusion] = [],
         systemAssets: [ViewedSystemAsset] = [],
         thirdParties: [ViewedThirdParty] = [],
+        systemFacts: ViewedSystemFacts = ViewedSystemFacts(),
         mitigations: [ViewedMitigation] = [],
         canUndo: Bool = false,
         canRedo: Bool = false,
@@ -344,6 +396,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         self.exclusions = exclusions
         self.systemAssets = systemAssets
         self.thirdParties = thirdParties
+        self.systemFacts = systemFacts
         self.mitigations = mitigations
         self.components = components
         self.connections = connections
@@ -458,6 +511,19 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     link: $0.link
                 )
             },
+            systemFacts: ViewedSystemFacts(
+                owner: model.owner,
+                description: model.documentFacts.description,
+                authors: model.documentFacts.authors,
+                version: model.documentFacts.version,
+                created: model.documentFacts.created,
+                reviewed: model.documentFacts.reviewed,
+                links: model.documentFacts.links,
+                repositories: model.documentFacts.repositories,
+                attributes: model.documentFacts.attributes.map {
+                    ViewedSystemAttribute(name: $0.name, value: $0.value)
+                }
+            ),
             mitigations: model.mitigatesEdges.map { edge in
                 ViewedMitigation(
                     sourceComponentId: edge.source.value,

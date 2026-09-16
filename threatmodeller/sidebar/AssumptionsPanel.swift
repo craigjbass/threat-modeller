@@ -31,10 +31,15 @@ struct AssumptionsPanel: View {
     @State private var partyUptimeNotes = ""
     @State private var partyOwner = ""
     @State private var partyLink = ""
+    @State private var attributeName = ""
+    @State private var attributeValue = ""
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                systemFacts
+
+                Divider()
                 Text("What this system takes on trust")
                     .font(.subheadline.weight(.semibold))
 
@@ -162,6 +167,148 @@ struct AssumptionsPanel: View {
                 .accessibilityIdentifier("add-asset")
             }
         }
+    }
+
+    /// What the document states about itself: who owns it, what the system is,
+    /// who wrote it, which version it is, when it was written and when it was
+    /// last read again.
+    ///
+    /// The report builds its document-control table from these attributes, and
+    /// the policy rule `system_requires_owner` reads the owner. Every field
+    /// writes one change when the edit ends, so the panel needs no Save button
+    /// and never holds a copy of the model that can fall behind it.
+    private var systemFacts: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("What this document states about itself")
+                .font(.subheadline.weight(.semibold))
+
+            DeferredTextField(
+                title: "Owner",
+                text: session.canvas.systemFacts.owner,
+                identifier: "system-owner",
+                commit: { session.setSystemFacts(owner: $0) }
+            )
+
+            DeferredTextField(
+                title: "What this system is",
+                text: session.canvas.systemFacts.description,
+                identifier: "system-description",
+                lines: 2 ... 4,
+                commit: { session.setSystemFacts(description: $0) }
+            )
+
+            DeferredTextField(
+                title: "Authors, separated by commas",
+                text: Self.joined(session.canvas.systemFacts.authors),
+                identifier: "system-authors",
+                commit: { session.setSystemFacts(authors: Self.split($0)) }
+            )
+
+            DeferredTextField(
+                title: "Version",
+                text: session.canvas.systemFacts.version,
+                identifier: "system-version",
+                commit: { session.setSystemFacts(version: $0) }
+            )
+
+            SystemDateField(
+                title: "Created",
+                date: session.canvas.systemFacts.created,
+                identifier: "system-created",
+                commit: { session.setSystemFacts(created: $0) }
+            )
+
+            SystemDateField(
+                title: "Reviewed",
+                date: session.canvas.systemFacts.reviewed,
+                identifier: "system-reviewed",
+                commit: { session.setSystemFacts(reviewed: $0) }
+            )
+
+            DeferredTextField(
+                title: "Links, separated by commas",
+                text: Self.joined(session.canvas.systemFacts.links),
+                identifier: "system-links",
+                commit: { session.setSystemFacts(links: Self.split($0)) }
+            )
+
+            DeferredTextField(
+                title: "Repositories, separated by commas",
+                text: Self.joined(session.canvas.systemFacts.repositories),
+                identifier: "system-repositories",
+                commit: { session.setSystemFacts(repositories: Self.split($0)) }
+            )
+
+            systemAttributes
+        }
+    }
+
+    /// What the team states that the language does not name. One `attribute`
+    /// block each.
+    private var systemAttributes: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Anything else this document states")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            ForEach(session.canvas.systemFacts.attributes, id: \.name) { attribute in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(attribute.name): \(attribute.value)")
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    Button {
+                        attributeName = attribute.name
+                        attributeValue = attribute.value
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("edit-system-attribute-\(attribute.name)")
+                    Button {
+                        session.removeSystemAttribute(name: attribute.name)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("remove-system-attribute-\(attribute.name)")
+                }
+            }
+
+            HStack(spacing: 6) {
+                TextField("Name", text: $attributeName)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("system-attribute-name")
+                TextField("Value", text: $attributeValue)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("system-attribute-value")
+                Button("Add", action: writeAttribute)
+                    .disabled(attributeName.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityIdentifier("add-system-attribute")
+            }
+        }
+    }
+
+    private func writeAttribute() {
+        session.setSystemAttribute(
+            name: attributeName.trimmingCharacters(in: .whitespaces),
+            value: attributeValue.trimmingCharacters(in: .whitespaces)
+        )
+        attributeName = ""
+        attributeValue = ""
+    }
+
+    /// One list, as one line a person edits.
+    static func joined(_ items: [String]) -> String {
+        items.joined(separator: ", ")
+    }
+
+    /// The items of one such line, without the whitespace around each and
+    /// without the items that hold nothing.
+    static func split(_ text: String) -> [String] {
+        text.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.isEmpty == false }
     }
 
     /// The parties outside this team the system depends on. A component

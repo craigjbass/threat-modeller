@@ -1100,6 +1100,54 @@ final class ThreatModelSession {
         refresh()
     }
 
+    // MARK: what this document states about itself
+
+    /// Writes the document-control attributes of the `system` block. A nil
+    /// field leaves what the model states; an empty one clears the attribute.
+    func setSystemFacts(
+        owner: String? = nil,
+        description: String? = nil,
+        authors: [String]? = nil,
+        version: String? = nil,
+        created: String? = nil,
+        reviewed: String? = nil,
+        links: [String]? = nil,
+        repositories: [String]? = nil
+    ) {
+        useCases.setSystemFacts()
+            .execute(
+                SetSystemFactsRequest(
+                    owner: owner,
+                    description: description,
+                    authors: authors,
+                    version: version,
+                    created: created,
+                    reviewed: reviewed,
+                    links: links,
+                    repositories: repositories
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    /// Writes one free-form `attribute` block. Writing the same name again
+    /// changes the block that is there.
+    func setSystemAttribute(name: String, value: String) {
+        useCases.setSystemAttribute()
+            .execute(SetSystemAttributeRequest(name: name, value: value))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    /// Takes one free-form `attribute` block off.
+    func removeSystemAttribute(name: String) {
+        useCases.removeSystemAttribute()
+            .execute(RemoveSystemAttributeRequest(name: name))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
     // MARK: the parties outside this team the system depends on
 
     /// Writes one `third_party` block into this system's file. Writing the

@@ -226,6 +226,18 @@ public final class TestDependencies: UseCaseFactory {
         SetConnectionAssets(models: models)
     }
 
+    public func setSystemFacts() -> SetSystemFactsUseCase {
+        SetSystemFacts(models: models)
+    }
+
+    public func setSystemAttribute() -> SetSystemAttributeUseCase {
+        SetSystemAttribute(models: models)
+    }
+
+    public func removeSystemAttribute() -> RemoveSystemAttributeUseCase {
+        RemoveSystemAttribute(models: models)
+    }
+
     public func setThirdParty() -> SetThirdPartyUseCase {
         SetThirdParty(models: models)
     }

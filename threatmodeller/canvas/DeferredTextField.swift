@@ -9,18 +9,27 @@ import SwiftUI
 struct DeferredTextField: View {
     let title: String
     let text: String
-    let width: CGFloat
+    /// Nil leaves the field as wide as the column it sits in. A panel that
+    /// lays its controls out in a row states a width.
+    var width: CGFloat? = nil
     let identifier: String
+    /// How many lines the field grows to. Nil keeps it on one line.
+    var lines: ClosedRange<Int>? = nil
     let commit: (String) -> Void
 
     @State private var edit = DeferredEdit<String>()
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        TextField(title, text: Binding(
-            get: { edit.shown(text) },
-            set: { edit.edit($0) }
-        ))
+        TextField(
+            title,
+            text: Binding(
+                get: { edit.shown(text) },
+                set: { edit.edit($0) }
+            ),
+            axis: lines == nil ? .horizontal : .vertical
+        )
+        .lineLimit(lines ?? 1 ... 1)
         .textFieldStyle(.roundedBorder)
         .frame(width: width)
         .focused($isFocused)

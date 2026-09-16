@@ -227,6 +227,18 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetConnectionAssets(models: models)
     }
 
+    func setSystemFacts() -> SetSystemFactsUseCase {
+        SetSystemFacts(models: models)
+    }
+
+    func setSystemAttribute() -> SetSystemAttributeUseCase {
+        SetSystemAttribute(models: models)
+    }
+
+    func removeSystemAttribute() -> RemoveSystemAttributeUseCase {
+        RemoveSystemAttribute(models: models)
+    }
+
     func setThirdParty() -> SetThirdPartyUseCase {
         SetThirdParty(models: models)
     }
