@@ -33,7 +33,14 @@ struct HtmlPdfPrinterTests {
     /// resume the continuation, not just record the fault. A
     /// `resume(throwing:)` left out would leave the caller waiting forever;
     /// the time limit fails the test instead of hanging the suite.
-    @Test(.timeLimit(.minutes(1)))
+    ///
+    /// The limit is five minutes, not one. The whole application suite takes
+    /// about sixty seconds, and this test waits for a main queue block that
+    /// sits behind the main actor work of the other tests. A one minute
+    /// limit is the size of the whole suite, so a normal backlog failed the
+    /// test. Five minutes still catches a continuation that is never
+    /// resumed, because that one waits forever.
+    @Test(.timeLimit(.minutes(5)))
     func throwsWhenNavigationFailsBeforeItCommitsWhileTheCallerWaits() async {
         let watcher = LoadWatcher()
         let view = WKWebView()
@@ -41,8 +48,11 @@ struct HtmlPdfPrinterTests {
             watcher.webView(view, didFailProvisionalNavigation: nil, withError: Boom())
         }
 
-        await #expect(throws: Boom.self) {
+        do {
             try await watcher.waitForLoad()
+            Issue.record("did not throw")
+        } catch {
+            #expect(error is Boom)
         }
     }
 
@@ -53,15 +63,21 @@ struct HtmlPdfPrinterTests {
         let watcher = LoadWatcher()
         watcher.webView(WKWebView(), didFailProvisionalNavigation: nil, withError: Boom())
 
-        await #expect(throws: Boom.self) {
+        do {
             try await watcher.waitForLoad()
+            Issue.record("did not throw")
+        } catch {
+            #expect(error is Boom)
         }
     }
 
     /// The content process can die mid-load with no `Error` of its own. The
     /// watcher resumes the waiting continuation instead of leaving the
     /// caller waiting forever.
-    @Test(.timeLimit(.minutes(1)))
+    ///
+    /// The limit is five minutes for the reason given on
+    /// `throwsWhenNavigationFailsBeforeItCommitsWhileTheCallerWaits()`.
+    @Test(.timeLimit(.minutes(5)))
     func throwsWhenTheContentProcessDiesWhileTheCallerWaits() async {
         let watcher = LoadWatcher()
         let view = WKWebView()
@@ -69,8 +85,11 @@ struct HtmlPdfPrinterTests {
             watcher.webViewWebContentProcessDidTerminate(view)
         }
 
-        await #expect(throws: HtmlPdfPrinter.Fault.self) {
+        do {
             try await watcher.waitForLoad()
+            Issue.record("did not throw")
+        } catch {
+            #expect(error is HtmlPdfPrinter.Fault)
         }
     }
 
@@ -81,8 +100,11 @@ struct HtmlPdfPrinterTests {
         let watcher = LoadWatcher()
         watcher.webViewWebContentProcessDidTerminate(WKWebView())
 
-        await #expect(throws: HtmlPdfPrinter.Fault.self) {
+        do {
             try await watcher.waitForLoad()
+            Issue.record("did not throw")
+        } catch {
+            #expect(error is HtmlPdfPrinter.Fault)
         }
     }
 
