@@ -13,6 +13,7 @@ struct ReportExporter {
         case markdown
         case html
         case json
+        case otm
         case mermaid
         case threatcl
         case pdf
@@ -23,6 +24,7 @@ struct ReportExporter {
             case .markdown: "Export as Markdown\u{2026}"
             case .html: "Export as HTML\u{2026}"
             case .json: "Export as JSON\u{2026}"
+            case .otm: "Export as OTM\u{2026}"
             case .mermaid: "Export as Mermaid\u{2026}"
             case .threatcl: "Export as threatcl\u{2026}"
             case .pdf: "Export as PDF\u{2026}"
@@ -35,6 +37,7 @@ struct ReportExporter {
             case .markdown: UTType(filenameExtension: "md") ?? .plainText
             case .html: .html
             case .json: .json
+            case .otm: .json
             case .mermaid: UTType(filenameExtension: "mmd") ?? .plainText
             case .threatcl: UTType(filenameExtension: "hcl") ?? .plainText
             case .pdf: .pdf
@@ -68,6 +71,8 @@ struct ReportExporter {
             return session.htmlExport()
         case .json:
             return session.jsonExport()
+        case .otm:
+            return session.otmExport()
         case .mermaid:
             return session.mermaidExport()
         case .threatcl:

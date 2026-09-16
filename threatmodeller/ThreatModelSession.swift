@@ -835,6 +835,15 @@ final class ThreatModelSession {
         return (Data(response.json.utf8), response.fileName)
     }
 
+    /// The assessed model in the Open Threat Model shape, which other
+    /// threat-modelling tools read. The same use case the executable's
+    /// `export --format otm` verb runs, so a file written from the window and
+    /// a file written from a build hold the same shape.
+    func otmExport() -> (data: Data, fileName: String) {
+        let response = useCases.exportModelAsOtm().execute(ExportModelAsOtmRequest())
+        return (Data(response.json.utf8), response.fileName)
+    }
+
     /// The diagram as Mermaid text, which a wiki renders and a reviewer
     /// reads in a diff.
     func mermaidExport() -> (data: Data, fileName: String) {
