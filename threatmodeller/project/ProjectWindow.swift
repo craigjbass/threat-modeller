@@ -15,6 +15,8 @@ struct ProjectWindow: View {
     /// True while the attack tree editor is on screen.
     @State private var isShowingAttackTrees = false
     @State private var isShowingHistory = false
+    /// True while the check summary is on screen.
+    @State private var isShowingCheckSummary = false
     @State private var canvas = CanvasState()
     /// The stage of the work the window draws.
     @State private var stage: WorkStage = .architecture
@@ -79,6 +81,12 @@ struct ProjectWindow: View {
                 dismiss: { isShowingDiagnostics = false },
                 path: session.diagnosticsPath,
                 policyRules: session.policyRules
+            )
+        }
+        .sheet(isPresented: $isShowingCheckSummary) {
+            CheckSummarySheet(
+                systems: session.checkedSystems,
+                dismiss: { isShowingCheckSummary = false }
             )
         }
         .sheet(isPresented: $isShowingHistory) {
@@ -171,6 +179,30 @@ struct ProjectWindow: View {
                     }
                     .padding(.leading, 16)
                 }
+            }
+
+            // The one control that states the answer `threatmodeller check`
+            // gives: pass, or fail with a count. The sheet lists every
+            // finding in the words the verb prints.
+            ToolbarItem {
+                Button {
+                    isShowingCheckSummary = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(
+                            systemName: session.passesCheck
+                                ? "checkmark.seal.fill"
+                                : "xmark.seal.fill"
+                        )
+                        .foregroundStyle(session.passesCheck ? Color.green : Color.red)
+                        if session.checkFailureCount > 0 {
+                            Text("\(session.checkFailureCount)")
+                        }
+                    }
+                }
+                .disabled(session.checkedSystems.isEmpty)
+                .help("What threatmodeller check says about this project.")
+                .accessibilityIdentifier("check-summary")
             }
 
             ToolbarItem {

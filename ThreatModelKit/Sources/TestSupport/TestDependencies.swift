@@ -285,6 +285,10 @@ public final class TestDependencies: UseCaseFactory {
         )
     }
 
+    public func checkSystem() -> CheckSystemUseCase {
+        CheckSystem(projects: projects, checks: checkControlAnswers())
+    }
+
     public func initialiseProject() -> InitialiseProjectUseCase {
         InitialiseProject(
             projects: projects,

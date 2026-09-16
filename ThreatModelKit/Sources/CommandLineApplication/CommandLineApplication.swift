@@ -918,129 +918,98 @@ public struct CommandLineApplication {
             if machineOutput == .json { messages.append(line) } else { output(line) }
         }
 
+        // The window's check summary reads the same use case, so the two say
+        // the same words about the same project.
         let code = forEachSystem(root: root, output: say) { system, useCases in
-            guard let architectureText = read(system.architecturePath, say) else {
+            let response = CheckSystem(projects: projects, checks: useCases.checkControlAnswers())
+                .execute(
+                    CheckSystemRequest(root: root, systemName: system.name, tolerance: tolerance)
+                )
+            guard case .checked(let found) = response else {
+                say("threatmodeller: this project holds no such system")
                 return .fileFault
             }
-            let existing = projects.exists(path: system.controlsPath)
-                ? try? projects.read(path: system.controlsPath)
-                : nil
+            if let reason = found.unreadable {
+                say("threatmodeller: \(reason)")
+                return .fileFault
+            }
 
-            let response = useCases.checkControlAnswers().execute(
-                CheckControlAnswersRequest(
-                    architectureText: architectureText,
-                    controlsText: existing,
-                    attackTreeText: treeText(of: system),
-                    governanceText: governanceText(of: system),
-                    policyText: policyText(root: root),
-                    tolerance: tolerance,
-                    architectureParts: system.isSplit
-                        ? Self.parts(of: system, projects: projects)
-                        : [],
-                    directoryName: system.isSplit ? system.name : nil,
-                    controlsParts: system.isSplit
-                        ? Self.controlsTexts(of: system, projects: projects)
-                        : [:],
-                    attackTreeTexts: system.isSplit
-                        ? Self.treeTexts(of: system, projects: projects)
-                        : []
-                )
-            )
-            guard case .checked(
-                let unanswered,
-                let stale,
-                let staleTrees,
-                let governanceFailures,
-                let diagnostics,
-                let usedTolerance
-            ) = response else {
-                guard case .refused(let diagnostics) = response else { return .didNotParse }
-                for diagnostic in diagnostics {
+            guard found.didParse else {
+                for diagnostic in found.diagnostics {
                     switch machineOutput {
                     case .plain:
-                        output(diagnostic.described(in: system.architecturePath))
+                        output(diagnostic.described(in: found.diagnosticsPath))
                     case .github:
-                        output(GitHubOutput.line(diagnostic, in: system.architecturePath))
+                        output(GitHubOutput.line(diagnostic, in: found.diagnosticsPath))
                     case .json:
-                        messages.append(diagnostic.described(in: system.architecturePath))
+                        messages.append(diagnostic.described(in: found.diagnosticsPath))
                     }
                 }
                 return .didNotParse
             }
 
-            let unansweredLines = unanswered.map { threat in
+            let unansweredLines = found.unanswered.map { threat in
                 ControlsStanzaLines.line(
                     threatId: threat.threatId,
                     sourceKind: threat.sourceKind,
                     sourceId: threat.sourceId,
-                    in: existing
+                    in: found.controlsText
                 )
             }
 
             switch machineOutput {
             case .plain:
-                for diagnostic in diagnostics {
-                    output(diagnostic.described(in: system.controlsPath))
+                for finding in found.findings {
+                    output(finding.said)
                 }
-                for threat in unanswered {
-                    output("\(system.controlsPath): \(threat.described)")
+                if let toleranceLine = found.toleranceLine {
+                    output(toleranceLine)
                 }
-                for key in stale {
-                    output("\(system.controlsPath): \(key) is answered but no longer raised")
-                }
-                for described in staleTrees {
-                    output("\(system.controlsPath): \(described)")
-                }
-                for described in governanceFailures {
-                    output("\(system.governancePath): \(described)")
-                }
-                output("\(system.name): checked against a \(usedTolerance) risk tolerance")
-                if unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty
-                    && governanceFailures.isEmpty {
-                    output("\(system.name): every threat is answered")
+                if found.passes {
+                    output(found.allAnsweredLine)
                 }
             case .github:
-                for diagnostic in diagnostics {
-                    output(GitHubOutput.line(diagnostic, in: system.controlsPath))
+                for diagnostic in found.diagnostics {
+                    output(GitHubOutput.line(diagnostic, in: found.controlsPath))
                 }
-                for (threat, line) in zip(unanswered, unansweredLines) {
+                for (threat, line) in zip(found.unanswered, unansweredLines) {
                     output(
                         GitHubOutput.line(
                             severity: .error,
-                            file: system.controlsPath,
+                            file: found.controlsPath,
                             line: line,
                             column: 1,
                             message: threat.described
                         )
                     )
                 }
-                for key in stale {
+                for key in found.stale {
                     output(
                         GitHubOutput.line(
                             severity: .error,
-                            file: system.controlsPath,
+                            file: found.controlsPath,
                             line: 1,
                             column: 1,
                             message: "\(key) is answered but no longer raised"
                         )
                     )
                 }
-                for described in staleTrees {
+                for described in found.staleTrees {
                     output(
                         GitHubOutput.line(
                             severity: .error,
-                            file: system.controlsPath,
+                            file: found.controlsPath,
                             line: 1,
                             column: 1,
                             message: described
                         )
                     )
                 }
-                for described in governanceFailures {
+                for described in found.governance {
                     output(
                         GitHubOutput.line(
                             severity: .error,
-                            file: system.governancePath,
+                            file: found.governancePath,
                             line: 1,
                             column: 1,
                             message: described
@@ -1053,38 +1022,34 @@ public struct CommandLineApplication {
 
             checked.append(
                 CheckedSystemJSON(
-                    name: system.name,
-                    tolerance: usedTolerance,
-                    diagnostics: diagnostics.map {
+                    name: found.name,
+                    tolerance: found.tolerance,
+                    diagnostics: found.diagnostics.map {
                         CheckedSystemJSON.DiagnosticJSON(
                             severity: $0.severity.rawValue,
-                            file: system.controlsPath,
+                            file: found.controlsPath,
                             line: $0.line,
                             column: $0.column,
                             message: $0.message
                         )
                     },
-                    unanswered: zip(unanswered, unansweredLines).map { threat, line in
+                    unanswered: zip(found.unanswered, unansweredLines).map { threat, line in
                         CheckedSystemJSON.UnansweredJSON(
                             threatId: threat.threatId,
                             sourceKind: threat.sourceKind,
                             sourceId: threat.sourceId,
                             riskLevel: threat.riskLevel,
-                            file: system.controlsPath,
+                            file: found.controlsPath,
                             line: line
                         )
                     },
-                    stale: stale,
-                    staleTrees: staleTrees,
-                    governance: governanceFailures
+                    stale: found.stale,
+                    staleTrees: found.staleTrees,
+                    governance: found.governance
                 )
             )
 
-            if unanswered.isEmpty && stale.isEmpty && staleTrees.isEmpty
-                && governanceFailures.isEmpty {
-                return .success
-            }
-            return .unanswered
+            return found.passes ? .success : .unanswered
         }
 
         if machineOutput == .json {

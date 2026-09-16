@@ -286,6 +286,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         )
     }
 
+    func checkSystem() -> CheckSystemUseCase {
+        CheckSystem(projects: projects, checks: checkControlAnswers())
+    }
+
     func initialiseProject() -> InitialiseProjectUseCase {
         InitialiseProject(
             projects: projects,

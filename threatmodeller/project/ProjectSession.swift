@@ -65,6 +65,22 @@ final class ProjectSession {
     /// brings the notice back.
     private var isPolicyNoticeDismissed = false
 
+    /// What `threatmodeller check` says about every system in the open
+    /// project: the same categories, the same words. The toolbar states pass
+    /// or fail from it and the check summary sheet lists it.
+    private(set) var checkedSystems: [SystemCheck] = []
+
+    /// True when `threatmodeller check` would exit 0 for the open project.
+    var passesCheck: Bool {
+        checkedSystems.allSatisfy(\.passes)
+    }
+
+    /// How many findings fail the check. A warning prints but does not fail,
+    /// so it does not count.
+    var checkFailureCount: Int {
+        checkedSystems.reduce(0) { $0 + $1.failureCount }
+    }
+
     /// The session drawing the chosen system, or nil while nothing is drawn.
     private(set) var model: ThreatModelSession?
 
@@ -286,13 +302,14 @@ final class ProjectSession {
             watcher.stop()
             watcher.watch(directory: directory) { [weak self] in self?.filesChanged() }
             let chosen = systems.contains(wanted ?? "") ? wanted : systems.first
-            if let chosen { await choose(chosen) }
+            if let chosen { await choose(chosen) } else { checkedSystems = [] }
         case .notAProject(let reason):
             self.root = nil
             systems = []
             model = nil
             watcher.stop()
             readPolicyRules()
+            readCheckFindings()
             errorMessage = "That is not a project: \(reason)"
         }
     }
@@ -310,6 +327,9 @@ final class ProjectSession {
             useCases.useLibraries([])
             model = nil
             chosenSystem = nil
+            // A check without the libraries would say the wrong things, so
+            // the summary empties until the library parses.
+            checkedSystems = []
             diagnostics = faults
             diagnosticsFileName = fileName
             errorMessage = "\(fileName) did not parse."
@@ -356,6 +376,7 @@ final class ProjectSession {
             .describe(into: &errorMessage)
 
         fingerprint = currentFingerprint()
+        readCheckFindings()
     }
 
     // MARK: the attack trees this system states
@@ -536,6 +557,7 @@ final class ProjectSession {
             // Set last, so building the session does not count as a change.
             drawn.onChange = { [weak self] in self?.modelDidChange() }
             readPolicyRules()
+            readCheckFindings()
             readCatalogueDrift(statedTag: statedTag, systemName: systemName)
         case .refused(let fileName, let faults):
             chosenSystem = systemName
@@ -546,6 +568,7 @@ final class ProjectSession {
             savedRevision = 0
             hasFilesChangedOnDisk = false
             readPolicyRules()
+            readCheckFindings()
             errorMessage = "\(fileName) did not parse."
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(systemName)\"."
@@ -732,6 +755,7 @@ final class ProjectSession {
             errorMessage = nil
             await saveAnswers(root: root, systemName: chosenSystem)
             readPolicyRules()
+            readCheckFindings()
             savedRevision = model?.revision ?? 0
             fingerprint = currentFingerprint()
             hasFilesChangedOnDisk = false
@@ -885,6 +909,21 @@ final class ProjectSession {
         diagnostics = []
         errorMessage = nil
         isPolicyNoticeDismissed = true
+    }
+
+    /// Reads every system's files again and keeps what `check` would print
+    /// about each, so the window states the answer the verb gives.
+    private func readCheckFindings() {
+        guard let root else {
+            checkedSystems = []
+            return
+        }
+        checkedSystems = systems.compactMap { name in
+            guard case .checked(let found) = useCases.checkSystem().execute(
+                CheckSystemRequest(root: root, systemName: name)
+            ) else { return nil }
+            return found
+        }
     }
 
     /// Reads the rules again, over the drawn model. Rules that changed bring
