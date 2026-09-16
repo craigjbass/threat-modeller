@@ -305,6 +305,55 @@ struct ProjectSessionTests {
         #expect(session.model === drawn)
     }
 
+    private func aWatchedSplitProject() async -> (ProjectSession, TestDependencies, FakeProjectWatcher) {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            "system \"Payments\" { }",
+            at: "/work/threatmodel/payments/arch/payments.arch"
+        )
+        useCases.project.put(
+            "component \"api\" { technology = \"aws-ec2\" }",
+            at: "/work/threatmodel/payments/arch/edge.arch"
+        )
+        let watcher = FakeProjectWatcher()
+        return (ProjectSession(useCases: useCases, watcher: watcher, defaults: aTestDefaults()), useCases, watcher)
+    }
+
+    @Test func redrawsWhenAPartFileOfASplitSystemChanges() async {
+        let (session, useCases, watcher) = await aWatchedSplitProject()
+        await session.open(root: "/work")
+
+        useCases.project.put(
+            """
+            component "api" { technology = "aws-ec2" }
+
+            component "db" { technology = "aws-rds" }
+            """,
+            at: "/work/threatmodel/payments/arch/edge.arch"
+        )
+
+        watcher.fire()
+        await session.settle()
+
+        #expect(session.model?.canvas.components.map(\.id).sorted() == ["api", "db"])
+        #expect(session.hasFilesChangedOnDisk == false)
+    }
+
+    @Test func redrawsWhenTheHeaderFileOfASplitSystemChanges() async {
+        let (session, useCases, watcher) = await aWatchedSplitProject()
+        await session.open(root: "/work")
+
+        useCases.project.put(
+            "system \"Payments\" { risk_tolerance = \"low\" }",
+            at: "/work/threatmodel/payments/arch/payments.arch"
+        )
+
+        watcher.fire()
+        await session.settle()
+
+        #expect(session.hasFilesChangedOnDisk == false)
+    }
+
     @Test func reloadsWhenTheUserAsksForIt() async {
         let (session, useCases, watcher) = await aWatchedProject()
         await session.open(root: "/work")

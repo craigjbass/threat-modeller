@@ -34,13 +34,13 @@ public struct ReadProjectFingerprint: ReadProjectFingerprintUseCase {
 
             for system in layout.systems {
                 // Every file a system is read from, so a change to any of
-                // them is a change to the system.
-                for path in [
-                    system.architecturePath,
-                    system.controlsPath,
-                    system.attackTreePath,
-                    system.governancePath
-                ] {
+                // them is a change to the system. A split system reads many
+                // architecture, controls and attack tree files, not one.
+                let paths = system.architecturePaths
+                    + system.controlsPaths
+                    + system.attackTreePaths
+                    + [system.governancePath]
+                for path in paths {
                     guard projects.exists(path: path) else { continue }
                     fingerprint[path] = try projects.read(path: path).hashValue
                 }
