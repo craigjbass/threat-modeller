@@ -305,8 +305,8 @@ public final class LanguageServer: @unchecked Sendable {
                 "requires_evidence_above", "faces"
             ]
         case (.architecture, "component"):
-            ["technology", "name", "zone", "data", "status", "holds", "provided_by", "source",
-             "threats", "runs_as", "shape", "tags"]
+            ["technology", "name", "zone", "data", "status", "version", "cves", "holds",
+             "provided_by", "source", "threats", "runs_as", "shape", "tags"]
         case (.architecture, "user"):
             ["name", "role", "access", "reaches", "threat_actor"]
         case (.architecture, "zone"):

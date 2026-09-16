@@ -39,7 +39,9 @@ public enum ArchitectureSourceBuilder {
                         : nil,
                     shape: component.shape?.rawValue,
                     tags: component.tags,
-                    status: component.status.rawValue
+                    status: component.status.rawValue,
+                    version: component.version,
+                    cves: component.cves
                 )
                 if let zoneId = component.zoneId,
                    model.zones.contains(where: { $0.id == zoneId }) {

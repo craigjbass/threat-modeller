@@ -364,6 +364,15 @@ struct ArchitectureWriter {
         if component.status != "live" {
             attributes.append(("status", quoted(component.status)))
         }
+        // A component stating no version and no CVE writes neither line, so
+        // every file written before the two attributes writes back byte for
+        // byte.
+        if component.version.isEmpty == false {
+            attributes.append(("version", quoted(component.version)))
+        }
+        if component.cves.isEmpty == false {
+            attributes.append(("cves", list(component.cves)))
+        }
         if component.holds.isEmpty == false {
             attributes.append(
                 ("holds", "[" + component.holds.map(quoted).joined(separator: ", ") + "]")

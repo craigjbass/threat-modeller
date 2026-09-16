@@ -102,6 +102,12 @@ public struct Component: Equatable, Sendable {
     /// It changes no score: a proposed component raises the threats it will
     /// raise once a team deploys it.
     public var status: ComponentStatus
+    /// The version of the software this component runs. Empty when the file
+    /// states none.
+    public var version: String
+    /// The CVE ids the component carries, in file order. A known exploited
+    /// one raises every threat on this component to commodity.
+    public var cves: [String]
 
     public init(
         id: ComponentId,
@@ -119,8 +125,12 @@ public struct Component: Equatable, Sendable {
         zoneId: ZoneId? = nil,
         tags: [String] = [],
         status: ComponentStatus = .default,
-        user: UserFacts? = nil
+        user: UserFacts? = nil,
+        version: String = "",
+        cves: [String] = []
     ) {
+        self.version = version
+        self.cves = cves
         self.user = user
         self.status = status
         self.tags = tags

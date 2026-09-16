@@ -118,7 +118,8 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `risk_tolerance`, `assumption`, `text`, `owner`, `technology`, `name`,
 `category`, `description`, `threats`, `encrypts`, `zone`, `kind`, `network`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
-`shape`, `asset`, `holds`, `carries`, `tags`, `status`, `classification`, `third_party`,
+`shape`, `asset`, `holds`, `carries`, `tags`, `status`, `version`, `cves`,
+`classification`, `third_party`,
 `user`, `role`, `access`, `reaches`,
 `provided_by`, `paying_customer`, `uptime`, `uptime_notes`, `kind`, `link`,
 `diagram`, `text`, `flow`, `mitigates`,
@@ -429,6 +430,8 @@ ComponentEntry = "technology"  "=" String
                | "threats"     "=" Boolean
                | "tags"        "=" StringList
                | "status"      "=" String
+               | "version"     "=" String
+               | "cves"        "=" StringList
                | AssetBlock ;
 
 AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;
@@ -762,6 +765,8 @@ The label is the component's identifier.
 | `threats` | boolean | `true`, `false` | `true` |
 | `tags` | string list | any | none |
 | `status` | string | `live`, `proposed` | `live` |
+| `version` | string | any | empty |
+| `cves` | string list | CVE ids in the form `CVE-<year>-<digits>` | none |
 
 `threats = false` stops the component raising threats at all.
 
@@ -887,6 +892,33 @@ raise once a team deploys it. The canvas draws a proposed component with a
 broken outline, 3 points on and 3 points off, and a Proposed chip under the
 shape. The report's component table states the status in its own column, and
 the JSON and OTM exports state it too.
+
+**`version` and `cves` on a component.** A `component` states the version of
+the software it runs and the CVE ids that version carries. A CVE is against
+software a box runs, so it attaches to the component and not to the
+technology, which is a kind, nor to a third party, which is a company.
+
+```hcl
+component "api" {
+  technology = "nginx"
+  version    = "1.24.0"
+  cves       = ["CVE-2023-44487", "CVE-2024-7347"]
+}
+```
+
+A CVE id is `CVE-`, four digits, `-`, four or more digits, upper case. The
+parser normalises nothing: a lower case `cve-` is the error `the component
+"<id>" states cves "<word>", which is not a CVE id`, and the file does not
+read. A CVE stated twice on one component is the warning `the component
+"<id>" states "<cve>" twice`, and the second entry is dropped. A component
+that states no `version` writes no `version` line, and one that states no
+`cves` writes no `cves` line, so every file written before the two attributes
+reads and writes byte for byte.
+
+`threatmodeller cve sync` fetches CVSS, EPSS and CISA KEV for every CVE the
+project names into `threatmodel/cve.lock.json`. A known exploited CVE raises
+every threat on its component to `commodity`, and the report ranks each CVE.
+The design is `docs/superpowers/specs/2026-09-16-known-vulnerabilities-design.md`.
 
 **`diagram`.** A team keeps pictures the data-flow diagram cannot draw: a
 sequence of a login, a deployment. A `diagram` block holds one, and the report
@@ -2648,7 +2680,9 @@ entry" or "an unknown attribute".
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
-| architecture | `component` | `a component holds technology, name, zone, data, status, holds, provided_by, source, threats, runs_as, shape, tags and asset, not "<word>"` |
+| architecture | `component` | `a component holds technology, name, zone, data, status, version, cves, holds, provided_by, source, threats, runs_as, shape, tags and asset, not "<word>"` |
+| architecture | `component` | `the component "<id>" states cves "<word>", which is not a CVE id` |
+| architecture | `component` | `the component "<id>" states "<cve>" twice` (warning) |
 | architecture | `third_party` | `a third_party holds name, description, kind, paying_customer, uptime, uptime_notes, owner and link, not "<word>"` |
 | architecture | `third_party` | `the third party "<id>" has no name` |
 | architecture | `third_party` | `the third party "<id>" states no uptime; state "none", "degraded", "hard" or "operational"` |
@@ -2886,6 +2920,10 @@ ComponentEntry = "technology"  "=" String
                | "runs_as"     "=" String
                | "shape"       "=" String
                | "threats"     "=" Boolean
+               | "tags"        "=" StringList
+               | "status"      "=" String
+               | "version"     "=" String
+               | "cves"        "=" StringList
                | AssetBlock ;
 
 AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;

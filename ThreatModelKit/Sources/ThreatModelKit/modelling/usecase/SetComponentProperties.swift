@@ -25,6 +25,12 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
     /// status alone, so a panel that does not offer a status changes none. A
     /// word outside the vocabulary leaves the status alone too.
     public let status: String?
+    /// The version of the software the component runs. Nil leaves the version
+    /// alone; an empty word takes it off.
+    public let version: String?
+    /// The CVE ids the component carries. Nil leaves them alone. A word that
+    /// is not a CVE id refuses the whole request.
+    public let cves: [String]?
 
     public init(
         componentId: String,
@@ -35,8 +41,12 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
         shape: String? = nil,
         holds: [String]? = nil,
         tags: [String]? = nil,
-        status: String? = nil
+        status: String? = nil,
+        version: String? = nil,
+        cves: [String]? = nil
     ) {
+        self.version = version
+        self.cves = cves
         self.status = status
         self.tags = tags
         self.holds = holds
@@ -56,6 +66,8 @@ public enum SetComponentPropertiesResponse: Equatable, Sendable {
     case unknownPrivilegeLevel
     case unknownShape
     case unknownAsset
+    /// A word in `cves` is not in the form `CVE-<year>-<digits>`.
+    case notACveId(String)
 }
 
 /// Changes what a node is called, how sensitive its data is, what shape it
@@ -90,6 +102,9 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
             shape = picked
         }
         let name = request.name?.trimmingWhitespace() ?? ""
+        if let word = request.cves?.first(where: { CveId.isValid($0) == false }) {
+            return .notACveId(word)
+        }
 
         return models.mutate(label: ChangeLabel.setComponentProperties) { model in
             guard let index = model.components.firstIndex(where: { $0.id == componentId }) else {
@@ -105,6 +120,12 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
             }
             if let status = request.status.flatMap(ComponentStatus.init(rawValue:)) {
                 model.components[index].status = status
+            }
+            if let version = request.version {
+                model.components[index].version = version.trimmingWhitespace()
+            }
+            if let cves = request.cves {
+                model.components[index].cves = cves
             }
 
             model.components[index].customName = name.isEmpty ? nil : name

@@ -1,0 +1,28 @@
+system "Payments" {
+  zone "app" {
+    kind    = "private"
+    network = "vpc"
+
+    component "api" {
+      technology = "aws-ec2"
+      name       = "Application Server"
+      data       = "confidential"
+      version    = "1.24.0"
+      cves       = ["CVE-2023-44487", "CVE-2024-7347"]
+    }
+
+    component "ledger" {
+      technology = "aws-rds"
+      data       = "restricted"
+      version    = "15.2"
+    }
+  }
+
+  component "browser" {
+    technology = "actor-user"
+    cves       = ["CVE-2025-0001"]
+  }
+
+  flow browser -> api
+  flow api -> ledger
+}

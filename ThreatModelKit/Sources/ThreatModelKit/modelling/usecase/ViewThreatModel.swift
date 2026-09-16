@@ -58,6 +58,11 @@ public struct ViewedComponent: Equatable, Sendable {
     public let reaches: [String]
     /// The threat actor this user is, or nil.
     public let threatActorId: String?
+    /// The version of the software this component runs. Empty when the file
+    /// states none.
+    public let version: String
+    /// The CVE ids the component carries, in model order.
+    public let cves: [String]
 
     public init(
         id: String,
@@ -82,8 +87,12 @@ public struct ViewedComponent: Equatable, Sendable {
         isUser: Bool = false,
         role: String = "",
         reaches: [String] = [],
-        threatActorId: String? = nil
+        threatActorId: String? = nil,
+        version: String = "",
+        cves: [String] = []
     ) {
+        self.version = version
+        self.cves = cves
         self.isUser = isUser
         self.role = role
         self.reaches = reaches
@@ -532,7 +541,9 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     isUser: component.isUser,
                     role: component.user?.role ?? "",
                     reaches: component.user?.reaches ?? [],
-                    threatActorId: component.user?.threatActorId
+                    threatActorId: component.user?.threatActorId,
+                    version: component.version,
+                    cves: component.cves
                 )
             },
             connections: model.connections.map {

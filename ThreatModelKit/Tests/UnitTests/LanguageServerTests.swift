@@ -351,6 +351,8 @@ struct LanguageServerTests {
         #expect(labels.contains("runs_as"))
         #expect(labels.contains("holds"))
         #expect(labels.contains("zone"))
+        #expect(labels.contains("version"))
+        #expect(labels.contains("cves"))
     }
 
     @Test func completesAThreatIdInAControlsFile() {

@@ -962,6 +962,8 @@ struct ArchitectureParser {
         var declaredData: String?
         var tags: [String] = []
         var status = "live"
+        var version = ""
+        var cves: [String] = []
         var zoneId: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -1002,11 +1004,37 @@ struct ArchitectureParser {
                 let token = current
                 status = parseTextAttribute() ?? status
                 expectVocabulary(status, Self.componentStatuses, field: "status", at: token)
+            case "version":
+                version = parseTextAttribute() ?? version
+            case "cves":
+                let token = current
+                cves = []
+                for word in parseListAttribute() {
+                    // A word that is not a CVE id is an error; one stated
+                    // twice is a warning, and the second is dropped.
+                    guard CveId.isValid(word) else {
+                        record(
+                            "the component \"\(id.text)\" states cves \"\(word)\", "
+                                + "which is not a CVE id",
+                            at: token
+                        )
+                        continue
+                    }
+                    guard cves.contains(word) == false else {
+                        record(
+                            "the component \"\(id.text)\" states \"\(word)\" twice",
+                            at: token,
+                            severity: .warning
+                        )
+                        continue
+                    }
+                    cves.append(word)
+                }
             default:
                 record(
-                    "a component holds technology, name, zone, data, status, holds, "
-                        + "provided_by, source, threats, runs_as, shape, tags and asset, not "
-                        + "\"\(current.text)\""
+                    "a component holds technology, name, zone, data, status, version, cves, "
+                        + "holds, provided_by, source, threats, runs_as, shape, tags and asset, "
+                        + "not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -1032,7 +1060,9 @@ struct ArchitectureParser {
             shape: shape,
             tags: tags,
             status: status,
-            zoneId: zoneId
+            zoneId: zoneId,
+            version: version,
+            cves: cves
         )
     }
 

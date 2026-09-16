@@ -310,6 +310,12 @@ public struct SourceComponent: Equatable, Sendable {
     /// Whether the component runs in Production today or is a planned change:
     /// `live` or `proposed`. A stanza that states nothing is `live`.
     public let status: String
+    /// The version of the software this component runs. Empty when the
+    /// stanza states none.
+    public let version: String
+    /// The CVE ids the component carries, in file order. The known
+    /// vulnerabilities design states where a CVE attaches.
+    public let cves: [String]
     /// The zone the block states with `zone = "<id>"`, or nil. A top-level
     /// block states it to sit in a zone another part file declares; the
     /// merge places the component in that zone.
@@ -330,8 +336,12 @@ public struct SourceComponent: Equatable, Sendable {
         shape: String? = nil,
         tags: [String] = [],
         status: String = "live",
-        zoneId: String? = nil
+        zoneId: String? = nil,
+        version: String = "",
+        cves: [String] = []
     ) {
+        self.version = version
+        self.cves = cves
         self.zoneId = zoneId
         self.status = status
         self.tags = tags
@@ -366,7 +376,9 @@ public struct SourceComponent: Equatable, Sendable {
             shape: shape,
             tags: tags,
             status: status,
-            zoneId: zoneId
+            zoneId: zoneId,
+            version: version,
+            cves: cves
         )
     }
 }

@@ -276,7 +276,9 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     shape: component.shape.flatMap(DiagramShape.init(rawValue:)),
                     zoneId: zoneByComponent[component.id].map(ZoneId.init),
                     tags: component.tags,
-                    status: ComponentStatus(rawValue: component.status) ?? .default
+                    status: ComponentStatus(rawValue: component.status) ?? .default,
+                    version: component.version,
+                    cves: component.cves
                 )
             )
         }
