@@ -186,15 +186,10 @@ struct CanvasView: View {
                 canvas.selectionPanelHeight = height
             }
         }
+        // The drop runs through the gestures, the way the tree canvas runs
+        // its own, so a test drives the same code the drop runs.
         .dropDestination(for: String.self) { technologyIds, location in
-            guard let technologyId = technologyIds.first else { return false }
-            let point = canvas.transform.modelPoint(location)
-            session.add(
-                technologyId: technologyId,
-                x: point.x - Component.size.width / 2,
-                y: point.y - Component.size.height / 2
-            )
-            return true
+            gestures.drop(technologyIds, at: location)
         }
     }
 

@@ -350,6 +350,31 @@ struct CanvasGestures: CanvasZooming {
         session.reorderZones(zoneIds, placement: placement)
     }
 
+    // MARK: a technology dropped from the palette
+
+    /// Places a technology a person dragged from the palette.
+    ///
+    /// The canvas hands over the payload and the point the drop landed on, in
+    /// the canvas's own view space. The point is where the person let go, so
+    /// the node is placed half its size up and to the left of it and the
+    /// pointer ends in the middle of the node.
+    ///
+    /// Returns true when the drop placed a component. A payload the catalogue
+    /// does not hold places nothing and returns false, so the system does not
+    /// report a drop that added no node.
+    @discardableResult
+    func drop(_ technologyIds: [String], at location: CGPoint) -> Bool {
+        guard let technologyId = technologyIds.first else { return false }
+        let point = canvas.transform.modelPoint(location)
+        let before = session.canvas.components.count
+        session.add(
+            technologyId: technologyId,
+            x: point.x - Component.size.width / 2,
+            y: point.y - Component.size.height / 2
+        )
+        return session.canvas.components.count > before
+    }
+
     // MARK: commands
 
     /// Spec section 9: an arrow moves the selection 10 points, and shift-arrow

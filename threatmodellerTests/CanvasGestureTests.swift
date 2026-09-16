@@ -456,6 +456,99 @@ struct CanvasGestureTests {
         #expect(canvas.transform.zoom == 2)
     }
 
+    // MARK: a technology dropped from the palette
+
+    /// A palette row carries the technology id as its payload. The canvas
+    /// hands that payload and the drop point to the gestures, and this drives
+    /// the same call the drop makes.
+    @Test func aDropPlacesOneComponentOfThatTechnology() {
+        let (session, _, gestures) = drawn()
+
+        let placed = gestures.drop(["aws-rds"], at: CGPoint(x: 300, y: 200))
+
+        #expect(placed)
+        #expect(session.canvas.components.count == 1)
+        #expect(session.canvas.components.first?.technologyId == "aws-rds")
+    }
+
+    /// The point the person let go is the middle of the node.
+    @Test func aDropPlacesTheNodeAroundThePointItLandsOn() throws {
+        let (session, _, gestures) = drawn()
+
+        gestures.drop(["aws-ec2"], at: CGPoint(x: 300, y: 200))
+
+        let node = try #require(session.canvas.components.first)
+        #expect(node.x == 300 - Component.size.width / 2)
+        #expect(node.y == 200 - Component.size.height / 2)
+    }
+
+    /// The drop point arrives in view points. A panned and zoomed canvas
+    /// places the node where the pointer was, not where the raw number reads.
+    @Test func aDropOnAPannedAndZoomedCanvasPlacesTheNodeUnderThePointer() throws {
+        let (session, canvas, gestures) = drawn()
+        canvas.transform = CanvasTransform(pan: CGSize(width: -900, height: -700), zoom: 0.5)
+
+        gestures.drop(["aws-ec2"], at: CGPoint(x: 1240, y: 868))
+
+        let node = try #require(session.canvas.components.first)
+        #expect(node.x == 4280 - Component.size.width / 2)
+        #expect(node.y == 3136 - Component.size.height / 2)
+    }
+
+    /// A drop inside a zone rectangle puts the component in that zone.
+    @Test func aDropInsideAZonePlacesTheComponentInThatZone() throws {
+        let (session, _, gestures) = drawn()
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 600, height: 400))
+
+        gestures.drop(["aws-ec2"], at: CGPoint(x: 300, y: 200))
+
+        #expect(session.canvas.components.first?.zoneId == zoneId)
+    }
+
+    /// A drop outside every zone leaves the component loose.
+    @Test func aDropOutsideEveryZoneLeavesTheComponentLoose() throws {
+        let (session, _, gestures) = drawn()
+        _ = session.addZone(x: 0, y: 0, width: 200, height: 150)
+
+        gestures.drop(["aws-ec2"], at: CGPoint(x: 900, y: 700))
+
+        #expect(session.canvas.components.first?.zoneId == nil)
+    }
+
+    /// A drop that carries nothing places nothing.
+    @Test func aDropThatCarriesNothingPlacesNothing() {
+        let (session, _, gestures) = drawn()
+
+        let placed = gestures.drop([], at: CGPoint(x: 300, y: 200))
+
+        #expect(placed == false)
+        #expect(session.canvas.components.isEmpty)
+    }
+
+    /// A payload the catalogue does not hold places nothing, and the drop
+    /// states it took nothing.
+    @Test func aDropOfATechnologyTheCatalogueDoesNotHoldPlacesNothing() {
+        let (session, _, gestures) = drawn()
+
+        let placed = gestures.drop(["not-a-technology"], at: CGPoint(x: 300, y: 200))
+
+        #expect(placed == false)
+        #expect(session.canvas.components.isEmpty)
+        #expect(session.errorMessage == "That technology is not in the catalogue.")
+    }
+
+    /// A double-click on a palette row places at the default point, which is
+    /// the other way to place a technology and stays as it was.
+    @Test func aDoubleClickOnAPaletteRowPlacesAtTheDefaultPoint() throws {
+        let (session, _, _) = drawn()
+
+        session.addAtDefaultPoint(technologyId: "aws-ec2")
+
+        let node = try #require(session.canvas.components.first)
+        #expect(node.x == ThreatModelSession.defaultDropPoint.x)
+        #expect(node.y == ThreatModelSession.defaultDropPoint.y)
+    }
+
     // MARK: a node far from the origin
 
     /// Carry-forward item 27. A tap reports a point in view coordinates, the
