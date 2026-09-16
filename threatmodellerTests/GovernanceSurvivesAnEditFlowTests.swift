@@ -152,6 +152,53 @@ struct GovernanceSurvivesAnEditFlowTests {
         try await saveAndOpenAgain(session, useCases, control: control)
     }
 
+    /// The way back for a person holding a file written before the fix: the
+    /// window names the file, prints the parser's message with the line, and
+    /// `threatmodeller format` rewrites the file.
+    @Test func theWindowShowsTheParsersMessageWithTheLine() async throws {
+        let useCases = TestDependencies()
+        useCases.project.put(architecture, at: "/work/threatmodel/payments.arch")
+        useCases.project.put("""
+        governance for "Payments" {
+          threat "connection-mitm" on flow "api->db" {
+            accepted "Enforce TLS" {
+            }
+          }
+
+          stale threat "connection-mitm" on flow "api->db" {
+            stale accepted "Enforce TLS" {
+              owner = "Head of Platform"
+            }
+          }
+        }
+
+        """, at: "/work/threatmodel/payments.governance")
+
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+
+        #expect(session.model == nil)
+        #expect(session.errorMessage == "payments.governance did not parse.")
+        #expect(
+            session.diagnostics.map(\.message)
+                == ["connection-mitm@connection:api->db is governed twice"]
+        )
+
+        let sheet = DiagnosticsSheet(
+            fileName: "payments.governance",
+            diagnostics: session.diagnostics,
+            dismiss: {}
+        )
+        #expect(
+            sheet.lines
+                == ["payments.governance:1:1: connection-mitm@connection:api->db is governed twice"]
+        )
+    }
+
     @Test func removingAUserKeepsTheProjectOpenable() async throws {
         let (session, useCases, control) = try await aGovernedProject()
         let model = try #require(session.model)

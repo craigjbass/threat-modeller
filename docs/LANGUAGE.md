@@ -2436,7 +2436,7 @@ is not read. A file that does not start with `governance` is the error
 
 | Block | Label | Keyed by |
 | --- | --- | --- |
-| `threat` | the threat id, then what raised it | `<threat id>@<kind>:<source id>`, the key section 5.10 gives |
+| `threat` | the threat id, then what raised it | `<threat id>@<kind>:<source id>`, the key section 5.10 gives: the block says `flow` and the key says `connection` |
 | `accepted` | the control's description | the threat key and the description |
 | `work` | the recommendation's text | the threat key and the text |
 | `action` | the action's label | the label, which the `.arch` file declares |
@@ -2536,6 +2536,30 @@ The report prints both.
 | a `status` outside the four | `status is "<raw>"; this application holds "planned", "in_progress", "done", "dropped"` |
 | a threat block with no `on` | `a threat says what raised it: on component, on zone or on flow` |
 | two blocks with one key | `<key> is governed twice` |
+
+### 8.7 Repairing a file the parser refuses
+
+A refused file draws nothing: the window says the file did not parse and
+prints each fault as `<file>:<line>:<column>: <message>`, and the system does
+not open.
+
+`threatmodeller format` writes the `.governance` file in the canonical shape,
+the way it writes an `.arch` file. A file whose only fault is two blocks with
+one key is the one fault `format` repairs: it merges those blocks into one and
+writes the file again. The merge keeps every attribute a person wrote. Each
+attribute takes the first value the file states, in file order; a block and a
+stanza stay `stale` only when every block or stanza with that key is stale.
+`format` prints one line per merged key:
+
+```
+threatmodel/payments.governance: merged the two blocks governing <key>
+repaired threatmodel/payments.governance
+```
+
+The parser still refuses two blocks with one key, because two owners for one
+key state two decisions and the application must not pick one on its own.
+`format` merges them only when the merged file parses with no fault; any other
+fault it prints and leaves the file alone.
 
 ## 9. The policy language
 

@@ -17,6 +17,16 @@ struct GovernanceParser {
 
     private static let sourceKinds: Set<String> = ["component", "zone", "flow"]
 
+    /// Every block the file states, whatever the parser recorded about it.
+    /// A repair reads this: a file the parser refuses still holds every
+    /// attribute a person wrote.
+    mutating func parseKeepingEveryBlock() -> GovernanceRead {
+        guard let source = parseDocument() else {
+            return GovernanceRead(source: nil, diagnostics: diagnostics)
+        }
+        return GovernanceRead(source: source, diagnostics: diagnostics)
+    }
+
     mutating func parse() -> GovernanceRead {
         guard let source = parseDocument() else {
             return GovernanceRead(source: nil, diagnostics: diagnostics)

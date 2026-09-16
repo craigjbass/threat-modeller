@@ -171,3 +171,138 @@ public struct GovernanceRead: Equatable, Sendable {
         diagnostics.filter { $0.severity == .warning }
     }
 }
+
+/// What a repair did to one governance file.
+public enum GovernanceRepair: Equatable, Sendable {
+    /// The parser reads the file as it stands.
+    case notNeeded
+    /// The file the repair writes, and the key of each block it merged.
+    case repaired(text: String, merged: [String])
+    /// The file fails for a reason a merge does not fix. A person reads the
+    /// diagnostics and edits the file.
+    case cannotRepair(diagnostics: [Diagnostic])
+}
+
+/// Merging the blocks of a governance file that hold one key.
+///
+/// Issue #144. A file written before the key fix holds two blocks with one
+/// key, and the parser refuses it, so the window does not open the system.
+/// The merge puts those blocks back into one and keeps every attribute a
+/// person wrote, so nothing a person decided is lost.
+extension GovernanceSource {
+    /// The key of each threat block beyond the first that holds that key, in
+    /// file order. One entry for each block the parser calls governed twice.
+    public var keysGovernedTwice: [String] {
+        var seen: Set<String> = []
+        return threats.compactMap { seen.insert($0.key.value).inserted ? nil : $0.key.value }
+    }
+
+    /// The label of each action beyond the first that holds that label.
+    public var labelsGovernedTwice: [String] {
+        var seen: Set<String> = []
+        return actions.compactMap { seen.insert($0.label).inserted ? nil : $0.label }
+    }
+
+    /// The same governance with every block that shares a key merged into one
+    /// block, in the place the first of them stands.
+    public func mergingBlocksThatShareAKey() -> GovernanceSource {
+        var order: [String] = []
+        var byKey: [String: SourceGovernedThreat] = [:]
+        for threat in threats {
+            let key = threat.key.value
+            guard let already = byKey[key] else {
+                order.append(key)
+                byKey[key] = threat
+                continue
+            }
+            byKey[key] = Self.merged(already, threat)
+        }
+
+        var actionOrder: [String] = []
+        var byLabel: [String: SourcePlannedWork] = [:]
+        for action in actions {
+            guard let already = byLabel[action.label] else {
+                actionOrder.append(action.label)
+                byLabel[action.label] = action
+                continue
+            }
+            byLabel[action.label] = Self.merged(already, action)
+        }
+
+        return GovernanceSource(
+            systemName: systemName,
+            threats: order.compactMap { byKey[$0] },
+            actions: actionOrder.compactMap { byLabel[$0] }
+        )
+    }
+
+    /// Two blocks of one key as one block. The block is stale only when both
+    /// are stale, because a block that is not stale says the architecture
+    /// raises the threat.
+    private static func merged(
+        _ first: SourceGovernedThreat,
+        _ second: SourceGovernedThreat
+    ) -> SourceGovernedThreat {
+        var accepted = first.accepted
+        for risk in second.accepted {
+            if let already = accepted.firstIndex(where: { $0.control == risk.control }) {
+                accepted[already] = merged(accepted[already], risk)
+            } else {
+                accepted.append(risk)
+            }
+        }
+
+        var work = first.work
+        for planned in second.work {
+            if let already = work.firstIndex(where: { $0.label == planned.label }) {
+                work[already] = merged(work[already], planned)
+            } else {
+                work.append(planned)
+            }
+        }
+
+        return SourceGovernedThreat(
+            threatId: first.threatId,
+            sourceKind: first.sourceKind,
+            sourceId: first.sourceId,
+            accepted: accepted,
+            work: work,
+            isStale: first.isStale && second.isStale
+        )
+    }
+
+    /// Two accepted stanzas of one control as one stanza. Each attribute
+    /// takes the first value a person wrote, in file order.
+    private static func merged(
+        _ first: SourceAcceptedRisk,
+        _ second: SourceAcceptedRisk
+    ) -> SourceAcceptedRisk {
+        SourceAcceptedRisk(
+            control: first.control,
+            owner: first.owner.isEmpty ? second.owner : first.owner,
+            acceptedOn: first.acceptedOn ?? second.acceptedOn,
+            reviewBy: first.reviewBy ?? second.reviewBy,
+            rationale: first.rationale.isEmpty ? second.rationale : first.rationale,
+            sources: first.sources.isEmpty ? second.sources : first.sources,
+            isStale: first.isStale && second.isStale
+        )
+    }
+
+    /// Two work stanzas of one label as one stanza, by the same rule.
+    private static func merged(
+        _ first: SourcePlannedWork,
+        _ second: SourcePlannedWork
+    ) -> SourcePlannedWork {
+        SourcePlannedWork(
+            label: first.label,
+            owner: first.owner.isEmpty ? second.owner : first.owner,
+            effort: first.effort ?? second.effort,
+            dueBy: first.dueBy ?? second.dueBy,
+            status: first.status == SourcePlannedWork.defaultStatus ? second.status : first.status,
+            acceptance: first.acceptance.isEmpty ? second.acceptance : first.acceptance,
+            note: first.note.isEmpty ? second.note : first.note,
+            sources: first.sources.isEmpty ? second.sources : first.sources,
+            isStale: first.isStale && second.isStale
+        )
+    }
+}

@@ -25,6 +25,7 @@ public struct CommandLineApplication {
     private let controls: ControlsSourceGateway
     private let attackTrees: AttackTreeSourceGateway
     private let libraries: LibrarySourceGateway
+    private let governance: GovernanceSourceGateway = HclGovernanceSource()
     private let history: GitHistoryGateway
     private let fetcher: LibraryFetching
     /// Where the ATT&CK data sits on this machine, and what fetches it.
@@ -339,8 +340,68 @@ public struct CommandLineApplication {
             if formatAttackTree(of: system, isQuiet: isQuiet, output: output) == false {
                 code = .fileFault
             }
+
+            if formatGovernance(of: system, isQuiet: isQuiet, output: output) == false {
+                code = .didNotParse
+            }
         }
         return code.rawValue
+    }
+
+    /// Writes one system's `.governance` file in the canonical shape, and
+    /// repairs a file the parser refuses because two blocks hold one key.
+    ///
+    /// Issue #144. A save written before the key fix left two blocks with one
+    /// key, and the window refused to open the system. This is the way back:
+    /// the repair merges those blocks and keeps every attribute a person
+    /// wrote.
+    private func formatGovernance(
+        of system: ProjectSystem,
+        isQuiet: Bool,
+        output: (String) -> Void
+    ) -> Bool {
+        guard projects.exists(path: system.governancePath),
+              let text = try? projects.read(path: system.governancePath) else { return true }
+
+        let read = governance.read(text)
+        guard let source = read.source, read.hasErrors == false else {
+            switch governance.repair(text) {
+            case .repaired(let repaired, let merged):
+                do {
+                    try projects.write(repaired, to: system.governancePath)
+                } catch {
+                    output("threatmodeller: \(Self.described(error))")
+                    return false
+                }
+                for key in merged {
+                    output("\(system.governancePath): merged the two blocks governing \(key)")
+                }
+                output("repaired \(system.governancePath)")
+                return true
+            case .notNeeded, .cannotRepair:
+                for diagnostic in read.diagnostics {
+                    output(diagnostic.described(in: system.governancePath))
+                }
+                return false
+            }
+        }
+        for diagnostic in read.warnings {
+            output(diagnostic.described(in: system.governancePath))
+        }
+
+        let written = governance.write(source)
+        guard written != text else {
+            if isQuiet == false { output("unchanged \(system.governancePath)") }
+            return true
+        }
+        do {
+            try projects.write(written, to: system.governancePath)
+            if isQuiet == false { output("formatted \(system.governancePath)") }
+            return true
+        } catch {
+            output("threatmodeller: \(Self.described(error))")
+            return false
+        }
     }
 
     /// Rewrites one `.lib` file in the canonical shape.

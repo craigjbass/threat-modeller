@@ -177,6 +177,110 @@ printf 'component "api" {\n  technology = "aws-ec2"\n  zone       = "ghost"\n}\n
     > "$work/ghost/threatmodel/payments/arch/ledger.arch"
 expect_code 2 check "$work/ghost"
 
+step "a governed system still parses after a third party leaves the file"
+# Issue #144. The window removes a `third_party` block and saves; the save
+# writes the governance file. A file the writer wrote must be a file the
+# parser reads, so the project opens the next day.
+mkdir -p "$work/governed/threatmodel"
+cat > "$work/governed/threatmodel/payments.arch" <<'ARCH'
+system "Payments" {
+  third_party "stripe" {
+    name   = "Stripe"
+    kind   = "saas"
+    uptime = "none"
+  }
+
+  component "api" {
+    technology = "aws-ec2"
+    data       = "confidential"
+  }
+
+  component "db" {
+    technology = "aws-rds"
+    data       = "confidential"
+  }
+
+  flow api -> db
+}
+ARCH
+tm compile "$work/governed"
+replace '"not_implemented"' '"accepted"' "$work/governed/threatmodel/payments.controls"
+tm compile "$work/governed"
+grep -q 'on flow "api->db"' "$work/governed/threatmodel/payments.governance"
+
+# The owner and the review date a person writes into each accepted stanza.
+awk '{
+    print
+    if ($0 ~ /accepted "/) {
+        print "      owner     = \"Head of Platform\""
+        print "      review_by = \"2099-01-01\""
+    }
+}' "$work/governed/threatmodel/payments.governance" > "$work/governed/governance.new"
+mv "$work/governed/governance.new" "$work/governed/threatmodel/payments.governance"
+tm check "$work/governed"
+
+# The remove: the block leaves the architecture file, the way the window
+# writes the file after a person removes the third party.
+cat > "$work/governed/threatmodel/payments.arch" <<'ARCH'
+system "Payments" {
+  component "api" {
+    technology = "aws-ec2"
+    data       = "confidential"
+  }
+
+  component "db" {
+    technology = "aws-rds"
+    data       = "confidential"
+  }
+
+  flow api -> db
+}
+ARCH
+tm format "$work/governed"
+tm compile "$work/governed"
+grep -q 'Head of Platform' "$work/governed/threatmodel/payments.governance"
+grep -q 'stale' "$work/governed/threatmodel/payments.governance" && exit 1
+tm check "$work/governed"
+echo "the governance file still parses and still names its owner"
+
+step "format repairs a governance file holding two blocks with one key"
+# The shape a save wrote before the key fix. `format` is the way back.
+mkdir -p "$work/twice/threatmodel"
+cat > "$work/twice/threatmodel/payments.arch" <<'ARCH'
+system "Payments" {
+  component "api" {
+    technology = "aws-ec2"
+    data       = "confidential"
+  }
+
+  component "db" {
+    technology = "aws-rds"
+    data       = "confidential"
+  }
+
+  flow api -> db
+}
+ARCH
+cat > "$work/twice/threatmodel/payments.governance" <<'GOV'
+governance for "Payments" {
+  threat "connection-mitm" on flow "api->db" {
+    accepted "Enforce TLS" {
+    }
+  }
+
+  stale threat "connection-mitm" on flow "api->db" {
+    stale accepted "Enforce TLS" {
+      owner     = "Head of Platform"
+      review_by = "2099-01-01"
+    }
+  }
+}
+GOV
+tm format "$work/twice" | grep -q 'merged the two blocks governing connection-mitm@connection:api->db'
+grep -q 'Head of Platform' "$work/twice/threatmodel/payments.governance"
+test "$(grep -c 'on flow "api->db"' "$work/twice/threatmodel/payments.governance")" -eq 1
+tm format "$work/twice"
+
 step "lsp answers a client"
 # The Language Server Protocol frames each message with its length.
 frame() {
