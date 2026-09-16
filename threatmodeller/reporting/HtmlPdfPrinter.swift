@@ -58,6 +58,13 @@ final class LoadWatcher: NSObject, WKNavigationDelegate {
     private var waiting: CheckedContinuation<Void, Error>?
     private var outcome: Result<Void, Error>?
 
+    /// Runs at the point `waitForLoad()` stores its continuation, and runs
+    /// on the main actor. The tests fire a delegate method from here, so a
+    /// test proves the resume of a stored continuation without a second
+    /// task and without any order between two tasks. The product leaves
+    /// this property `nil`.
+    var onWaiting: (@MainActor () -> Void)?
+
     func waitForLoad() async throws {
         try await withCheckedThrowingContinuation { continuation in
             if let outcome {
@@ -65,6 +72,7 @@ final class LoadWatcher: NSObject, WKNavigationDelegate {
                 return
             }
             waiting = continuation
+            onWaiting?()
         }
     }
 
@@ -78,8 +86,25 @@ final class LoadWatcher: NSObject, WKNavigationDelegate {
         continuation?.resume(with: result)
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    /// The page loaded. `webView(_:didFinish:)` calls this.
+    func loadFinished() {
         end(with: .success(()))
+    }
+
+    /// The navigation failed with this error. Both navigation error
+    /// delegate methods call this.
+    func loadFailed(_ error: Error) {
+        end(with: .failure(error))
+    }
+
+    /// The content process died, and the death carries no `Error` of its
+    /// own. `webViewWebContentProcessDidTerminate(_:)` calls this.
+    func contentProcessDied() {
+        end(with: .failure(HtmlPdfPrinter.Fault.webContentProcessTerminated))
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        loadFinished()
     }
 
     func webView(
@@ -87,7 +112,7 @@ final class LoadWatcher: NSObject, WKNavigationDelegate {
         didFail navigation: WKNavigation!,
         withError error: Error
     ) {
-        end(with: .failure(error))
+        loadFailed(error)
     }
 
     func webView(
@@ -95,10 +120,10 @@ final class LoadWatcher: NSObject, WKNavigationDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
-        end(with: .failure(error))
+        loadFailed(error)
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        end(with: .failure(HtmlPdfPrinter.Fault.webContentProcessTerminated))
+        contentProcessDied()
     }
 }
