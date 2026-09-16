@@ -1480,6 +1480,44 @@ struct ViewRenderTests {
         expectDrawn(aTreeCanvas(editor, canvas), "the tree canvas")
     }
 
+    /// An editor holding one tree, laid out from the file.
+    private func aTreeCanvas(holding root: SourceTreeNode) -> TreeCanvas {
+        let editor = TreeEditor()
+        editor.open(
+            SourceAttackTree(
+                id: "t",
+                name: "T",
+                description: nil,
+                raisesRiskBy: 10,
+                goal: SourceTreeTarget(threatId: "exfiltration", sourceKind: "component", sourceId: "db"),
+                root: root
+            ),
+            threats: []
+        )
+        return aTreeCanvas(editor, TreeCanvasState())
+    }
+
+    private func aStep(_ threat: String) -> SourceTreeNode {
+        .step(SourceTreeStep(
+            target: SourceTreeTarget(threatId: threat, sourceKind: "component", sourceId: "api"),
+            note: nil
+        ))
+    }
+
+    /// A chain draws as a line of nodes joined end to end, and an `all_of`
+    /// as a fan under one junction. Both draw, and they draw differently.
+    @Test func drawsAChainAsALineAndAnAllOfAsAFan() async throws {
+        let line = aTreeCanvas(holding: .then([aStep("a"), aStep("b"), aStep("c")]))
+        let fan = aTreeCanvas(holding: .all([aStep("a"), aStep("b"), aStep("c")]))
+
+        expectDrawn(line, "the chain")
+        expectDrawn(fan, "the fan")
+
+        let linePixels = try #require(pixels(of: line, width: 1200, height: 700))
+        let fanPixels = try #require(pixels(of: fan, width: 1200, height: 700))
+        #expect(linePixels != fanPixels)
+    }
+
     /// A selected join draws a different picture from an unselected one, so a
     /// person sees which join Delete removes.
     @Test func drawsASelectedJoinDifferentlyFromAnUnselectedOne() async throws {

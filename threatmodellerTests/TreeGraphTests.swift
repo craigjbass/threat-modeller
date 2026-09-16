@@ -85,7 +85,30 @@ struct TreeGraphTests {
         #expect(convert(graph) == .failure(.feedsTwo(node: "SSRF")))
     }
 
-    @Test func aNodeFeedingAStepIsRefused() {
+    /// A step takes one feeder: the node that comes before it. Two nodes
+    /// feeding one step are refused with the second one named.
+    @Test func twoNodesFeedingOneStepAreRefused() {
+        var graph = TreeGraph()
+        let goal = graph.add(step("exfiltration", on: "db"), title: "Exfiltration")
+        graph.goalId = goal
+        let theft = graph.add(step("credential-theft", on: "api"), title: "Theft")
+        graph.join(from: theft, to: goal)
+        let ssrf = graph.add(step("ssrf", on: "api"), title: "SSRF")
+        graph.join(from: ssrf, to: theft)
+        let all = graph.add(.allOf, title: "ALL")
+        graph.join(from: all, to: theft)
+
+        #expect(convert(graph) == .failure(.feedsAFedStep(node: "ALL")))
+        #expect(
+            TreeGraph.Refusal.feedsAFedStep(node: "ALL").message
+                == "\"ALL\" feeds a step that comes after another node"
+        )
+    }
+
+    // MARK: a chain
+
+    /// A step feeding a step is a chain: the feeder comes first.
+    @Test func aStepFeedingAStepMakesAChain() throws {
         var graph = TreeGraph()
         let goal = graph.add(step("exfiltration", on: "db"), title: "Exfiltration")
         graph.goalId = goal
@@ -94,7 +117,131 @@ struct TreeGraphTests {
         let ssrf = graph.add(step("ssrf", on: "api"), title: "SSRF")
         graph.join(from: ssrf, to: theft)
 
-        #expect(convert(graph) == .failure(.feedsAStep(node: "SSRF")))
+        let tree = try convert(graph).get()
+        #expect(tree.root == .then([
+            .step(SourceTreeStep(target: target("ssrf", on: "api"), note: nil)),
+            .step(SourceTreeStep(target: target("credential-theft", on: "api"), note: nil))
+        ]))
+    }
+
+    /// Three steps each feeding the next flatten into one chain, not a
+    /// chain of chains.
+    @Test func threeStepsFeedingEachOtherAreOneChain() throws {
+        var graph = TreeGraph()
+        let goal = graph.add(step("exfiltration", on: "db"), title: "Exfiltration")
+        graph.goalId = goal
+        let c = graph.add(step("c", on: "api"), title: "C")
+        graph.join(from: c, to: goal)
+        let b = graph.add(step("b", on: "api"), title: "B")
+        graph.join(from: b, to: c)
+        let a = graph.add(step("a", on: "api"), title: "A")
+        graph.join(from: a, to: b)
+
+        let tree = try convert(graph).get()
+        #expect(tree.root == .then([
+            .step(SourceTreeStep(target: target("a", on: "api"), note: nil)),
+            .step(SourceTreeStep(target: target("b", on: "api"), note: nil)),
+            .step(SourceTreeStep(target: target("c", on: "api"), note: nil))
+        ]))
+    }
+
+    /// A junction feeding a step is the first link of the chain.
+    @Test func aJunctionFeedingAStepIsTheFirstLink() throws {
+        var graph = TreeGraph()
+        let goal = graph.add(step("exfiltration", on: "db"), title: "Exfiltration")
+        graph.goalId = goal
+        let theft = graph.add(step("credential-theft", on: "api"), title: "Theft")
+        graph.join(from: theft, to: goal)
+        let any = graph.add(.anyOf, title: "ANY")
+        graph.join(from: any, to: theft)
+        let ssrf = graph.add(step("ssrf", on: "api"), title: "SSRF")
+        graph.join(from: ssrf, to: any)
+
+        let tree = try convert(graph).get()
+        #expect(tree.root == .then([
+            .any([.step(SourceTreeStep(target: target("ssrf", on: "api"), note: nil))]),
+            .step(SourceTreeStep(target: target("credential-theft", on: "api"), note: nil))
+        ]))
+    }
+
+    @Test func aChainBecomesTheGraphAndTheGraphBecomesTheSameChain() throws {
+        let written = SourceAttackTree(
+            id: "obtain-z",
+            name: nil,
+            description: nil,
+            raisesRiskBy: 40,
+            goal: target("obtain-z", on: "z"),
+            root: .all([
+                .then([
+                    .any([
+                        .step(SourceTreeStep(target: target("p", on: "api"), note: nil)),
+                        .step(SourceTreeStep(target: target("q", on: "api"), note: nil))
+                    ]),
+                    .step(SourceTreeStep(target: target("steal-x", on: "x"), note: "first")),
+                    .step(SourceTreeStep(target: target("break-y", on: "y"), note: nil))
+                ]),
+                .step(SourceTreeStep(target: target("r", on: "api"), note: nil))
+            ])
+        )
+
+        let graph = TreeGraph.graph(of: written)
+        let back = try graph.tree(id: "obtain-z", name: nil, description: nil, raisesRiskBy: 40).get()
+
+        #expect(back == written)
+    }
+
+    @Test func aStepMayTakeOneFeederAndNoMore() {
+        var graph = TreeGraph()
+        let goal = graph.add(step("exfiltration", on: "db"), title: "Exfiltration")
+        graph.goalId = goal
+        let theft = graph.add(step("credential-theft", on: "api"), title: "Theft")
+        graph.join(from: theft, to: goal)
+        let ssrf = graph.add(step("ssrf", on: "api"), title: "SSRF")
+        let all = graph.add(.allOf, title: "ALL")
+
+        #expect(graph.canJoin(from: ssrf, to: theft))
+        #expect(graph.canJoin(from: all, to: theft))
+        graph.join(from: ssrf, to: theft)
+        #expect(graph.canJoin(from: all, to: theft) == false)
+        // The chain must not come back on itself.
+        #expect(graph.canJoin(from: theft, to: ssrf) == false)
+    }
+
+    /// A chain lays out as a line, one column per link in one row; an
+    /// `all_of` lays out as a fan, its children stacked in one column.
+    @Test func aChainLaysOutInALineAndAnAllOfAsAFan() throws {
+        var chain = TreeGraph()
+        let goal = chain.add(step("exfiltration", on: "db"), title: "Exfiltration")
+        chain.goalId = goal
+        let c = chain.add(step("c", on: "api"), title: "C")
+        chain.join(from: c, to: goal)
+        let b = chain.add(step("b", on: "api"), title: "B")
+        chain.join(from: b, to: c)
+        let a = chain.add(step("a", on: "api"), title: "A")
+        chain.join(from: a, to: b)
+
+        let size = CGSize(width: 180, height: 56)
+        let line = chain.positions(nodeSize: size, horizontalGap: 60, verticalGap: 24)
+        let ys = Set([goal, c, b, a].compactMap { line[$0]?.y })
+        #expect(ys.count == 1)
+        let xs = [a, b, c, goal].compactMap { line[$0]?.x }
+        #expect(xs == xs.sorted())
+        #expect(Set(xs).count == 4)
+
+        var fan = TreeGraph()
+        let fanGoal = fan.add(step("exfiltration", on: "db"), title: "Exfiltration")
+        fan.goalId = fanGoal
+        let all = fan.add(.allOf, title: "ALL")
+        fan.join(from: all, to: fanGoal)
+        let children = ["a", "b", "c"].map { fan.add(step($0, on: "api"), title: $0) }
+        for child in children { fan.join(from: child, to: all) }
+
+        let spread = fan.positions(nodeSize: size, horizontalGap: 60, verticalGap: 24)
+        #expect(Set(children.compactMap { spread[$0]?.x }).count == 1)
+        #expect(Set(children.compactMap { spread[$0]?.y }).count == 3)
+        let junctionX = try #require(spread[all]?.x)
+        let childX = try #require(spread[children[0]]?.x)
+        #expect(junctionX > childX)
     }
 
     @Test func aCycleIsRefused() {

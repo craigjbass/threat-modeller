@@ -333,6 +333,50 @@ struct AttackTreeEditorFlowTests {
         #expect(menuBytes.contains("step \""))
     }
 
+    /// A step joined to a step on the stage makes a chain, and the file the
+    /// window writes holds it as `then`, first link first.
+    @Test func aStepJoinedToAStepOnTheStageWritesAChain() async throws {
+        let (session, useCases, editor, goal, step) = try await aTreeWaitingForAJoin()
+        let model = try #require(session.model)
+        let elements = TreeElement.list(
+            threats: model.threats,
+            components: model.canvas.components,
+            connections: model.canvas.connections,
+            zones: model.canvas.zones
+        )
+        let api = try #require(elements.first { $0.payload == "component:api" })
+        let first = try #require(editor.drop(api.payload, at: CGPoint(x: -300, y: 60), elements: elements))
+        let secondThreat = try #require(api.threats.dropFirst().first)
+        editor.pick(secondThreat, for: first)
+        let firstId = try #require(editor.graph.nodes.first { $0.id != goal && $0.id != step }).id
+
+        // The first link feeds the second, and the second feeds the goal.
+        let canvas = TreeCanvasState()
+        let gestures = TreeCanvasGestures(editor: editor, canvas: canvas, elements: elements)
+        let handle = gestures.joinHandleRect(of: firstId)
+        let start = CGPoint(x: handle.midX, y: handle.midY)
+        let end = canvas.transform.viewPoint(gestures.position(of: step))
+        gestures.dragChanged(on: firstId, from: start, to: end, by: CGSize(width: end.x - start.x, height: end.y - start.y))
+        gestures.dragEnded(on: firstId, from: start, to: end, by: CGSize(width: end.x - start.x, height: end.y - start.y))
+        editor.join(from: step, to: goal)
+        editor.setName("Two steps in order")
+        await session.settle()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.attacktree"))
+        #expect(written.contains("""
+            then {
+              step "\(secondThreat.threatId)" on component "api"
+              step "\(try #require(api.threats.first).threatId)" on component "api"
+            }
+        """))
+
+        // The model reads the chain back and states each link's position.
+        let reloaded = try #require(session.model)
+        let bound = try #require(reloaded.attackTrees.first)
+        #expect(bound.steps.map(\.position) == [1, 2])
+        #expect(bound.isStale == false)
+    }
+
     /// A tree of a goal and one step, with the step joined to the goal from
     /// the **Join to\u{2026}** submenu. Returns the file the project wrote.
     private func aTreeJoinedByTheMenu() async throws -> String {

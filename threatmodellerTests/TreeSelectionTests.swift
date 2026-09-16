@@ -126,6 +126,53 @@ struct TreeSelectionTests {
         )))
     }
 
+    /// A link of a chain states its position and its neighbours.
+    @Test func aLinkStatesItsPositionInTheChainAndItsNeighbours() throws {
+        let editor = TreeEditor()
+        editor.open(
+            SourceAttackTree(
+                id: "t",
+                name: "T",
+                description: nil,
+                raisesRiskBy: 10,
+                goal: target("exfiltration", on: "db"),
+                root: .then([
+                    .step(SourceTreeStep(target: target("steal-x", on: "x"), note: nil)),
+                    .step(SourceTreeStep(target: target("ssrf", on: "api"), note: nil))
+                ])
+            ),
+            threats: []
+        )
+        let canvas = TreeCanvasState()
+        let step = try #require(editor.graph.nodes.first { $0.title == "ssrf" }).id
+        let first = try #require(editor.graph.nodes.first { $0.title == "steal-x" }).id
+
+        canvas.select(step, addingToSelection: false)
+        guard case .node(let last) = TreeSelection.of(editor: editor, canvas: canvas, bound: nil) else {
+            Issue.record("the selection is not a node")
+            return
+        }
+        #expect(last.chain == "Link 2 of 2, after steal-x.")
+
+        canvas.select(first, addingToSelection: false)
+        guard case .node(let head) = TreeSelection.of(editor: editor, canvas: canvas, bound: nil) else {
+            Issue.record("the selection is not a node")
+            return
+        }
+        #expect(head.chain == "Link 1 of 2, before ssrf.")
+    }
+
+    @Test func aStepOutsideEveryChainStatesNoLink() throws {
+        let (editor, canvas, _, step) = drawn()
+        canvas.select(step, addingToSelection: false)
+
+        guard case .node(let node) = TreeSelection.of(editor: editor, canvas: canvas, bound: nil) else {
+            Issue.record("the selection is not a node")
+            return
+        }
+        #expect(node.chain == nil)
+    }
+
     @Test func aSelectedJunctionStatesWhatFeedsIt() throws {
         let (editor, canvas, goal, step) = drawn()
         editor.cutOutgoingJoin(of: step)

@@ -83,16 +83,15 @@ struct TreeGraph: Equatable {
 
     /// True when `from` may feed `to`. The rules are the ones `tree(id:...)`
     /// refuses a graph by: the goal feeds nothing, every other node feeds one
-    /// node, a step holds nothing under it except the goal, one root feeds
-    /// the goal, and no route comes back to the node it left.
+    /// node, a step takes one feeder, which is the node that comes before it
+    /// in a chain, and no route comes back to the node it left. The goal is
+    /// a step, so one root feeds it by the same rule.
     func canJoin(from: String, to: String) -> Bool {
         guard from != to, node(from) != nil, let target = node(to) else { return false }
         guard goalId != from else { return false }
         guard edges.contains(where: { $0.from == from }) == false else { return false }
-        if to == goalId {
+        if case .step = target.kind {
             guard edges.contains(where: { $0.to == to }) == false else { return false }
-        } else if case .step = target.kind {
-            return false
         }
 
         var seen: Set<String> = [to]
@@ -107,16 +106,53 @@ struct TreeGraph: Equatable {
 
     /// Every join one node is offered, in the order the nodes were added.
     ///
-    /// A node is offered each join it may feed. A junction is offered the
-    /// nodes it may take as well, because a junction holds what feeds it and
-    /// a step holds nothing.
+    /// A node is offered each join it may feed, then each join it may take.
+    /// A junction takes many feeders, and a step takes the one node that
+    /// comes before it, so both are offered what may feed them.
     func joinsOffered(for id: String) -> [Edge] {
-        nodes.compactMap { other in
-            guard other.id != id else { return nil }
-            if canJoin(from: id, to: other.id) { return Edge(from: id, to: other.id) }
-            if canJoin(from: other.id, to: id) { return Edge(from: other.id, to: id) }
-            return nil
+        nodes.flatMap { other -> [Edge] in
+            guard other.id != id else { return [] }
+            var offered: [Edge] = []
+            if canJoin(from: id, to: other.id) { offered.append(Edge(from: id, to: other.id)) }
+            if canJoin(from: other.id, to: id) { offered.append(Edge(from: other.id, to: id)) }
+            return offered
         }
+    }
+
+    // MARK: the chain a step is a link of
+
+    /// The links of the chain one node sits in, first link first, ending at
+    /// the last step before a junction or the goal. A node outside every
+    /// chain gives one link: itself.
+    ///
+    /// A step's feeder is the link before it. A junction is the first link
+    /// of a chain when it feeds a step; it is never a later link, because
+    /// its own feeders are its children.
+    func chain(holding id: String) -> [String] {
+        guard let start = node(id) else { return [] }
+        var links = [id]
+        // Back to the first link: while this link is a step with a feeder.
+        var current = start
+        var seen: Set<String> = [id]
+        while case .step = current.kind,
+              let feeder = edges.first(where: { $0.to == current.id })?.from,
+              seen.insert(feeder).inserted,
+              let node = node(feeder) {
+            links.insert(feeder, at: 0)
+            current = node
+        }
+        // Forward to the last link: while this link feeds a step that is not
+        // the goal.
+        current = start
+        while let next = edges.first(where: { $0.from == current.id })?.to,
+              next != goalId,
+              let node = node(next),
+              case .step = node.kind,
+              seen.insert(next).inserted {
+            links.append(next)
+            current = node
+        }
+        return links
     }
 
     // MARK: the graph becomes the tree, or is refused
@@ -128,7 +164,7 @@ struct TreeGraph: Equatable {
         case noGoal
         case junctionGoal
         case feedsTwo(node: String)
-        case feedsAStep(node: String)
+        case feedsAFedStep(node: String)
         case cycle(node: String)
         case reachesNoGoal(node: String)
         case noSteps
@@ -143,8 +179,8 @@ struct TreeGraph: Equatable {
                 "the goal names a threat; an all_of or an any_of is not one"
             case .feedsTwo(let node):
                 "\"\(node)\" feeds two nodes; a step sits under one"
-            case .feedsAStep(let node):
-                "\"\(node)\" feeds a step; a step sits under an all_of or an any_of"
+            case .feedsAFedStep(let node):
+                "\"\(node)\" feeds a step that comes after another node"
             case .cycle(let node):
                 "the route through \"\(node)\" comes back to itself"
             case .reachesNoGoal(let node):
@@ -180,11 +216,13 @@ struct TreeGraph: Equatable {
             return .failure(.feedsTwo(node: goalNode.title))
         }
 
-        // A step holds no children: steps are leaves.
-        for edge in edges {
-            guard let into = node(edge.to), into.id != goalId else { continue }
-            if case .step = into.kind {
-                return .failure(.feedsAStep(node: node(edge.from)?.title ?? edge.from))
+        // A step takes one feeder: the node that comes before it in a chain.
+        // The goal is a step too, and `twoRoots` names that case below.
+        for node in nodes where node.id != goalId {
+            guard case .step = node.kind else { continue }
+            let feeders = feeders(of: node.id)
+            if feeders.count > 1 {
+                return .failure(.feedsAFedStep(node: self.node(feeders[1])?.title ?? feeders[1]))
             }
         }
 
@@ -240,7 +278,17 @@ struct TreeGraph: Equatable {
         guard let node = node(id) else { return .all([]) }
         switch node.kind {
         case .step(let target, let note):
-            return .step(SourceTreeStep(target: target, note: note))
+            let step = SourceTreeNode.step(SourceTreeStep(target: target, note: note))
+            // A step with a feeder is the last link of a chain. A feeder
+            // that is itself a chain flattens into this one, so three steps
+            // feeding each other write as one `then`.
+            guard let before = feeders(of: id).first else { return step }
+            switch subtree(of: before) {
+            case .then(let links):
+                return .then(links + [step])
+            case let link:
+                return .then([link, step])
+            }
         case .allOf:
             return .all(feeders(of: id).map { subtree(of: $0) })
         case .anyOf:
@@ -271,11 +319,14 @@ struct TreeGraph: Equatable {
         return graph
     }
 
+    /// Grows one node under `parent` and returns the id of the node that
+    /// feeds the parent.
+    @discardableResult
     private mutating func grow(
         _ node: SourceTreeNode,
         feeding parent: String,
         naming: (SourceTreeTarget) -> (title: String, subtitle: String)
-    ) {
+    ) -> String {
         switch node {
         case .step(let step):
             let said = naming(step.target)
@@ -285,14 +336,26 @@ struct TreeGraph: Equatable {
                 subtitle: said.subtitle
             )
             join(from: id, to: parent)
+            return id
+        case .then(let links):
+            // The last link feeds the parent, and each earlier link feeds
+            // the link after it. The parser holds every later link to a
+            // step, so each one takes its one feeder.
+            var next = parent
+            for link in links.reversed() {
+                next = grow(link, feeding: next, naming: naming)
+            }
+            return next
         case .all(let children):
             let id = add(.allOf, title: "ALL")
             join(from: id, to: parent)
             for child in children { grow(child, feeding: id, naming: naming) }
+            return id
         case .any(let children):
             let id = add(.anyOf, title: "ANY")
             join(from: id, to: parent)
             for child in children { grow(child, feeding: id, naming: naming) }
+            return id
         }
     }
 

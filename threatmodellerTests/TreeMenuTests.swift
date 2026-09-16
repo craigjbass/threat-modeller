@@ -152,15 +152,56 @@ struct TreeMenuTests {
 
     // MARK: Join to\u{2026}
 
-    @Test func aStepIsOfferedEveryNodeItCanFeedAndNoOther() {
+    /// A step is offered each node it may feed by its title, and the node
+    /// that may come before it as "From": a step takes one feeder.
+    @Test func aStepIsOfferedEveryNodeItCanFeedAndTheNodeThatMayComeBeforeIt() {
         let (editor, _, menu, goal, step, junction) = loose()
 
         let rows = submenu(menu.node(step), "context-tree-join-to")
 
         #expect(titles(rows) == [
             editor.graph.node(goal)?.title ?? "",
-            editor.graph.node(junction)?.title ?? ""
+            editor.graph.node(junction)?.title ?? "",
+            "From " + (editor.graph.node(junction)?.title ?? "")
         ])
+    }
+
+    /// Joining a step from the step before it makes a chain, and the file
+    /// states it as `then`.
+    @Test func aStepIsOfferedTheStepThatMayComeBeforeIt() throws {
+        let editor = TreeEditor()
+        editor.open(
+            SourceAttackTree(
+                id: "t",
+                name: "T",
+                description: nil,
+                raisesRiskBy: 10,
+                goal: target("exfiltration", on: "db"),
+                root: .all([
+                    .step(SourceTreeStep(target: target("ssrf", on: "api"), note: nil)),
+                    .step(SourceTreeStep(target: target("steal-x", on: "x"), note: nil))
+                ])
+            ),
+            threats: []
+        )
+        let menu = TreeMenu(editor: editor, canvas: TreeCanvasState(), elements: [])
+        let step = try #require(editor.graph.nodes.first { $0.title == "ssrf" }).id
+        let before = try #require(editor.graph.nodes.first { $0.title == "steal-x" }).id
+        editor.cutOutgoingJoin(of: before)
+
+        let rows = submenu(menu.node(step), "context-tree-join-to")
+        #expect(titles(rows) == ["From steal-x"])
+
+        run(rows, "context-tree-join-from-\(before)")
+
+        #expect(editor.graph.edges.contains(TreeGraph.Edge(from: before, to: step)))
+        let written = try #require(editor.lastWritten)
+        #expect(written.root == .all([
+            .then([
+                .step(SourceTreeStep(target: target("steal-x", on: "x"), note: nil)),
+                .step(SourceTreeStep(target: target("ssrf", on: "api"), note: nil))
+            ])
+        ]))
     }
 
     @Test func joiningFromTheMenuDrawsTheEdgeAndUndoTakesItBack() {
@@ -184,10 +225,11 @@ struct TreeMenuTests {
 
         #expect(titles(rows) == [
             editor.graph.node(goal)?.title ?? "",
-            editor.graph.node(step)?.title ?? ""
+            editor.graph.node(step)?.title ?? "",
+            "From " + (editor.graph.node(step)?.title ?? "")
         ])
 
-        run(rows, "context-tree-join-to-\(step)")
+        run(rows, "context-tree-join-from-\(step)")
 
         #expect(editor.graph.edges == [TreeGraph.Edge(from: step, to: junction)])
     }

@@ -50,7 +50,9 @@ struct TreeMenu {
     }
 
     /// The Join to\u{2026} submenu: every join the graph offers the node,
-    /// named by the far end. A node offered none gets no submenu.
+    /// named by the far end. A join this node feeds takes the far end's
+    /// title; a join this node takes reads "From <title>". A node offered
+    /// none gets no submenu.
     private func joinTo(_ id: String) -> ElementMenu.Row? {
         let offered = editor.graph.joinsOffered(for: id)
         guard offered.isEmpty == false else { return nil }
@@ -58,10 +60,12 @@ struct TreeMenu {
             id: "context-tree-join-to",
             title: "Join to\u{2026}",
             rows: offered.map { edge in
-                let other = edge.from == id ? edge.to : edge.from
+                let feeds = edge.from == id
+                let other = feeds ? edge.to : edge.from
+                let title = editor.graph.node(other)?.title ?? other
                 return .item(
-                    id: "context-tree-join-to-\(other)",
-                    title: editor.graph.node(other)?.title ?? other
+                    id: feeds ? "context-tree-join-to-\(other)" : "context-tree-join-from-\(other)",
+                    title: feeds ? title : "From \(title)"
                 ) {
                     editor.join(from: edge.from, to: edge.to)
                 }

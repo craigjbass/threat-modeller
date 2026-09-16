@@ -132,6 +132,10 @@ struct TreeSelectionPanel: View {
             }
         }
         .accessibilityIdentifier("tree-selected-score")
+        if let chain = node.chain {
+            LabeledContent("Chain", value: chain)
+                .accessibilityIdentifier("tree-selected-chain")
+        }
 
         Divider()
 
@@ -218,6 +222,10 @@ enum TreeSelection: Equatable {
         let isJunction: Bool
         let canBecomeGoal: Bool
         let feedsANode: Bool
+        /// The step's place in its chain and its neighbours, as
+        /// "Link 2 of 3, after Steal X, before Obtain Z.", or nil for a
+        /// step outside every chain.
+        var chain: String? = nil
     }
 
     /// One selected join, with the label of each end.
@@ -269,7 +277,8 @@ enum TreeSelection: Equatable {
                 isGoal: isGoal,
                 isJunction: false,
                 canBecomeGoal: isGoal == false,
-                feedsANode: editor.graph.edges.contains { $0.from == id }
+                feedsANode: editor.graph.edges.contains { $0.from == id },
+                chain: isGoal ? nil : chain(of: id, in: editor.graph)
             ))
         case .allOf, .anyOf:
             let feeders = editor.graph.edges.filter { $0.to == id }.count
@@ -285,6 +294,21 @@ enum TreeSelection: Equatable {
                 feedsANode: editor.graph.edges.contains { $0.from == id }
             ))
         }
+    }
+
+    /// Where one step sits in its chain: its position, the link before it
+    /// and the link after it. Nil for a step that is a chain of one.
+    private static func chain(of id: String, in graph: TreeGraph) -> String? {
+        let links = graph.chain(holding: id)
+        guard links.count > 1, let at = links.firstIndex(of: id) else { return nil }
+        var said = "Link \(at + 1) of \(links.count)"
+        if at > 0 {
+            said += ", after \(graph.node(links[at - 1])?.title ?? links[at - 1])"
+        }
+        if at < links.count - 1 {
+            said += ", before \(graph.node(links[at + 1])?.title ?? links[at + 1])"
+        }
+        return said + "."
     }
 
     /// What the assessment says about the written tree.
