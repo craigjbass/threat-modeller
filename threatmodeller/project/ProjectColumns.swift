@@ -5,7 +5,8 @@ import ThreatModelKit
 ///
 /// Each stage drops the columns it does not need. The palette is only of use
 /// while the architecture is being drawn, and the diagram says nothing about
-/// which control a team runs, so the answers take the whole window.
+/// which control a team runs, so the answers take the whole window. The Report
+/// stage draws the sections, the reading column and the report's controls.
 struct ProjectColumns: View {
     let project: ProjectSession
     let session: ThreatModelSession
@@ -98,6 +99,8 @@ struct ProjectColumns: View {
                 .overlay(alignment: .bottom) {
                     floating { workflowPanel(inColumnOfWidth: $0) }
                 }
+        case .report:
+            ReportStage(project: project, session: session, stage: $stage)
         }
     }
 

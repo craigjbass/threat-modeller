@@ -865,7 +865,7 @@ final class ThreatModelSession {
     /// How a report export resolved the project's template.
     private enum TemplateResolution {
         case none
-        case found(ReportTemplate)
+        case found(ReportTemplate, path: String)
         case failed
     }
 
@@ -878,8 +878,8 @@ final class ThreatModelSession {
             .execute(ReadReportTemplateRequest(root: projectRoot)) {
         case .none:
             return .none
-        case .found(let template):
-            return .found(template)
+        case .found(let template, let path):
+            return .found(template, path: path)
         case .missing(let path):
             errorMessage = "There is no template at \(path)."
             return .failed
@@ -897,11 +897,58 @@ final class ThreatModelSession {
         switch projectTemplate() {
         case .failed: return nil
         case .none: template = nil
-        case .found(let found): template = found
+        case .found(let found, _): template = found
         }
         let response = useCases.exportModelAsMarkdown()
             .execute(ExportModelAsMarkdownRequest(template: template))
         return (Data(response.markdown.utf8), response.fileName)
+    }
+
+    /// What the Report stage draws: the report as sections, in the order the
+    /// project's template names them.
+    ///
+    /// It reads the template through `ReadReportTemplate` and the report
+    /// through `BuildThreatModelReport`, which are the two use cases the
+    /// exporters run, so the stage and the file cannot drift. It writes
+    /// nothing and it sets no error: a template fault travels on the page.
+    func reportStagePage() -> ReportStagePage {
+        var template = ExportModelAsMarkdown.defaultTemplate
+        var path: String?
+
+        if let projectRoot {
+            switch useCases.readReportTemplate()
+                .execute(ReadReportTemplateRequest(root: projectRoot)) {
+            case .none:
+                break
+            case .found(let found, let readFrom):
+                template = found
+                path = readFrom
+            case .missing(let missing):
+                return ReportStagePage(
+                    sections: [],
+                    templatePath: missing,
+                    fault: ["There is no template at \(missing)."]
+                )
+            case .didNotParse(let didNotParse, let diagnostics):
+                return ReportStagePage(
+                    sections: [],
+                    templatePath: didNotParse,
+                    fault: diagnostics.map { $0.described(in: didNotParse) }
+                )
+            }
+        }
+
+        let report = useCases.buildThreatModelReport()
+            .execute(BuildThreatModelReportRequest()).report
+        return ReportStagePage(
+            sections: ReportStagePage.build(report: report, template: template),
+            templatePath: path
+        )
+    }
+
+    /// The report the stage draws its numbers from.
+    func builtReport() -> Report {
+        useCases.buildThreatModelReport().execute(BuildThreatModelReportRequest()).report
     }
 
     /// The report as one page, with every picture inside it.
@@ -914,7 +961,7 @@ final class ThreatModelSession {
         switch projectTemplate() {
         case .failed: return nil
         case .none: template = nil
-        case .found(let found): template = found
+        case .found(let found, _): template = found
         }
         let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
         let report = useCases.buildThreatModelReport()

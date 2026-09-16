@@ -22,6 +22,23 @@ struct WorkflowPanel: View {
     /// is a view of the work and never a mode a user has to leave.
     @Binding var stage: WorkStage
 
+    /// The stages the picker offers. Every stage, unless a caller states
+    /// fewer.
+    var stages: [WorkStage] = WorkStage.allCases
+
+    /// Which control picks the stage.
+    ///
+    /// The popup is what the panel draws. `.segments` is the control the
+    /// four-stage panel drew before the Report stage, kept so
+    /// `WindowLayoutTests` measures the panel the five-stage panel must not
+    /// grow past.
+    enum StageControl {
+        case popup
+        case segments
+    }
+
+    var stageControl: StageControl = .popup
+
     /// The canvas the zoom control acts on, or nil in a stage that draws no
     /// diagram.
     var canvas: CanvasState?
@@ -153,17 +170,7 @@ struct WorkflowPanel: View {
     /// column holds them, because the stage is what the person reads first.
     private func row(stageWords: Bool, verbWords: Bool) -> some View {
         HStack(spacing: 12) {
-            Picker("Stage", selection: $stage) {
-                ForEach(WorkStage.allCases) { stage in
-                    Label(stage.label, systemImage: stage.systemImage).tag(stage)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .controlSize(.large)
-            .fixedSize()
-            .modifier(ControlWords(showsWords: stageWords))
-            .accessibilityIdentifier("stage")
+            stagePicker(showsWords: stageWords)
 
             Divider()
                 .frame(height: 20)
@@ -207,6 +214,44 @@ struct WorkflowPanel: View {
                     hasSelection: treeCanvas.hasSelection
                 )
             }
+        }
+    }
+
+    /// The control that picks the stage.
+    ///
+    /// A popup is one control wide whatever the number of stages: it names the
+    /// stage the window draws and lists the rest. Five labelled segments are
+    /// wider than the diagram column, and five icons are wider than four, so
+    /// the popup is what keeps the panel inside the column the fifth stage
+    /// arrived in. A narrow column takes the icon alone, the way the two verbs
+    /// do.
+    @ViewBuilder
+    private func stagePicker(showsWords: Bool) -> some View {
+        switch stageControl {
+        case .popup:
+            Picker("Stage", selection: $stage) {
+                ForEach(stages) { choice in
+                    Label(choice.label, systemImage: choice.systemImage).tag(choice)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .controlSize(.large)
+            .fixedSize()
+            .modifier(ControlWords(showsWords: showsWords))
+            .accessibilityIdentifier("stage")
+        case .segments:
+            Picker("Stage", selection: $stage) {
+                ForEach(stages) { choice in
+                    Label(choice.label, systemImage: choice.systemImage).tag(choice)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.large)
+            .fixedSize()
+            .modifier(ControlWords(showsWords: showsWords))
+            .accessibilityIdentifier("stage")
         }
     }
 

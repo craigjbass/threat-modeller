@@ -52,19 +52,30 @@ struct ReportExporter {
         }
     }
 
-    let session: ThreatModelSession
     /// Asks the user where the file goes, and returns nil when they cancel.
-    var chooseFile: @MainActor (_ suggestedName: String, _ contentType: UTType) -> URL?
-        = ReportExporter.savePanel
+    typealias ChooseFile = @MainActor (_ suggestedName: String, _ contentType: UTType) -> URL?
+
+    let session: ThreatModelSession
+    var chooseFile: ChooseFile = ReportExporter.savePanel
 
     func export(_ kind: Kind) async {
-        guard let export = await data(for: kind) else { return }
-        guard let url = chooseFile(export.fileName, kind.contentType) else { return }
+        _ = await exportNamingTheFile(kind)
+    }
+
+    /// Writes the export and states where it went, or nil when the report
+    /// could not be produced, the user cancelled, or the write failed. The
+    /// Report stage names the file it wrote, so the write states its path.
+    @discardableResult
+    func exportNamingTheFile(_ kind: Kind) async -> (path: String, data: Data)? {
+        guard let export = await data(for: kind) else { return nil }
+        guard let url = chooseFile(export.fileName, kind.contentType) else { return nil }
 
         do {
             try export.data.write(to: url)
+            return (url.path, export.data)
         } catch {
             session.reportExportFailed(String(describing: error))
+            return nil
         }
     }
 

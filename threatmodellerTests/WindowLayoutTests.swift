@@ -421,6 +421,57 @@ struct WindowLayoutTests {
         }
     }
 
+    /// The fifth stage does not widen the panel.
+    ///
+    /// Five labelled segments are wider than the diagram column, and five
+    /// icons are wider than four, so the panel picks the stage with a popup.
+    /// A popup is one control wide whatever the number of stages. This
+    /// measures the panel the four stages drew and the panel the five stages
+    /// draw, at the widest and the narrowest column the split allows, and
+    /// states the second is no wider.
+    @Test func theFifthStageDoesNotWidenTheWorkflowPanel() async throws {
+        let project = await aDrawnProject()
+        let model = try #require(project.model)
+        let canvas = CanvasState()
+
+        for width in [
+            ProjectColumns.minimumDiagramWidth,
+            WorkflowPanel.stageWordsWidth,
+            WorkflowPanel.allWordsWidth,
+            1080.0
+        ] {
+            let four = NSHostingView(
+                rootView: WorkflowPanel(
+                    session: project,
+                    stage: .constant(.threats),
+                    stages: WorkStage.beforeTheReportStage,
+                    stageControl: .segments,
+                    canvas: canvas,
+                    model: model,
+                    columnWidth: width
+                )
+            ).fittingSize.width
+            let five = NSHostingView(
+                rootView: WorkflowPanel(
+                    session: project,
+                    stage: .constant(.threats),
+                    canvas: canvas,
+                    model: model,
+                    columnWidth: width
+                )
+            ).fittingSize.width
+
+            #expect(
+                five <= four,
+                "in a column of \(width) the five-stage panel needs \(five) and the four-stage panel needed \(four)"
+            )
+            #expect(
+                five <= width,
+                "the five-stage panel needs \(five) in a column of \(width)"
+            )
+        }
+    }
+
     /// The controls that float over the diagram follow the diagram column.
     ///
     /// The person drags the divider of the threats stage. The canvas toolbar,

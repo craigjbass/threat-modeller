@@ -238,6 +238,11 @@ struct ThreatModelCommands: Commands {
                 .disabled(canvas?.showStage == nil)
                 .accessibilityIdentifier("stage-controls")
 
+            Button("Report") { canvas?.showStage?(.report) }
+                .keyboardShortcut("5", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-report")
+
             Divider()
 
             Button("Lay Out Selection") {

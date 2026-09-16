@@ -150,6 +150,33 @@ struct ViewRenderTests {
         return session
     }
 
+    /// The Report stage draws the sections of a model that has something to
+    /// say.
+    @Test func drawsTheReportStage() async throws {
+        let project = await aDrawnProject()
+        let model = try #require(project.model)
+
+        expectDrawn(
+            ReportStage(project: project, session: model, stage: .constant(.report)),
+            "the report stage"
+        )
+    }
+
+    /// The Report stage draws a model with nothing on it. Every section the
+    /// report writes nothing for is left out, and the page still draws.
+    @Test func drawsTheReportStageOfAnEmptyModel() async throws {
+        let project = await anEmptyProject()
+
+        expectDrawn(
+            ReportStage(
+                project: project,
+                session: ThreatModelSession(useCases: TestDependencies()),
+                stage: .constant(.report)
+            ),
+            "the report stage of an empty model"
+        )
+    }
+
     /// The assertion has teeth: a view that draws one flat colour fails it.
     /// Without this, every test in this file could pass on a blank window.
     @Test func knowsABlankRectangleFromADrawnView() async throws {

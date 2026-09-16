@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The four stages of the work, in the order an analyst does them.
+/// The five stages of the work, in the order an analyst does them.
 ///
 /// A stage is a view of one model, not a mode: nothing is locked, and the
 /// stage control moves between them at any time. What a stage changes is
@@ -18,6 +18,9 @@ enum WorkStage: String, CaseIterable, Identifiable {
     /// Answer the controls, and clear the answers the architecture no longer
     /// raises.
     case controls
+    /// Read what the report says about the model as it stands, section by
+    /// section, with no file written.
+    case report
 
     var id: String { rawValue }
 
@@ -27,6 +30,7 @@ enum WorkStage: String, CaseIterable, Identifiable {
         case .attackTrees: "Attack Trees"
         case .threats: "Threats"
         case .controls: "Controls"
+        case .report: "Report"
         }
     }
 
@@ -36,6 +40,17 @@ enum WorkStage: String, CaseIterable, Identifiable {
         case .attackTrees: "point.topleft.down.to.point.bottomright.curvepath"
         case .threats: "shield"
         case .controls: "checklist"
+        case .report: "doc.richtext"
         }
     }
+}
+
+extension WorkStage {
+    /// The four stages the work had before the Report stage.
+    ///
+    /// `WindowLayoutTests` draws the panel with these and with every stage, so
+    /// a change to the stage control that widens the panel fails there.
+    static let beforeTheReportStage: [WorkStage] = [
+        .architecture, .attackTrees, .threats, .controls
+    ]
 }

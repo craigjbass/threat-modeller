@@ -1442,6 +1442,56 @@ final class ProjectSession {
         lastActionMessage = nil
     }
 
+    /// Which file `Generate Report` writes on the Report stage.
+    enum ReportFormat: String, CaseIterable, Identifiable {
+        case markdown
+        case html
+        case pdf
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .markdown: "Markdown"
+            case .html: "HTML"
+            case .pdf: "PDF"
+            }
+        }
+
+        /// The export the File menu runs for the same format.
+        var exportKind: ReportExporter.Kind {
+            switch self {
+            case .markdown: .markdown
+            case .html: .html
+            case .pdf: .pdf
+            }
+        }
+    }
+
+    /// The format the Report stage writes. Markdown, until a person picks
+    /// another.
+    var reportFormat: ReportFormat = .markdown
+
+    /// Writes the report the format picker names.
+    ///
+    /// Markdown goes to the system's report path in the project, with no save
+    /// panel: it is the file `threatmodeller compile` writes and the bytes the
+    /// File menu's Markdown export writes. HTML and PDF go where the person
+    /// says, because the project holds no place for them.
+    func generateReport(chooseFile: ReportExporter.ChooseFile? = nil) async {
+        guard reportFormat != .markdown else { return compileReport() }
+        guard let model else { return }
+
+        var exporter = ReportExporter(session: model)
+        if let chooseFile { exporter.chooseFile = chooseFile }
+        guard let written = await exporter.exportNamingTheFile(reportFormat.exportKind) else {
+            return
+        }
+        errorMessage = nil
+        reportPath = written.path
+        say("Report: \(written.path)")
+    }
+
     /// Writes the Markdown report for the drawn system.
     func compileReport() {
         guard let root, let chosenSystem else { return }

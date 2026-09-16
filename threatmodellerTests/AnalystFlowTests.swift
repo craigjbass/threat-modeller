@@ -6,13 +6,14 @@ import ThreatModelKit
 import TestSupport
 @testable import threatmodeller
 
-/// The four stages of the analyst's work, measured in a real window.
+/// The five stages of the analyst's work, measured in a real window.
 ///
 /// A stage states which columns the window draws. Architecture draws the
 /// palette, the diagram and what the system takes on trust. Attack Trees
 /// draws the trees, the tree canvas and the selected node. Threats drops the
 /// palette. Controls drops the diagram as well, so the answers take the whole
-/// window.
+/// window. Report draws the sections, the reading column and the report's
+/// controls.
 @MainActor
 struct AnalystFlowTests {
     private func aDrawnProject() async -> ProjectSession {
@@ -87,10 +88,15 @@ struct AnalystFlowTests {
     }
 
     /// The stages, in the order the panel lists them: Attack Trees sits after
-    /// Architecture, because a tree names elements the architecture states.
-    @Test func listsTheFourStagesInOrder() {
-        #expect(WorkStage.allCases == [.architecture, .attackTrees, .threats, .controls])
+    /// Architecture, because a tree names elements the architecture states,
+    /// and Report sits last, because reading the report is the last thing a
+    /// person does.
+    @Test func listsTheFiveStagesInOrder() {
+        #expect(
+            WorkStage.allCases == [.architecture, .attackTrees, .threats, .controls, .report]
+        )
         #expect(WorkStage.attackTrees.label == "Attack Trees")
+        #expect(WorkStage.report.label == "Report")
     }
 
     /// A tree is drawn with the trees on the left, the canvas in the middle
@@ -115,6 +121,14 @@ struct AnalystFlowTests {
         let project = await aDrawnProject()
 
         #expect(try columns(.controls, of: project) == 0)
+    }
+
+    /// The report is read with the sections on the left, the sections
+    /// themselves in the middle and the report's own controls on the right.
+    @Test func drawsTheSectionsTheReadingAndTheControlsWhileReadingTheReport() async throws {
+        let project = await aDrawnProject()
+
+        #expect(try columns(.report, of: project) == 3)
     }
 
     // MARK: what a stage draws
