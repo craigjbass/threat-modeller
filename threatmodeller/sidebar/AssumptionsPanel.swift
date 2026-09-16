@@ -33,12 +33,17 @@ struct AssumptionsPanel: View {
     @State private var partyLink = ""
     @State private var attributeName = ""
     @State private var attributeValue = ""
+    @State private var diagramLabel = ""
+    @State private var diagramText = ""
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 systemFacts
                 riskTolerance
+
+                Divider()
+                systemDiagrams
 
                 Divider()
                 Text("What this system takes on trust")
@@ -326,6 +331,83 @@ struct AssumptionsPanel: View {
         )
         attributeName = ""
         attributeValue = ""
+    }
+
+    /// The pictures a team keeps beside the diagram the canvas draws. A
+    /// sequence diagram of a login, or a deployment diagram, says something
+    /// the data-flow diagram cannot.
+    private var systemDiagrams: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Pictures this system keeps beside its diagram")
+                .font(.subheadline.weight(.semibold))
+
+            if session.canvas.diagrams.isEmpty {
+                Text("No diagram is written. A report shows only the diagram the canvas draws.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(session.canvas.diagrams, id: \.label) { diagram in
+                    diagramRow(diagram)
+                }
+            }
+
+            TextField("Label", text: $diagramLabel)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("diagram-label")
+            TextField("Mermaid text", text: $diagramText, axis: .vertical)
+                .lineLimit(4 ... 8)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .accessibilityIdentifier("diagram-text")
+            Button("Add", action: writeDiagram)
+                .disabled(isWritable(diagramLabel, diagramText) == false)
+                .accessibilityIdentifier("add-diagram")
+        }
+    }
+
+    private func diagramRow(_ diagram: ViewedSystemDiagram) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(diagram.label)
+                    .font(.callout.weight(.semibold))
+                Spacer(minLength: 4)
+                Button {
+                    diagramLabel = diagram.label
+                    diagramText = diagram.text
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("edit-diagram-\(diagram.label)")
+                Button {
+                    session.removeSystemDiagram(label: diagram.label)
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("remove-diagram-\(diagram.label)")
+            }
+            Text(diagram.text)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(4)
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .controlBackgroundColor)))
+    }
+
+    /// The form writes a new diagram, and writing a label that is already
+    /// there changes that diagram. The pencil fills the form in, so a person
+    /// edits what is written rather than typing it again.
+    private func writeDiagram() {
+        session.setSystemDiagram(
+            label: diagramLabel.trimmingCharacters(in: .whitespaces),
+            text: diagramText.trimmingCharacters(in: .whitespaces)
+        )
+        diagramLabel = ""
+        diagramText = ""
     }
 
     /// One list, as one line a person edits.

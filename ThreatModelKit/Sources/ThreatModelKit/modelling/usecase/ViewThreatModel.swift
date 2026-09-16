@@ -239,6 +239,18 @@ public struct ViewedThirdParty: Equatable, Sendable {
     }
 }
 
+/// One picture a team keeps beside the diagram the canvas draws, as the
+/// interface reads it. Mermaid is the one kind this application draws.
+public struct ViewedSystemDiagram: Equatable, Sendable {
+    public let label: String
+    public let text: String
+
+    public init(label: String, text: String) {
+        self.label = label
+        self.text = text
+    }
+}
+
 /// One thing the team states that the language does not name.
 public struct ViewedSystemAttribute: Equatable, Sendable {
     public let name: String
@@ -360,6 +372,9 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     public let systemAssets: [ViewedSystemAsset]
     /// The parties outside this team the system depends on, in file order.
     public let thirdParties: [ViewedThirdParty]
+    /// The pictures a team keeps beside the diagram the canvas draws, in
+    /// file order.
+    public let diagrams: [ViewedSystemDiagram]
     /// What the document states about itself.
     public let systemFacts: ViewedSystemFacts
     /// What one component lowers on another.
@@ -387,6 +402,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         exclusions: [ViewedExclusion] = [],
         systemAssets: [ViewedSystemAsset] = [],
         thirdParties: [ViewedThirdParty] = [],
+        diagrams: [ViewedSystemDiagram] = [],
         systemFacts: ViewedSystemFacts = ViewedSystemFacts(),
         mitigations: [ViewedMitigation] = [],
         riskTolerance: String = RiskLevel.low.rawValue,
@@ -401,6 +417,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         self.exclusions = exclusions
         self.systemAssets = systemAssets
         self.thirdParties = thirdParties
+        self.diagrams = diagrams
         self.systemFacts = systemFacts
         self.mitigations = mitigations
         self.riskTolerance = riskTolerance
@@ -516,6 +533,9 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     owner: $0.owner,
                     link: $0.link
                 )
+            },
+            diagrams: model.diagrams.map {
+                ViewedSystemDiagram(label: $0.label, text: $0.text)
             },
             systemFacts: ViewedSystemFacts(
                 owner: model.owner,

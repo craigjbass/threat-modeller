@@ -238,6 +238,14 @@ public final class TestDependencies: UseCaseFactory {
         RemoveSystemAttribute(models: models)
     }
 
+    public func setSystemDiagram() -> SetSystemDiagramUseCase {
+        SetSystemDiagram(models: models)
+    }
+
+    public func removeSystemDiagram() -> RemoveSystemDiagramUseCase {
+        RemoveSystemDiagram(models: models)
+    }
+
     public func setThirdParty() -> SetThirdPartyUseCase {
         SetThirdParty(models: models)
     }

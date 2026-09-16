@@ -1159,6 +1159,25 @@ final class ThreatModelSession {
         refresh()
     }
 
+    // MARK: the pictures a team keeps beside the diagram the canvas draws
+
+    /// Writes one `diagram` block. Writing the same label again changes the
+    /// block that is there.
+    func setSystemDiagram(label: String, text: String) {
+        useCases.setSystemDiagram()
+            .execute(SetSystemDiagramRequest(label: label, text: text))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    /// Takes one `diagram` block off.
+    func removeSystemDiagram(label: String) {
+        useCases.removeSystemDiagram()
+            .execute(RemoveSystemDiagramRequest(label: label))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
     // MARK: the parties outside this team the system depends on
 
     /// Writes one `third_party` block into this system's file. Writing the

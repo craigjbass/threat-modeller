@@ -239,6 +239,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveSystemAttribute(models: models)
     }
 
+    func setSystemDiagram() -> SetSystemDiagramUseCase {
+        SetSystemDiagram(models: models)
+    }
+
+    func removeSystemDiagram() -> RemoveSystemDiagramUseCase {
+        RemoveSystemDiagram(models: models)
+    }
+
     func setThirdParty() -> SetThirdPartyUseCase {
         SetThirdParty(models: models)
     }
