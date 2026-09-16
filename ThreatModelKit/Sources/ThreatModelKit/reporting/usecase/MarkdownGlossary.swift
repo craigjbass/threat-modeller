@@ -12,7 +12,9 @@ public enum MarkdownGlossary {
         return lines
     }
 
-    private static let entries: [(word: String, meaning: String)] = [
+    /// Every word the glossary states. The Report stage draws the same
+    /// list as rows, so the two cannot drift.
+    public static let entries: [(word: String, meaning: String)] = [
         ("Answered", "a person has said something about the threat: a control is implemented, not applicable or accepted, or a compensating control stands"),
         ("Implemented", "the control is in place, and it lowers the score"),
         ("Not applicable", "the control does not apply here, and it leaves the share the other controls divide"),

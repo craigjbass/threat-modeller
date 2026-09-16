@@ -50,7 +50,7 @@ public struct CompileSystemReport: CompileSystemReportUseCase {
             switch templates.execute(ReadReportTemplateRequest(root: request.root)) {
             case .none:
                 break
-            case .found(let found):
+            case .found(let found, _):
                 template = found
             case .missing(let path):
                 return .cannotWrite(reason: "there is no template at \(path)")

@@ -23,9 +23,31 @@ public enum MarkdownMethodology {
         lines.append("The stages run in this order, and each one takes the score the one before it left.")
         lines.append("")
 
-        // One entry per stage, numbered as it is written. A stage that writes
-        // its own "1." and leans on the reader's Markdown to renumber it comes
-        // out as "1." on every line, in the file and on the page.
+        let stages = self.stages(methodology)
+        for (index, stage) in stages.enumerated() {
+            lines.append("\(index + 1). \(stage)")
+        }
+        lines.append("")
+
+        lines.append(
+            "The project's risk tolerance is \(methodology.toleranceLabel)."
+                + " A likelihood finding answers a threat only when the threat"
+                + " sits at or below that level."
+        )
+        lines.append(
+            "\"If the assumptions hold\" is the same arithmetic with every"
+                + " assumed `mitigates` edge counted as in place."
+        )
+        lines.append("")
+
+        lines += legend()
+        return lines
+    }
+
+    /// One entry per stage of the arithmetic, in the order `ThreatResolver`
+    /// runs them. The Report stage numbers the same list, so the window and
+    /// the file state one order.
+    public static func stages(_ methodology: ReportMethodology) -> [String] {
         var stages: [String] = []
 
         if methodology.zoneReductions.isEmpty == false {
@@ -65,45 +87,36 @@ public enum MarkdownMethodology {
                 + " states. Two give the stronger reduction, never the sum."
         )
         stages.append("A score never falls below 1.")
-
-        for (index, stage) in stages.enumerated() {
-            lines.append("\(index + 1). \(stage)")
-        }
-        lines.append("")
-
-        lines.append(
-            "The project's risk tolerance is \(methodology.toleranceLabel)."
-                + " A likelihood finding answers a threat only when the threat"
-                + " sits at or below that level."
-        )
-        lines.append(
-            "\"If the assumptions hold\" is the same arithmetic with every"
-                + " assumed `mitigates` edge counted as in place."
-        )
-        lines.append("")
-
-        lines += legend()
-        return lines
+        return stages
     }
 
     /// Fixed text. Every row states what the drawing code does, not what a
     /// reader might expect it to do.
     private static func legend() -> [String] {
-        [
-            "### Diagram legend",
-            "",
-            "| Mark | Meaning |",
-            "| --- | --- |",
-            "| Red, orange, yellow, green | Critical, High, Medium, Low |",
-            "| Dashed tinted box | a zone, green if private, orange otherwise |",
-            "| Purple dashed line | a control protecting an element; it carries no data |",
-            "| Purple badge on that line | how many threats the control answers on the component at the other end |",
-            "| Grey chip | a boundary crossing with no guard, and a threat still open there |",
-            "| Dashed guard marker | a guard the model assumes rather than adopts |",
-            "| Thicker stroke | the element the picture is about |",
-            "| Badge on a component | how many threats are still open on that component |",
-            "| Arrowhead | the direction the data flows |",
-            ""
-        ]
+        var lines = ["### Diagram legend", "", "| Mark | Meaning |", "| --- | --- |"]
+        for row in legendRows {
+            lines.append("| \(row.mark) | \(row.meaning) |")
+        }
+        lines.append("")
+        return lines
     }
+
+    /// Every row of the diagram legend. The Report stage draws the same rows.
+    public static let legendRows: [(mark: String, meaning: String)] = [
+        ("Red, orange, yellow, green", "Critical, High, Medium, Low"),
+        ("Dashed tinted box", "a zone, green if private, orange otherwise"),
+        ("Purple dashed line", "a control protecting an element; it carries no data"),
+        (
+            "Purple badge on that line",
+            "how many threats the control answers on the component at the other end"
+        ),
+        (
+            "Grey chip",
+            "a boundary crossing with no guard, and a threat still open there"
+        ),
+        ("Dashed guard marker", "a guard the model assumes rather than adopts"),
+        ("Thicker stroke", "the element the picture is about"),
+        ("Badge on a component", "how many threats are still open on that component"),
+        ("Arrowhead", "the direction the data flows")
+    ]
 }

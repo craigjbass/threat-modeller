@@ -17,7 +17,9 @@ public struct ReadReportTemplateRequest: Equatable, Sendable {
 public enum ReadReportTemplateResponse: Equatable, Sendable {
     /// The project states no template, so the report keeps its shipped shape.
     case none
-    case found(ReportTemplate)
+    /// The template the project renders through, and the file it was read
+    /// from. The window names that file, so the response carries it.
+    case found(ReportTemplate, path: String)
     /// The named file is not there. The report must not be written.
     case missing(path: String)
     /// The named file is not a template. The report must not be written.
@@ -50,7 +52,7 @@ public struct ReadReportTemplate: ReadReportTemplateUseCase {
         guard let template = read.template else {
             return .didNotParse(path: path, diagnostics: read.diagnostics)
         }
-        return .found(template)
+        return .found(template, path: path)
     }
 
     /// The template the policy file states, or nil when the project holds no
