@@ -1,0 +1,8 @@
+# A sample project the extension tests run the commands over.
+system "payments" {
+  description = "Takes a card payment"
+
+  component "api" {
+    technology = "aws-api-gateway"
+  }
+}
