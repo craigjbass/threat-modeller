@@ -171,6 +171,14 @@ final class TreeEditor {
             }
             return id
         }
+        if payload == TreeElement.boxPayload {
+            var id = ""
+            change("Drop") {
+                id = $0.graph.add(.placeholder(element: nil), title: Self.boxTitle(nil))
+                $0.layout.place(id, at: point)
+            }
+            return id
+        }
         guard let element = elements.first(where: { $0.payload == payload }) else { return nil }
         let id = "p\(nextPendingNumber)"
         nextPendingNumber += 1
@@ -180,10 +188,46 @@ final class TreeEditor {
         return id
     }
 
-    /// Picking a threat makes the pending element a step. A tree reaches a
-    /// threat, so the first step a person makes is the goal until they move
-    /// the mark.
+    /// What a box shows: the element it holds, or **Any element**.
+    static func boxTitle(_ element: TreeElement?) -> String {
+        element?.name ?? "Any element"
+    }
+
+    /// Fills a box with the element picked from the search, or empties it
+    /// again with nil. The box keeps its id, its point and its joins.
+    func fill(_ id: String, with element: TreeElement?) {
+        guard case .placeholder = draft.graph.node(id)?.kind else { return }
+        change(element == nil ? "Empty the Box" : "Pick Element") {
+            $0.graph.set(
+                id,
+                kind: .placeholder(element: element),
+                title: Self.boxTitle(element),
+                subtitle: element?.kind ?? ""
+            )
+        }
+    }
+
+    /// Picking a threat makes the pending element, or the filled box, a
+    /// step. A tree reaches a threat, so the first step a person makes is
+    /// the goal until they move the mark.
     func pick(_ threat: AssessedThreat, for pendingId: String) {
+        if case .placeholder(let element?) = draft.graph.node(pendingId)?.kind {
+            change("Pick Threat") { draft in
+                let target = SourceTreeTarget(
+                    threatId: threat.threatId,
+                    sourceKind: element.kind,
+                    sourceId: element.sourceId
+                )
+                draft.graph.set(
+                    pendingId,
+                    kind: .step(target: target, note: nil),
+                    title: threat.name,
+                    subtitle: element.name
+                )
+                if draft.graph.goalId == nil { draft.graph.goalId = pendingId }
+            }
+            return
+        }
         guard let item = draft.pending.first(where: { $0.id == pendingId }) else { return }
         change("Pick Threat") { draft in
             let target = SourceTreeTarget(

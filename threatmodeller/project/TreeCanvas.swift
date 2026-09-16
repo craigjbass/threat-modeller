@@ -207,6 +207,7 @@ struct TreeCanvas: View {
                     isGoal: editor.graph.goalId == node.id,
                     isSelected: canvas.isSelected(node.id),
                     state: TreeStepState.state(of: node, in: bound),
+                    isOutside: TreeConnectable.outsideJoin(from: node.id, in: editor.graph, elements: elements) != nil,
                     size: gestures.size(of: node.id),
                     reach: gestures.joinHandleReach,
                     onSelect: { gestures.selectNode(node.id, addingToSelection: $0) },
@@ -308,6 +309,9 @@ private struct TreeNodeView: View {
     /// What the assessment says about the step, or nil while it is unwritten
     /// or a junction.
     let state: StepState?
+    /// True for a step that feeds a node its element does not reach: no flow
+    /// or zone joins the two. The join is written; the mark says so.
+    let isOutside: Bool
     let size: CGSize
     /// How far the join handle's hit region reaches past the node's right
     /// edge, in model units. The node's own frame grows by it on both sides,
@@ -328,6 +332,8 @@ private struct TreeNodeView: View {
                 step
             case .allOf, .anyOf:
                 junction
+            case .placeholder(let element):
+                box(element)
             }
 
             if isHovering || isSelected {
@@ -381,6 +387,13 @@ private struct TreeNodeView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if isOutside {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .help("No flow or zone joins this element to the one it feeds.")
+                        .accessibilityIdentifier("tree-node-outside-\(node.id)")
+                }
             }
         }
         .padding(.horizontal, 8)
@@ -404,6 +417,30 @@ private struct TreeNodeView: View {
             .frame(width: size.width, height: size.height)
             .background(Capsule().fill(.bar))
             .overlay(Capsule().strokeBorder(outline, lineWidth: isSelected ? 2 : 1))
+    }
+
+    /// A box waiting for an element, then a threat: a dashed outline, the
+    /// element it holds or **Any element**, and what to do next.
+    private func box(_ element: TreeElement?) -> some View {
+        VStack(spacing: 2) {
+            Text(node.title)
+                .font(.callout.weight(.semibold))
+                .lineLimit(1)
+            Text(element == nil ? "Join it, then pick an element" : "Pick a threat")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .frame(width: size.width, height: size.height)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.bar).opacity(0.8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(
+                    isSelected ? Color.accentColor : .secondary,
+                    style: StrokeStyle(lineWidth: isSelected ? 2 : 1, dash: [6, 4])
+                )
+        )
     }
 
     /// The handle at the right edge, where the edge leaves the node. It draws
