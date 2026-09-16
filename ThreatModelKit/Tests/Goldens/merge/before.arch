@@ -1,0 +1,49 @@
+system "Payments" {
+  zone "app" {
+    kind            = "private"
+    network         = "generic"
+    reduces_risk_by = 20
+
+    component "api" {
+      technology = "aws-ec2"
+      data       = "confidential"
+      tags       = ["core"]
+    }
+
+    component "api2" {
+      technology = "aws-ec2"
+      name       = "Payments API"
+      data       = "restricted"
+      holds      = ["cards"]
+      tags       = ["edge"]
+    }
+
+    component "ledger" {
+      technology = "aws-rds"
+      data       = "restricted"
+    }
+  }
+
+  asset "cards" {
+    name           = "Card numbers"
+    classification = "restricted"
+  }
+
+  component "browser" {
+    technology = "actor-user"
+  }
+
+  flow browser -> api
+  flow browser -> api2 {
+    kind        = "network"
+    description = "checkout"
+  }
+
+  flow api -> ledger
+  flow api2 -> ledger {
+    kind    = "network"
+    carries = ["cards"]
+  }
+
+  flow api -> api2
+}

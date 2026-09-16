@@ -550,6 +550,20 @@ public final class TestDependencies: UseCaseFactory {
         RemoveComponents(models: models)
     }
 
+    public func mergeComponents() -> MergeComponentsUseCase {
+        MergeComponents(
+            models: models,
+            catalogue: catalogue,
+            projects: projects,
+            controlsSources: controlsSources,
+            attackTreeSources: attackTreeSources
+        )
+    }
+
+    public func restoreFileSnapshots() -> RestoreFileSnapshotsUseCase {
+        RestoreFileSnapshots(projects: projects)
+    }
+
     public func connectComponents() -> ConnectComponentsUseCase {
         ConnectComponents(models: models, ids: ids)
     }

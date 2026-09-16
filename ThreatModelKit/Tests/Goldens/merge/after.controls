@@ -1,0 +1,110 @@
+controls for "Payments" {
+  catalogue = "v0.0.0"
+  tolerance = "low"
+
+  threat "credential-theft" on component "api" {
+    severity = "Critical"
+    score    = 2
+
+    likelihood "no campaign observed" {
+      tier      = "research"
+      rationale = "no known exploitation in the wild"
+    }
+
+    control "Enforce IMDSv2 to block SSRF-based credential theft" {
+      status      = "implemented"
+      evidence    = "tested"
+      reference   = "ci/imdsv2"
+      verified_on = "2026-09-01"
+    }
+
+    control "Use IAM roles with minimal permissions" {
+      status = "not_implemented"
+    }
+  }
+
+  threat "dos-attack" on component "api" {
+    severity = "Low"
+    score    = 3
+
+    control "Apply rate limits" {
+      status = "not_implemented"
+    }
+  }
+
+  threat "misconfiguration" on component "api" {
+    severity = "Medium"
+    score    = 2
+
+    control "Scan configuration continuously" {
+      status = "implemented"
+    }
+  }
+
+  threat "misconfiguration" on component "ledger" {
+    severity = "Low"
+    score    = 3
+
+    control "Scan configuration continuously" {
+      status = "not_implemented"
+    }
+
+    severity_override "low" {
+      rationale = "no public route"
+    }
+  }
+
+  threat "connection-dos" on flow "api->ledger" {
+    severity = "Low"
+    score    = 3
+
+    control "Apply connection rate limits" {
+      status = "not_implemented"
+    }
+  }
+
+  threat "connection-mitm" on flow "api->ledger" {
+    severity = "Medium"
+    score    = 6
+
+    control "Enforce TLS on every hop" {
+      status = "not_implemented"
+    }
+  }
+
+  threat "connection-dos" on flow "browser->api" {
+    severity = "Low"
+    score    = 4
+
+    control "Apply connection rate limits" {
+      status = "not_implemented"
+    }
+  }
+
+  threat "connection-mitm" on flow "browser->api" {
+    severity = "Medium"
+    score    = 8
+
+    control "Enforce TLS on every hop" {
+      status = "not_implemented"
+    }
+  }
+
+  threat "lateral-movement" on zone "app" {
+    severity = "High"
+    score    = 5
+
+    control "Segment the network and restrict east-west traffic" {
+      status = "not_implemented"
+    }
+  }
+
+  threat "misconfiguration" on zone "app" {
+    severity = "Medium"
+    score    = 3
+
+    control "Scan configuration continuously" {
+      status = "not_implemented"
+    }
+  }
+}

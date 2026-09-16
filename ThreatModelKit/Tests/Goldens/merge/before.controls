@@ -1,0 +1,27 @@
+controls for "Payments" {
+  threat "credential-theft" on component "api2" {
+    likelihood "no campaign observed" {
+      tier      = "research"
+      rationale = "no known exploitation in the wild"
+    }
+
+    control "Enforce IMDSv2 to block SSRF-based credential theft" {
+      status      = "implemented"
+      evidence    = "tested"
+      reference   = "ci/imdsv2"
+      verified_on = "2026-09-01"
+    }
+  }
+
+  threat "misconfiguration" on component "api" {
+    control "Scan configuration continuously" {
+      status = "implemented"
+    }
+  }
+
+  threat "misconfiguration" on component "ledger" {
+    severity_override "low" {
+      rationale = "no public route"
+    }
+  }
+}

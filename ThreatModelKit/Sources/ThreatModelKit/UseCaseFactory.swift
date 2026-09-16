@@ -107,6 +107,8 @@ public protocol UseCaseFactory: Sendable {
     func setUserProperties() -> SetUserPropertiesUseCase
     func moveComponents() -> MoveComponentsUseCase
     func removeComponents() -> RemoveComponentsUseCase
+    func mergeComponents() -> MergeComponentsUseCase
+    func restoreFileSnapshots() -> RestoreFileSnapshotsUseCase
     func connectComponents() -> ConnectComponentsUseCase
     func removeConnection() -> RemoveConnectionUseCase
     func setConnectionProperties() -> SetConnectionPropertiesUseCase

@@ -551,6 +551,20 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveComponents(models: models)
     }
 
+    func mergeComponents() -> MergeComponentsUseCase {
+        MergeComponents(
+            models: models,
+            catalogue: catalogue,
+            projects: projects,
+            controlsSources: controlsSources,
+            attackTreeSources: attackTreeSources
+        )
+    }
+
+    func restoreFileSnapshots() -> RestoreFileSnapshotsUseCase {
+        RestoreFileSnapshots(projects: projects)
+    }
+
     func connectComponents() -> ConnectComponentsUseCase {
         ConnectComponents(models: models, ids: ids)
     }

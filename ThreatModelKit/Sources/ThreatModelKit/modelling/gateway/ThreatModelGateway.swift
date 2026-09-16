@@ -58,6 +58,7 @@ public enum ChangeLabel {
     public static let setUserProperties = "Edit User"
     public static let moveComponents = "Move"
     public static let removeComponents = "Delete"
+    public static let mergeComponents = "Merge Components"
     public static let connectComponents = "Connect"
     public static let removeConnection = "Delete Flow"
     public static let setConnectionProperties = "Edit Flow"
