@@ -119,8 +119,15 @@ struct AnalystFlowTests {
 
     // MARK: what a stage draws
 
-    /// True when the picture holds more than one colour, which tells a view
-    /// that drew its content from one that drew a blank rectangle.
+    /// True when the picture holds more than one pixel value, which tells a
+    /// view that drew its content from one that drew a blank rectangle.
+    ///
+    /// A pixel value is the colour and the alpha together. A panel that draws
+    /// no background of its own, such as `TreeSelectionPanel`, draws white
+    /// text on nothing, so every pixel reads white and only the alpha says
+    /// which pixel the panel drew. A machine with no screen leaves the
+    /// untouched pixels at one colour, so a check that reads the colour alone
+    /// calls such a panel blank.
     private func hasContent(_ image: NSBitmapImageRep) -> Bool {
         var seen: Set<String> = []
         let across = stride(from: 4, to: image.pixelsWide - 4, by: max(1, image.pixelsWide / 40))
@@ -130,10 +137,11 @@ struct AnalystFlowTests {
                 guard let colour = image.colorAt(x: x, y: y) else { continue }
                 seen.insert(
                     String(
-                        format: "%.2f,%.2f,%.2f",
+                        format: "%.2f,%.2f,%.2f,%.2f",
                         colour.redComponent,
                         colour.greenComponent,
-                        colour.blueComponent
+                        colour.blueComponent,
+                        colour.alphaComponent
                     )
                 )
                 if seen.count > 1 { return true }
