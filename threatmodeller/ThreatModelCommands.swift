@@ -160,24 +160,39 @@ struct ThreatModelCommands: Commands {
         // text; anything else acts on what the canvas has selected. Two items
         // sharing one shortcut would give the user whichever the menu listed
         // first, so there is one item per shortcut and it routes.
-        // The View menu. Laying the diagram out again is how a person gets a
-        // picture back after an hour of dragging one by hand.
-        CommandMenu("View") {
-            // The standard sidebar button writes to the split view's own
-            // visibility. This item writes the same state, so a person has a
-            // menu item and a key for it as well as the button.
-            Button("Show or Hide Palette") { palette?.toggle() }
-                .keyboardShortcut("s", modifiers: [.command, .control])
-                .disabled(palette == nil)
-                .accessibilityIdentifier("toggle-palette")
 
-            Button("Lay Out Diagram") {
-                guard let project else { return }
-                Task { await project.layOutDiagram() }
-            }
-            .keyboardShortcut("l", modifiers: [.command, .shift])
-            .disabled(project?.model == nil)
-            .accessibilityIdentifier("lay-out-diagram")
+        // The application's own view items go into the standard View menu,
+        // after Show Sidebar and before the system's own Enter Full Screen.
+        // A second top-level menu named View gives a person two places to
+        // look for one item.
+        CommandGroup(after: .sidebar) {
+            // One key per stage, in the stage order.
+            Button("Architecture") { canvas?.showStage?(.architecture) }
+                .keyboardShortcut("1", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-architecture")
+
+            Button("Attack Trees") { canvas?.showStage?(.attackTrees) }
+                .keyboardShortcut("2", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-attack-trees")
+
+            Button("Threats") { canvas?.showStage?(.threats) }
+                .keyboardShortcut("3", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-threats")
+
+            Button("Controls") { canvas?.showStage?(.controls) }
+                .keyboardShortcut("4", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-controls")
+
+            Button("Report") { canvas?.showStage?(.report) }
+                .keyboardShortcut("5", modifiers: .command)
+                .disabled(canvas?.showStage == nil)
+                .accessibilityIdentifier("stage-report")
+
+            Divider()
 
             Button("Zoom In") { zoom { $0.zoomAStep(in: true) } }
                 .keyboardShortcut("=", modifiers: .command)
@@ -217,33 +232,21 @@ struct ThreatModelCommands: Commands {
 
             Divider()
 
-            // One key per stage, in the stage order.
-            Button("Architecture") { canvas?.showStage?(.architecture) }
-                .keyboardShortcut("1", modifiers: .command)
-                .disabled(canvas?.showStage == nil)
-                .accessibilityIdentifier("stage-architecture")
+            // The standard sidebar button writes to the split view's own
+            // visibility. This item writes the same state, so a person has a
+            // menu item and a key for it as well as the button.
+            Button("Show or Hide Palette") { palette?.toggle() }
+                .keyboardShortcut("s", modifiers: [.command, .control])
+                .disabled(palette == nil)
+                .accessibilityIdentifier("toggle-palette")
 
-            Button("Attack Trees") { canvas?.showStage?(.attackTrees) }
-                .keyboardShortcut("2", modifiers: .command)
-                .disabled(canvas?.showStage == nil)
-                .accessibilityIdentifier("stage-attack-trees")
-
-            Button("Threats") { canvas?.showStage?(.threats) }
-                .keyboardShortcut("3", modifiers: .command)
-                .disabled(canvas?.showStage == nil)
-                .accessibilityIdentifier("stage-threats")
-
-            Button("Controls") { canvas?.showStage?(.controls) }
-                .keyboardShortcut("4", modifiers: .command)
-                .disabled(canvas?.showStage == nil)
-                .accessibilityIdentifier("stage-controls")
-
-            Button("Report") { canvas?.showStage?(.report) }
-                .keyboardShortcut("5", modifiers: .command)
-                .disabled(canvas?.showStage == nil)
-                .accessibilityIdentifier("stage-report")
-
-            Divider()
+            Button("Lay Out Diagram") {
+                guard let project else { return }
+                Task { await project.layOutDiagram() }
+            }
+            .keyboardShortcut("l", modifiers: [.command, .shift])
+            .disabled(project?.model == nil)
+            .accessibilityIdentifier("lay-out-diagram")
 
             Button("Lay Out Selection") {
                 guard let project, let canvas else { return }
