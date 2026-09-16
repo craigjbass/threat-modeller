@@ -463,7 +463,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 historyTruncated: request.historyTruncated,
                 change: request.change,
                 policy: policyRules.map {
-                    ReportPolicyRule(name: $0.name, asks: $0.asks, breaches: $0.breaches.count)
+                    ReportPolicyRule(name: $0.name, asks: $0.asks, breaches: $0.breaches)
                 },
                 acceptedRisks: acceptedRisks,
                 attackTrees: assessment.attackTrees,

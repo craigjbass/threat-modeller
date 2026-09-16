@@ -57,6 +57,14 @@ final class ProjectSession {
     /// two differ and the person has not said to keep the one the file states.
     private(set) var catalogueDrift: CatalogueDrift?
 
+    /// The rules the project states for itself, read over the drawn model by
+    /// the same evaluation the report reads. Empty for a project with no
+    /// policy file.
+    private(set) var policyRules: [ReportPolicyRule] = []
+    /// True after a person dismisses the breach notice. A change to the rules
+    /// brings the notice back.
+    private var isPolicyNoticeDismissed = false
+
     /// The session drawing the chosen system, or nil while nothing is drawn.
     private(set) var model: ThreatModelSession?
 
@@ -158,6 +166,17 @@ final class ProjectSession {
 
     var hasErrors: Bool {
         diagnostics.contains { $0.severity == .error }
+    }
+
+    /// True when the drawn system breaks a policy rule.
+    var hasPolicyBreach: Bool {
+        policyRules.contains { $0.holds == false }
+    }
+
+    /// True while the window says a rule is breached. A person dismisses the
+    /// notice; the sheet still lists the rules.
+    var showsPolicyBreach: Bool {
+        hasPolicyBreach && isPolicyNoticeDismissed == false
     }
 
     /// True when the drawn model holds a change no file holds.
@@ -273,6 +292,7 @@ final class ProjectSession {
             systems = []
             model = nil
             watcher.stop()
+            readPolicyRules()
             errorMessage = "That is not a project: \(reason)"
         }
     }
@@ -515,6 +535,7 @@ final class ProjectSession {
             hasFilesChangedOnDisk = false
             // Set last, so building the session does not count as a change.
             drawn.onChange = { [weak self] in self?.modelDidChange() }
+            readPolicyRules()
             readCatalogueDrift(statedTag: statedTag, systemName: systemName)
         case .refused(let fileName, let faults):
             chosenSystem = systemName
@@ -524,6 +545,7 @@ final class ProjectSession {
             clearMessage()
             savedRevision = 0
             hasFilesChangedOnDisk = false
+            readPolicyRules()
             errorMessage = "\(fileName) did not parse."
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(systemName)\"."
@@ -709,6 +731,7 @@ final class ProjectSession {
         case .saved:
             errorMessage = nil
             await saveAnswers(root: root, systemName: chosenSystem)
+            readPolicyRules()
             savedRevision = model?.revision ?? 0
             fingerprint = currentFingerprint()
             hasFilesChangedOnDisk = false
@@ -855,10 +878,23 @@ final class ProjectSession {
         "catalogue-drift:\(drift.fileName):\(drift.stated)->\(drift.inUse)"
     }
 
-    /// Takes the notice off the screen: the diagnostics and the error with
-    /// them. An error never clears itself, so this is how one goes.
+    /// Takes the notice off the screen: the diagnostics, the error, and the
+    /// breach with them. An error never clears itself, so this is how one
+    /// goes.
     func dismissDiagnostics() {
         diagnostics = []
         errorMessage = nil
+        isPolicyNoticeDismissed = true
+    }
+
+    /// Reads the rules again, over the drawn model. Rules that changed bring
+    /// a dismissed breach notice back.
+    private func readPolicyRules() {
+        let read: [ReportPolicyRule] = model == nil
+            ? []
+            : useCases.buildThreatModelReport()
+                .execute(BuildThreatModelReportRequest()).report.policy
+        if read != policyRules { isPolicyNoticeDismissed = false }
+        policyRules = read
     }
 }

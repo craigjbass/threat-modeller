@@ -3,15 +3,17 @@
 public struct ReportPolicyRule: Equatable, Sendable {
     public let name: String
     public let asks: String
-    public let breaches: Int
+    /// What breached the rule, one line per breach, in the words the check
+    /// prints. Empty when this system keeps the rule.
+    public let breaches: [String]
 
-    public init(name: String, asks: String, breaches: Int) {
+    public init(name: String, asks: String, breaches: [String]) {
         self.name = name
         self.asks = asks
         self.breaches = breaches
     }
 
-    public var holds: Bool { breaches == 0 }
+    public var holds: Bool { breaches.isEmpty }
 }
 
 /// One risk the organisation decided to carry.

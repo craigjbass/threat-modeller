@@ -320,17 +320,21 @@ struct MarkdownPolicyTests {
             ReportPolicyRule(
                 name: "max_open_at_level",
                 asks: "no threat at high or worse is unanswered",
-                breaches: 3
+                breaches: [
+                    "T-1 on component \"api\" (high) is open at or above high",
+                    "T-2 on component \"api\" (high) is open at or above high",
+                    "T-3 on component \"db\" (critical) is open at or above high"
+                ]
             ),
             ReportPolicyRule(
                 name: "system_requires_owner",
                 asks: "the file states an owner",
-                breaches: 0
+                breaches: []
             ),
             ReportPolicyRule(
                 name: "assumptions_require_owner",
                 asks: "every assumption names an owner",
-                breaches: 1
+                breaches: ["the assumption \"tls\" names no owner"]
             )
         ])
         let text = lines.joined(separator: "\n")

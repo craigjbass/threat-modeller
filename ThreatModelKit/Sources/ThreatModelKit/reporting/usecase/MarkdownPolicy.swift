@@ -23,9 +23,9 @@ public enum MarkdownPolicy {
     }
 
     private static func holds(_ rule: ReportPolicyRule) -> String {
-        guard rule.breaches > 0 else { return "yes" }
-        return rule.breaches == 1
+        guard rule.breaches.isEmpty == false else { return "yes" }
+        return rule.breaches.count == 1
             ? "no \u{2014} 1 breach"
-            : "no \u{2014} \(rule.breaches) breaches"
+            : "no \u{2014} \(rule.breaches.count) breaches"
     }
 }

@@ -1026,3 +1026,73 @@ struct ProjectLibraryTests {
         #expect(session.model != nil)
     }
 }
+
+/// The rules the project states for itself, as the window lists them beside
+/// the diagnostics. The rules come from the same evaluation the report reads,
+/// so the window and the report can never disagree.
+@MainActor
+struct ProjectPolicyTests {
+    private let policy = """
+    policy {
+      system_requires_owner = true
+    }
+    """
+
+    private func aProject(_ files: [String: String]) async -> ProjectSession {
+        let useCases = TestDependencies()
+        for (path, text) in files { useCases.project.put(text, at: path) }
+        return ProjectSession(useCases: useCases, defaults: aTestDefaults())
+    }
+
+    @Test func listsAKeptRule() async {
+        let session = await aProject([
+            "/work/threatmodel/payments.arch": """
+            system "Payments" {
+              owner = "Payments team"
+            }
+
+            """,
+            "/work/threatmodel/policy.hcl": policy
+        ])
+
+        await session.open(root: "/work")
+
+        #expect(session.policyRules == [
+            ReportPolicyRule(
+                name: "system_requires_owner",
+                asks: "the file states an owner",
+                breaches: []
+            )
+        ])
+        #expect(session.hasPolicyBreach == false)
+    }
+
+    @Test func listsABreachedRuleWithTheWordsTheCheckPrints() async {
+        let session = await aProject([
+            "/work/threatmodel/payments.arch": "system \"Payments\" { }\n",
+            "/work/threatmodel/policy.hcl": policy
+        ])
+
+        await session.open(root: "/work")
+
+        #expect(session.policyRules == [
+            ReportPolicyRule(
+                name: "system_requires_owner",
+                asks: "the file states an owner",
+                breaches: ["this system states no owner"]
+            )
+        ])
+        #expect(session.hasPolicyBreach)
+    }
+
+    @Test func listsNothingForAProjectWithNoPolicyFile() async {
+        let session = await aProject([
+            "/work/threatmodel/payments.arch": "system \"Payments\" { }\n"
+        ])
+
+        await session.open(root: "/work")
+
+        #expect(session.policyRules.isEmpty)
+        #expect(session.hasPolicyBreach == false)
+    }
+}

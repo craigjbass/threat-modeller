@@ -653,6 +653,36 @@ struct ViewRenderTests {
         )
     }
 
+    /// The sheet lists the policy rules beside the diagnostics: each rule
+    /// marked kept or breached, and a breach in the words the check prints.
+    @Test func drawsTheDiagnosticsSheetWithPolicyRules() async {
+        expectDrawn(
+            DiagnosticsSheet(
+                fileName: "payments.arch",
+                diagnostics: [
+                    Diagnostic(severity: .warning, line: 9, column: 1, message: "an empty zone")
+                ],
+                dismiss: {},
+                path: "/work/threatmodel/payments.arch",
+                policyRules: [
+                    ReportPolicyRule(
+                        name: "system_requires_owner",
+                        asks: "the file states an owner",
+                        breaches: ["this system states no owner"]
+                    ),
+                    ReportPolicyRule(
+                        name: "accepted_requires_owner",
+                        asks: "every accepted risk names an owner",
+                        breaches: []
+                    )
+                ]
+            ),
+            width: 560,
+            height: 380,
+            "the diagnostics sheet with policy rules"
+        )
+    }
+
     @Test func drawsTheSamplesBrowser() async {
         expectDrawn(
             SampleBrowser(session: aModel(), canvas: CanvasState()),

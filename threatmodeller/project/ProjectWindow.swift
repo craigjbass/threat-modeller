@@ -73,10 +73,12 @@ struct ProjectWindow: View {
         }
         .sheet(isPresented: $isShowingDiagnostics) {
             DiagnosticsSheet(
-                fileName: session.diagnosticsFileName ?? "",
+                fileName: session.diagnosticsFileName
+                    ?? (session.policyRules.isEmpty ? "" : "policy.hcl"),
                 diagnostics: session.diagnostics,
                 dismiss: { isShowingDiagnostics = false },
-                path: session.diagnosticsPath
+                path: session.diagnosticsPath,
+                policyRules: session.policyRules
             )
         }
         .sheet(isPresented: $isShowingHistory) {
@@ -403,30 +405,53 @@ struct ProjectWindow: View {
 
     @ViewBuilder
     private var diagnosticsNotice: some View {
-        if session.diagnostics.isEmpty == false || session.errorMessage != nil {
+        // A breached policy rule raises the notice the way an error does: the
+        // check fails the build for it, and the window must not say less.
+        if session.diagnostics.isEmpty == false || session.errorMessage != nil
+            || session.showsPolicyBreach {
             HStack(spacing: 8) {
-                Image(systemName: session.hasErrors ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                Image(
+                    systemName: session.hasErrors || session.showsPolicyBreach
+                        ? "xmark.octagon.fill"
+                        : "exclamationmark.triangle.fill"
+                )
                 Text(noticeText)
                     .font(.callout)
                 Spacer(minLength: 8)
-                if session.diagnostics.isEmpty == false {
+                if session.diagnostics.isEmpty == false || session.policyRules.isEmpty == false {
                     Button("Show") { isShowingDiagnostics = true }
                         .accessibilityIdentifier("show-diagnostics")
                 }
                 Button("Dismiss") { session.dismissDiagnostics() }
             }
             .padding(8)
-            .background(session.hasErrors ? Color.red.opacity(0.2) : Color.yellow.opacity(0.25))
+            .background(
+                session.hasErrors || session.showsPolicyBreach
+                    ? Color.red.opacity(0.2)
+                    : Color.yellow.opacity(0.25)
+            )
             .accessibilityIdentifier("project-notice")
         }
     }
 
     private var noticeText: String {
         if let errorMessage = session.errorMessage { return errorMessage }
+        var parts: [String] = []
         let count = session.diagnostics.count
-        return count == 1
-            ? "1 thing worth knowing about \(session.diagnosticsFileName ?? "this file")."
-            : "\(count) things worth knowing about \(session.diagnosticsFileName ?? "this file")."
+        if count > 0 {
+            parts.append(count == 1
+                ? "1 thing worth knowing about \(session.diagnosticsFileName ?? "this file")."
+                : "\(count) things worth knowing about \(session.diagnosticsFileName ?? "this file")."
+            )
+        }
+        if session.showsPolicyBreach {
+            let breached = session.policyRules.count { $0.holds == false }
+            parts.append(breached == 1
+                ? "This system breaks 1 policy rule."
+                : "This system breaks \(breached) policy rules."
+            )
+        }
+        return parts.joined(separator: " ")
     }
 
     private var chosen: Binding<String?> {
