@@ -1003,19 +1003,43 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// Writes what proves one control is in place. Everything empty clears it.
+    func setControlEvidence(
+        key: String,
+        evidenceId: String?,
+        reference: String,
+        verifiedOn: String?
+    ) {
+        useCases.setControlEvidence().execute(
+            SetControlEvidenceRequest(
+                controlKey: key,
+                evidenceId: evidenceId,
+                reference: reference,
+                verifiedOn: verifiedOn
+            )
+        ).describe(into: &errorMessage)
+        refresh()
+    }
+
     /// Adds or replaces what compensates one threat. An empty label removes it.
     func setCompensatingControl(
         threatKey: String,
         label: String,
         reducesRiskBy: Int,
-        rationale: String
+        rationale: String,
+        evidenceId: String? = nil,
+        evidenceReference: String = "",
+        verifiedOn: String? = nil
     ) {
         useCases.setCompensatingControl().execute(
             SetCompensatingControlRequest(
                 threatKey: threatKey,
                 label: label,
                 reducesRiskBy: reducesRiskBy,
-                rationale: rationale
+                rationale: rationale,
+                evidenceId: evidenceId,
+                evidenceReference: evidenceReference,
+                verifiedOn: verifiedOn
             )
         ).describe(into: &errorMessage)
         refresh()

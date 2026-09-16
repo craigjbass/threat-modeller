@@ -19,6 +19,9 @@ struct DocumentJSON: Codable {
     /// `implementedControls` become `implemented` statuses.
     let controlStatuses: [String: String]?
     let compensatingControls: [String: [CompensatingControlJSON]]?
+    /// Version 10 adds what proves a control. A file at version 9 or below
+    /// states none.
+    let controlProofs: [String: ControlProofJSON]?
     let pathwayMitigations: PathwayMitigationsJSON
     /// Version 4 adds these two. A version 1, 2 or 3 file has neither.
     let mitigatesEdges: [MitigatesEdgeJSON]?
@@ -224,6 +227,18 @@ struct CompensatingControlJSON: Codable {
     let reducesRiskBy: Int
     let rationale: String
     let sources: [String]?
+    /// Version 10 adds these three. A file at version 9 or below states none.
+    let evidence: String?
+    let reference: String?
+    let verifiedOn: String?
+}
+
+/// What proves one control is in place: the tier, the reference and the
+/// verified-on date. Any of the three may be absent.
+struct ControlProofJSON: Codable {
+    let evidence: String?
+    let reference: String?
+    let verifiedOn: String?
 }
 
 struct PathwayMitigationsJSON: Codable {

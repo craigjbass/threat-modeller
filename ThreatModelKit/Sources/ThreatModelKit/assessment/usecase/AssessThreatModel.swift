@@ -200,6 +200,12 @@ public struct AssessedThreat: Hashable, Sendable {
     public let scoreBeforePathwayMitigation: Int
     /// What compensates this threat, from the controls file, by label.
     public let compensatingLabels: [String]
+    /// The evidence tier the compensating control states, or nil.
+    public let compensatingEvidenceId: String?
+    /// Where the compensating control's proof is, or nil.
+    public let compensatingEvidenceReference: String?
+    /// When somebody last checked the compensating control, or nil.
+    public let compensatingVerifiedOn: String?
     /// The score before the compensating control. Equal to `riskScore` when
     /// none applied.
     public let scoreBeforeCompensation: Int
@@ -259,6 +265,9 @@ public struct AssessedThreat: Hashable, Sendable {
         pathwayMitigationLabels: [String] = [],
         scoreBeforePathwayMitigation: Int = 0,
         compensatingLabels: [String] = [],
+        compensatingEvidenceId: String? = nil,
+        compensatingEvidenceReference: String? = nil,
+        compensatingVerifiedOn: String? = nil,
         scoreBeforeCompensation: Int? = nil,
         inherentScore: Int? = nil,
         mitigatedByComponentLabels: [String] = [],
@@ -294,6 +303,9 @@ public struct AssessedThreat: Hashable, Sendable {
         self.pathwayMitigationLabels = pathwayMitigationLabels
         self.scoreBeforePathwayMitigation = scoreBeforePathwayMitigation
         self.compensatingLabels = compensatingLabels
+        self.compensatingEvidenceId = compensatingEvidenceId
+        self.compensatingEvidenceReference = compensatingEvidenceReference
+        self.compensatingVerifiedOn = compensatingVerifiedOn
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
         self.inherentScore = inherentScore ?? riskScore
         self.mitigatedByComponentLabels = mitigatedByComponentLabels
@@ -416,6 +428,11 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     pathwayMitigationLabels: threat.mitigatedBy.map(\.label),
                     scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
                     compensatingLabels: threat.compensating.map(\.label),
+                    compensatingEvidenceId: threat.compensating.first?.proof.evidence?.rawValue,
+                    compensatingEvidenceReference: threat.compensating.first.flatMap {
+                        $0.proof.reference.isEmpty ? nil : $0.proof.reference
+                    },
+                    compensatingVerifiedOn: threat.compensating.first?.proof.verifiedOn?.description,
                     scoreBeforeCompensation: threat.scoreBeforeCompensation,
                     inherentScore: threat.scoreBeforeControls,
                     mitigatedByComponentLabels: threat.mitigatedByComponents.map(\.protectorName),

@@ -10,6 +10,8 @@ struct ThreatCard: View {
     let severityChoices: [AssessedSeverity]
     let onSetControl: (_ key: String, _ implemented: Bool) -> Void
     let onSetControlStatus: (_ key: String, _ statusId: String) -> Void
+    /// Opens the evidence editor for one implemented control.
+    var onEvidence: (AssessedControl) -> Void = { _ in }
     let onCompensate: () -> Void
     var onLikelihood: () -> Void = {}
     /// Opens the governance editor for one accepted control, or nil in a
@@ -126,8 +128,8 @@ struct ThreatCard: View {
         }
     }
 
-    /// What proves an implemented control is in place. Read only: the
-    /// `.controls` file states it, and a person edits that file.
+    /// What proves an implemented control is in place, and the button that
+    /// writes it.
     @ViewBuilder
     private func evidence(_ control: AssessedControl) -> some View {
         if control.isImplemented {
@@ -143,6 +145,10 @@ struct ThreatCard: View {
                 } else {
                     Text("No evidence")
                 }
+                Spacer(minLength: 4)
+                Button("Evidence\u{2026}") { onEvidence(control) }
+                    .font(.caption2)
+                    .accessibilityIdentifier("evidence-edit-\(control.key)")
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
@@ -198,6 +204,20 @@ struct ThreatCard: View {
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(threat.compensatingLabels, id: \.self) { label in
                         Text(label).font(.caption)
+                    }
+                    if let tier = threat.compensatingEvidenceId {
+                        HStack(spacing: 4) {
+                            Text("Evidence: \(tier)")
+                            if let reference = threat.compensatingEvidenceReference {
+                                Text("· \(reference)")
+                            }
+                            if let verifiedOn = threat.compensatingVerifiedOn {
+                                Text("· verified \(verifiedOn)")
+                            }
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("compensating-evidence-\(threat.threatKey)")
                     }
                     Text("\(threat.scoreBeforeCompensation) \u{2192} \(threat.riskScore)")
                         .font(.caption2)

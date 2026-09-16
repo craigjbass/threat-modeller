@@ -114,6 +114,7 @@ struct ChangeLabelTests {
             ChangeLabel.removeZone, ChangeLabel.setZoneProperties,
             ChangeLabel.setComponentProperties, ChangeLabel.paste, ChangeLabel.duplicate,
             ChangeLabel.recordControl, ChangeLabel.setControlStatus,
+            ChangeLabel.setControlEvidence,
             ChangeLabel.overrideSeverity, ChangeLabel.clearSeverityOverride,
             ChangeLabel.setCompensatingControl, ChangeLabel.setLikelihoodFinding,
             ChangeLabel.configurePathwayMitigations, ChangeLabel.setMitigatesEdge,

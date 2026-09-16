@@ -58,6 +58,9 @@ struct ThreatSidebar: View {
     /// The accepted control whose governance the user is writing.
     @State private var governing: GovernedControl?
 
+    /// The implemented control whose evidence the user is writing.
+    @State private var evidencing: GovernedControl?
+
     /// The threat whose severity decision the user is writing.
     @State private var deciding: CompensatedThreat?
 
@@ -124,6 +127,13 @@ struct ThreatSidebar: View {
             }
             .sheet(item: $likelihooding) { chosen in
                 LikelihoodSheet(threat: chosen.threat, session: session)
+            }
+            .sheet(item: $evidencing) { chosen in
+                EvidenceSheet(
+                    threat: chosen.threat,
+                    control: chosen.control,
+                    session: session
+                )
             }
             .sheet(item: $governing) { chosen in
                 if let project {
@@ -195,6 +205,12 @@ struct ThreatSidebar: View {
                                                 },
                                                 onSetControlStatus: { key, statusId in
                                                     session.setControlStatus(key: key, statusId: statusId)
+                                                },
+                                                onEvidence: { control in
+                                                    evidencing = GovernedControl(
+                                                        threat: threat,
+                                                        control: control
+                                                    )
                                                 },
                                                 onCompensate: { compensating = CompensatedThreat(threat: threat) },
                                                 onLikelihood: { likelihooding = CompensatedThreat(threat: threat) },

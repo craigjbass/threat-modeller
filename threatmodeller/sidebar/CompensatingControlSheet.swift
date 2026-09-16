@@ -14,6 +14,10 @@ struct CompensatingControlSheet: View {
     @State private var label = ""
     @State private var percent = 40.0
     @State private var rationale = ""
+    @State private var tierId = ""
+    @State private var reference = ""
+    @State private var statesVerifiedOn = false
+    @State private var verifiedOn = Date()
 
     private var threatKey: String { threat.threatKey }
 
@@ -44,6 +48,29 @@ struct CompensatingControlSheet: View {
                 TextField("Why that is enough", text: $rationale, axis: .vertical)
                     .lineLimit(2 ... 5)
                     .accessibilityIdentifier("compensating-rationale")
+
+                // What proves the control is in place. The tier moves no
+                // score, and check reads it the way it reads a control's.
+                Picker("Evidence", selection: $tierId) {
+                    Text("No evidence").tag("")
+                    ForEach(ControlEvidence.allCases, id: \.rawValue) { tier in
+                        Text(tier.label.capitalized).tag(tier.rawValue)
+                    }
+                }
+                .accessibilityIdentifier("compensating-evidence-tier")
+
+                TextField("Where the proof is", text: $reference)
+                    .accessibilityIdentifier("compensating-evidence-reference")
+
+                HStack {
+                    Toggle("Verified on", isOn: $statesVerifiedOn)
+                        .accessibilityIdentifier("compensating-verified-on-states")
+                    Spacer()
+                    DatePicker("", selection: $verifiedOn, displayedComponents: .date)
+                        .labelsHidden()
+                        .disabled(statesVerifiedOn == false)
+                        .accessibilityIdentifier("compensating-verified-on")
+                }
             }
             .formStyle(.grouped)
 
@@ -81,9 +108,15 @@ struct CompensatingControlSheet: View {
             }
         }
         .padding(16)
-        .frame(width: 460, height: 420)
+        .frame(width: 460, height: 560)
         .onAppear {
             label = threat.compensatingLabels.first ?? ""
+            tierId = threat.compensatingEvidenceId ?? ""
+            reference = threat.compensatingEvidenceReference ?? ""
+            if let held = GovernanceSheet.date(of: threat.compensatingVerifiedOn) {
+                statesVerifiedOn = true
+                verifiedOn = held
+            }
         }
     }
 
@@ -92,7 +125,10 @@ struct CompensatingControlSheet: View {
             threatKey: threatKey,
             label: label,
             reducesRiskBy: Int(percent),
-            rationale: rationale
+            rationale: rationale,
+            evidenceId: tierId.isEmpty ? nil : tierId,
+            evidenceReference: reference.trimmingCharacters(in: .whitespaces),
+            verifiedOn: statesVerifiedOn ? GovernanceSheet.text(of: verifiedOn) : nil
         )
         if session.errorMessage == nil { dismiss() }
     }

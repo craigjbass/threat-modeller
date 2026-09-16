@@ -8,12 +8,29 @@ public struct SetCompensatingControlRequest: Equatable, Sendable {
     public let label: String
     public let reducesRiskBy: Int
     public let rationale: String
+    /// The evidence tier, or nil for a control that states none.
+    public let evidenceId: String?
+    /// Where the proof is: a URL, a document number, a test name.
+    public let evidenceReference: String
+    /// When somebody last checked, written `YYYY-MM-DD`, or nil.
+    public let verifiedOn: String?
 
-    public init(threatKey: String, label: String, reducesRiskBy: Int, rationale: String) {
+    public init(
+        threatKey: String,
+        label: String,
+        reducesRiskBy: Int,
+        rationale: String,
+        evidenceId: String? = nil,
+        evidenceReference: String = "",
+        verifiedOn: String? = nil
+    ) {
         self.threatKey = threatKey
         self.label = label
         self.reducesRiskBy = reducesRiskBy
         self.rationale = rationale
+        self.evidenceId = evidenceId
+        self.evidenceReference = evidenceReference
+        self.verifiedOn = verifiedOn
     }
 }
 
@@ -22,6 +39,8 @@ public enum SetCompensatingControlResponse: Equatable, Sendable {
     case removed
     case reductionOutOfRange
     case noRationale
+    case unknownEvidence
+    case notADate(String)
 
     public func describe(into message: inout String?) {
         switch self {
@@ -31,6 +50,10 @@ public enum SetCompensatingControlResponse: Equatable, Sendable {
             message = "A risk reduction runs from 0 to 100."
         case .noRationale:
             message = "A compensating control needs a rationale."
+        case .unknownEvidence:
+            message = "That evidence tier is not one this application holds."
+        case .notADate(let said):
+            message = said
         }
     }
 }
@@ -62,12 +85,27 @@ public struct SetCompensatingControl: SetCompensatingControlUseCase {
         let rationale = request.rationale.trimmingWhitespace()
         guard rationale.isEmpty == false else { return .noRationale }
 
+        let proof: ControlProof
+        switch ControlProofReading.read(
+            evidenceId: request.evidenceId,
+            reference: request.evidenceReference,
+            verifiedOn: request.verifiedOn
+        ) {
+        case .failure(.unknownEvidence):
+            return .unknownEvidence
+        case .failure(.notADate(let said)):
+            return .notADate(said)
+        case .success(let read):
+            proof = read
+        }
+
         return models.mutate(label: ChangeLabel.setCompensatingControl) { model in
             model.compensatingControls[key] = [
                 CompensatingControl(
                     label: label,
                     reducesRiskBy: request.reducesRiskBy,
-                    rationale: rationale
+                    rationale: rationale,
+                    proof: proof
                 )
             ]
             return .recorded

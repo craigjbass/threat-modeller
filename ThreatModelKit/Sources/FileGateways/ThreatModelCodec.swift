@@ -27,8 +27,11 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// itself: the description, the authors, the links, the repositories, the
     /// dates, the version and the team's own attributes. A file at version 7
     /// or below states none of them and reads back with none.
-    public static let formatVersion = 9
-    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    /// Version 10 adds what proves a control: the evidence tier, the reference
+    /// and the verified-on date, on a control and on a compensating control. A
+    /// file at version 9 or below states none and reads back with none.
+    public static let formatVersion = 10
+    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     public init() {}
 
@@ -66,9 +69,24 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                                     label: $0.label,
                                     reducesRiskBy: $0.reducesRiskBy,
                                     rationale: $0.rationale,
-                                    sources: $0.sources
+                                    sources: $0.sources,
+                                    evidence: $0.proof.evidence?.rawValue,
+                                    reference: $0.proof.reference.isEmpty ? nil : $0.proof.reference,
+                                    verifiedOn: $0.proof.verifiedOn?.description
                                 )
                             }
+                        )
+                    }
+                ),
+                controlProofs: Dictionary(
+                    uniqueKeysWithValues: model.controlProofs.map { key, proof in
+                        (
+                            key.value,
+                            ControlProofJSON(
+                                evidence: proof.evidence?.rawValue,
+                                reference: proof.reference.isEmpty ? nil : proof.reference,
+                                verifiedOn: proof.verifiedOn?.description
+                            )
                         )
                     }
                 ),
@@ -272,7 +290,12 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                                 label: $0.label,
                                 reducesRiskBy: $0.reducesRiskBy,
                                 rationale: $0.rationale,
-                                sources: $0.sources ?? []
+                                sources: $0.sources ?? [],
+                                proof: Self.proof(
+                                    evidence: $0.evidence,
+                                    reference: $0.reference,
+                                    verifiedOn: $0.verifiedOn
+                                )
                             )
                         }
                     )
@@ -410,6 +433,18 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 version: document.documentFacts?.version ?? "",
                 attributes: (document.documentFacts?.attributes ?? []).map {
                     (name: $0.name, value: $0.value)
+                }
+            ),
+            controlProofs: Dictionary(
+                uniqueKeysWithValues: (document.controlProofs ?? [:]).map { key, proof in
+                    (
+                        ControlKey(key),
+                        Self.proof(
+                            evidence: proof.evidence,
+                            reference: proof.reference,
+                            verifiedOn: proof.verifiedOn
+                        )
+                    )
                 }
             ),
             createdAt: document.createdAt,
@@ -634,6 +669,21 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             riskReductionPercent: json.riskReductionPercent,
             boundary: try optionalValue(ZoneBoundary.self, field: "boundary", raw: json.boundary, default: .default),
             description: json.description
+        )
+    }
+
+    /// What proves a control, read back. A tier or a date this application
+    /// does not hold is dropped, not refused: the file was written by a build
+    /// that held it, and the rest of the proof still reads.
+    private static func proof(
+        evidence: String?,
+        reference: String?,
+        verifiedOn: String?
+    ) -> ControlProof {
+        ControlProof(
+            evidence: evidence.flatMap(ControlEvidence.init(rawValue:)),
+            reference: reference ?? "",
+            verifiedOn: verifiedOn.flatMap { try? GovernanceDate.read($0).get() }
         )
     }
 

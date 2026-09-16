@@ -100,7 +100,8 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                     SourceControlAnswer(
                         description: control.description,
                         status: onScreen.statuses[answer.key]?[control.description] ?? control.status,
-                        note: control.note
+                        note: control.note,
+                        proof: onScreen.proofs[answer.key]?[control.description] ?? control.proof
                     )
                 },
                 compensating: onScreen.compensating[answer.key] ?? answer.compensating,
@@ -138,8 +139,13 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
     private static func answers(
         in model: ThreatModel,
         catalogue: TechnologyCatalogue
-    ) -> (statuses: [ThreatKey: [String: ControlStatus]], compensating: [ThreatKey: [CompensatingControl]]) {
+    ) -> (
+        statuses: [ThreatKey: [String: ControlStatus]],
+        proofs: [ThreatKey: [String: ControlProof]],
+        compensating: [ThreatKey: [CompensatingControl]]
+    ) {
         var statuses: [ThreatKey: [String: ControlStatus]] = [:]
+        var proofs: [ThreatKey: [String: ControlProof]] = [:]
 
         for threat in ThreatResolver(model: model, catalogue: catalogue).resolve() {
             let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
@@ -147,8 +153,14 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                 threat.controls.map { ($0.description, $0.status) },
                 uniquingKeysWith: { first, _ in first }
             )
+            // Every offered control lands here, empty proof included, so a
+            // proof cleared on screen clears in the file.
+            proofs[key] = Dictionary(
+                threat.controls.map { ($0.description, model.controlProofs[$0.key] ?? ControlProof()) },
+                uniquingKeysWith: { first, _ in first }
+            )
         }
 
-        return (statuses, model.compensatingControls)
+        return (statuses, proofs, model.compensatingControls)
     }
 }
