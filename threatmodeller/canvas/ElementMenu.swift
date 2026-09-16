@@ -50,7 +50,7 @@ struct ElementMenu {
         static let selectAll = Shortcut(key: "a", modifiers: .command)
     }
 
-    private static let privileges = [
+    static let privileges = [
         ("user", "User"),
         ("admin", "Administrator"),
         ("root", "Root"),
@@ -92,7 +92,7 @@ struct ElementMenu {
 
     func component(_ componentId: String) -> [Row] {
         let component = session.canvas.components.first { $0.id == componentId }
-        return [
+        var rows: [Row] = [
             .item(id: "context-component-rename", title: "Rename\u{2026}") {
                 canvas.select(componentId: componentId, addingToSelection: false)
                 canvas.startEditingName(.component(componentId))
@@ -151,6 +151,20 @@ struct ElementMenu {
                         }
                     }
             ),
+        ]
+        // Merge joins the whole selection, so it is offered only when two or
+        // more components are selected, and never over a user: a user is
+        // not a component.
+        let selected = canvas.selectedComponentIds
+        let holdsAUser = session.canvas.components.contains { selected.contains($0.id) && $0.isUser }
+        if selected.count >= 2, holdsAUser == false {
+            rows.append(
+                .item(id: "context-component-merge", title: "Merge\u{2026}") {
+                    canvas.startMerging(componentIds: Array(selected))
+                }
+            )
+        }
+        rows += [
             .separator(id: "context-component-separator-2"),
             .item(id: "context-component-cut", title: "Cut", shortcut: .cut) { cutSelection() },
             .item(id: "context-component-copy", title: "Copy", shortcut: .copy) { copySelection() },
@@ -162,6 +176,7 @@ struct ElementMenu {
                 deleteSelection()
             }
         ]
+        return rows
     }
 
     func zone(_ zoneId: String) -> [Row] {

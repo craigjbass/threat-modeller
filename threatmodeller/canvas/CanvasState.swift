@@ -49,6 +49,21 @@ final class CanvasState: CanvasViewport {
     /// The two corners of the zone being drawn, in model coordinates.
     var zoneDraft: (start: CGPoint, end: CGPoint)?
 
+    /// The components the merge sheet is open for. Empty while no merge
+    /// sheet is open.
+    private(set) var mergeCandidateIds: [String] = []
+
+    /// True while the merge sheet is open.
+    var isMerging: Bool { mergeCandidateIds.isEmpty == false }
+
+    func startMerging(componentIds: [String]) {
+        mergeCandidateIds = componentIds
+    }
+
+    func stopMerging() {
+        mergeCandidateIds = []
+    }
+
     /// The zone being moved or resized, the grip the drag started from, and
     /// how far it has moved in model units. A nil handle means the drag started
     /// on the header, which moves the zone rather than resizing it.

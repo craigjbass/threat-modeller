@@ -1050,7 +1050,7 @@ final class ProjectSession {
             errorMessage = nil
             clearMessage()
             loading = .scoringTheThreats
-            let drawn = ThreatModelSession(useCases: useCases, projectRoot: root)
+            let drawn = ThreatModelSession(useCases: useCases, projectRoot: root, projectSystem: systemName)
             model = drawn
             savedRevision = drawn.revision
             hasFilesChangedOnDisk = false
@@ -1100,6 +1100,21 @@ final class ProjectSession {
                 )
             }
             diagnosticsFileName = chosenSystem.map { "\($0).arch" }
+        }
+        // A merge drops an answer the kept component already holds, or one
+        // on a threat the kept technology does not raise. The person is told
+        // which, once.
+        let droppedByMerge = model?.takeDroppedMergeAnswers() ?? []
+        if droppedByMerge.isEmpty == false {
+            diagnostics = droppedByMerge.map {
+                Diagnostic(
+                    severity: .warning,
+                    line: 0,
+                    column: 0,
+                    message: "the answer on \($0) was dropped by the merge"
+                )
+            }
+            diagnosticsFileName = chosenSystem.map { "\($0).controls" }
         }
 
         guard isAutoSyncOn, hasUnsavedChanges else { return }

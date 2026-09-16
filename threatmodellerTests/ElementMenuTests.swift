@@ -267,6 +267,30 @@ struct ElementMenuTests {
         #expect(session.canvas.components.isEmpty)
     }
 
+    @Test func mergeIsOfferedOnlyWhenTwoOrMoreComponentsAreSelected() {
+        let (_, canvas, menu, api, db) = twoNodes()
+        canvas.select(componentId: api, addingToSelection: false)
+        #expect(identifiers(menu.component(api)).contains("context-component-merge") == false)
+
+        canvas.select(componentId: db, addingToSelection: true)
+        #expect(identifiers(menu.component(api)).contains("context-component-merge"))
+
+        run(menu.component(api), "context-component-merge")
+
+        #expect(canvas.isMerging)
+        #expect(Set(canvas.mergeCandidateIds) == [api, db])
+    }
+
+    @Test func mergeIsNotOfferedOverAUser() {
+        let (session, canvas, menu, api, _) = twoNodes()
+        session.add(technologyId: ThreatModelSession.userDropId, x: 0, y: 300)
+        let user = session.canvas.components.first { $0.isUser }?.id ?? ""
+        canvas.select(componentId: api, addingToSelection: false)
+        canvas.select(componentId: user, addingToSelection: true)
+
+        #expect(identifiers(menu.component(api)).contains("context-component-merge") == false)
+    }
+
     @Test func everyChangeFromAMenuIsOneUndo() {
         let (session, _, menu, api, _) = twoNodes()
 

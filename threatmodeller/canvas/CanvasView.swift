@@ -263,6 +263,14 @@ struct CanvasView: View {
         .dropDestination(for: String.self) { technologyIds, location in
             gestures.drop(technologyIds, at: location)
         }
+        .sheet(
+            isPresented: Binding(
+                get: { canvas.isMerging },
+                set: { if $0 == false { canvas.stopMerging() } }
+            )
+        ) {
+            MergeSheet(session: session, canvas: canvas)
+        }
     }
 
     private var content: some View {

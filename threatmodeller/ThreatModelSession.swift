@@ -87,6 +87,9 @@ final class ThreatModelSession {
     /// The open project's root, so a report export reads the project's
     /// template. Nil when no project holds this model.
     private let projectRoot: String?
+    /// The open system's own file name, so a merge names the files it
+    /// rewrites. Nil when no project holds this model.
+    private let projectSystem: String?
 
     /// Where a double-click on a palette row puts a component, in model
     /// coordinates. A drag from the palette uses the drop point instead.
@@ -95,11 +98,13 @@ final class ThreatModelSession {
     init(
         useCases: UseCaseFactory,
         clipboard: Clipboard = SystemClipboard(),
-        projectRoot: String? = nil
+        projectRoot: String? = nil,
+        projectSystem: String? = nil
     ) {
         self.useCases = useCases
         self.clipboard = clipboard
         self.projectRoot = projectRoot
+        self.projectSystem = projectSystem
         threatChoices = useCases.listThreatChoices().execute(ListThreatChoicesRequest()).threats
         refresh()
     }
@@ -466,15 +471,125 @@ final class ThreatModelSession {
     func undo() {
         // Nothing to take back is not worth a message: the menu item is
         // already dim, and a key pressed once too often is not a mistake.
-        _ = useCases.undoLastChange().execute(UndoLastChangeRequest())
+        let response = useCases.undoLastChange().execute(UndoLastChangeRequest())
         errorMessage = nil
+        // A merge rewrote the files as well as the model. The model's history
+        // took the model back; the bytes from before the rewrite go back
+        // here, before the save that follows the refresh.
+        if case .undone(_, let label) = response,
+           label == ChangeLabel.mergeComponents,
+           let step = mergeFileSteps.popLast() {
+            restore(step.before)
+            undoneMergeFileSteps.append(step)
+        }
         refresh()
     }
 
     func redo() {
-        _ = useCases.redoChange().execute(RedoChangeRequest())
+        let response = useCases.redoChange().execute(RedoChangeRequest())
         errorMessage = nil
+        if case .redone(_, let label) = response,
+           label == ChangeLabel.mergeComponents,
+           let step = undoneMergeFileSteps.popLast() {
+            restore(step.after)
+            mergeFileSteps.append(step)
+        }
         refresh()
+    }
+
+    // MARK: merging components
+
+    /// The bytes of the files each merge read and wrote, in merge order, so
+    /// an Undo of a merge puts the files back and a Redo puts them forward.
+    /// A reload from disk builds a new session and drops them.
+    private var mergeFileSteps: [(before: [FileSnapshot], after: [FileSnapshot])] = []
+    private var undoneMergeFileSteps: [(before: [FileSnapshot], after: [FileSnapshot])] = []
+
+    /// Joins the draft's components into its survivor. True when the model
+    /// changed. The answers the merge dropped wait in
+    /// `takeDroppedMergeAnswers` for the window to report once.
+    func mergeComponents(_ resolved: MergeDraft.Resolved) -> Bool {
+        let response = useCases.mergeComponents().execute(
+            MergeComponentsRequest(
+                root: projectRoot,
+                systemName: projectSystem,
+                survivorId: resolved.survivorId,
+                sourceIds: resolved.sourceIds,
+                technologyId: resolved.technologyId,
+                shape: resolved.shapeId,
+                name: resolved.name,
+                sensitivity: resolved.sensitivityId,
+                runsAs: resolved.runsAsId,
+                holds: resolved.holds,
+                zoneId: resolved.zoneId,
+                status: resolved.statusId,
+                tags: resolved.tags,
+                providedBy: resolved.providedById
+            )
+        )
+
+        defer { refresh() }
+
+        switch response {
+        case .merged(let merged):
+            errorMessage = nil
+            droppedMergeAnswers = merged.droppedAnswers
+            if merged.filesBefore.isEmpty == false {
+                mergeFileSteps.append((merged.filesBefore, merged.filesAfter))
+                undoneMergeFileSteps = []
+            }
+            return true
+        case .tooFewComponents:
+            errorMessage = "Select two or more components to merge."
+        case .unknownComponent:
+            errorMessage = "That component is no longer on the model."
+        case .userCannotMerge:
+            errorMessage = "A user is not a component, so it cannot be merged."
+        case .unknownTechnology:
+            errorMessage = "This model no longer defines that technology."
+        case .unknownShape:
+            errorMessage = "That shape is not one the diagram draws."
+        case .unknownSensitivity:
+            errorMessage = "That data sensitivity is not recognised."
+        case .unknownPrivilegeLevel:
+            errorMessage = "That privilege level is not recognised."
+        case .unknownAsset:
+            errorMessage = "This system no longer declares that asset."
+        case .unknownZone:
+            errorMessage = "That zone is no longer on the model."
+        case .unknownStatus:
+            errorMessage = "That status is not one the model holds."
+        case .unknownThirdParty:
+            errorMessage = "This system no longer declares that third party."
+        case .noSuchSystem:
+            errorMessage = "This project no longer holds that system."
+        case .cannotWrite(let reason):
+            errorMessage = "The merge could not be written: \(reason)"
+        }
+        return false
+    }
+
+    /// The answers the last merge dropped, as `<threat>@<kind>:<id>`, so the
+    /// window says what went. Empty when the last merge dropped nothing.
+    private(set) var droppedMergeAnswers: [String] = []
+
+    /// Reads what the last merge dropped, and forgets it, so the window says
+    /// it once.
+    func takeDroppedMergeAnswers() -> [String] {
+        let dropped = droppedMergeAnswers
+        droppedMergeAnswers = []
+        return dropped
+    }
+
+    private func restore(_ snapshots: [FileSnapshot]) {
+        switch useCases.restoreFileSnapshots().execute(
+            RestoreFileSnapshotsRequest(snapshots: snapshots)
+        ) {
+        case .restored:
+            break
+        case .cannotWrite(let reason):
+            errorMessage = "The files could not be put back: \(reason)"
+        }
     }
 
     func copySelection(componentIds: [String], zoneIds: [String]) {
