@@ -104,7 +104,12 @@ struct CanvasView: View {
 
                 emptyCanvasHint
 
-                canvasToolbar
+                // The toolbar is measured against the column's own width,
+                // which this reader states. The ZStack around it is as wide as
+                // the drawing layer inside it, which is thousands of points,
+                // so a control that measures itself against the stack never
+                // sees the column narrow.
+                canvasToolbar(inColumnOfWidth: geometry.size.width)
             }
             // Zoom to Fit needs to know how much room there is.
             .onAppear { canvas.visibleSize = geometry.size }
@@ -325,7 +330,36 @@ struct CanvasView: View {
         }
     }
 
-    private var canvasToolbar: some View {
+    /// The controls that float at the top of the diagram.
+    ///
+    /// The column they float over is as narrow as
+    /// `ProjectColumns.minimumDiagramWidth`, and the person changes that width
+    /// with the divider of the threats stage. The row with every word shown
+    /// needs more room than the narrowest column has, so a column that cannot
+    /// hold the words gets the icons alone. Without that the row ran past the
+    /// column's trailing edge and drew over the threat sidebar.
+    private func canvasToolbar(inColumnOfWidth width: CGFloat) -> some View {
+        toolbarRow(showsWords: Self.toolbarShowsWords(inColumnOfWidth: width))
+            // Collapsing the palette column puts the canvas at the window's
+            // own leading edge, so this margin is all that stands between the
+            // Draw zone control and that edge.
+            .padding(CanvasView.windowEdgeMargin)
+    }
+
+    /// The width the row needs with every word shown: the two margins, the
+    /// Draw zone control, the three zoom controls, the two dividers, the gaps
+    /// and the tag filter menu.
+    static let toolbarWordsWidth: CGFloat = 520
+
+    /// True while the column is wide enough for the words.
+    ///
+    /// A column of nought is a column not measured yet. The words are the
+    /// state the person reads first, so an unmeasured column shows them.
+    static func toolbarShowsWords(inColumnOfWidth width: CGFloat) -> Bool {
+        width <= 0 || width >= toolbarWordsWidth
+    }
+
+    private func toolbarRow(showsWords: Bool) -> some View {
         HStack(spacing: 8) {
             Button {
                 canvas.isDrawingZone ? canvas.stopDrawingZone() : canvas.startDrawingZone()
@@ -350,19 +384,16 @@ struct CanvasView: View {
             }
             .accessibilityIdentifier("zoom-in")
 
-            tagFilterMenu
+            tagFilterMenu(showsWords: showsWords)
         }
+        .modifier(ControlWords(showsWords: showsWords))
         .buttonStyle(.bordered)
-        // Collapsing the palette column puts the canvas at the window's own
-        // leading edge, so this margin is all that stands between the Draw
-        // zone control and that edge.
-        .padding(CanvasView.windowEdgeMargin)
     }
 
     /// Narrows the diagram to the tags a person picks. A model that states no
     /// tag offers nothing, so a diagram with no tags keeps the toolbar it had.
     @ViewBuilder
-    private var tagFilterMenu: some View {
+    private func tagFilterMenu(showsWords: Bool) -> some View {
         let tags = TagFilter.tags(in: session.canvas)
         if tags.isEmpty == false {
             Divider().frame(height: 16)
@@ -379,7 +410,9 @@ struct CanvasView: View {
             } label: {
                 Label(tagFilterLabel, systemImage: "line.3.horizontal.decrease.circle")
             }
-            .frame(width: 180)
+            // One width for the words, so a long tag name never widens the
+            // row, and the width of an icon for the narrow column.
+            .frame(width: showsWords ? 180 : 56)
             .accessibilityIdentifier("tag-filter")
         }
     }
@@ -483,6 +516,23 @@ nonisolated enum CanvasPointer {
         case .openHand: .grabIdle
         case .closedHand: .grabActive
         case .rectangle: .rectSelection
+        }
+    }
+}
+
+/// Shows or hides the words on the controls that carry an icon too.
+///
+/// A narrow column takes the icons alone. The words stay in the accessibility
+/// label of each control, so a screen reader reads the same name either way.
+struct ControlWords: ViewModifier {
+    let showsWords: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if showsWords {
+            content.labelStyle(.titleAndIcon)
+        } else {
+            content.labelStyle(.iconOnly)
         }
     }
 }

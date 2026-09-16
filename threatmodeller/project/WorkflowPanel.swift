@@ -37,13 +37,56 @@ struct WorkflowPanel: View {
     /// selection panel is shown. The panel floats above it.
     var liftedBy: CGFloat = 0
 
+    /// How wide the column the panel floats over is, or zero when the caller
+    /// has not measured it. The panel drops the words it cannot fit, so it
+    /// needs the column's current width and not the width of the view it
+    /// floats over, which is as wide as the drawing inside it.
+    var columnWidth: CGFloat = 0
+
+    /// The width the panel needs with every word shown.
+    static let allWordsWidth: CGFloat = 860
+
+    /// The width the panel needs with the stage words and the verbs as icons.
+    static let stageWordsWidth: CGFloat = 660
+
+    /// True while the column is wide enough for the stage words.
+    ///
+    /// A column of nought is a column nobody measured. The words are what the
+    /// person reads first, so an unmeasured column shows them.
+    static func showsStageWords(inColumnOfWidth width: CGFloat) -> Bool {
+        width <= 0 || width >= stageWordsWidth
+    }
+
+    /// True while the column is wide enough for the words on the two verbs.
+    static func showsVerbWords(inColumnOfWidth width: CGFloat) -> Bool {
+        width <= 0 || width >= allWordsWidth
+    }
+
     /// How much room the panel needs under the canvas, so nothing the canvas
     /// draws hides under it. `WindowLayoutTests` measures the panel and states
     /// this number is at least its height.
     static let reservedHeight: CGFloat = 72
 
+    /// The column the panel floats over is as narrow as
+    /// `ProjectColumns.minimumDiagramWidth`, and the person changes that width
+    /// with the divider of the threats stage. The row with every word shown
+    /// needs more room than the narrowest column has, so a column that cannot
+    /// hold the words gets the icons alone. Without that the panel ran past
+    /// both edges of the column and drew over the threat sidebar.
     var body: some View {
-        row
+        panel(
+            stageWords: Self.showsStageWords(inColumnOfWidth: columnWidth),
+            verbWords: Self.showsVerbWords(inColumnOfWidth: columnWidth)
+        )
+        .padding(.bottom, lift)
+        .animation(.easeOut(duration: 0.2), value: liftedBy)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Workflow")
+        .accessibilityIdentifier("workflow-bar")
+    }
+
+    private func panel(stageWords: Bool, verbWords: Bool) -> some View {
+        row(stageWords: stageWords, verbWords: verbWords)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .modifier(PanelBackground())
@@ -53,11 +96,6 @@ struct WorkflowPanel: View {
             // A technology dropped on the panel is not a technology dropped
             // on the diagram, so the drop stops here and places nothing.
             .dropDestination(for: String.self) { _, _ in false }
-            .padding(.bottom, lift)
-            .animation(.easeOut(duration: 0.2), value: liftedBy)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Workflow")
-            .accessibilityIdentifier("workflow-bar")
     }
 
     /// Where the panel draws inside a column, given how big the panel is and
@@ -108,7 +146,12 @@ struct WorkflowPanel: View {
 
     private var lift: CGFloat { Self.lift(over: liftedBy) }
 
-    private var row: some View {
+    /// The controls of the panel.
+    ///
+    /// The words go in two steps as the column narrows: the two verbs lose
+    /// theirs first, and the stage picker keeps its own for as long as the
+    /// column holds them, because the stage is what the person reads first.
+    private func row(stageWords: Bool, verbWords: Bool) -> some View {
         HStack(spacing: 12) {
             Picker("Stage", selection: $stage) {
                 ForEach(WorkStage.allCases) { stage in
@@ -119,6 +162,7 @@ struct WorkflowPanel: View {
             .labelsHidden()
             .controlSize(.large)
             .fixedSize()
+            .modifier(ControlWords(showsWords: stageWords))
             .accessibilityIdentifier("stage")
 
             Divider()
@@ -131,6 +175,7 @@ struct WorkflowPanel: View {
             }
             .controlSize(.large)
             .disabled(session.chosenSystem == nil)
+            .modifier(ControlWords(showsWords: verbWords))
             .accessibilityIdentifier("synchronise")
 
             Button {
@@ -140,6 +185,7 @@ struct WorkflowPanel: View {
             }
             .controlSize(.large)
             .disabled(session.chosenSystem == nil)
+            .modifier(ControlWords(showsWords: verbWords))
             .accessibilityIdentifier("generate-report")
 
             if let canvas, let model {

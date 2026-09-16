@@ -336,6 +336,181 @@ struct WindowLayoutTests {
         #expect(canvasPane >= 700, "the canvas got \(canvasPane) of 1200")
     }
 
+    /// A project whose component states a tag, so the canvas toolbar draws
+    /// its tag filter menu. That menu is an AppKit control, so a test reads
+    /// its frame back and with it the trailing edge of the toolbar row.
+    private func aTaggedProject() async -> ProjectSession {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" {
+                technology = "aws-ec2"
+                data       = "confidential"
+                tags       = ["payments"]
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        let session = ProjectSession(useCases: useCases, watcher: FakeProjectWatcher(), defaults: aTestDefaults())
+        await session.open(root: "/work")
+        return session
+    }
+
+    /// Drags the divider and lets AppKit lay the columns out again.
+    private func moveDivider(_ split: NSSplitView, to position: Double) {
+        split.setPosition(position, ofDividerAt: 0)
+        split.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        split.layoutSubtreeIfNeeded()
+    }
+
+    /// Every view under this one that takes a drop, in window coordinates.
+    /// The canvas takes a technology and the workflow panel stops one, so the
+    /// two are the drop takers the diagram column holds.
+    private func dropTakers(in view: NSView, into found: inout [NSRect]) {
+        if view.registeredDraggedTypes.isEmpty == false {
+            found.append(view.convert(view.bounds, to: nil))
+        }
+        for child in view.subviews { dropTakers(in: child, into: &found) }
+    }
+
+    /// Every pop-up button under this one, in window coordinates.
+    private func popUpButtons(in view: NSView, into found: inout [NSRect]) {
+        if view is NSPopUpButton {
+            found.append(view.convert(view.bounds, to: nil))
+        }
+        for child in view.subviews { popUpButtons(in: child, into: &found) }
+    }
+
+    /// The panel fits every column width the split allows.
+    ///
+    /// The panel drops words as the column narrows. This states, for each
+    /// width, that what the panel then measures fits inside the column, so a
+    /// threshold that is set too low fails here rather than on screen.
+    @Test func theWorkflowPanelFitsEveryColumnWidthTheSplitAllows() async throws {
+        let project = await aDrawnProject()
+        let model = try #require(project.model)
+        let canvas = CanvasState()
+
+        for width in [
+            ProjectColumns.minimumDiagramWidth,
+            480.0,
+            WorkflowPanel.stageWordsWidth,
+            640.0,
+            WorkflowPanel.allWordsWidth,
+            900.0,
+            1080.0
+        ] {
+            let hosting = NSHostingView(
+                rootView: WorkflowPanel(
+                    session: project,
+                    stage: .constant(.threats),
+                    canvas: canvas,
+                    model: model,
+                    columnWidth: width
+                )
+            )
+            let measured = hosting.fittingSize.width
+            #expect(
+                measured <= width,
+                "the panel needs \(measured) in a column of \(width)"
+            )
+        }
+    }
+
+    /// The controls that float over the diagram follow the diagram column.
+    ///
+    /// The person drags the divider of the threats stage. The canvas toolbar,
+    /// the workflow panel and the selection panel each have to fit the column
+    /// at its new width, so none of them draws over the threat sidebar.
+    @Test func theFloatingControlsFitTheDiagramColumnAtEveryDividerPosition() async throws {
+        let project = await aTaggedProject()
+        let model = try #require(project.model)
+        let canvas = CanvasState()
+        canvas.select(componentId: model.canvas.components[0].id, addingToSelection: false)
+        let window = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: canvas,
+                stage: .constant(.threats)
+            ),
+            width: 1400
+        )
+        let content = try #require(window.contentView)
+        let split = try #require(columns(in: content))
+
+        // The widest the divider goes, the middle, and the narrowest the
+        // split allows.
+        for position in [1080.0, 700.0, 0.0] {
+            moveDivider(split, to: position)
+            let pane = split.arrangedSubviews[0]
+            let column = pane.convert(pane.bounds, to: nil)
+            let sidebarView = split.arrangedSubviews[1]
+            let sidebar = sidebarView.convert(sidebarView.bounds, to: nil)
+
+            var takers: [NSRect] = []
+            dropTakers(in: pane, into: &takers)
+            // The canvas is the tall one and the workflow panel the short one.
+            let sorted = takers.sorted { $0.height < $1.height }
+            let panel = try #require(sorted.first, "no workflow panel at \(column.width)")
+            let drawing = try #require(sorted.last, "no canvas at \(column.width)")
+
+            var popUps: [NSRect] = []
+            popUpButtons(in: pane, into: &popUps)
+            // The canvas toolbar sits at the top of the column, so its tag
+            // filter menu is the highest pop-up button in the column. It ends
+            // the toolbar row, so its trailing edge is the row's.
+            let toolbar = try #require(
+                popUps.max(by: { $0.maxY < $1.maxY }),
+                "no tag filter menu at \(column.width)"
+            )
+
+            let selectionView = try #require(
+                selectionPanel(in: pane),
+                "no selection panel at \(column.width)"
+            )
+            let selection = selectionView.convert(selectionView.bounds, to: nil)
+
+            #expect(
+                column.minX <= toolbar.minX && toolbar.maxX <= column.maxX,
+                "the canvas toolbar at \(toolbar) leaves the column \(column)"
+            )
+            #expect(
+                toolbar.intersects(sidebar) == false,
+                "the canvas toolbar at \(toolbar) covers the threat sidebar at \(sidebar)"
+            )
+            #expect(
+                column.minX <= panel.minX && panel.maxX <= column.maxX,
+                "the workflow panel at \(panel) leaves the column \(column)"
+            )
+            #expect(
+                panel.intersects(sidebar) == false,
+                "the workflow panel at \(panel) covers the threat sidebar at \(sidebar)"
+            )
+            // The panel stays centred on the column it floats over.
+            #expect(
+                abs(panel.midX - column.midX) <= 1,
+                "the workflow panel at \(panel) is off centre in \(column)"
+            )
+            #expect(
+                column.minX <= selection.minX && selection.maxX <= column.maxX,
+                "the selection panel at \(selection) leaves the column \(column)"
+            )
+            #expect(
+                selection.intersects(sidebar) == false,
+                "the selection panel at \(selection) covers the threat sidebar at \(sidebar)"
+            )
+            #expect(
+                abs(drawing.width - column.width) <= 1,
+                "the canvas is \(drawing.width) wide in a column of \(column.width)"
+            )
+        }
+    }
+
     /// The selection panel: the one scroller the canvas column holds.
     private func selectionPanel(in view: NSView) -> NSScrollView? {
         if let scroll = view as? NSScrollView { return scroll }

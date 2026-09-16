@@ -95,7 +95,9 @@ struct ProjectColumns: View {
             }
         case .controls:
             ThreatSidebar(session: session, focus: .controls, project: project)
-                .overlay(alignment: .bottom) { workflowPanel }
+                .overlay(alignment: .bottom) {
+                    floating { workflowPanel(inColumnOfWidth: $0) }
+                }
         }
     }
 
@@ -108,7 +110,9 @@ struct ProjectColumns: View {
                     height: WorkflowPanel.reservedHeight + WorkflowPanel.bottomMargin
                 )
             }
-            .overlay(alignment: .bottom) { workflowPanel }
+            .overlay(alignment: .bottom) {
+                floating { workflowPanel(inColumnOfWidth: $0) }
+            }
             .navigationTitle("Diagram")
             // One width, stated once, for the one column that holds the
             // diagram. The threats stage states its own minimum on the split.
@@ -125,12 +129,15 @@ struct ProjectColumns: View {
                 )
             }
             .overlay(alignment: .bottom) {
-                WorkflowPanel(
-                    session: project,
-                    stage: $stage,
-                    trees: trees,
-                    treeCanvas: treeCanvas
-                )
+                floating { width in
+                    WorkflowPanel(
+                        session: project,
+                        stage: $stage,
+                        trees: trees,
+                        treeCanvas: treeCanvas,
+                        columnWidth: width
+                    )
+                }
             }
             .navigationTitle("Attack Trees")
             .navigationSplitViewColumnWidth(min: Self.minimumDiagramWidth, ideal: 700)
@@ -153,14 +160,30 @@ struct ProjectColumns: View {
 
     /// The five controls, floating at the bottom middle of the column they
     /// act on.
-    private var workflowPanel: some View {
+    private func workflowPanel(inColumnOfWidth width: CGFloat) -> some View {
         WorkflowPanel(
             session: project,
             stage: $stage,
             canvas: canvas,
             model: session,
-            liftedBy: canvas.selectionPanelHeight
+            liftedBy: canvas.selectionPanelHeight,
+            columnWidth: width
         )
+    }
+
+    /// Draws a floating panel at the bottom of the column it floats over, and
+    /// tells the panel how wide that column is.
+    ///
+    /// The reader takes the column's own width. A canvas is as wide as the
+    /// drawing inside it, which is thousands of points, so a panel that
+    /// measures itself against the canvas never sees the column narrow.
+    private func floating(
+        @ViewBuilder _ panel: @escaping (CGFloat) -> some View
+    ) -> some View {
+        GeometryReader { geometry in
+            panel(geometry.size.width)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
     }
 }
 
