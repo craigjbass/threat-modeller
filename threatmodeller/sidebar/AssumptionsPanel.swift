@@ -22,6 +22,15 @@ struct AssumptionsPanel: View {
     @State private var assetName = ""
     @State private var assetClassification = ""
     @State private var assetOwner = ""
+    @State private var partyId = ""
+    @State private var partyName = ""
+    @State private var partyDescription = ""
+    @State private var partyKind = ThirdPartyKind.saas.rawValue
+    @State private var partyPays = false
+    @State private var partyUptime = UptimeDependency.none.rawValue
+    @State private var partyUptimeNotes = ""
+    @State private var partyOwner = ""
+    @State private var partyLink = ""
 
     var body: some View {
         ScrollView {
@@ -45,6 +54,9 @@ struct AssumptionsPanel: View {
 
                 Divider()
                 assets
+
+                Divider()
+                thirdParties
 
                 Divider()
                 useCases
@@ -150,6 +162,183 @@ struct AssumptionsPanel: View {
                 .accessibilityIdentifier("add-asset")
             }
         }
+    }
+
+    /// The parties outside this team the system depends on. A component
+    /// states which party provides it, so the vendor is written once and read
+    /// wherever the component goes.
+    private var thirdParties: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Who outside this team this system depends on")
+                .font(.subheadline.weight(.semibold))
+
+            if session.canvas.thirdParties.isEmpty {
+                Text("No third party is named. A reader cannot tell which part of this system another company runs.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(session.canvas.thirdParties, id: \.id) { party in
+                    thirdPartyRow(party)
+                }
+            }
+
+            writeThirdParty
+        }
+    }
+
+    private func thirdPartyRow(_ party: ViewedThirdParty) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(party.name)
+                    .font(.callout.weight(.semibold))
+                Spacer(minLength: 4)
+                Button {
+                    edit(party)
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("edit-third-party-\(party.id)")
+                Button {
+                    session.removeThirdParty(id: party.id)
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("remove-third-party-\(party.id)")
+            }
+            Text("\(party.kindLabel) \u{00B7} \(party.payingCustomer ? "The team pays" : "The team does not pay")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if party.description.isEmpty == false {
+                Text(party.description)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text("Uptime: \(party.uptimeLabel)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            if party.uptimeNotes.isEmpty == false {
+                Text(party.uptimeNotes)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let owner = party.owner {
+                Text("Owner: \(owner)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if let link = party.link {
+                Text(link)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .controlBackgroundColor)))
+    }
+
+    /// The form writes a new party, and writing an id that is already there
+    /// changes that party. The pencil fills the form in, so a person edits
+    /// what is written rather than typing it again.
+    private var writeThirdParty: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            TextField("Identifier", text: $partyId)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("third-party-id")
+            TextField("Name", text: $partyName)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("third-party-name")
+            TextField("What it provides", text: $partyDescription, axis: .vertical)
+                .lineLimit(2 ... 4)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("third-party-description")
+
+            HStack(spacing: 6) {
+                Picker("Kind", selection: $partyKind) {
+                    ForEach(ThirdPartyKind.allCases, id: \.rawValue) {
+                        Text($0.label).tag($0.rawValue)
+                    }
+                }
+                .labelsHidden()
+                .accessibilityIdentifier("third-party-kind")
+
+                Picker("Uptime", selection: $partyUptime) {
+                    ForEach(UptimeDependency.allCases, id: \.rawValue) {
+                        Text($0.label).tag($0.rawValue)
+                    }
+                }
+                .labelsHidden()
+                .accessibilityIdentifier("third-party-uptime")
+            }
+
+            Toggle("The team pays this party", isOn: $partyPays)
+                .font(.caption)
+                .accessibilityIdentifier("third-party-paying-customer")
+
+            TextField("What happens when it stops", text: $partyUptimeNotes, axis: .vertical)
+                .lineLimit(2 ... 4)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("third-party-uptime-notes")
+
+            HStack(spacing: 6) {
+                TextField("Owner (optional)", text: $partyOwner)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("third-party-owner")
+
+                TextField("Link (optional)", text: $partyLink)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("third-party-link")
+
+                Button("Add", action: writeParty)
+                    .disabled(isWritableThirdParty == false)
+                    .accessibilityIdentifier("add-third-party")
+            }
+        }
+    }
+
+    private var isWritableThirdParty: Bool {
+        isWritable(partyId, partyName)
+    }
+
+    private func edit(_ party: ViewedThirdParty) {
+        partyId = party.id
+        partyName = party.name
+        partyDescription = party.description
+        partyKind = party.kindId
+        partyPays = party.payingCustomer
+        partyUptime = party.uptimeId
+        partyUptimeNotes = party.uptimeNotes
+        partyOwner = party.owner ?? ""
+        partyLink = party.link ?? ""
+    }
+
+    private func writeParty() {
+        let owner = partyOwner.trimmingCharacters(in: .whitespaces)
+        let link = partyLink.trimmingCharacters(in: .whitespaces)
+        session.setThirdParty(
+            id: partyId.trimmingCharacters(in: .whitespaces),
+            name: partyName.trimmingCharacters(in: .whitespaces),
+            description: partyDescription.trimmingCharacters(in: .whitespaces),
+            kindId: partyKind,
+            payingCustomer: partyPays,
+            uptimeId: partyUptime,
+            uptimeNotes: partyUptimeNotes.trimmingCharacters(in: .whitespaces),
+            owner: owner.isEmpty ? nil : owner,
+            link: link.isEmpty ? nil : link
+        )
+        partyId = ""
+        partyName = ""
+        partyDescription = ""
+        partyKind = ThirdPartyKind.saas.rawValue
+        partyPays = false
+        partyUptime = UptimeDependency.none.rawValue
+        partyUptimeNotes = ""
+        partyOwner = ""
+        partyLink = ""
     }
 
     private func label(ofClassification id: String) -> String {

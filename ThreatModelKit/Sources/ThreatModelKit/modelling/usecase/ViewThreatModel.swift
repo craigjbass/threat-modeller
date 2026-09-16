@@ -39,6 +39,8 @@ public struct ViewedComponent: Equatable, Sendable {
     public let shapeOverrideId: String?
     /// The system asset ids this component holds, in model order.
     public let holds: [String]
+    /// The third party that provides this component, or nil when none does.
+    public let providedById: String?
 
     public init(
         id: String,
@@ -56,9 +58,11 @@ public struct ViewedComponent: Equatable, Sendable {
         runsAsId: String = PrivilegeLevel.default.rawValue,
         shapeId: String = DiagramShape.process.rawValue,
         shapeOverrideId: String? = nil,
-        holds: [String] = []
+        holds: [String] = [],
+        providedById: String? = nil
     ) {
         self.holds = holds
+        self.providedById = providedById
         self.id = id
         self.technologyId = technologyId
         self.name = name
@@ -189,6 +193,52 @@ public struct ViewedSystemAsset: Equatable, Sendable {
     }
 }
 
+/// One party outside this team the system depends on, as the interface reads
+/// it.
+public struct ViewedThirdParty: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let description: String
+    /// A kind id: `saas`, `open_source`, `infrastructure` or `contractor`.
+    public let kindId: String
+    /// The kind in words, so a panel draws it without a second lookup.
+    public let kindLabel: String
+    public let payingCustomer: Bool
+    /// An uptime id: `none`, `degraded`, `hard` or `operational`.
+    public let uptimeId: String
+    /// The uptime in words.
+    public let uptimeLabel: String
+    public let uptimeNotes: String
+    public let owner: String?
+    public let link: String?
+
+    public init(
+        id: String,
+        name: String,
+        description: String = "",
+        kindId: String,
+        kindLabel: String,
+        payingCustomer: Bool = false,
+        uptimeId: String,
+        uptimeLabel: String,
+        uptimeNotes: String = "",
+        owner: String? = nil,
+        link: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.kindId = kindId
+        self.kindLabel = kindLabel
+        self.payingCustomer = payingCustomer
+        self.uptimeId = uptimeId
+        self.uptimeLabel = uptimeLabel
+        self.uptimeNotes = uptimeNotes
+        self.owner = owner
+        self.link = link
+    }
+}
+
 /// One thing a person does with the system, as the interface reads it.
 public struct ViewedUseCase: Equatable, Sendable {
     public let label: String
@@ -259,6 +309,8 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     public let exclusions: [ViewedExclusion]
     /// The named things of value this system holds, in model order.
     public let systemAssets: [ViewedSystemAsset]
+    /// The parties outside this team the system depends on, in file order.
+    public let thirdParties: [ViewedThirdParty]
     /// What one component lowers on another.
     public let mitigations: [ViewedMitigation]
     /// Whether there is anything to take back or put in again, so a menu item
@@ -279,6 +331,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         useCases: [ViewedUseCase] = [],
         exclusions: [ViewedExclusion] = [],
         systemAssets: [ViewedSystemAsset] = [],
+        thirdParties: [ViewedThirdParty] = [],
         mitigations: [ViewedMitigation] = [],
         canUndo: Bool = false,
         canRedo: Bool = false,
@@ -290,6 +343,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         self.useCases = useCases
         self.exclusions = exclusions
         self.systemAssets = systemAssets
+        self.thirdParties = thirdParties
         self.mitigations = mitigations
         self.components = components
         self.connections = connections
@@ -341,7 +395,8 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                         categoryId: categoryId
                     ).rawValue,
                     shapeOverrideId: component.shape?.rawValue,
-                    holds: component.holds
+                    holds: component.holds,
+                    providedById: component.providedBy
                 )
             },
             connections: model.connections.map {
@@ -386,6 +441,21 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     classificationId: $0.classification.rawValue,
                     description: $0.description,
                     owner: $0.owner
+                )
+            },
+            thirdParties: model.thirdParties.map {
+                ViewedThirdParty(
+                    id: $0.id,
+                    name: $0.name,
+                    description: $0.description,
+                    kindId: $0.kind.rawValue,
+                    kindLabel: $0.kind.label,
+                    payingCustomer: $0.payingCustomer,
+                    uptimeId: $0.uptime.rawValue,
+                    uptimeLabel: $0.uptime.label,
+                    uptimeNotes: $0.uptimeNotes,
+                    owner: $0.owner,
+                    link: $0.link
                 )
             },
             mitigations: model.mitigatesEdges.map { edge in

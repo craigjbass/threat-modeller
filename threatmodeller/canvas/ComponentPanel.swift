@@ -98,6 +98,18 @@ struct ComponentPanel: View {
                 .accessibilityIdentifier("component-holds")
             }
 
+            // A component another company runs states which one. The picker
+            // is only there when the system declares a third party, so a
+            // model with none keeps the bar at the width it had.
+            if session.canvas.thirdParties.isEmpty == false {
+                Picker("Provided by", selection: provider) {
+                    ForEach(providerChoices, id: \.id) { Text($0.label).tag($0.id) }
+                }
+                .labelsHidden()
+                .frame(width: 200)
+                .accessibilityIdentifier("component-provided-by")
+            }
+
             Toggle("Raise threats", isOn: threatsRaised)
                 .toggleStyle(.switch)
                 .accessibilityIdentifier("component-threats-raised")
@@ -115,6 +127,25 @@ struct ComponentPanel: View {
             session.canvas.systemAssets.first { $0.id == id }?.name
         }
         return names.count == 1 ? "Holds \(names[0])" : "Holds \(names.count) assets"
+    }
+
+    /// What the picker offers: nobody, then every third party the system
+    /// declares. The empty id is nobody.
+    var providerChoices: [(id: String, label: String)] {
+        [(id: "", label: "Provided by nobody")]
+            + session.canvas.thirdParties.map { (id: $0.id, label: $0.name) }
+    }
+
+    private var provider: Binding<String> {
+        Binding(
+            get: { component.providedById ?? "" },
+            set: { picked in
+                session.setComponentProvider(
+                    componentId: component.id,
+                    thirdPartyId: picked.isEmpty ? nil : picked
+                )
+            }
+        )
     }
 
     private func holds(_ assetId: String) -> Binding<Bool> {

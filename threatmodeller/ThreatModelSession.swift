@@ -1100,6 +1100,62 @@ final class ThreatModelSession {
         refresh()
     }
 
+    // MARK: the parties outside this team the system depends on
+
+    /// Writes one `third_party` block into this system's file. Writing the
+    /// same id again changes the block that is there.
+    func setThirdParty(
+        id: String,
+        name: String,
+        description: String = "",
+        kindId: String = "saas",
+        payingCustomer: Bool = false,
+        uptimeId: String = "none",
+        uptimeNotes: String = "",
+        owner: String? = nil,
+        link: String? = nil
+    ) {
+        useCases.setThirdParty()
+            .execute(
+                SetThirdPartyRequest(
+                    id: id,
+                    name: name,
+                    description: description,
+                    kind: kindId,
+                    payingCustomer: payingCustomer,
+                    uptime: uptimeId,
+                    uptimeNotes: uptimeNotes,
+                    owner: owner,
+                    link: link
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    /// Takes one `third_party` block off. A component that names the party
+    /// refuses the removal, and the message names that component.
+    func removeThirdParty(id: String) {
+        useCases.removeThirdParty()
+            .execute(RemoveThirdPartyRequest(id: id))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    /// States which third party provides one component. Nil states that no
+    /// party provides it.
+    func setComponentProvider(componentId: String, thirdPartyId: String?) {
+        useCases.setComponentProvider()
+            .execute(
+                SetComponentProviderRequest(
+                    componentId: componentId,
+                    thirdPartyId: thirdPartyId
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
     // MARK: what the model covers and what it leaves out
 
     func setSystemUseCase(label: String, text: String) {

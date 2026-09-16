@@ -222,6 +222,18 @@ public final class TestDependencies: UseCaseFactory {
         SetConnectionAssets(models: models)
     }
 
+    public func setThirdParty() -> SetThirdPartyUseCase {
+        SetThirdParty(models: models)
+    }
+
+    public func removeThirdParty() -> RemoveThirdPartyUseCase {
+        RemoveThirdParty(models: models, catalogue: catalogue)
+    }
+
+    public func setComponentProvider() -> SetComponentProviderUseCase {
+        SetComponentProvider(models: models)
+    }
+
     public func setFacedThreatActors() -> SetFacedThreatActorsUseCase {
         SetFacedThreatActors(models: models, catalogue: catalogue)
     }

@@ -223,6 +223,18 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetConnectionAssets(models: models)
     }
 
+    func setThirdParty() -> SetThirdPartyUseCase {
+        SetThirdParty(models: models)
+    }
+
+    func removeThirdParty() -> RemoveThirdPartyUseCase {
+        RemoveThirdParty(models: models, catalogue: catalogue)
+    }
+
+    func setComponentProvider() -> SetComponentProviderUseCase {
+        SetComponentProvider(models: models)
+    }
+
     func setFacedThreatActors() -> SetFacedThreatActorsUseCase {
         SetFacedThreatActors(models: models, catalogue: catalogue)
     }
