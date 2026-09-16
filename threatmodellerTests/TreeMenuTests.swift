@@ -41,6 +41,23 @@ struct TreeMenuTests {
         rows.map(\.title).filter { $0.isEmpty == false }
     }
 
+    /// The rows of one submenu, by its identifier.
+    private func submenu(_ rows: [ElementMenu.Row], _ id: String) -> [ElementMenu.Row] {
+        for row in rows {
+            if case .submenu(let rowId, _, let inner) = row, rowId == id { return inner }
+        }
+        return []
+    }
+
+    /// An editor holding the goal, one step that feeds nothing, and one
+    /// junction that feeds nothing.
+    private func loose() -> (TreeEditor, TreeCanvasState, TreeMenu, String, String, String) {
+        let (editor, canvas, menu, goal, step) = drawn()
+        editor.cutOutgoingJoin(of: step)
+        let junction = editor.drop("junction:all", at: CGPoint(x: 400, y: 400), elements: []) ?? ""
+        return (editor, canvas, menu, goal, step, junction)
+    }
+
     @Test func aStepOffersSetAsGoalCutTheJoinAndDelete() {
         let (_, _, menu, _, step) = drawn()
 
@@ -131,5 +148,140 @@ struct TreeMenuTests {
         let before = canvas.transform
         run(rows, "context-tree-zoom-to-fit")
         #expect(canvas.transform != before)
+    }
+
+    // MARK: Join to\u{2026}
+
+    @Test func aStepIsOfferedEveryNodeItCanFeedAndNoOther() {
+        let (editor, _, menu, goal, step, junction) = loose()
+
+        let rows = submenu(menu.node(step), "context-tree-join-to")
+
+        #expect(titles(rows) == [
+            editor.graph.node(goal)?.title ?? "",
+            editor.graph.node(junction)?.title ?? ""
+        ])
+    }
+
+    @Test func joiningFromTheMenuDrawsTheEdgeAndUndoTakesItBack() {
+        let (editor, _, menu, goal, step, _) = loose()
+
+        run(submenu(menu.node(step), "context-tree-join-to"), "context-tree-join-to-\(goal)")
+
+        #expect(editor.graph.edges == [TreeGraph.Edge(from: step, to: goal)])
+
+        editor.undo()
+
+        #expect(editor.graph.edges.isEmpty)
+    }
+
+    /// A junction takes what feeds it, so its submenu names the nodes that
+    /// can feed it as well as the node it can feed.
+    @Test func aJunctionIsOfferedTheNodesItCanTake() {
+        let (editor, _, menu, goal, step, junction) = loose()
+
+        let rows = submenu(menu.node(junction), "context-tree-join-to")
+
+        #expect(titles(rows) == [
+            editor.graph.node(goal)?.title ?? "",
+            editor.graph.node(step)?.title ?? ""
+        ])
+
+        run(rows, "context-tree-join-to-\(step)")
+
+        #expect(editor.graph.edges == [TreeGraph.Edge(from: step, to: junction)])
+    }
+
+    @Test func aNodeThatFeedsOneNodeIsOfferedNoJoin() {
+        let (_, _, menu, _, step) = drawn()
+
+        #expect(submenu(menu.node(step), "context-tree-join-to").isEmpty)
+    }
+
+    /// Two selected nodes are joined from the first selected to the second.
+    @Test func theBackgroundOffersJoinForTwoSelectedNodes() {
+        let (editor, canvas, menu, goal, step, _) = loose()
+        canvas.select(step, addingToSelection: false)
+        canvas.select(goal, addingToSelection: true)
+
+        run(menu.background(), "context-tree-join")
+
+        #expect(editor.graph.edges == [TreeGraph.Edge(from: step, to: goal)])
+
+        editor.undo()
+
+        #expect(editor.graph.edges.isEmpty)
+    }
+
+    // MARK: cutting one join of several
+
+    /// A junction that feeds three nodes names each edge by its far end, and
+    /// cutting one leaves the other two.
+    @Test func aNodeThatFeedsSeveralNamesEachEdgeByItsFarEnd() throws {
+        let (editor, _, menu, goal, _, junction) = loose()
+        let any = try #require(editor.drop("junction:any", at: CGPoint(x: 600, y: 600), elements: []))
+        let second = try #require(editor.drop("junction:all", at: CGPoint(x: 800, y: 800), elements: []))
+        editor.join(from: junction, to: goal)
+        editor.join(from: junction, to: any)
+        editor.join(from: junction, to: second)
+
+        let rows = submenu(menu.node(junction), "context-tree-cut-join")
+        #expect(titles(rows) == [
+            editor.graph.node(goal)?.title ?? "",
+            "ANY",
+            "ALL",
+            "Cut every Outgoing Join"
+        ])
+
+        run(rows, "context-tree-cut-join-\(any)")
+
+        #expect(editor.graph.edges.filter { $0.from == junction }.count == 2)
+
+        editor.undo()
+
+        #expect(editor.graph.edges.filter { $0.from == junction }.count == 3)
+
+        run(rows, "context-tree-cut-every-join")
+
+        #expect(editor.graph.edges.contains { $0.from == junction } == false)
+    }
+
+    // MARK: the menu on one join
+
+    @Test func theMenuOnAJoinCutsThatJoinAlone() {
+        let (editor, _, menu, goal, step) = drawn()
+        let edge = TreeGraph.Edge(from: step, to: goal)
+
+        let rows = menu.edge(edge)
+        #expect(titles(rows) == ["Cut this Join", "Delete"])
+
+        run(rows, "context-tree-edge-cut")
+
+        #expect(editor.graph.edges.isEmpty)
+        #expect(editor.graph.nodes.count == 2)
+
+        editor.undo()
+
+        #expect(editor.graph.edges == [edge])
+    }
+
+    @Test func aSecondaryClickOnAJoinSelectsIt() {
+        let (_, canvas, menu, goal, step) = drawn()
+        let edge = TreeGraph.Edge(from: step, to: goal)
+
+        menu.selectBeforeMenu(edge)
+
+        #expect(canvas.selectedEdges == [edge])
+    }
+
+    @Test func deleteOnAJoinMenuRemovesTheSelectedJoin() {
+        let (editor, _, menu, goal, step) = drawn()
+        let edge = TreeGraph.Edge(from: step, to: goal)
+        menu.selectBeforeMenu(edge)
+
+        run(menu.edge(edge), "context-tree-edge-delete")
+
+        #expect(editor.graph.edges.isEmpty)
+        #expect(editor.graph.nodes.count == 2)
     }
 }

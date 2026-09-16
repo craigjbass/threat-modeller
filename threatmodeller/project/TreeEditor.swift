@@ -216,9 +216,16 @@ final class TreeEditor {
         }
     }
 
-    /// Removes nodes and pending elements by id.
-    func remove(_ ids: Set<String>) {
+    /// Cuts one edge. The menu on the edge and the selection panel call this.
+    func cut(_ edge: TreeGraph.Edge) {
+        change("Cut Join") { $0.graph.disconnect(from: edge.from, to: edge.to) }
+    }
+
+    /// Removes nodes, pending elements and edges. One change, so one undo
+    /// puts every one of them back.
+    func remove(_ ids: Set<String>, edges: Set<TreeGraph.Edge> = []) {
         change("Delete") { draft in
+            for edge in edges { draft.graph.disconnect(from: edge.from, to: edge.to) }
             for id in ids { draft.graph.remove(id) }
             draft.pending.removeAll { ids.contains($0.id) }
         }

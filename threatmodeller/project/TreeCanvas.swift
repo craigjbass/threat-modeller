@@ -109,10 +109,15 @@ struct TreeCanvas: View {
 
     // MARK: the gestures on open canvas
 
+    /// A click the canvas takes: it selects the join under the pointer, and
+    /// clears the selection where no join sits.
     private var backgroundTap: some Gesture {
-        SpatialTapGesture(coordinateSpace: .named("tree-canvas")).onEnded { _ in
-            gestures.backgroundTap()
-        }
+        SpatialTapGesture(coordinateSpace: .named("tree-canvas")).modifiers(.shift)
+            .onEnded { gestures.canvasTap(at: $0.location, addingToSelection: true) }
+            .exclusively(
+                before: SpatialTapGesture(coordinateSpace: .named("tree-canvas"))
+                    .onEnded { gestures.canvasTap(at: $0.location, addingToSelection: false) }
+            )
     }
 
     private var backgroundDrag: some Gesture {
@@ -203,11 +208,14 @@ struct TreeCanvas: View {
                     isSelected: canvas.isSelected(node.id),
                     state: TreeStepState.state(of: node, in: bound),
                     size: gestures.size(of: node.id),
+                    reach: gestures.joinHandleReach,
                     onSelect: { gestures.selectNode(node.id, addingToSelection: $0) },
-                    onDragChanged: { gestures.nodeDragChanged(node.id, $0) },
-                    onDragEnded: { gestures.nodeDragEnded($0) },
-                    onJoinDragChanged: { gestures.joinDragChanged(node.id, $0) },
-                    onJoinDragEnded: { gestures.joinDragEnded(node.id, $0) },
+                    onDragChanged: { start, location, translation in
+                        gestures.dragChanged(on: node.id, from: start, to: location, by: translation)
+                    },
+                    onDragEnded: { start, location, translation in
+                        gestures.dragEnded(on: node.id, from: start, to: location, by: translation)
+                    },
                     menu: { menus.node(node.id) },
                     onOpenMenu: { menus.selectBeforeMenu(node.id) }
                 )
@@ -239,29 +247,20 @@ struct TreeCanvas: View {
         }
     }
 
+    /// Every join, each one a view of its own, so a click selects it and a
+    /// secondary click opens its menu.
     private var edgeLines: some View {
-        Path { path in
-            for edge in editor.graph.edges {
-                let from = gestures.position(of: edge.from)
-                let to = gestures.position(of: edge.to)
-                let start = CGPoint(x: from.x + gestures.size(of: edge.from).width / 2, y: from.y)
-                let end = CGPoint(x: to.x - gestures.size(of: edge.to).width / 2, y: to.y)
-                path.move(to: start)
-                path.addLine(to: end)
-
-                // The head states what feeds what.
-                let angle = atan2(end.y - start.y, end.x - start.x)
-                for turn in [angle + .pi * 0.85, angle - .pi * 0.85] {
-                    path.move(to: end)
-                    path.addLine(to: CGPoint(
-                        x: end.x + 10 * cos(turn),
-                        y: end.y + 10 * sin(turn)
-                    ))
-                }
-            }
+        ForEach(gestures.edgeLines) { line in
+            TreeEdgeView(
+                line: line,
+                isSelected: canvas.isSelected(line.edge),
+                onTap: { location, addingToSelection in
+                    gestures.canvasTap(at: location, addingToSelection: addingToSelection)
+                },
+                menu: { menus.edge(line.edge) },
+                onOpenMenu: { menus.selectBeforeMenu(line.edge) }
+            )
         }
-        .stroke(Color.secondary, lineWidth: 1.5)
-        .allowsHitTesting(false)
     }
 
     @ViewBuilder
@@ -310,11 +309,13 @@ private struct TreeNodeView: View {
     /// or a junction.
     let state: StepState?
     let size: CGSize
+    /// How far the join handle's hit region reaches past the node's right
+    /// edge, in model units. The node's own frame grows by it on both sides,
+    /// so the whole region sits inside the view that reads the drag.
+    let reach: CGFloat
     let onSelect: (_ addingToSelection: Bool) -> Void
-    let onDragChanged: (CGSize) -> Void
-    let onDragEnded: (CGSize) -> Void
-    let onJoinDragChanged: (CGPoint) -> Void
-    let onJoinDragEnded: (CGPoint) -> Void
+    let onDragChanged: (_ start: CGPoint, _ location: CGPoint, _ translation: CGSize) -> Void
+    let onDragEnded: (_ start: CGPoint, _ location: CGPoint, _ translation: CGSize) -> Void
     let menu: () -> [ElementMenu.Row]
     let onOpenMenu: () -> Void
 
@@ -333,7 +334,7 @@ private struct TreeNodeView: View {
                 joinHandle
             }
         }
-        .frame(width: size.width, height: size.height)
+        .frame(width: size.width + reach * 2, height: size.height)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .accessibilityElement(children: .combine)
@@ -343,9 +344,11 @@ private struct TreeNodeView: View {
                 .exclusively(before: SpatialTapGesture().onEnded { _ in onSelect(false) })
         )
         .gesture(
+            // One drag gesture reads both: a drag that starts on the join
+            // handle joins, and every other drag moves the selection.
             DragGesture(minimumDistance: 3, coordinateSpace: .named("tree-canvas"))
-                .onChanged { onDragChanged($0.translation) }
-                .onEnded { onDragEnded($0.translation) }
+                .onChanged { onDragChanged($0.startLocation, $0.location, $0.translation) }
+                .onEnded { onDragEnded($0.startLocation, $0.location, $0.translation) }
         )
         .contextMenu {
             let rows = menu()
@@ -403,17 +406,47 @@ private struct TreeNodeView: View {
             .overlay(Capsule().strokeBorder(outline, lineWidth: isSelected ? 2 : 1))
     }
 
-    /// The handle at the right edge, where the edge leaves the node.
+    /// The handle at the right edge, where the edge leaves the node. It draws
+    /// only: the node's own drag gesture reads where a drag started, so no
+    /// gesture of the handle's own races it.
     private var joinHandle: some View {
         Circle()
             .fill(Color.accentColor)
-            .frame(width: 9, height: 9)
-            .position(x: size.width, y: size.height / 2)
-            .gesture(
-                DragGesture(minimumDistance: 1, coordinateSpace: .named("tree-canvas"))
-                    .onChanged { onJoinDragChanged($0.location) }
-                    .onEnded { onJoinDragEnded($0.location) }
+            .frame(width: TreeLayout.joinHandleSize, height: TreeLayout.joinHandleSize)
+            .position(x: reach + size.width, y: size.height / 2)
+            .allowsHitTesting(false)
+    }
+}
+
+/// One join on the tree canvas: the line, the head that states what feeds
+/// what, and the region a click selects it in.
+struct TreeEdgeView: View {
+    let line: TreeEdgeLine
+    let isSelected: Bool
+    let onTap: (_ location: CGPoint, _ addingToSelection: Bool) -> Void
+    let menu: () -> [ElementMenu.Row]
+    let onOpenMenu: () -> Void
+
+    var body: some View {
+        line.drawnPath
+            .stroke(
+                isSelected ? Color.accentColor : Color.secondary,
+                lineWidth: isSelected ? 3 : 1.5
             )
+            .contentShape(line.hitPath)
+            .accessibilityIdentifier("tree-edge-\(line.id)")
+            .gesture(
+                SpatialTapGesture(coordinateSpace: .named("tree-canvas")).modifiers(.shift)
+                    .onEnded { onTap($0.location, true) }
+                    .exclusively(
+                        before: SpatialTapGesture(coordinateSpace: .named("tree-canvas"))
+                            .onEnded { onTap($0.location, false) }
+                    )
+            )
+            .contextMenu {
+                ElementMenuView(rows: menu())
+                    .onAppear { onOpenMenu() }
+            }
     }
 }
 

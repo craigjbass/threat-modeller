@@ -164,4 +164,26 @@ struct TreeSelectionTests {
 
         #expect(TreeSelection.of(editor: editor, canvas: canvas, bound: nil) == .several(2))
     }
+
+    @Test func aSelectedJoinNamesItsTwoEnds() {
+        let (editor, canvas, goal, step) = drawn()
+        let edge = TreeGraph.Edge(from: step, to: goal)
+        canvas.select(edge, addingToSelection: false)
+
+        guard case .join(let join) = TreeSelection.of(editor: editor, canvas: canvas, bound: nil) else {
+            Issue.record("the selection is not a join")
+            return
+        }
+        #expect(join.edge == edge)
+        #expect(join.from == "ssrf")
+        #expect(join.to == "exfiltration")
+    }
+
+    @Test func aSelectedJoinAndASelectedNodeAreCounted() {
+        let (editor, canvas, goal, step) = drawn()
+        canvas.select(step, addingToSelection: false)
+        canvas.select(TreeGraph.Edge(from: step, to: goal), addingToSelection: true)
+
+        #expect(TreeSelection.of(editor: editor, canvas: canvas, bound: nil) == .several(2))
+    }
 }

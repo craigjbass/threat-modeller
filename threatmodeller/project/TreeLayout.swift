@@ -19,6 +19,10 @@ struct TreeLayout: Equatable {
     static let verticalGap: CGFloat = 28
     /// The room the laid out points keep from the origin.
     static let margin: CGFloat = 32
+    /// How wide the join handle draws at the node's right edge.
+    static let joinHandleSize: CGFloat = 9
+    /// How wide the join handle's hit region is, on screen, at every zoom.
+    static let joinHandleHit: CGFloat = 24
 
     /// The point of each node the window has placed, by node id.
     private(set) var points: [String: CGPoint] = [:]

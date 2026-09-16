@@ -321,4 +321,76 @@ struct AttackTreeEditorFlowTests {
         let formatted = gateway.write(try #require(read.source))
         #expect(formatted == written)
     }
+
+    /// A join picked from the node menu writes the bytes a drag-join writes:
+    /// both call `TreeEditor.join`, and one writer states the file.
+    @Test func aMenuJoinWritesTheBytesADragJoinWrites() async throws {
+        let menuBytes = try await aTreeJoinedByTheMenu()
+        let dragBytes = try await aTreeJoinedByTheDrag()
+
+        #expect(menuBytes == dragBytes)
+        #expect(menuBytes.contains("tree \"tree-1\" {"))
+        #expect(menuBytes.contains("step \""))
+    }
+
+    /// A tree of a goal and one step, with the step joined to the goal from
+    /// the **Join to\u{2026}** submenu. Returns the file the project wrote.
+    private func aTreeJoinedByTheMenu() async throws -> String {
+        let (session, useCases, editor, goal, step) = try await aTreeWaitingForAJoin()
+        let menu = TreeMenu(editor: editor, canvas: TreeCanvasState(), elements: [])
+        var rows: [ElementMenu.Row] = []
+        for row in menu.node(step) {
+            if case .submenu(let id, _, let inner) = row, id == "context-tree-join-to" { rows = inner }
+        }
+        for row in rows {
+            if case .item(let id, _, _, _, let act) = row, id == "context-tree-join-to-\(goal)" { act() }
+        }
+        editor.setName("Read every record")
+        editor.setRaisesRiskBy(40)
+        await session.settle()
+        return try #require(useCases.project.text(at: "/work/threatmodel/payments.attacktree"))
+    }
+
+    /// The same tree, with the step joined to the goal by a drag from the
+    /// join handle.
+    private func aTreeJoinedByTheDrag() async throws -> String {
+        let (session, useCases, editor, goal, step) = try await aTreeWaitingForAJoin()
+        let canvas = TreeCanvasState()
+        let gestures = TreeCanvasGestures(editor: editor, canvas: canvas, elements: [])
+        let handle = gestures.joinHandleRect(of: step)
+        let start = CGPoint(x: handle.midX, y: handle.midY)
+        let end = canvas.transform.viewPoint(gestures.position(of: goal))
+        gestures.dragChanged(on: step, from: start, to: end, by: CGSize(width: end.x - start.x, height: end.y - start.y))
+        gestures.dragEnded(on: step, from: start, to: end, by: CGSize(width: end.x - start.x, height: end.y - start.y))
+        editor.setName("Read every record")
+        editor.setRaisesRiskBy(40)
+        await session.settle()
+        return try #require(useCases.project.text(at: "/work/threatmodel/payments.attacktree"))
+    }
+
+    /// A stage editor holding a goal and one step that feeds nothing yet.
+    private func aTreeWaitingForAJoin() async throws
+        -> (ProjectSession, TestDependencies, TreeEditor, String, String) {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        let elements = TreeElement.list(
+            threats: model.threats,
+            components: model.canvas.components,
+            connections: model.canvas.connections,
+            zones: model.canvas.zones
+        )
+        let db = try #require(elements.first { $0.payload == "component:db" })
+        let api = try #require(elements.first { $0.payload == "component:api" })
+        let editor = TreeEditor()
+        editor.project = session
+        editor.addTree(among: [])
+
+        let dropped = try #require(editor.drop(db.payload, at: CGPoint(x: 400, y: 60), elements: elements))
+        editor.pick(try #require(db.threats.first), for: dropped)
+        let goal = try #require(editor.graph.goalId)
+        let waiting = try #require(editor.drop(api.payload, at: CGPoint(x: 100, y: 60), elements: elements))
+        editor.pick(try #require(api.threats.first), for: waiting)
+        let step = try #require(editor.graph.nodes.first { $0.id != goal }).id
+        return (session, useCases, editor, goal, step)
+    }
 }

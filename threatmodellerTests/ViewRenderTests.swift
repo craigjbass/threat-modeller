@@ -1345,4 +1345,51 @@ struct ViewRenderTests {
 
         #expect(without != with)
     }
+
+    // MARK: a selected join on the tree canvas
+
+    /// An editor holding a goal fed by one step, with no project to write to.
+    private func aDrawnTree() -> (TreeEditor, TreeCanvasState, TreeGraph.Edge) {
+        let editor = TreeEditor()
+        editor.open(
+            SourceAttackTree(
+                id: "t",
+                name: "T",
+                description: nil,
+                raisesRiskBy: 10,
+                goal: SourceTreeTarget(threatId: "exfiltration", sourceKind: "component", sourceId: "db"),
+                root: .step(SourceTreeStep(
+                    target: SourceTreeTarget(threatId: "ssrf", sourceKind: "component", sourceId: "api"),
+                    note: nil
+                ))
+            ),
+            threats: []
+        )
+        let ids = editor.graph.nodes.map(\.id)
+        return (editor, TreeCanvasState(), TreeGraph.Edge(from: ids[1], to: ids[0]))
+    }
+
+    private func aTreeCanvas(_ editor: TreeEditor, _ canvas: TreeCanvasState) -> TreeCanvas {
+        TreeCanvas(editor: editor, canvas: canvas, elements: [], bound: nil)
+    }
+
+    @Test func drawsTheTreeCanvas() async {
+        let (editor, canvas, _) = aDrawnTree()
+
+        expectDrawn(aTreeCanvas(editor, canvas), "the tree canvas")
+    }
+
+    /// A selected join draws a different picture from an unselected one, so a
+    /// person sees which join Delete removes.
+    @Test func drawsASelectedJoinDifferentlyFromAnUnselectedOne() async throws {
+        let (editor, canvas, edge) = aDrawnTree()
+        let unselected = try #require(pixels(of: aTreeCanvas(editor, canvas), width: 900, height: 700))
+
+        let (other, chosen, chosenEdge) = aDrawnTree()
+        chosen.select(chosenEdge, addingToSelection: false)
+        let selected = try #require(pixels(of: aTreeCanvas(other, chosen), width: 900, height: 700))
+
+        #expect(edge == chosenEdge)
+        #expect(unselected != selected)
+    }
 }

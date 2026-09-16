@@ -76,10 +76,61 @@ struct TreeCanvasGestures: CanvasZooming {
         )
     }
 
+    // MARK: where each join is drawn
+
+    /// Where every join is drawn, in model coordinates.
+    var edgeLines: [TreeEdgeLine] {
+        editor.graph.edges.map { line(of: $0) }
+    }
+
+    /// Where one join is drawn: out of the right edge of the node it leaves,
+    /// into the left edge of the node it feeds.
+    func line(of edge: TreeGraph.Edge) -> TreeEdgeLine {
+        let from = position(of: edge.from)
+        let to = position(of: edge.to)
+        return TreeEdgeLine(
+            edge: edge,
+            start: CGPoint(x: from.x + size(of: edge.from).width / 2, y: from.y),
+            end: CGPoint(x: to.x - size(of: edge.to).width / 2, y: to.y)
+        )
+    }
+
+    /// The join under a model point, or nil. The last drawn is the first
+    /// found, the way the picture reads.
+    func edge(at point: CGPoint) -> TreeGraph.Edge? {
+        edgeLines.last { $0.containsClick(at: point) }?.edge
+    }
+
+    /// How far the join handle's hit region reaches from the node's right
+    /// edge, in model units. The region is `TreeLayout.joinHandleHit` points
+    /// on screen at every zoom.
+    var joinHandleReach: CGFloat {
+        TreeLayout.joinHandleHit / 2 / min(canvas.transform.zoom, 1)
+    }
+
+    /// The region a join drag starts in, in model coordinates.
+    func joinHandleRect(of id: String) -> CGRect {
+        let rect = rect(of: id)
+        let reach = joinHandleReach
+        return CGRect(
+            x: rect.maxX - reach,
+            y: rect.midY - reach,
+            width: reach * 2,
+            height: reach * 2
+        )
+    }
+
     // MARK: background
 
-    func backgroundTap() {
-        canvas.clearSelection()
+    /// A click the canvas takes. It selects the join under the pointer, and
+    /// clears the selection where no join sits. The point is a view point.
+    func canvasTap(at viewPoint: CGPoint, addingToSelection: Bool = false) {
+        let point = canvas.transform.modelPoint(viewPoint)
+        guard let edge = edge(at: point) else {
+            if addingToSelection == false { canvas.clearSelection() }
+            return
+        }
+        canvas.select(edge, addingToSelection: addingToSelection)
     }
 
     /// A drag on the background: the marquee while Shift is down, and the pan
@@ -134,6 +185,10 @@ struct TreeCanvasGestures: CanvasZooming {
         canvas.select(id, addingToSelection: addingToSelection)
     }
 
+    func selectEdge(_ edge: TreeGraph.Edge, addingToSelection: Bool) {
+        canvas.select(edge, addingToSelection: addingToSelection)
+    }
+
     func selectAll() {
         canvas.select(everyId)
     }
@@ -153,6 +208,28 @@ struct TreeCanvasGestures: CanvasZooming {
         let shift = canvas.transform.modelDistance(translation)
         canvas.dragTranslation = nil
         editor.move(canvas.selectedIds, by: shift)
+    }
+
+    /// A drag on a node. A drag that starts inside the join handle's region
+    /// joins the node to another; every other drag moves the selection. The
+    /// start and the location are view points.
+    func dragChanged(on id: String, from start: CGPoint, to location: CGPoint, by translation: CGSize) {
+        guard isJoining(id, from: start) else { return nodeDragChanged(id, translation) }
+        joinDragChanged(id, location)
+    }
+
+    /// The end of a drag on a node: the join it drew, or the move it made.
+    func dragEnded(on id: String, from start: CGPoint, to location: CGPoint, by translation: CGSize) {
+        guard isJoining(id, from: start) else { return nodeDragEnded(translation) }
+        joinDragEnded(id, location)
+    }
+
+    /// True while the drag that started at this view point draws a join. A
+    /// drag that moved the node stays a move to its end.
+    private func isJoining(_ id: String, from start: CGPoint) -> Bool {
+        if canvas.joining != nil { return canvas.joining?.from == id }
+        guard canvas.dragTranslation == nil else { return false }
+        return joinHandleRect(of: id).contains(canvas.transform.modelPoint(start))
     }
 
     /// A drag from a node's join handle. The location is a view point.
@@ -191,8 +268,8 @@ struct TreeCanvasGestures: CanvasZooming {
 
     func deleteSelection() {
         guard canvas.hasSelection else { return }
-        editor.remove(canvas.selectedIds)
-        canvas.retainOnly(Set(everyId))
+        editor.remove(canvas.selectedIds, edges: Set(canvas.selectedEdges))
+        canvas.retainOnly(Set(everyId), edges: Set(editor.graph.edges))
     }
 
     func zoom(by factor: CGFloat, about viewPoint: CGPoint) {

@@ -59,7 +59,7 @@ struct TreeCanvasGestureTests {
         let (_, canvas, gestures, goal, _) = drawn()
         gestures.selectNode(goal, addingToSelection: false)
 
-        gestures.backgroundTap()
+        gestures.canvasTap(at: CGPoint(x: 4000, y: 4000))
 
         #expect(canvas.hasSelection == false)
     }
@@ -369,5 +369,129 @@ struct TreeCanvasGestureTests {
         let centre = canvas.transform.viewPoint(gestures.position(of: step))
         #expect(abs(centre.x - 400) < 0.5)
         #expect(abs(centre.y - 300) < 0.5)
+    }
+
+    // MARK: the join handle
+
+    /// The handle's hit region is at least 24 by 24 points at every zoom, so
+    /// a drag that starts 10 points from its centre joins and moves nothing.
+    @Test func aDragTenPointsFromTheHandleJoinsAndMovesNoNode() {
+        let (editor, canvas, gestures, goal, step) = drawn()
+        editor.cutOutgoingJoin(of: step)
+        let sat = gestures.position(of: step)
+        let handle = gestures.joinHandleRect(of: step)
+        let start = CGPoint(x: handle.midX + 10, y: handle.midY)
+        let end = canvas.transform.viewPoint(gestures.position(of: goal))
+
+        gestures.dragChanged(
+            on: step,
+            from: start,
+            to: CGPoint(x: end.x - 40, y: end.y),
+            by: CGSize(width: end.x - 40 - start.x, height: end.y - start.y)
+        )
+        #expect(canvas.joining?.from == step)
+        gestures.dragEnded(
+            on: step,
+            from: start,
+            to: end,
+            by: CGSize(width: end.x - start.x, height: end.y - start.y)
+        )
+
+        #expect(editor.graph.edges == [TreeGraph.Edge(from: step, to: goal)])
+        #expect(gestures.position(of: step) == sat)
+        #expect(canvas.joining == nil)
+
+        editor.undo()
+
+        #expect(editor.graph.edges.isEmpty)
+    }
+
+    /// The region grows as the canvas zooms out, so it stays 24 points on
+    /// screen.
+    @Test func theHandleRegionIsTwentyFourPointsAtEveryZoom() {
+        let (_, canvas, gestures, _, step) = drawn()
+
+        #expect(gestures.joinHandleRect(of: step).width == 24)
+
+        canvas.transform = CanvasTransform(zoom: 0.5)
+
+        #expect(gestures.joinHandleRect(of: step).width == 48)
+        #expect(gestures.joinHandleRect(of: step).width * canvas.transform.zoom == 24)
+    }
+
+    @Test func aDragThatStartsAwayFromTheHandleMovesTheNode() {
+        let (editor, _, gestures, goal, step) = drawn()
+        let sat = gestures.position(of: step)
+        let start = sat
+        let end = CGPoint(x: start.x + 30, y: start.y)
+
+        gestures.dragChanged(on: step, from: start, to: end, by: CGSize(width: 30, height: 0))
+        gestures.dragEnded(on: step, from: start, to: end, by: CGSize(width: 30, height: 0))
+
+        #expect(gestures.position(of: step) == CGPoint(x: sat.x + 30, y: sat.y))
+        #expect(editor.graph.edges == [TreeGraph.Edge(from: step, to: goal)])
+    }
+
+    // MARK: a join is an element
+
+    private func middle(of line: TreeEdgeLine) -> CGPoint {
+        CGPoint(x: (line.start.x + line.end.x) / 2, y: (line.start.y + line.end.y) / 2)
+    }
+
+    /// A click four points off the line selects that join alone, Delete
+    /// removes it alone, and undo puts it back.
+    @Test func aClickNearAJoinSelectsItAndDeleteRemovesItAlone() throws {
+        let (editor, canvas, gestures, goal, step) = drawn()
+        let junction = try #require(editor.drop("junction:all", at: CGPoint(x: 60, y: 600), elements: []))
+        editor.join(from: junction, to: goal)
+        let edge = TreeGraph.Edge(from: step, to: goal)
+        let line = gestures.line(of: edge)
+        let near = CGPoint(x: (line.start.x + line.end.x) / 2, y: (line.start.y + line.end.y) / 2 + 4)
+
+        gestures.canvasTap(at: near)
+
+        #expect(canvas.selectedEdges == [edge])
+        #expect(canvas.selectedIds.isEmpty)
+
+        gestures.deleteSelection()
+
+        #expect(editor.graph.edges == [TreeGraph.Edge(from: junction, to: goal)])
+        #expect(editor.graph.nodes.count == 3)
+        #expect(canvas.hasSelection == false)
+
+        editor.undo()
+
+        #expect(editor.graph.edges.contains(edge))
+    }
+
+    @Test func aClickAwayFromEveryJoinClearsTheSelection() {
+        let (_, canvas, gestures, _, step) = drawn()
+        gestures.selectNode(step, addingToSelection: false)
+
+        gestures.canvasTap(at: CGPoint(x: 4000, y: 4000))
+
+        #expect(canvas.hasSelection == false)
+    }
+
+    @Test func aShiftClickAddsAJoinToTheSelection() throws {
+        let (editor, canvas, gestures, goal, step) = drawn()
+        let junction = try #require(editor.drop("junction:all", at: CGPoint(x: 60, y: 600), elements: []))
+        editor.join(from: junction, to: goal)
+        let first = gestures.line(of: TreeGraph.Edge(from: step, to: goal))
+        let second = gestures.line(of: TreeGraph.Edge(from: junction, to: goal))
+
+        gestures.canvasTap(at: middle(of: first), addingToSelection: false)
+        gestures.canvasTap(at: middle(of: second), addingToSelection: true)
+
+        #expect(canvas.selectedEdges.count == 2)
+    }
+
+    @Test func aClickOnAJoinSelectsNothingWhenTheClickIsFarFromTheLine() {
+        let (_, canvas, gestures, goal, step) = drawn()
+        let line = gestures.line(of: TreeGraph.Edge(from: step, to: goal))
+
+        gestures.canvasTap(at: CGPoint(x: (line.start.x + line.end.x) / 2, y: line.start.y + 40))
+
+        #expect(canvas.hasSelection == false)
     }
 }

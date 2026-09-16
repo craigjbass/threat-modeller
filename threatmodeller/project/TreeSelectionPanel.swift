@@ -33,8 +33,10 @@ struct TreeSelectionPanel: View {
                     nodePanel(node)
                 case .pending(let pending):
                     pendingPanel(pending)
+                case .join(let join):
+                    joinPanel(join)
                 case .several(let count):
-                    Text("\(count) nodes are selected.")
+                    Text("\(count) things are selected.")
                         .font(.callout)
                     Button("Delete", role: .destructive) { gestures.deleteSelection() }
                         .accessibilityIdentifier("tree-selection-delete")
@@ -145,6 +147,26 @@ struct TreeSelectionPanel: View {
             .accessibilityIdentifier("tree-selection-delete")
     }
 
+    // MARK: the selected join
+
+    @ViewBuilder
+    private func joinPanel(_ join: TreeSelection.Join) -> some View {
+        Text("A join")
+            .font(.subheadline.weight(.semibold))
+
+        LabeledContent("From", value: join.from)
+            .accessibilityIdentifier("tree-selected-join-from")
+        LabeledContent("To", value: join.to)
+            .accessibilityIdentifier("tree-selected-join-to")
+
+        Divider()
+
+        Button("Cut this Join") { editor.cut(join.edge) }
+            .accessibilityIdentifier("tree-selection-cut-this-join")
+        Button("Delete", role: .destructive) { gestures.deleteSelection() }
+            .accessibilityIdentifier("tree-selection-delete")
+    }
+
     // MARK: a dropped element waiting for a threat
 
     @ViewBuilder
@@ -198,17 +220,32 @@ enum TreeSelection: Equatable {
         let feedsANode: Bool
     }
 
+    /// One selected join, with the label of each end.
+    struct Join: Equatable {
+        let edge: TreeGraph.Edge
+        let from: String
+        let to: String
+    }
+
     case noTree
     case tree(Tree)
     case node(Node)
     case pending(PendingElement)
+    case join(Join)
     case several(Int)
 
     @MainActor
     static func of(editor: TreeEditor, canvas: TreeCanvasState, bound: BoundAttackTree?) -> TreeSelection {
         guard editor.isEditing else { return .noTree }
         let selected = canvas.selectedIds
-        guard selected.count <= 1 else { return .several(selected.count) }
+        guard canvas.selectionCount <= 1 else { return .several(canvas.selectionCount) }
+        if let edge = canvas.selectedEdges.first {
+            return .join(Join(
+                edge: edge,
+                from: editor.graph.node(edge.from)?.title ?? edge.from,
+                to: editor.graph.node(edge.to)?.title ?? edge.to
+            ))
+        }
         guard let id = selected.first else {
             return .tree(Tree(
                 standing: editor.refusal.map { "Not written: \($0)." } ?? written(editor: editor, bound: bound),

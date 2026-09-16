@@ -26,9 +26,15 @@ struct TreeGraph: Equatable {
     }
 
     /// `from` feeds `to`: `from` sits under `to` in the file.
-    struct Edge: Equatable {
+    ///
+    /// The canvas selects an edge, so the type states an id and hashes.
+    /// Declared `nonisolated`: the app target defaults every type to the main
+    /// actor, and this one is a pure value with no shared state.
+    nonisolated struct Edge: Hashable, Identifiable {
         let from: String
         let to: String
+
+        var id: String { "\(from)->\(to)" }
     }
 
     private(set) var nodes: [Node] = []
@@ -72,6 +78,46 @@ struct TreeGraph: Equatable {
     }
 
     func node(_ id: String) -> Node? { nodes.first { $0.id == id } }
+
+    // MARK: what a join is allowed to be
+
+    /// True when `from` may feed `to`. The rules are the ones `tree(id:...)`
+    /// refuses a graph by: the goal feeds nothing, every other node feeds one
+    /// node, a step holds nothing under it except the goal, one root feeds
+    /// the goal, and no route comes back to the node it left.
+    func canJoin(from: String, to: String) -> Bool {
+        guard from != to, node(from) != nil, let target = node(to) else { return false }
+        guard goalId != from else { return false }
+        guard edges.contains(where: { $0.from == from }) == false else { return false }
+        if to == goalId {
+            guard edges.contains(where: { $0.to == to }) == false else { return false }
+        } else if case .step = target.kind {
+            return false
+        }
+
+        var seen: Set<String> = [to]
+        var current = to
+        while let next = edges.first(where: { $0.from == current })?.to {
+            if next == from { return false }
+            guard seen.insert(next).inserted else { break }
+            current = next
+        }
+        return true
+    }
+
+    /// Every join one node is offered, in the order the nodes were added.
+    ///
+    /// A node is offered each join it may feed. A junction is offered the
+    /// nodes it may take as well, because a junction holds what feeds it and
+    /// a step holds nothing.
+    func joinsOffered(for id: String) -> [Edge] {
+        nodes.compactMap { other in
+            guard other.id != id else { return nil }
+            if canJoin(from: id, to: other.id) { return Edge(from: id, to: other.id) }
+            if canJoin(from: other.id, to: id) { return Edge(from: other.id, to: id) }
+            return nil
+        }
+    }
 
     // MARK: the graph becomes the tree, or is refused
 
