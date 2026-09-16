@@ -668,6 +668,80 @@ struct ProjectSessionTests {
 
         #expect(session.lastActionMessage == nil)
     }
+
+    // MARK: importing from Terraform
+
+    /// The golden state `terraform show -json` would write, copied to a real
+    /// file: the panel hands the session a path on disk, not project text.
+    private static func terraformStateFile() throws -> String {
+        let text = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("ThreatModelKit/Tests/Goldens/terraform-aws-state.json"),
+            encoding: .utf8
+        )
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("terraform-aws-state-\(UUID().uuidString).json")
+        try text.write(to: path, atomically: true, encoding: .utf8)
+        return path.path
+    }
+
+    @Test func importsATerraformStateIntoTheOpenSystemWithNoSeparateReload() async throws {
+        let (session, useCases) = await aProject()
+        await session.open(root: "/work")
+        let before = session.model?.canvas.components.count ?? 0
+        let stateFile = try Self.terraformStateFile()
+
+        await session.importTerraform(fileAt: stateFile)
+
+        #expect(session.errorMessage == nil)
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.arch"))
+        #expect(written.contains("technology = \"aws-ec2\""))
+        // The component a person wrote by hand is still there.
+        #expect(written.contains("component \"api\" {"))
+        // The window redrew the system on its own: a person did not have to
+        // press Reload to see what the import added.
+        #expect((session.model?.canvas.components.count ?? 0) > before)
+
+        let result = try #require(session.terraformImportResult)
+        #expect(result.path == "/work/threatmodel/payments.arch")
+        #expect(result.lines.contains { $0.hasPrefix("added aws-instance-api") })
+        #expect(result.lines.contains { $0.contains("aws_cloudwatch_metric_alarm (1)") })
+    }
+
+    /// A second import of the same state changes no element a person wrote by
+    /// hand, and writes the same bytes.
+    @Test func aSecondImportOfTheSameStateChangesNothing() async throws {
+        let (session, useCases) = await aProject()
+        await session.open(root: "/work")
+        let stateFile = try Self.terraformStateFile()
+
+        await session.importTerraform(fileAt: stateFile)
+        let first = try #require(useCases.project.text(at: "/work/threatmodel/payments.arch"))
+
+        await session.importTerraform(fileAt: stateFile)
+        let second = try #require(useCases.project.text(at: "/work/threatmodel/payments.arch"))
+
+        #expect(second == first)
+        #expect(second.contains("component \"api\" {"))
+    }
+
+    /// A file that is not the JSON `terraform show -json` writes shows an
+    /// error and writes nothing.
+    @Test func saysSoWhenTheChosenFileDoesNotParse() async throws {
+        let (session, useCases) = await aProject()
+        await session.open(root: "/work")
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("not-terraform-\(UUID().uuidString).json")
+        try "not json".write(to: path, atomically: true, encoding: .utf8)
+
+        await session.importTerraform(fileAt: path.path)
+
+        #expect(session.errorMessage != nil)
+        #expect(session.terraformImportResult == nil)
+        #expect(useCases.project.text(at: "/work/threatmodel/payments.arch") == payments)
+    }
 }
 
 /// What a project window writes back: the architecture, the answers, and the

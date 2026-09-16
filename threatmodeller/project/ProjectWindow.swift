@@ -19,6 +19,8 @@ struct ProjectWindow: View {
     @State private var isShowingHistory = false
     /// True while the check summary is on screen.
     @State private var isShowingCheckSummary = false
+    /// True while the Terraform import result is on screen.
+    @State private var isShowingTerraformImport = false
     @State private var canvas = CanvasState()
     /// The tree in front on the Attack Trees stage, and its canvas. The
     /// window owns them, so the tree survives a change of stage.
@@ -104,6 +106,17 @@ struct ProjectWindow: View {
                 dismiss: { isShowingCheckSummary = false }
             )
         }
+        .sheet(isPresented: $isShowingTerraformImport) {
+            if let result = session.terraformImportResult {
+                TerraformImportSheet(
+                    result: result,
+                    dismiss: {
+                        isShowingTerraformImport = false
+                        session.dismissTerraformImportResult()
+                    }
+                )
+            }
+        }
         .sheet(isPresented: $isShowingHistory) {
             if let root = session.root {
                 HistorySheet(
@@ -148,6 +161,9 @@ struct ProjectWindow: View {
             // Errors stop the picture, so they interrupt. Warnings sit in the
             // strip until the user asks for them.
             if session.hasErrors { isShowingDiagnostics = true }
+        }
+        .onChange(of: session.terraformImportResult) {
+            if session.terraformImportResult != nil { isShowingTerraformImport = true }
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {

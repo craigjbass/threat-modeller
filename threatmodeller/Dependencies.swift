@@ -147,6 +147,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         )
     }
 
+    func importTerraformIntoSystem() -> ImportTerraformIntoSystemUseCase {
+        ImportTerraformIntoSystem(projects: projects, sources: architectureSources)
+    }
+
     func exportArchitecture() -> ExportArchitectureUseCase {
         ExportArchitecture(models: models, sources: architectureSources)
     }

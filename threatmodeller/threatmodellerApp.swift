@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import ThreatModelKit
+import UniformTypeIdentifiers
 
 /// The application opens on the welcome window.
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -152,6 +153,10 @@ struct ThreatModellerApp: App {
                 Button("Generate Report") { project?.compileReport() }
                     .keyboardShortcut("r", modifiers: [.command, .option])
                     .disabled(project?.chosenSystem == nil)
+
+                Button("Import from Terraform\u{2026}") { importFromTerraform() }
+                    .disabled(project?.chosenSystem == nil)
+                    .accessibilityIdentifier("import-terraform")
             }
             CommandGroup(after: .windowList) {
                 Button("Welcome") { openWindow(id: Self.welcomeWindowId) }
@@ -249,5 +254,19 @@ struct ThreatModellerApp: App {
         dismissWindow(id: Self.welcomeWindowId)
     }
 
+    /// The file `terraform show -json` wrote. The panel takes JSON, the way
+    /// the executable reads it from standard input.
+    private func importFromTerraform() {
+        guard let project else { return }
 
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.json]
+        panel.prompt = "Import"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        Task { await project.importTerraform(fileAt: url.path) }
+    }
 }

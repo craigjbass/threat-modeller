@@ -32,6 +32,7 @@ public protocol UseCaseFactory: Sendable {
 
     func layOutModel() -> LayOutModelUseCase
     func importArchitecture() -> ImportArchitectureUseCase
+    func importTerraformIntoSystem() -> ImportTerraformIntoSystemUseCase
     func exportArchitecture() -> ExportArchitectureUseCase
     func setControlStatus() -> SetControlStatusUseCase
     func setControlEvidence() -> SetControlEvidenceUseCase

@@ -307,6 +307,123 @@ struct ImportTerraformTests {
         #expect(lines.contains { $0.contains("import takes terraform") })
     }
 
+    // MARK: the window's own use case
+
+    /// A window holds a root and a system's name, not a path, so it runs
+    /// `ImportTerraformIntoSystem` rather than the verb. The two write the
+    /// same bytes for the same input.
+    @Test func theWindowsUseCaseWritesTheSameFileTheVerbWrites() throws {
+        let state = try Self.state("terraform-aws-state.json")
+        let header = "system \"Payments\" {\n}\n"
+
+        // The verb, over its own project.
+        let verbProject = InMemoryProject(root: "/work")
+        verbProject.put(header, at: "/work/threatmodel/payments.arch")
+        let code = CommandLineApplication(
+            projects: verbProject,
+            catalogue: { CatalogueFixture.catalogue() },
+            standardInput: { state }
+        )
+        .run(arguments: ["threatmodeller", "import", "terraform", "/work"], output: { _ in })
+        #expect(code == 0)
+        let fromTheVerb = try #require(verbProject.text(at: "/work/threatmodel/payments.arch"))
+
+        // The window's use case, over an identically seeded project.
+        let windowProject = InMemoryProject(root: "/work")
+        windowProject.put(header, at: "/work/threatmodel/payments.arch")
+        let response = ImportTerraformIntoSystem(
+            projects: windowProject,
+            sources: HclArchitectureSource()
+        ).execute(
+            ImportTerraformIntoSystemRequest(
+                root: "/work",
+                systemName: "payments",
+                stateText: state
+            )
+        )
+        guard case .imported(let path, .imported) = response else {
+            Issue.record("the system did not import: \(response)")
+            return
+        }
+        let fromTheWindow = try #require(windowProject.text(at: path))
+
+        #expect(fromTheWindow == fromTheVerb)
+    }
+
+    /// A second import over the same state, run through the window's use
+    /// case, writes the file it already holds and changes nothing in it.
+    @Test func aSecondImportThroughTheWindowsUseCaseChangesNothing() throws {
+        let project = InMemoryProject(root: "/work")
+        project.put("system \"Payments\" {\n}\n", at: "/work/threatmodel/payments.arch")
+        let state = try Self.state("terraform-aws-state.json")
+        let importer = ImportTerraformIntoSystem(projects: project, sources: HclArchitectureSource())
+        let request = ImportTerraformIntoSystemRequest(
+            root: "/work", systemName: "payments", stateText: state
+        )
+
+        _ = importer.execute(request)
+        let firstWrite = try #require(project.text(at: "/work/threatmodel/payments.arch"))
+
+        let response = importer.execute(request)
+        let secondWrite = try #require(project.text(at: "/work/threatmodel/payments.arch"))
+
+        #expect(secondWrite == firstWrite)
+        guard case .imported(_, .imported(_, let added, let removed, _, _, _, _)) = response else {
+            Issue.record("the state did not import: \(response)")
+            return
+        }
+        #expect(added.isEmpty)
+        #expect(removed.isEmpty)
+    }
+
+    @Test func theWindowsUseCaseSaysWhenTheProjectHoldsNoSuchSystem() throws {
+        let project = InMemoryProject(root: "/work")
+        project.put("system \"Payments\" {\n}\n", at: "/work/threatmodel/payments.arch")
+
+        let response = ImportTerraformIntoSystem(
+            projects: project,
+            sources: HclArchitectureSource()
+        ).execute(
+            ImportTerraformIntoSystemRequest(
+                root: "/work", systemName: "reporting", stateText: "{}"
+            )
+        )
+
+        #expect(response == .noSuchSystem)
+    }
+
+    /// `importLines` states the words `threatmodeller import terraform`
+    /// prints, so a window that shows them says what the verb says.
+    @Test func importLinesStatesTheWordsTheVerbPrints() throws {
+        let project = InMemoryProject(root: "/work")
+        project.put("system \"Payments\" {\n}\n", at: "/work/threatmodel/payments.arch")
+        var verbLines: [String] = []
+        let state = try Self.state("terraform-aws-state.json")
+
+        let code = CommandLineApplication(
+            projects: project,
+            catalogue: { CatalogueFixture.catalogue() },
+            standardInput: { state }
+        )
+        .run(
+            arguments: ["threatmodeller", "import", "terraform", "/work"],
+            output: { verbLines.append($0) }
+        )
+        #expect(code == 0)
+
+        let response = importing().execute(
+            ImportTerraformRequest(stateText: state, systemName: "Payments")
+        )
+        let windowLines = response.importLines(path: "/work/threatmodel/payments.arch")
+
+        for line in windowLines {
+            #expect(verbLines.contains(line), "the verb did not print \"\(line)\"")
+        }
+        #expect(windowLines.contains { $0.hasPrefix("added aws-instance-api") })
+        #expect(windowLines.contains { $0.contains("aws_cloudwatch_metric_alarm (1)") })
+        #expect(windowLines.contains { $0.contains("imported 4 components, 3 zones and 1 flows") })
+    }
+
     // MARK: the golden files
 
     @Test func theImportMatchesTheGoldenFile() throws {

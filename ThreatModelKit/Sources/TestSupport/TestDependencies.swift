@@ -146,6 +146,10 @@ public final class TestDependencies: UseCaseFactory {
         )
     }
 
+    public func importTerraformIntoSystem() -> ImportTerraformIntoSystemUseCase {
+        ImportTerraformIntoSystem(projects: projects, sources: architectureSources)
+    }
+
     public func exportArchitecture() -> ExportArchitectureUseCase {
         ExportArchitecture(models: models, sources: architectureSources)
     }

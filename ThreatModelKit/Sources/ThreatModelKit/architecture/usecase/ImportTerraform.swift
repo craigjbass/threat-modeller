@@ -415,3 +415,115 @@ public struct ImportTerraform: ImportTerraformUseCase {
         )
     }
 }
+
+extension ImportTerraformResponse {
+    /// The lines `threatmodeller import terraform` prints for this result,
+    /// against the path the file is written to, or would be written to. A
+    /// caller that shows this in a window states these words rather than its
+    /// own, so a person reads the same report the executable prints.
+    public func importLines(path: String) -> [String] {
+        switch self {
+        case .imported(_, let added, let removed, let components, let zones, let flows, let unmapped):
+            var lines = added.map { "added \($0)" }
+            lines += removed.map { "removed \($0), which the state no longer holds" }
+            lines += Self.unmappedLines(unmapped)
+            lines.append(
+                "imported \(components) components, \(zones) zones and \(flows) flows"
+                    + " into \(path)"
+            )
+            return lines
+        case .nothingToImport(let unmapped):
+            return Self.unmappedLines(unmapped)
+                + ["this state holds nothing this application draws"]
+        case .unreadableState:
+            return ["the state is not the JSON `terraform show -json` writes"]
+        case .refused(let diagnostics):
+            return diagnostics.map { $0.described(in: path) }
+        }
+    }
+
+    /// One line naming every resource type this application does not map,
+    /// and how many of each the state held.
+    public static func unmappedLines(_ unmapped: [(type: String, count: Int)]) -> [String] {
+        guard unmapped.isEmpty == false else { return [] }
+        let total = unmapped.reduce(0) { $0 + $1.count }
+        let named = unmapped.map { "\($0.type) (\($0.count))" }.joined(separator: ", ")
+        return ["\(total) resources have no mapping: \(named)"]
+    }
+}
+
+public protocol ImportTerraformIntoSystemUseCase {
+    func execute(_ request: ImportTerraformIntoSystemRequest) -> ImportTerraformIntoSystemResponse
+}
+
+public struct ImportTerraformIntoSystemRequest: Equatable, Sendable {
+    public let root: String
+    public let systemName: String
+    /// The JSON `terraform show -json` wrote.
+    public let stateText: String
+
+    public init(root: String, systemName: String, stateText: String) {
+        self.root = root
+        self.systemName = systemName
+        self.stateText = stateText
+    }
+}
+
+public enum ImportTerraformIntoSystemResponse: Equatable, Sendable {
+    /// Where the file is, and what the import did against it. `response`
+    /// states `.imported` only when a file was written.
+    case imported(path: String, response: ImportTerraformResponse)
+    case noSuchSystem
+    case notAProject(reason: String)
+    case cannotWrite(reason: String)
+}
+
+/// Runs `ImportTerraform` against one system's own `.arch` file, the way
+/// `threatmodeller import terraform` runs it against the file named on its
+/// command line.
+///
+/// A window holds no path: it holds a root and a system's name, the way every
+/// other project use case does. This reads the system's file, if there is
+/// one, and writes the merged file back to the same place.
+public struct ImportTerraformIntoSystem: ImportTerraformIntoSystemUseCase {
+    private let projects: ProjectSourceGateway
+    private let imports: ImportTerraformUseCase
+
+    public init(projects: ProjectSourceGateway, sources: ArchitectureSourceGateway) {
+        self.projects = projects
+        self.imports = ImportTerraform(sources: sources)
+    }
+
+    public func execute(
+        _ request: ImportTerraformIntoSystemRequest
+    ) -> ImportTerraformIntoSystemResponse {
+        let layout: ProjectLayout
+        do {
+            layout = try projects.discover(root: request.root)
+        } catch {
+            return .notAProject(reason: String(describing: error))
+        }
+        guard let system = layout.systems.first(where: { $0.name == request.systemName }) else {
+            return .noSuchSystem
+        }
+
+        let held = try? projects.read(path: system.architecturePath)
+        let response = imports.execute(
+            ImportTerraformRequest(
+                stateText: request.stateText,
+                architectureText: held,
+                systemName: request.systemName
+            )
+        )
+
+        if case .imported(let text, _, _, _, _, _, _) = response {
+            do {
+                try projects.write(text, to: system.architecturePath)
+            } catch {
+                return .cannotWrite(reason: String(describing: error))
+            }
+        }
+
+        return .imported(path: system.architecturePath, response: response)
+    }
+}

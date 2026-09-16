@@ -727,6 +727,29 @@ struct ViewRenderTests {
         )
     }
 
+    /// The result sheet a Terraform import shows, in the words
+    /// `threatmodeller import terraform` prints for it.
+    @Test func drawsTheTerraformImportSheet() async {
+        expectDrawn(
+            TerraformImportSheet(
+                result: TerraformImportResult(
+                    path: "/work/threatmodel/payments.arch",
+                    lines: [
+                        "added aws-instance-api",
+                        "removed aws-s3-bucket-old, which the state no longer holds",
+                        "2 resources have no mapping: aws_cloudwatch_metric_alarm (2)",
+                        "imported 7 components, 2 zones and 3 flows into" +
+                            " /work/threatmodel/payments.arch"
+                    ]
+                ),
+                dismiss: {}
+            ),
+            width: 520,
+            height: 380,
+            "the Terraform import sheet"
+        )
+    }
+
     @Test func drawsTheSamplesBrowser() async {
         expectDrawn(
             SampleBrowser(session: aModel(), canvas: CanvasState()),

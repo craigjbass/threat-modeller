@@ -1286,6 +1286,59 @@ final class ProjectSession {
         }
     }
 
+    // MARK: importing from Terraform
+
+    /// What the last Terraform import did, in the words `threatmodeller
+    /// import terraform` prints for it. The result sheet reads this.
+    private(set) var terraformImportResult: TerraformImportResult?
+
+    /// Imports the JSON `terraform show -json` wrote into the open system's
+    /// architecture, and reads the project again so the window shows the
+    /// imported components without a separate reload.
+    ///
+    /// A file that does not parse as that JSON, or an existing `.arch` file
+    /// that does not parse, writes nothing and only sets `errorMessage`: the
+    /// result sheet is for a report on what an import drew, not for a
+    /// fault.
+    func importTerraform(fileAt path: String) async {
+        guard let root, let chosenSystem else { return }
+        guard let stateText = try? String(contentsOfFile: path, encoding: .utf8) else {
+            errorMessage = "\((path as NSString).lastPathComponent) could not be read."
+            return
+        }
+
+        switch useCases.importTerraformIntoSystem().execute(
+            ImportTerraformIntoSystemRequest(
+                root: root,
+                systemName: chosenSystem,
+                stateText: stateText
+            )
+        ) {
+        case .imported(let writtenPath, let response):
+            guard case .imported = response else {
+                errorMessage = response.importLines(path: writtenPath).joined(separator: "\n")
+                return
+            }
+            errorMessage = nil
+            terraformImportResult = TerraformImportResult(
+                path: writtenPath,
+                lines: response.importLines(path: writtenPath)
+            )
+            await reloadFromDisk()
+        case .noSuchSystem:
+            errorMessage = "This project no longer holds \"\(chosenSystem)\"."
+        case .notAProject(let reason):
+            errorMessage = "That is not a project: \(reason)"
+        case .cannotWrite(let reason):
+            errorMessage = "The system could not be written: \(reason)"
+        }
+    }
+
+    /// Takes the result sheet off the screen.
+    func dismissTerraformImportResult() {
+        terraformImportResult = nil
+    }
+
     /// True once this session has written a report, so the two controls and
     /// the File menu item have something to open. A report written by
     /// `threatmodeller compile` outside the application is not known to this
@@ -1467,4 +1520,12 @@ struct PlannedWorkItem: Identifiable, Equatable {
             "action#\(work.label)"
         }
     }
+}
+
+/// What a Terraform import wrote, for the result sheet: where it wrote, and
+/// what it says about what it mapped and what it could not, in the words
+/// `threatmodeller import terraform` prints for it.
+struct TerraformImportResult: Equatable {
+    let path: String
+    let lines: [String]
 }
