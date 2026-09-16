@@ -166,6 +166,10 @@ public final class TestDependencies: UseCaseFactory {
         RemoveStaleAnswer(projects: projects, controlsSources: controlsSources)
     }
 
+    public func removeStaleAnswers() -> RemoveStaleAnswersUseCase {
+        RemoveStaleAnswers(projects: projects, controlsSources: controlsSources)
+    }
+
     public func setLikelihoodFinding() -> SetLikelihoodFindingUseCase {
         SetLikelihoodFinding(models: models)
     }

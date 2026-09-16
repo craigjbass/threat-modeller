@@ -409,6 +409,21 @@ final class ProjectSession {
         readSystemSummaries()
     }
 
+    /// Deletes every stale answer this system holds, in one read and one
+    /// write of the controls file, because a person confirmed the sheet
+    /// that lists what each one holds.
+    func removeStaleAnswers() async {
+        guard let root, let chosenSystem else { return }
+
+        useCases.removeStaleAnswers()
+            .execute(RemoveStaleAnswersRequest(root: root, systemName: chosenSystem))
+            .describe(into: &errorMessage)
+
+        fingerprint = currentFingerprint()
+        readStaleAnswers()
+        readCheckFindings()
+    }
+
     // MARK: the attack trees this system states
 
     /// The trees the system's `.attacktree` file states, for the editor. It
@@ -730,6 +745,11 @@ final class ProjectSession {
     /// Deletes one from somewhere that cannot wait for it.
     func deleteStaleAnswer(_ answer: StaleAnswer) {
         inFlight = Task { await removeStaleAnswer(answer) }
+    }
+
+    /// Deletes every stale answer from somewhere that cannot wait for it.
+    func deleteStaleAnswers() {
+        inFlight = Task { await removeStaleAnswers() }
     }
 
     /// Reads the files again and draws them. It keeps the chosen system when

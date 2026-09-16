@@ -11,12 +11,22 @@ import ThreatModelKit
 struct StaleAnswersPanel: View {
     let project: ProjectSession
 
+    @State private var confirmingDeleteAll = false
+
     var body: some View {
         let answers = project.staleAnswers
         if answers.isEmpty == false {
             VStack(alignment: .leading, spacing: 6) {
-                Label(Self.label(for: answers.count), systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline.weight(.semibold))
+                HStack(alignment: .firstTextBaseline) {
+                    Label(Self.label(for: answers.count), systemImage: "exclamationmark.triangle.fill")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer(minLength: 4)
+                    Button("Delete all", role: .destructive) {
+                        confirmingDeleteAll = true
+                    }
+                    .font(.caption)
+                    .accessibilityIdentifier("delete-all-stale")
+                }
 
                 ForEach(answers, id: \.described) { answer in
                     row(answer)
@@ -26,6 +36,11 @@ struct StaleAnswersPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.yellow.opacity(0.18))
             .accessibilityIdentifier("stale-answers")
+            .sheet(isPresented: $confirmingDeleteAll) {
+                StaleAnswersConfirmationSheet(project: project, answers: project.staleAnswers) {
+                    confirmingDeleteAll = false
+                }
+            }
         }
     }
 

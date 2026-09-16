@@ -37,6 +37,7 @@ public protocol UseCaseFactory: Sendable {
     func setControlEvidence() -> SetControlEvidenceUseCase
     func listStaleAnswers() -> ListStaleAnswersUseCase
     func removeStaleAnswer() -> RemoveStaleAnswerUseCase
+    func removeStaleAnswers() -> RemoveStaleAnswersUseCase
     func setLikelihoodFinding() -> SetLikelihoodFindingUseCase
     func removeLikelihoodFinding() -> RemoveLikelihoodFindingUseCase
     func writeLikelihoodFinding() -> WriteLikelihoodFindingUseCase

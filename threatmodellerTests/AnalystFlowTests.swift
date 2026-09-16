@@ -407,4 +407,111 @@ struct AnalystFlowTests {
         }
         #expect(hasContent(drawn.image) == false)
     }
+
+    // MARK: deleting every stale answer at once
+
+    /// A project whose controls file answers two threats the architecture no
+    /// longer raises, one with only controls and one that holds every other
+    /// kind of block a stale stanza can hold.
+    private func aProjectWithTwoRichStaleAnswers() async -> (ProjectSession, TestDependencies) {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" { technology = "aws-ec2" }
+            }
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        useCases.project.put(
+            """
+            controls for "Payments" {
+              stale threat "t-old" on component "gone" {
+                control "Answered" { status = "implemented" }
+              }
+
+              stale threat "t-older" on component "also-gone" {
+                likelihood "no campaign observed" {
+                  tier      = "research"
+                  rationale = "no known exploitation in the wild"
+                }
+
+                severity_override "medium" {
+                  rationale = "Scoped credential."
+                }
+
+                control "Answered too" { status = "implemented" }
+
+                compensating "Watched by the SIEM" {
+                  reduces_risk_by = 40
+                  rationale       = "The one account left alerts on use."
+                }
+
+                recommendation "adopt-the-guard" {}
+              }
+            }
+            """,
+            at: "/work/threatmodel/payments.controls"
+        )
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+        return (session, useCases)
+    }
+
+    /// "Delete all" opens the sheet with one row per stale answer, stating
+    /// what each stanza holds. Cancel writes nothing.
+    @Test func theConfirmationSheetListsWhatEachStaleAnswerHoldsAndCancelWritesNothing() async throws {
+        let (project, useCases) = await aProjectWithTwoRichStaleAnswers()
+        let before = try #require(
+            useCases.project.text(at: "/work/threatmodel/payments.controls")
+        )
+
+        let answers = project.staleAnswers
+        #expect(answers.count == 2)
+        let sparse = try #require(answers.first { $0.threatId == "t-old" })
+        #expect(sparse.controlCount == 1)
+        #expect(sparse.hasLikelihoodFinding == false)
+        #expect(sparse.hasSeverityDecision == false)
+        #expect(sparse.compensatingCount == 0)
+        #expect(sparse.recommendationCount == 0)
+        let rich = try #require(answers.first { $0.threatId == "t-older" })
+        #expect(rich.controlCount == 1)
+        #expect(rich.hasLikelihoodFinding == true)
+        #expect(rich.hasSeverityDecision == true)
+        #expect(rich.compensatingCount == 1)
+        #expect(rich.recommendationCount == 1)
+
+        expectDrawn(
+            StaleAnswersConfirmationSheet(project: project, answers: answers, dismiss: {}),
+            width: 640,
+            height: 360,
+            "the stale answers confirmation sheet"
+        )
+        // Cancel calls only `dismiss`, so nothing here ever wrote the file.
+        #expect(useCases.project.text(at: "/work/threatmodel/payments.controls") == before)
+    }
+
+    /// Confirming the sheet deletes every stale answer in one write, and the
+    /// panel goes with the last row.
+    @Test func confirmingTheSheetDeletesEveryStaleAnswerAndHidesThePanel() async throws {
+        let (project, _) = await aProjectWithTwoRichStaleAnswers()
+
+        await project.removeStaleAnswers()
+
+        #expect(project.staleAnswers.isEmpty)
+        #expect(project.errorMessage == nil)
+        guard let drawn = hostedDrawing(
+            of: StaleAnswersPanel(project: project),
+            width: 420,
+            height: 140
+        ) else {
+            Issue.record("the stale answers panel drew nothing at all")
+            return
+        }
+        #expect(hasContent(drawn.image) == false)
+    }
 }

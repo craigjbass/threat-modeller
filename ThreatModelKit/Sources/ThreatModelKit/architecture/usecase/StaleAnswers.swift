@@ -3,19 +3,43 @@
 /// Language guide section 5.4. Nothing deletes one and the application does
 /// not apply what it holds. It is work for a person: read the answer, then
 /// either restore what raised the threat or delete the block.
-public struct StaleAnswer: Equatable, Sendable {
+public struct StaleAnswer: Equatable, Sendable, Identifiable {
+    /// The threat, the source kind and the source id together: the same
+    /// three things a controls file keys the stanza on.
+    public var id: String { "\(threatId)@\(sourceKind):\(sourceId)" }
     public let threatId: String
     public let sourceKind: String
     public let sourceId: String
     /// How many controls the answer holds, so a person sees what they lose by
     /// deleting it.
     public let controlCount: Int
+    /// True when the answer holds a likelihood finding.
+    public let hasLikelihoodFinding: Bool
+    /// True when the answer holds a severity decision.
+    public let hasSeverityDecision: Bool
+    /// How many compensating controls the answer holds.
+    public let compensatingCount: Int
+    /// How many recommendations the answer holds.
+    public let recommendationCount: Int
 
-    public init(threatId: String, sourceKind: String, sourceId: String, controlCount: Int) {
+    public init(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        controlCount: Int,
+        hasLikelihoodFinding: Bool = false,
+        hasSeverityDecision: Bool = false,
+        compensatingCount: Int = 0,
+        recommendationCount: Int = 0
+    ) {
         self.threatId = threatId
         self.sourceKind = sourceKind
         self.sourceId = sourceId
         self.controlCount = controlCount
+        self.hasLikelihoodFinding = hasLikelihoodFinding
+        self.hasSeverityDecision = hasSeverityDecision
+        self.compensatingCount = compensatingCount
+        self.recommendationCount = recommendationCount
     }
 
     public var described: String {
@@ -91,7 +115,11 @@ public struct ListStaleAnswers: ListStaleAnswersUseCase {
                         threatId: answer.threatId,
                         sourceKind: answer.sourceKind,
                         sourceId: answer.sourceId,
-                        controlCount: answer.controls.count
+                        controlCount: answer.controls.count,
+                        hasLikelihoodFinding: answer.likelihood != nil,
+                        hasSeverityDecision: answer.severityDecision != nil,
+                        compensatingCount: answer.compensating.count,
+                        recommendationCount: answer.recommendations.count
                     )
                 }
             )
@@ -192,7 +220,8 @@ public struct RemoveStaleAnswer: RemoveStaleAnswerUseCase {
             systemName: source.systemName,
             catalogueTag: source.catalogueTag,
             riskTolerance: source.riskTolerance,
-            answers: kept
+            answers: kept,
+            trees: source.trees
         )
 
         do {
@@ -201,6 +230,91 @@ public struct RemoveStaleAnswer: RemoveStaleAnswerUseCase {
             return .cannotWrite(reason: String(describing: error))
         }
         return .removed
+    }
+}
+
+public protocol RemoveStaleAnswersUseCase {
+    func execute(_ request: RemoveStaleAnswersRequest) -> RemoveStaleAnswersResponse
+}
+
+public struct RemoveStaleAnswersRequest: Equatable, Sendable {
+    public let root: String
+    public let systemName: String
+
+    public init(root: String, systemName: String) {
+        self.root = root
+        self.systemName = systemName
+    }
+}
+
+public enum RemoveStaleAnswersResponse: Equatable, Sendable {
+    case removed(count: Int)
+    case noSuchSystem
+    case cannotWrite(reason: String)
+
+    public func describe(into message: inout String?) {
+        switch self {
+        case .removed:
+            message = nil
+        case .noSuchSystem:
+            message = "This project no longer holds that system."
+        case .cannotWrite(let reason):
+            message = "Those answers could not be deleted: \(reason)"
+        }
+    }
+}
+
+/// Deletes every stale answer a system's controls file holds, because a
+/// person decided to.
+///
+/// It reads the file once and writes it once, and every other block —
+/// stale or not, and every tree — is written back unchanged, the way
+/// `RemoveStaleAnswer` writes back everything but the one answer it deletes.
+public struct RemoveStaleAnswers: RemoveStaleAnswersUseCase {
+    private let projects: ProjectSourceGateway
+    private let controlsSources: ControlsSourceGateway
+
+    public init(projects: ProjectSourceGateway, controlsSources: ControlsSourceGateway) {
+        self.projects = projects
+        self.controlsSources = controlsSources
+    }
+
+    public func execute(_ request: RemoveStaleAnswersRequest) -> RemoveStaleAnswersResponse {
+        let source: ControlsSource
+        let path: String
+        switch StaleAnswerFile.read(
+            root: request.root,
+            systemName: request.systemName,
+            projects: projects,
+            controlsSources: controlsSources
+        ) {
+        case .read(let read, let at):
+            source = read
+            path = at
+        case .noSuchSystem:
+            return .noSuchSystem
+        case .cannotRead(let reason):
+            return .cannotWrite(reason: reason)
+        }
+
+        let removed = source.answers.filter(\.isStale).count
+        guard removed > 0 else { return .removed(count: 0) }
+
+        let kept = source.answers.filter { $0.isStale == false }
+        let written = ControlsSource(
+            systemName: source.systemName,
+            catalogueTag: source.catalogueTag,
+            riskTolerance: source.riskTolerance,
+            answers: kept,
+            trees: source.trees
+        )
+
+        do {
+            try projects.write(controlsSources.write(written), to: path)
+        } catch {
+            return .cannotWrite(reason: String(describing: error))
+        }
+        return .removed(count: removed)
     }
 }
 
@@ -229,17 +343,17 @@ enum StaleAnswerFile {
             return .noSuchSystem
         }
 
-        let text: String?
+        // A system with no controls file has answered nothing, so it holds
+        // nothing stale either.
+        guard projects.exists(path: system.controlsPath) else {
+            return .read(ControlsSource(systemName: systemName), path: system.controlsPath)
+        }
+
+        let text: String
         do {
             text = try projects.read(path: system.controlsPath)
         } catch {
             return .cannotRead(reason: String(describing: error))
-        }
-
-        // A system with no controls file has answered nothing, so it holds
-        // nothing stale either.
-        guard let text else {
-            return .read(ControlsSource(systemName: systemName), path: system.controlsPath)
         }
 
         let parsed = controlsSources.read(text)

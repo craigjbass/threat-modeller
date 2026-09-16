@@ -215,6 +215,31 @@ struct CheckSummaryTests {
         #expect(findings(of: session).contains { $0.category == .stale } == false)
     }
 
+    /// Confirming "Delete all" removes every stale answer in one write, and
+    /// `check` reports none of them.
+    @Test func rereadsTheSummaryWhenEveryStaleAnswerIsDeletedAtOnce() async throws {
+        let (session, _) = await aSession([
+            "/work/threatmodel/payments.arch": payments,
+            "/work/threatmodel/payments.controls": """
+            controls for "Payments" {
+              stale threat "t-old" on component "gone" {
+                control "Something a person answered" { status = "implemented" }
+              }
+              stale threat "t-older" on component "also-gone" {
+                control "Something else a person answered" { status = "implemented" }
+              }
+            }
+
+            """
+        ])
+        #expect(findings(of: session).filter { $0.category == .stale }.count == 2)
+
+        await session.removeStaleAnswers()
+
+        #expect(session.staleAnswers.isEmpty)
+        #expect(findings(of: session).contains { $0.category == .stale } == false)
+    }
+
     // MARK: the sheet
 
     @Test func theSheetListsEveryLineCheckPrints() async {
