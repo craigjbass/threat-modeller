@@ -63,9 +63,10 @@ nonisolated struct TagFilter: Equatable {
         return tags.contains { pickedTags.contains($0) }
     }
 
-    /// What the canvas draws: the components and the zones that hold a picked
-    /// tag, every component the walk reaches from them within
-    /// `neighbourDepth` flows, and the flows whose two ends the canvas draws.
+    /// What the canvas draws: the components that hold a picked tag, every
+    /// component the walk reaches from them within `neighbourDepth` flows,
+    /// the zones that rule keeps (below), and the flows whose two ends the
+    /// canvas draws.
     ///
     /// A flow needs both its ends, so a flow to a component this filter hides
     /// is hidden too, whatever the flow itself is filed under.
@@ -76,9 +77,10 @@ nonisolated struct TagFilter: Equatable {
             depth: isNarrowing ? neighbourDepth : 0,
             in: model
         )
+        let drawnComponents = model.components.filter { drawnIds.contains($0.id) }
         return DrawnDiagram(
-            components: model.components.filter { drawnIds.contains($0.id) },
-            zones: model.zones.filter { keeps(tags: $0.tags) },
+            components: drawnComponents,
+            zones: Self.zonesToDraw(model.zones, holding: drawnComponents, orKeeping: keeps),
             connections: model.connections.filter {
                 drawnIds.contains($0.sourceComponentId)
                     && drawnIds.contains($0.targetComponentId)
@@ -87,21 +89,40 @@ nonisolated struct TagFilter: Equatable {
     }
 
     /// What Focus draws: one component, every component the walk reaches
-    /// from it within `depth` flows, either direction, and the flows between
-    /// the drawn components. Draws no zone.
+    /// from it within `depth` flows, either direction, the zones that rule
+    /// keeps (below), and the flows between the drawn components.
     ///
     /// Focus is view state on `CanvasState`, not on this filter: a person
     /// focuses one component with no tag written on the model at all.
     static func focus(on componentId: String, depth: Int, in model: ViewThreatModelResponse) -> DrawnDiagram {
         let drawnIds = walk(from: [componentId], depth: depth, in: model)
+        let drawnComponents = model.components.filter { drawnIds.contains($0.id) }
         return DrawnDiagram(
-            components: model.components.filter { drawnIds.contains($0.id) },
-            zones: [],
+            components: drawnComponents,
+            // Focus carries no tag of its own, so no zone qualifies by tag; a
+            // zone draws here only while a drawn component sits in it.
+            zones: Self.zonesToDraw(model.zones, holding: drawnComponents, orKeeping: { _ in false }),
             connections: model.connections.filter {
                 drawnIds.contains($0.sourceComponentId)
                     && drawnIds.contains($0.targetComponentId)
             }
         )
+    }
+
+    /// A zone is context for what sits inside it, so it draws whenever it
+    /// holds a drawn component, or `keeps` says a picked tag is on the zone
+    /// itself. A zone with no drawn component and no tag of its own is
+    /// context for nothing the picture shows.
+    ///
+    /// The walk (#128) never reads zone membership: sharing a zone with a
+    /// drawn component does not make an element a neighbour of it.
+    private static func zonesToDraw(
+        _ zones: [ViewedZone],
+        holding drawnComponents: [ViewedComponent],
+        orKeeping keeps: (_ tags: [String]) -> Bool
+    ) -> [ViewedZone] {
+        let occupiedZoneIds = Set(drawnComponents.compactMap(\.zoneId))
+        return zones.filter { occupiedZoneIds.contains($0.id) || keeps($0.tags) }
     }
 
     /// Every component id in `seedIds`, and every component id the walk

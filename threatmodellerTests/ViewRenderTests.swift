@@ -640,6 +640,32 @@ struct ViewRenderTests {
         #expect(unfiltered != narrowed)
     }
 
+    /// #155: Focus on a component draws the zone it sits in, so the boundary
+    /// still reads right. The other case draws the same component with no
+    /// zone at all, so the pixels prove the outline is what changed.
+    @Test func drawsTheZoneAFocusedComponentSitsIn() async throws {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 400, height: 300))
+        session.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let canvas = CanvasState()
+        canvas.focus(componentId: try #require(session.canvas.components.first).id)
+
+        #expect(canvas.drawn(in: session.canvas).zones.map(\.id) == [zoneId])
+        let withZone = try #require(
+            pixels(of: CanvasView(session: session, canvas: canvas), width: 900, height: 700)
+        )
+
+        let bareSession = ThreatModelSession(useCases: TestDependencies())
+        bareSession.add(technologyId: "aws-ec2", x: 100, y: 100)
+        let bareCanvas = CanvasState()
+        bareCanvas.focus(componentId: try #require(bareSession.canvas.components.first).id)
+        let withoutZone = try #require(
+            pixels(of: CanvasView(session: bareSession, canvas: bareCanvas), width: 900, height: 700)
+        )
+
+        #expect(withZone != withoutZone)
+    }
+
     @Test func drawsThePalette() async {
         expectDrawn(
             PaletteView(session: aModel(), canvas: CanvasState()),

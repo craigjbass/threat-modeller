@@ -5,7 +5,7 @@ import ThreatModelKit
 /// Narrowing the canvas to one tag view.
 @Suite("Narrowing the canvas to one tag")
 struct TagFilterTests {
-    private func component(_ id: String, tags: [String]) -> ViewedComponent {
+    private func component(_ id: String, tags: [String], zoneId: String? = nil) -> ViewedComponent {
         ViewedComponent(
             id: id,
             technologyId: "aws-ec2",
@@ -18,7 +18,7 @@ struct TagFilterTests {
             sensitivityId: "internal",
             threatsDisabled: false,
             isUnknownTechnology: false,
-            zoneId: nil,
+            zoneId: zoneId,
             tags: tags
         )
     }
@@ -157,6 +157,44 @@ struct TagFilterTests {
         #expect(drawn.connections.isEmpty)
     }
 
+    // MARK: the zone a component sits in
+
+    /// A zone is context for what sits inside it, so a picked tag on a
+    /// component still draws the untagged zone the component sits in.
+    @Test func pickingATagAComponentHoldsDrawsTheUntaggedZoneItSitsIn() {
+        let inAZone = ViewThreatModelResponse(
+            name: "Payments",
+            components: [component("api", tags: ["payments"], zoneId: "app")],
+            connections: [],
+            zones: [zone("app", tags: [])]
+        )
+        var filter = TagFilter()
+        filter.pick("payments")
+
+        let drawn = filter.narrow(inAZone)
+
+        #expect(drawn.components.map(\.id) == ["api"])
+        #expect(drawn.zones.map(\.id) == ["app"])
+    }
+
+    /// A tag on the zone itself draws the zone, even while it holds no
+    /// component the picked tag keeps.
+    @Test func pickingATagOnlyAZoneHoldsDrawsTheZoneAndNoComponent() {
+        let inAZone = ViewThreatModelResponse(
+            name: "Payments",
+            components: [component("api", tags: [], zoneId: "app")],
+            connections: [],
+            zones: [zone("app", tags: ["restricted"])]
+        )
+        var filter = TagFilter()
+        filter.pick("restricted")
+
+        let drawn = filter.narrow(inAZone)
+
+        #expect(drawn.components.isEmpty)
+        #expect(drawn.zones.map(\.id) == ["app"])
+    }
+
     // MARK: the neighbours stepper
 
     /// A chain of five components, one flow apart: a -> b -> c -> d -> e.
@@ -263,7 +301,29 @@ struct TagFilterTests {
         #expect(drawn.connections.map(\.id) == ["b->c", "c->d"])
     }
 
-    @Test func focusDrawsNoZone() {
+    /// A zone is context for what sits inside it: Focus on one of its
+    /// components still draws the zone, with the other component in it left
+    /// out.
+    @Test func focusOnAComponentInAZoneDrawsTheZoneAndLeavesTheOtherComponentOut() {
+        let inAZone = ViewThreatModelResponse(
+            name: "Payments",
+            components: [
+                component("api", tags: [], zoneId: "app"),
+                component("worker", tags: [], zoneId: "app")
+            ],
+            connections: [],
+            zones: [zone("app", tags: [])]
+        )
+
+        let drawn = TagFilter.focus(on: "api", depth: 0, in: inAZone)
+
+        #expect(drawn.components.map(\.id) == ["api"])
+        #expect(drawn.zones.map(\.id) == ["app"])
+    }
+
+    /// A zone with no drawn component in it is not context for anything the
+    /// picture shows, so Focus leaves it out.
+    @Test func focusDrawsNoZoneThatHoldsNoDrawnComponent() {
         let drawn = TagFilter.focus(on: "a", depth: 5, in: model)
 
         #expect(drawn.zones.isEmpty)
