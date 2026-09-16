@@ -165,6 +165,97 @@ struct CompileGovernanceTests {
         #expect(written.contains("stale threat \"sql-injection\" on component \"gone\" {"))
     }
 
+    /// Section 8.3: nothing deletes a stale block. Everything a person wrote
+    /// into one is still in the file after the compile marks it stale.
+    @Test func keepsEveryAttributeOnAStaleThreatBlock() throws {
+        let existing = """
+        governance for "Payments" {
+          threat "sql-injection" on component "gone" {
+            accepted "Use parameterised queries" {
+              owner       = "Head of Data"
+              accepted_on = "2026-01-05"
+              review_by   = "2026-07-05"
+              rationale   = "the query runs against one read-only replica"
+              sources     = ["https://example.com/risk-register/RSK-9"]
+            }
+
+            work "Write the runbook" {
+              owner      = "Data team"
+              effort     = "small"
+              due_by     = "2026-11-30"
+              status     = "in_progress"
+              acceptance = "The runbook names the owner."
+              note       = "The rollout waits on the migration."
+            }
+          }
+        }
+        """
+
+        let written = try #require(
+            text(of: compile(controlsText: accepting, governanceText: existing))
+        )
+        let source = try #require(governance.read(written).source)
+        let threat = try #require(
+            source.threat(for: ThreatKey("sql-injection@component:gone"))
+        )
+
+        #expect(threat.isStale)
+        let risk = try #require(threat.accepted.first)
+        #expect(risk.isStale)
+        #expect(risk.owner == "Head of Data")
+        #expect(risk.acceptedOn == "2026-01-05")
+        #expect(risk.reviewBy == "2026-07-05")
+        #expect(risk.rationale == "the query runs against one read-only replica")
+        #expect(risk.sources == ["https://example.com/risk-register/RSK-9"])
+        let work = try #require(threat.work.first)
+        #expect(work.isStale)
+        #expect(work.owner == "Data team")
+        #expect(work.effort == "small")
+        #expect(work.dueBy == "2026-11-30")
+        #expect(work.status == "in_progress")
+        #expect(work.acceptance == "The runbook names the owner.")
+        #expect(work.note == "The rollout waits on the migration.")
+    }
+
+    /// Issue #144. A flow's block keys on the resolver's word `connection`,
+    /// so a second compile finds the block the first compile wrote and keeps
+    /// the owner, rather than writing a second block with the same key.
+    @Test func keepsTheOwnerOfAFlowThreatAndWritesOneBlock() throws {
+        let acceptingOnAFlow = """
+        controls for "Payments" {
+          threat "connection-mitm" on flow "api->db" {
+            control "Enforce TLS" {
+              status = "accepted"
+            }
+          }
+        }
+        """
+        let existing = """
+        governance for "Payments" {
+          threat "connection-mitm" on flow "api->db" {
+            accepted "Enforce TLS" {
+              owner     = "Head of Platform"
+              review_by = "2027-03-01"
+            }
+          }
+        }
+        """
+
+        let written = try #require(
+            text(of: compile(controlsText: acceptingOnAFlow, governanceText: existing))
+        )
+        let read = governance.read(written)
+
+        #expect(read.diagnostics.map(\.message) == [], "the compile wrote:\n\(written)")
+        let source = try #require(read.source)
+        #expect(source.threats.count == 1)
+        let risk = try #require(source.threats.first?.accepted.first)
+        #expect(risk.owner == "Head of Platform")
+        #expect(risk.reviewBy == "2027-03-01")
+        #expect(risk.isStale == false)
+        #expect(written.contains("stale") == false)
+    }
+
     @Test func writesTheSameBytesTwice() throws {
         let first = try #require(text(of: compile(controlsText: accepting)))
         let second = try #require(

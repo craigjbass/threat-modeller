@@ -52,8 +52,14 @@ public struct SourceGovernedThreat: Equatable, Sendable {
         self.isStale = isStale
     }
 
+    /// The key section 5.10 of the language guide gives. The file says
+    /// `flow` and the key says `connection`, so a governance block and a
+    /// controls answer on one flow hold one key.
     public var key: ThreatKey {
-        ThreatKey(threatId: threatId, sourceId: "\(sourceKind):\(sourceId)")
+        ThreatKey(
+            threatId: threatId,
+            sourceId: "\(SourceThreatAnswer.resolverKind(sourceKind)):\(sourceId)"
+        )
     }
 }
 
