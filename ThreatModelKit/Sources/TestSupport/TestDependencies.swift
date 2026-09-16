@@ -326,6 +326,14 @@ public final class TestDependencies: UseCaseFactory {
         WriteImpacts(projects: projects, sources: controlsSources)
     }
 
+    public func writeRecommendation() -> WriteRecommendationUseCase {
+        WriteRecommendation(projects: projects, sources: controlsSources)
+    }
+
+    public func removeRecommendation() -> RemoveRecommendationUseCase {
+        RemoveRecommendation(projects: projects, sources: controlsSources)
+    }
+
     public func checkGovernance() -> CheckGovernanceUseCase {
         CheckGovernance(
             controlsSources: controlsSources,

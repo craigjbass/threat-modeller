@@ -29,6 +29,11 @@ struct ThreatCard: View {
     /// is a toggle; with none, the chips are read-only tags.
     var onSetImpacts: ((_ impacts: [String]) -> Void)?
 
+    /// Opens the recommendations editor, or nil in a window that has no
+    /// project to write the `.controls` file into. With none, the card still
+    /// lists what the file holds.
+    var onRecommend: (() -> Void)?
+
     /// Puts the threat's id on the clipboard, so a person can name it in a
     /// file or a ticket. A test gives its own.
     var clipboard: Clipboard = SystemClipboard()
@@ -78,6 +83,7 @@ struct ThreatCard: View {
                 }
 
                 compensation
+                recommendations
             } else {
                 likelihood
             }
@@ -195,6 +201,56 @@ struct ThreatCard: View {
         ("not_applicable", "Not applicable"),
         ("accepted", "Accepted")
     ]
+
+    /// What a team should do about this threat. The controls file holds one
+    /// `recommendation` block a row, the report prints them in order of
+    /// risk, and the governance file plans work against each text.
+    @ViewBuilder
+    private var recommendations: some View {
+        if threat.recommendations.isEmpty == false || onRecommend != nil {
+            Divider()
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if threat.recommendations.isEmpty {
+                        Text("No recommendation names this threat.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(threat.recommendations, id: \.text) { recommendation in
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(recommendation.text)
+                                .font(.caption)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let note = recommendation.note {
+                                Text(note)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            if recommendation.sources.isEmpty == false {
+                                Text(recommendation.sources.joined(separator: ", "))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .accessibilityIdentifier(
+                            "recommendation-\(recommendation.text)-\(threat.threatKey)"
+                        )
+                    }
+                }
+                Spacer(minLength: 4)
+                if let onRecommend {
+                    Button(threat.recommendations.isEmpty ? "Recommend\u{2026}" : "Edit\u{2026}") {
+                        onRecommend()
+                    }
+                    .font(.caption)
+                    .accessibilityIdentifier("recommend-\(threat.threatKey)")
+                }
+            }
+            .accessibilityIdentifier("recommendations-\(threat.threatKey)")
+        }
+    }
 
     @ViewBuilder
     private var compensation: some View {

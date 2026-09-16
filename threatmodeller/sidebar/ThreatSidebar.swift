@@ -64,6 +64,9 @@ struct ThreatSidebar: View {
     /// The threat whose severity decision the user is writing.
     @State private var deciding: CompensatedThreat?
 
+    /// The threat whose recommendations the user is writing.
+    @State private var recommending: CompensatedThreat?
+
     /// The group at the top of the view. Reordering puts it back, so the
     /// place a person was reading stays on screen.
     @State private var topGroup: String?
@@ -151,6 +154,18 @@ struct ThreatSidebar: View {
                     SeverityDecisionSheet(
                         threat: chosen.threat,
                         severityChoices: session.severityChoices,
+                        project: project
+                    )
+                }
+            }
+            .sheet(item: $recommending) { chosen in
+                if let project {
+                    // The card holds the stale copy the sheet opened on, so
+                    // the sheet reads the threat the session holds now and
+                    // shows every block a write just added.
+                    RecommendationsSheet(
+                        threat: session.threats.first { $0.threatKey == chosen.threat.threatKey }
+                            ?? chosen.threat,
                         project: project
                     )
                 }
@@ -253,6 +268,12 @@ struct ThreatSidebar: View {
                                                         sourceId: sourceId,
                                                         impacts: impacts
                                                     )
+                                                },
+                                                // The editor writes a file in
+                                                // the project, so a window
+                                                // with no project offers none.
+                                                onRecommend: project == nil ? nil : {
+                                                    recommending = CompensatedThreat(threat: threat)
                                                 }
                                             )
                                         }

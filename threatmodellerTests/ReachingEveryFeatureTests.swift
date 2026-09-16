@@ -66,6 +66,37 @@ struct ReachingEveryFeatureTests {
         #expect(session.errorMessage == nil)
     }
 
+    /// The mitigates sheet writes `note`, `blocked_by` and `sources` on an
+    /// assumed edge's recommendation, and the canvas reads all three back, so
+    /// opening the sheet again shows what the edge holds.
+    @Test func writesTheRecommendationsNoteBlockerAndSourcesOnAnEdge() throws {
+        let session = aModel()
+        let ids = session.canvas.components.map(\.id)
+        let (guardId, storeId) = (try #require(ids.first), try #require(ids.last))
+        session.setAssumption(label: "the-budget", text: "The team has none.", owner: nil)
+
+        session.setMitigatesEdge(
+            from: guardId,
+            to: storeId,
+            threatIds: ["credential-theft"],
+            reducesRiskBy: 80,
+            status: "assumed",
+            actionLabel: "adopt-the-guard",
+            actionText: "Adopt the guard",
+            actionNote: "The platform team owns it.",
+            blockedBy: "the-budget",
+            sources: ["https://example.test/plan"]
+        )
+
+        #expect(session.errorMessage == nil)
+        let edge = try #require(session.canvas.mitigations.first)
+        #expect(edge.actionLabel == "adopt-the-guard")
+        #expect(edge.actionText == "Adopt the guard")
+        #expect(edge.actionNote == "The platform team owns it.")
+        #expect(edge.actionBlockedBy == "the-budget")
+        #expect(edge.actionSources == ["https://example.test/plan"])
+    }
+
     @Test func saysSoWhenAMitigatesEdgeNamesNoThreats() throws {
         let session = aModel()
         let ids = session.canvas.components.map(\.id)

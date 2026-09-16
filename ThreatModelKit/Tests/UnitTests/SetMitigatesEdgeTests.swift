@@ -117,6 +117,32 @@ struct SetMitigatesEdgeTests {
         #expect(edges.first?.action?.text == "Adopt the guard")
     }
 
+    /// The mitigates sheet writes `note`, `blocked_by` and `sources`, so the
+    /// view reads all three back and the sheet opens on what the edge holds.
+    @Test func readsTheActionsNoteBlockerAndSourcesBack() {
+        let (guardId, storeId) = aModelOfTwoComponents()
+
+        _ = set(
+            from: guardId,
+            to: storeId,
+            status: "assumed",
+            action: .init(
+                label: "adopt-the-guard",
+                text: "Adopt the guard",
+                note: "The platform team owns it.",
+                blockedBy: "the-budget",
+                sources: ["https://example.test/plan"]
+            )
+        )
+
+        let viewed = app.viewThreatModel().execute(ViewThreatModelRequest()).mitigations.first
+        #expect(viewed?.actionLabel == "adopt-the-guard")
+        #expect(viewed?.actionText == "Adopt the guard")
+        #expect(viewed?.actionNote == "The platform team owns it.")
+        #expect(viewed?.actionBlockedBy == "the-budget")
+        #expect(viewed?.actionSources == ["https://example.test/plan"])
+    }
+
     /// Language guide 4.7: only an assumed edge carries a recommendation. An
     /// adopted one has no leverage left to claim.
     @Test func dropsTheActionOnAnAdoptedEdge() {

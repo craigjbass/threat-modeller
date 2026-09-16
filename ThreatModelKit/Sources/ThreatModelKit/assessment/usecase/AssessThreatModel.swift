@@ -63,6 +63,21 @@ public struct AssessedSeverityDecision: Hashable, Sendable {
     }
 }
 
+/// What a person says should be done about this threat, as one
+/// `recommendation` block of the controls file states it.
+public struct AssessedRecommendation: Hashable, Sendable {
+    public let text: String
+    public let note: String?
+    /// Where the recommendation comes from. Empty when a person names none.
+    public let sources: [String]
+
+    public init(text: String, note: String? = nil, sources: [String] = []) {
+        self.text = text
+        self.note = note
+        self.sources = sources
+    }
+}
+
 public struct AssessedMitreTechnique: Hashable, Sendable {
     public let id: String
     public let name: String
@@ -242,6 +257,9 @@ public struct AssessedThreat: Hashable, Sendable {
     /// What an assessor decided this threat's severity is, and why, or nil
     /// when no decision names this threat on this source.
     public let severityDecision: AssessedSeverityDecision?
+    /// What the controls file says should be done about this threat. Empty
+    /// when it holds no `recommendation` block for it.
+    public let recommendations: [AssessedRecommendation]
 
     public init(
         threatId: String,
@@ -280,7 +298,8 @@ public struct AssessedThreat: Hashable, Sendable {
         performedByLabels: [String] = [],
         scoreIfAssumptionsHold: Int? = nil,
         assumedByComponentLabels: [String] = [],
-        severityDecision: AssessedSeverityDecision? = nil
+        severityDecision: AssessedSeverityDecision? = nil,
+        recommendations: [AssessedRecommendation] = []
     ) {
         self.threatId = threatId
         self.name = name
@@ -319,6 +338,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? riskScore
         self.assumedByComponentLabels = assumedByComponentLabels
         self.severityDecision = severityDecision
+        self.recommendations = recommendations
     }
 }
 
@@ -452,7 +472,15 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                             rationale: decision.rationale,
                             sources: decision.sources
                         )
-                    }
+                    },
+                    recommendations: model.recommendations[
+                        ThreatKey(
+                            threatId: threat.threat.id.value,
+                            sourceId: threat.source.id
+                        )
+                    ]?.map {
+                        AssessedRecommendation(text: $0.text, note: $0.note, sources: $0.sources)
+                    } ?? []
                 )
             },
             severities: taxonomy.severities.map {

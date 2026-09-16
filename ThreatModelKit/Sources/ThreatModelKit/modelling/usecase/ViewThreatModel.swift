@@ -351,6 +351,12 @@ public struct ViewedMitigation: Equatable, Sendable {
     /// What a team would do to adopt an assumed edge, or nil.
     public let actionLabel: String?
     public let actionText: String?
+    /// Why, or how. Nil when the action states none.
+    public let actionNote: String?
+    /// The label of the assumption that holds the action up, or nil.
+    public let actionBlockedBy: String?
+    /// Where the action comes from. Empty when it names none.
+    public let actionSources: [String]
 
     public init(
         sourceComponentId: String,
@@ -359,7 +365,10 @@ public struct ViewedMitigation: Equatable, Sendable {
         reducesRiskBy: Int,
         status: String,
         actionLabel: String? = nil,
-        actionText: String? = nil
+        actionText: String? = nil,
+        actionNote: String? = nil,
+        actionBlockedBy: String? = nil,
+        actionSources: [String] = []
     ) {
         self.sourceComponentId = sourceComponentId
         self.targetComponentId = targetComponentId
@@ -368,6 +377,9 @@ public struct ViewedMitigation: Equatable, Sendable {
         self.status = status
         self.actionLabel = actionLabel
         self.actionText = actionText
+        self.actionNote = actionNote
+        self.actionBlockedBy = actionBlockedBy
+        self.actionSources = actionSources
     }
 }
 
@@ -576,7 +588,10 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     reducesRiskBy: edge.reducesRiskBy,
                     status: edge.effectiveStatus.rawValue,
                     actionLabel: edge.action?.label,
-                    actionText: edge.action?.text
+                    actionText: edge.action?.text,
+                    actionNote: edge.action?.note,
+                    actionBlockedBy: edge.action?.blockedBy,
+                    actionSources: edge.action?.sources ?? []
                 )
             },
             riskTolerance: model.effectiveRiskTolerance.rawValue,

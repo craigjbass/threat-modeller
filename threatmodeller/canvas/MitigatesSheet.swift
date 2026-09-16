@@ -21,6 +21,10 @@ struct MitigatesSheet: View {
     @State private var search = ""
     @State private var actionLabel = ""
     @State private var actionText = ""
+    @State private var actionNote = ""
+    /// The label of the assumption that holds the action up, or "" for none.
+    @State private var blockedBy = ""
+    @State private var actionSources = ""
 
     /// The threats the protected component raises. An edge that names a
     /// threat this component never raises lowers nothing, so the list is what
@@ -69,6 +73,22 @@ struct MitigatesSheet: View {
                     TextField("How", text: $actionText, axis: .vertical)
                         .lineLimit(1 ... 3)
                         .accessibilityIdentifier("mitigates-action-text")
+                    TextField("Why, or what it costs", text: $actionNote, axis: .vertical)
+                        .lineLimit(1 ... 3)
+                        .accessibilityIdentifier("mitigates-action-note")
+                    // A blocker names an assumption the system declares. A
+                    // file whose blocker names no assumption loses the whole
+                    // action, so the picker offers only what is declared.
+                    Picker("Held up by", selection: $blockedBy) {
+                        Text("nothing").tag("")
+                        ForEach(session.canvas.assumptions, id: \.label) { assumption in
+                            Text(assumption.label).tag(assumption.label)
+                        }
+                    }
+                    .accessibilityIdentifier("mitigates-action-blocked-by")
+                    TextField("Sources, one a line", text: $actionSources, axis: .vertical)
+                        .lineLimit(1 ... 4)
+                        .accessibilityIdentifier("mitigates-action-sources")
                 }
             }
             .formStyle(.grouped)
@@ -83,7 +103,7 @@ struct MitigatesSheet: View {
             }
         }
         .padding(16)
-        .frame(width: 520, height: 560)
+        .frame(width: 520, height: 660)
         .onAppear(perform: readWhatIsThere)
         .accessibilityIdentifier("mitigates-sheet")
     }
@@ -131,6 +151,14 @@ struct MitigatesSheet: View {
         status = existing.status
         actionLabel = existing.actionLabel ?? ""
         actionText = existing.actionText ?? ""
+        actionNote = existing.actionNote ?? ""
+        // An assumption the system no longer declares leaves the picker on
+        // "nothing", because the file would lose the action anyway.
+        let declared = session.canvas.assumptions.map(\.label)
+        blockedBy = declared.contains(existing.actionBlockedBy ?? "")
+            ? (existing.actionBlockedBy ?? "")
+            : ""
+        actionSources = existing.actionSources.joined(separator: "\n")
     }
 
     private func write() {
@@ -142,10 +170,20 @@ struct MitigatesSheet: View {
             reducesRiskBy: Int(percent),
             status: status,
             actionLabel: status == "assumed" && label.isEmpty == false ? label : nil,
-            actionText: actionText.trimmingCharacters(in: .whitespaces).isEmpty
-                ? nil
-                : actionText.trimmingCharacters(in: .whitespaces)
+            actionText: written(actionText),
+            actionNote: written(actionNote),
+            blockedBy: blockedBy.isEmpty ? nil : blockedBy,
+            sources: actionSources
+                .split(separator: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.isEmpty == false }
         )
         dismiss()
+    }
+
+    /// One field of the action, trimmed, or nil when a person typed nothing.
+    private func written(_ field: String) -> String? {
+        let trimmed = field.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

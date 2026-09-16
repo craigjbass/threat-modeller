@@ -760,6 +760,115 @@ final class ProjectSession {
         }
     }
 
+    // MARK: what to do about a threat
+
+    /// Writes one `recommendation` block into the controls file and reads the
+    /// project again, so the card shows what the file now holds.
+    ///
+    /// `replacing` names the block an edit changes, by its text. Nil writes a
+    /// new block.
+    func writeRecommendation(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        replacing: String? = nil,
+        text: String,
+        note: String? = nil,
+        sources: [String] = []
+    ) async {
+        guard let root, let chosenSystem else { return }
+
+        let response = useCases.writeRecommendation()
+            .execute(
+                WriteRecommendationRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    systemDisplayName: model?.canvas.name,
+                    threatId: threatId,
+                    sourceKind: sourceKind,
+                    sourceId: sourceId,
+                    replacing: replacing,
+                    text: text,
+                    note: note,
+                    sources: sources
+                )
+            )
+        response.describe(into: &errorMessage)
+
+        // A refused write changed no file, and reading the project again
+        // clears the message that says why.
+        guard case .written = response else { return }
+        await reloadFromDisk()
+    }
+
+    /// Takes one `recommendation` block out of the controls file and reads the
+    /// project again.
+    func removeRecommendation(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        text: String
+    ) async {
+        guard let root, let chosenSystem else { return }
+
+        let response = useCases.removeRecommendation()
+            .execute(
+                RemoveRecommendationRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    threatId: threatId,
+                    sourceKind: sourceKind,
+                    sourceId: sourceId,
+                    text: text
+                )
+            )
+        response.describe(into: &errorMessage)
+
+        guard case .removed = response else { return }
+        await reloadFromDisk()
+    }
+
+    /// Writes a recommendation from somewhere that cannot wait for it, such
+    /// as the editor's Save button.
+    func saveRecommendation(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        replacing: String? = nil,
+        text: String,
+        note: String? = nil,
+        sources: [String] = []
+    ) {
+        inFlight = Task {
+            await writeRecommendation(
+                threatId: threatId,
+                sourceKind: sourceKind,
+                sourceId: sourceId,
+                replacing: replacing,
+                text: text,
+                note: note,
+                sources: sources
+            )
+        }
+    }
+
+    /// Removes a recommendation from somewhere that cannot wait for it.
+    func deleteRecommendation(
+        threatId: String,
+        sourceKind: String,
+        sourceId: String,
+        text: String
+    ) {
+        inFlight = Task {
+            await removeRecommendation(
+                threatId: threatId,
+                sourceKind: sourceKind,
+                sourceId: sourceId,
+                text: text
+            )
+        }
+    }
+
     /// Writes an acceptance from somewhere that cannot wait for it.
     func saveRiskAcceptance(
         threatId: String,

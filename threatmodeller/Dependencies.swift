@@ -327,6 +327,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         WriteImpacts(projects: projects, sources: controlsSources)
     }
 
+    func writeRecommendation() -> WriteRecommendationUseCase {
+        WriteRecommendation(projects: projects, sources: controlsSources)
+    }
+
+    func removeRecommendation() -> RemoveRecommendationUseCase {
+        RemoveRecommendation(projects: projects, sources: controlsSources)
+    }
+
     func checkGovernance() -> CheckGovernanceUseCase {
         CheckGovernance(
             controlsSources: controlsSources,
