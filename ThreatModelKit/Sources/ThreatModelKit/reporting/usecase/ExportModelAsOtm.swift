@@ -99,7 +99,7 @@ struct OtmDocument: Codable {
                 name: $0.name,
                 type: $0.categoryId.isEmpty ? "generic-component" : $0.categoryId,
                 parent: OtmParent(trustZone: zoneByComponent[$0.id]),
-                tags: [$0.technologyId, $0.sensitivityLabel, $0.privilegeLabel]
+                tags: [$0.technologyId, $0.sensitivityLabel, $0.privilegeLabel, $0.statusLabel]
             )
         }
         var nameToId: [String: String] = [:]

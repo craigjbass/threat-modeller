@@ -23,6 +23,7 @@ struct ArchitectureParser {
     private static let boundaries: Set<String> = ["network", "privilege"]
     private static let privilegeLevels: Set<String> = ["user", "admin", "root", "system", "kernel"]
     private static let diagramShapes: Set<String> = ["actor", "process", "store"]
+    private static let componentStatuses: Set<String> = ["live", "proposed"]
 
     /// `allowsPart` is true only when the caller is reading the files of one
     /// system. A file read on its own must still state a `system` block.
@@ -901,6 +902,7 @@ struct ArchitectureParser {
         var source: String?
         var declaredData: String?
         var tags: [String] = []
+        var status = "live"
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -935,10 +937,15 @@ struct ArchitectureParser {
                 if let asset = parseAsset() { assets.append(asset) }
             case "tags":
                 tags = parseListAttribute()
+            case "status":
+                let token = current
+                status = parseTextAttribute() ?? status
+                expectVocabulary(status, Self.componentStatuses, field: "status", at: token)
             default:
                 record(
-                    "a component holds technology, name, data, holds, provided_by, source, "
-                        + "threats, runs_as, shape, tags and asset, not \"\(current.text)\""
+                    "a component holds technology, name, data, status, holds, provided_by, "
+                        + "source, threats, runs_as, shape, tags and asset, not "
+                        + "\"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -962,7 +969,8 @@ struct ArchitectureParser {
             source: source,
             declaredData: declaredData,
             shape: shape,
-            tags: tags
+            tags: tags,
+            status: status
         )
     }
 

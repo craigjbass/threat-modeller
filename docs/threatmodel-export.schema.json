@@ -100,7 +100,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["assetNames", "categoryId", "id", "name", "privilege", "sensitivity", "technologyId"],
+        "required": [
+          "assetNames", "categoryId", "id", "name", "privilege", "sensitivity", "status",
+          "technologyId"
+        ],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string" },
@@ -109,6 +112,7 @@
           "categoryId": { "type": "string" },
           "sensitivity": { "type": "string" },
           "privilege": { "type": "string" },
+          "status": { "enum": ["Live", "Proposed"] },
           "zoneName": { "type": ["string", "null"] },
           "assetNames": { "type": "array", "items": { "type": "string" } }
         }

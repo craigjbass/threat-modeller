@@ -213,6 +213,9 @@ public struct SourceComponent: Equatable, Sendable {
     /// The words a team files this component under, in file order. A tag
     /// groups elements for a reader; it changes no score.
     public let tags: [String]
+    /// Whether the component runs in Production today or is a planned change:
+    /// `live` or `proposed`. A stanza that states nothing is `live`.
+    public let status: String
 
     public init(
         id: String,
@@ -227,8 +230,10 @@ public struct SourceComponent: Equatable, Sendable {
         source: String? = nil,
         declaredData: String? = nil,
         shape: String? = nil,
-        tags: [String] = []
+        tags: [String] = [],
+        status: String = "live"
     ) {
+        self.status = status
         self.tags = tags
         self.id = id
         self.technologyId = technologyId

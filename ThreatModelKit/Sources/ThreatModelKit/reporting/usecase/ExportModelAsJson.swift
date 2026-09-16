@@ -181,10 +181,12 @@ struct ExportedComponent: Codable {
     let categoryId: String
     let sensitivity: String
     let privilege: String
+    let status: String
     let zoneName: String?
     let assetNames: [String]
 
     init(_ component: ReportComponent) {
+        status = component.statusLabel
         id = component.id
         name = component.name
         technologyId = component.technologyId

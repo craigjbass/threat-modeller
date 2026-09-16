@@ -1,3 +1,25 @@
+/// Whether a component runs in Production today or is a planned change.
+///
+/// Application-owned, as `DiagramShape` is: the catalogue carries no status
+/// vocabulary. A component that states nothing is live, so every file written
+/// before this attribute reads and writes unchanged.
+public enum ComponentStatus: String, CaseIterable, Equatable, Sendable {
+    /// Deployed to Production.
+    case live
+    /// Planned and not deployed.
+    case proposed
+
+    /// What a component with no stated status is.
+    public static let `default` = ComponentStatus.live
+
+    public var label: String {
+        switch self {
+        case .live: "Live"
+        case .proposed: "Proposed"
+        }
+    }
+}
+
 public struct Component: Equatable, Sendable {
     /// The slot a component occupies on the diagram, whatever shape it draws
     /// as.
@@ -41,6 +63,10 @@ public struct Component: Equatable, Sendable {
     /// The words a team files this component under, in model order. A tag
     /// groups elements for a reader; it changes no score.
     public var tags: [String]
+    /// Whether the component runs in Production today or is a planned change.
+    /// It changes no score: a proposed component raises the threats it will
+    /// raise once a team deploys it.
+    public var status: ComponentStatus
 
     public init(
         id: ComponentId,
@@ -56,8 +82,10 @@ public struct Component: Equatable, Sendable {
         statesOwnSensitivity: Bool = true,
         shape: DiagramShape? = nil,
         zoneId: ZoneId? = nil,
-        tags: [String] = []
+        tags: [String] = [],
+        status: ComponentStatus = .default
     ) {
+        self.status = status
         self.tags = tags
         self.id = id
         self.technologyId = technologyId

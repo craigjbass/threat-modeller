@@ -405,7 +405,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         shapeId: component.resolvedShape(
                             providerId: lookup.findById(component.technologyId)?.provider.value ?? "",
                             categoryId: lookup.findById(component.technologyId)?.category.value ?? ""
-                        ).rawValue
+                        ).rawValue,
+                        statusLabel: component.status.label
                     )
                 },
                 connections: model.connections.map { connection in

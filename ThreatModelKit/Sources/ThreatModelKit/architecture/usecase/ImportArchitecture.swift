@@ -267,7 +267,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     statesOwnSensitivity: component.declaredData != nil,
                     shape: component.shape.flatMap(DiagramShape.init(rawValue:)),
                     zoneId: zoneByComponent[component.id].map(ZoneId.init),
-                    tags: component.tags
+                    tags: component.tags,
+                    status: ComponentStatus(rawValue: component.status) ?? .default
                 )
             )
         }

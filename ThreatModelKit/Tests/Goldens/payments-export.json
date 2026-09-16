@@ -35,6 +35,7 @@
       "name" : "EC2",
       "privilege" : "User",
       "sensitivity" : "Restricted",
+      "status" : "Live",
       "technologyId" : "aws-ec2",
       "zoneName" : "Private Zone"
     }

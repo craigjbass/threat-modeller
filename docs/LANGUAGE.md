@@ -118,7 +118,7 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `risk_tolerance`, `assumption`, `text`, `owner`, `technology`, `name`,
 `category`, `description`, `threats`, `encrypts`, `zone`, `kind`, `network`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
-`shape`, `asset`, `holds`, `carries`, `tags`, `classification`, `third_party`,
+`shape`, `asset`, `holds`, `carries`, `tags`, `status`, `classification`, `third_party`,
 `provided_by`, `paying_customer`, `uptime`, `uptime_notes`, `kind`, `link`,
 `diagram`, `text`, `flow`, `mitigates`,
 `status`, `recommendation`, `note`,
@@ -396,6 +396,7 @@ ComponentEntry = "technology"  "=" String
                | "shape"       "=" String
                | "threats"     "=" Boolean
                | "tags"        "=" StringList
+               | "status"      "=" String
                | AssetBlock ;
 
 AssetBlock = "asset" String "{" [ "data" "=" String ] "}" ;
@@ -720,6 +721,7 @@ The label is the component's identifier.
 | `shape` | string | `actor`, `process`, `store` | the derived shape |
 | `threats` | boolean | `true`, `false` | `true` |
 | `tags` | string list | any | none |
+| `status` | string | `live`, `proposed` | `live` |
 
 `threats = false` stops the component raising threats at all.
 
@@ -817,6 +819,25 @@ The canvas toolbar lists every tag the system states and draws only the
 elements that hold a picked tag, with the flows between them. The filter is a
 view: it writes no file and changes no score, so a tagged model scores exactly
 what the same model scored before.
+
+**`status` on a component.** A `component` states whether it runs in
+Production today or is a planned change. `live` means the component is
+deployed to Production. `proposed` means the team plans the component and has
+not deployed it. A component that states no `status` is `live`, so every file
+written before the attribute reads and writes unchanged.
+
+```hcl
+component "ledger" {
+  technology = "aws-rds"
+  status     = "proposed"
+}
+```
+
+The status changes no score: a proposed component raises the threats it will
+raise once a team deploys it. The canvas draws a proposed component with a
+broken outline, 3 points on and 3 points off, and a Proposed chip under the
+shape. The report's component table states the status in its own column, and
+the JSON and OTM exports state it too.
 
 **`diagram`.** A team keeps pictures the data-flow diagram cannot draw: a
 sequence of a login, a deployment. A `diagram` block holds one, and the report

@@ -17,6 +17,13 @@ struct ComponentPanel: View {
         ("store", "Store")
     ]
 
+    /// What a component states about itself: deployed to Production, or
+    /// planned and not deployed.
+    private static let statuses = [
+        ("live", "Live"),
+        ("proposed", "Proposed")
+    ]
+
     private static let privileges = [
         ("user", "User"),
         ("admin", "Administrator"),
@@ -27,7 +34,7 @@ struct ComponentPanel: View {
 
     var body: some View {
         // The controls scroll sideways. Their widths are fixed and they need
-        // 1198 points; the canvas column can be 400. Without the scroll the
+        // 1328 points; the canvas column can be 400. Without the scroll the
         // row reflowed and the bar grew to 208 points, taking that height
         // from the diagram above it.
         ScrollView(.horizontal) {
@@ -67,6 +74,15 @@ struct ComponentPanel: View {
             .labelsHidden()
             .frame(width: 170)
             .accessibilityIdentifier("component-shape")
+
+            // A model of a planned change draws both kinds on one canvas.
+            // The canvas draws a proposed component with a broken outline.
+            Picker("Status", selection: status) {
+                ForEach(Self.statuses, id: \.0) { Text($0.1).tag($0.0) }
+            }
+            .labelsHidden()
+            .frame(width: 130)
+            .accessibilityIdentifier("component-status")
 
             Picker("Sensitivity", selection: sensitivity) {
                 ForEach(session.classificationChoices, id: \.id) {
@@ -192,7 +208,8 @@ struct ComponentPanel: View {
         runsAs newRunsAs: String? = nil,
         shape newShape: String? = nil,
         holds newHolds: [String]? = nil,
-        tags newTags: [String]? = nil
+        tags newTags: [String]? = nil,
+        status newStatus: String? = nil
     ) {
         let picked = newShape ?? component.shapeOverrideId ?? ""
 
@@ -204,7 +221,8 @@ struct ComponentPanel: View {
             runsAsId: newRunsAs ?? component.runsAsId,
             shapeId: picked.isEmpty ? nil : picked,
             holds: newHolds,
-            tags: newTags
+            tags: newTags,
+            status: newStatus
         )
     }
 
@@ -226,6 +244,11 @@ struct ComponentPanel: View {
 
     private var sensitivity: Binding<String> {
         Binding(get: { component.sensitivityId }, set: { write(sensitivity: $0) })
+    }
+
+    /// What the Status picker reads and writes.
+    var status: Binding<String> {
+        Binding(get: { component.statusId }, set: { write(status: $0) })
     }
 
     /// What the Shape picker reads and writes. The empty word is Auto.

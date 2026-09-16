@@ -67,7 +67,10 @@ struct ViewRenderTests {
 
     // MARK: the models the views draw
 
-    private func aViewedComponent(shapeId: String) -> ViewedComponent {
+    private func aViewedComponent(
+        shapeId: String,
+        statusId: String = "live"
+    ) -> ViewedComponent {
         ViewedComponent(
             id: "c1",
             technologyId: "aws-ec2",
@@ -83,17 +86,19 @@ struct ViewRenderTests {
             zoneId: nil,
             runsAsId: "user",
             shapeId: shapeId,
-            shapeOverrideId: nil
+            shapeOverrideId: nil,
+            statusId: statusId
         )
     }
 
     private func aNode(
         shapeId: String,
         risk: ElementRisk?,
-        zoneName: String? = nil
+        zoneName: String? = nil,
+        statusId: String = "live"
     ) -> ComponentNodeView {
         ComponentNodeView(
-            component: aViewedComponent(shapeId: shapeId),
+            component: aViewedComponent(shapeId: shapeId, statusId: statusId),
             risk: risk,
             isSelected: false,
             onSelect: { _ in },
@@ -879,6 +884,46 @@ struct ViewRenderTests {
                 "the \(shapeId) node"
             )
         }
+    }
+
+    // MARK: the mark for a proposed component
+
+    /// A proposed component and a live one draw different pictures: the
+    /// proposed outline is broken and the chip row holds a Proposed chip.
+    @Test func drawsAProposedComponentDifferentlyFromALiveOne() async throws {
+        let live = try #require(
+            pixels(
+                of: aNode(shapeId: "process", risk: nil, statusId: "live"),
+                width: 200,
+                height: 180
+            )
+        )
+        let proposed = try #require(
+            pixels(
+                of: aNode(shapeId: "process", risk: nil, statusId: "proposed"),
+                width: 200,
+                height: 180
+            )
+        )
+
+        #expect(live != proposed)
+    }
+
+    /// A component that states no status draws the picture a live component
+    /// draws, so every file written before the attribute draws unchanged.
+    @Test func drawsAComponentWithNoStatusAsALiveOne() async throws {
+        let unstated = try #require(
+            pixels(of: aNode(shapeId: "process", risk: nil), width: 200, height: 180)
+        )
+        let live = try #require(
+            pixels(
+                of: aNode(shapeId: "process", risk: nil, statusId: "live"),
+                width: 200,
+                height: 180
+            )
+        )
+
+        #expect(unstated == live)
     }
 
     @Test func drawsANodeThatRaisesNoThreat() async {

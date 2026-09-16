@@ -9,7 +9,8 @@
       "tags" : [
         "aws-ec2",
         "Restricted",
-        "User"
+        "User",
+        "Live"
       ],
       "type" : "compute"
     }

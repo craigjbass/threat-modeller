@@ -523,6 +523,9 @@ public struct ReportComponent: Equatable, Sendable {
     /// The shape the diagram draws it as: `actor`, `process` or `store`. An
     /// export that states a kind of element reads it.
     public let shapeId: String
+    /// Whether the component runs in Production today or is a planned change:
+    /// Live or Proposed.
+    public let statusLabel: String
 
     public init(
         id: String,
@@ -533,8 +536,10 @@ public struct ReportComponent: Equatable, Sendable {
         zoneName: String?,
         assetNames: [String] = [],
         privilegeLabel: String = PrivilegeLevel.default.label,
-        shapeId: String = DiagramShape.process.rawValue
+        shapeId: String = DiagramShape.process.rawValue,
+        statusLabel: String = ComponentStatus.default.label
     ) {
+        self.statusLabel = statusLabel
         self.id = id
         self.name = name
         self.technologyId = technologyId

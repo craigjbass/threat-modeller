@@ -49,7 +49,7 @@ struct ReportingAThreatModelTests {
         #expect(markdown.fileName == "Payments.md")
         #expect(markdown.markdown.hasPrefix("# Payments\n"))
         #expect(markdown.markdown.contains("### Components"))
-        #expect(markdown.markdown.contains("| EC2 | aws-ec2 | Restricted |"))
+        #expect(markdown.markdown.contains("| EC2 | aws-ec2 | Live | Restricted |"))
         #expect(markdown.markdown.contains("EC2 \u{2192} RDS"))
         #expect(markdown.markdown.contains("### Zones"))
         #expect(markdown.markdown.contains("- Holds: EC2, RDS"))

@@ -44,6 +44,9 @@ public struct ViewedComponent: Equatable, Sendable {
     /// The words a team files this component under, in model order. The canvas
     /// tag filter reads them; no score does.
     public let tags: [String]
+    /// Whether the component runs in Production today or is a planned change:
+    /// `live` or `proposed`. The canvas draws a proposed component broken.
+    public let statusId: String
 
     public init(
         id: String,
@@ -63,8 +66,10 @@ public struct ViewedComponent: Equatable, Sendable {
         shapeOverrideId: String? = nil,
         holds: [String] = [],
         providedById: String? = nil,
-        tags: [String] = []
+        tags: [String] = [],
+        statusId: String = ComponentStatus.default.rawValue
     ) {
+        self.statusId = statusId
         self.tags = tags
         self.holds = holds
         self.providedById = providedById
@@ -500,7 +505,8 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     shapeOverrideId: component.shape?.rawValue,
                     holds: component.holds,
                     providedById: component.providedBy,
-                    tags: component.tags
+                    tags: component.tags,
+                    statusId: component.status.rawValue
                 )
             },
             connections: model.connections.map {

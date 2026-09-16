@@ -23,7 +23,7 @@ in `risk` and in `attributes`.
 | a component | one `components` entry | the id is the component's own id |
 | a component's category | `components[].type` | `generic-component` when the catalogue no longer holds the technology |
 | a component's zone | `components[].parent.trustZone` | absent for a component outside every zone |
-| a component's technology, classification and privilege | `components[].tags` | three tags, in that order |
+| a component's technology, classification, privilege and status | `components[].tags` | four tags, in that order. The status tag is `Live` or `Proposed` |
 | a flow | one `dataflows` entry | the id is `<source>-><target>`, which is the id this model keys a flow on |
 | a flow's kind | `dataflows[].tags` | one tag |
 | a threat on one element | one `threats` entry | see below |

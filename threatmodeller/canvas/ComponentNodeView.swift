@@ -9,6 +9,8 @@ import ThreatModelKit
 /// badge states how many threats no control answers. A component that raises
 /// nothing draws in the quiet secondary colour, and a component the user turned
 /// threats off for draws grey and dashed, the way an out-of-scope element does.
+/// A proposed component draws a broken outline and a Proposed chip, so a reader
+/// tells a planned component from one that runs in Production today.
 struct ComponentNodeView: View {
     let component: ViewedComponent
     /// What the component carries, or nil when it raises nothing.
@@ -47,6 +49,11 @@ struct ComponentNodeView: View {
 
     private var isOutOfScope: Bool { component.threatsDisabled }
 
+    /// A component the file calls planned rather than deployed.
+    private var isProposed: Bool {
+        component.statusId == ComponentStatus.proposed.rawValue
+    }
+
     private var outlineColour: Color {
         if isOutOfScope { return .secondary }
         if isSelected { return .accentColor }
@@ -54,10 +61,14 @@ struct ComponentNodeView: View {
         return RiskPalette.colour(forLevelId: levelId)
     }
 
+    /// The outline dash. A component out of scope breaks 6 on and 4 off. A
+    /// proposed component breaks 3 on and 3 off, so a reader tells the two
+    /// broken outlines apart. Out of scope wins, because a component that
+    /// raises nothing is what a reader must see first.
     private var outlineStyle: StrokeStyle {
         StrokeStyle(
             lineWidth: isSelected ? 2.5 : 1.5,
-            dash: isOutOfScope ? [6, 4] : []
+            dash: isOutOfScope ? [6, 4] : (isProposed ? [3, 3] : [])
         )
     }
 
@@ -167,6 +178,15 @@ struct ComponentNodeView: View {
                 .padding(.horizontal, 5)
                 .padding(.vertical, 1)
                 .background(Capsule().fill(Color.secondary.opacity(0.15)))
+            if isProposed {
+                Text(ComponentStatus.proposed.label)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.orange.opacity(0.22)))
+                    .accessibilityIdentifier("node-status-\(component.id)")
+            }
             if let zoneName {
                 Text(zoneName)
                     .font(.caption2)

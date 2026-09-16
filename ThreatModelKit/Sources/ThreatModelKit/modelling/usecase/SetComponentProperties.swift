@@ -21,6 +21,10 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
     /// The words the component is filed under. Nil leaves the tags alone, so a
     /// panel that does not offer tags changes none.
     public let tags: [String]?
+    /// The status the component takes: `live` or `proposed`. Nil leaves the
+    /// status alone, so a panel that does not offer a status changes none. A
+    /// word outside the vocabulary leaves the status alone too.
+    public let status: String?
 
     public init(
         componentId: String,
@@ -30,8 +34,10 @@ public struct SetComponentPropertiesRequest: Equatable, Sendable {
         runsAs: String,
         shape: String? = nil,
         holds: [String]? = nil,
-        tags: [String]? = nil
+        tags: [String]? = nil,
+        status: String? = nil
     ) {
+        self.status = status
         self.tags = tags
         self.holds = holds
         self.componentId = componentId
@@ -96,6 +102,9 @@ public struct SetComponentProperties: SetComponentPropertiesUseCase {
             }
             if let tags = request.tags {
                 model.components[index].tags = tags
+            }
+            if let status = request.status.flatMap(ComponentStatus.init(rawValue:)) {
+                model.components[index].status = status
             }
 
             model.components[index].customName = name.isEmpty ? nil : name

@@ -257,12 +257,15 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         guard components.isEmpty == false else {
             return lines + ["None.", ""]
         }
-        lines.append("| Name | Technology | Sensitivity | Privilege | Zone | Assets |")
-        lines.append("| --- | --- | --- | --- | --- | --- |")
+        lines.append(
+            "| Name | Technology | Status | Sensitivity | Privilege | Zone | Assets |"
+        )
+        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
         for component in components {
             lines.append(
                 "| \(Markdown.cell(component.name))"
                     + " | \(Markdown.cell(component.technologyId))"
+                    + " | \(Markdown.cell(component.statusLabel))"
                     + " | \(Markdown.cell(component.sensitivityLabel))"
                     + " | \(Markdown.cell(component.privilegeLabel))"
                     + " | \(Markdown.cell(component.zoneName ?? "\u{2014}"))"

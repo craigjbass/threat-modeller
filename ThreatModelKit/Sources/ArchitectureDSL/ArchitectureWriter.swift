@@ -331,6 +331,11 @@ struct ArchitectureWriter {
         if let declared = component.declaredData {
             attributes.append(("data", quoted(declared)))
         }
+        // A live component writes no line, so every file written before the
+        // attribute writes back byte for byte.
+        if component.status != "live" {
+            attributes.append(("status", quoted(component.status)))
+        }
         if component.holds.isEmpty == false {
             attributes.append(
                 ("holds", "[" + component.holds.map(quoted).joined(separator: ", ") + "]")

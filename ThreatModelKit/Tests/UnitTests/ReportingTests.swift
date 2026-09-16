@@ -208,9 +208,13 @@ struct MarkdownExportTests {
 
         let markdown = markdown()
 
-        #expect(markdown.contains("| Name | Technology | Sensitivity | Privilege | Zone | Assets |"))
-        #expect(markdown.contains("| --- | --- | --- | --- | --- | --- |"))
-        #expect(markdown.contains("| EC2 | aws-ec2 | Restricted | User | \u{2014} |  |"))
+        #expect(
+            markdown.contains(
+                "| Name | Technology | Status | Sensitivity | Privilege | Zone | Assets |"
+            )
+        )
+        #expect(markdown.contains("| --- | --- | --- | --- | --- | --- | --- |"))
+        #expect(markdown.contains("| EC2 | aws-ec2 | Live | Restricted | User | \u{2014} |  |"))
     }
 
     @Test func writesEachComponentsAssetsInTheAssetsColumn() {
@@ -231,7 +235,9 @@ struct MarkdownExportTests {
         // The component states "confidential", but its "ssh-keys" asset
         // states "restricted". The score uses the higher of the two, so the
         // table names the sensitivity the score used, not the one declared.
-        #expect(markdown.contains("| EC2 | aws-ec2 | Restricted | User | \u{2014} | ssh-keys |"))
+        #expect(
+            markdown.contains("| EC2 | aws-ec2 | Live | Restricted | User | \u{2014} | ssh-keys |")
+        )
     }
 
     @Test func writesEachConnectionsKindAndDescription() throws {

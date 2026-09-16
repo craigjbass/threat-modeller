@@ -23,7 +23,8 @@ public enum ArchitectureSourceBuilder {
                         ? component.sensitivity.rawValue
                         : nil,
                     shape: component.shape?.rawValue,
-                    tags: component.tags
+                    tags: component.tags,
+                    status: component.status.rawValue
                 )
                 if let zoneId = component.zoneId,
                    model.zones.contains(where: { $0.id == zoneId }) {

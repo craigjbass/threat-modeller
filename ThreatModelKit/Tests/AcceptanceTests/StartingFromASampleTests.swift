@@ -75,7 +75,11 @@ struct StartingFromASampleTests {
         let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest())
 
         #expect(markdown.markdown.contains("## Appendix A \u{2014} Full threat register"))
-        #expect(markdown.markdown.contains("| Name | Technology | Sensitivity | Privilege | Zone | Assets |"))
+        #expect(
+            markdown.markdown.contains(
+                "| Name | Technology | Status | Sensitivity | Privilege | Zone | Assets |"
+            )
+        )
         // The register holds real threats, not the empty-model placeholder.
         #expect(markdown.markdown.contains("None.\n\n## Appendix B") == false)
     }
