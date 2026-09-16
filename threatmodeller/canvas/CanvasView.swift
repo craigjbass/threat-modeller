@@ -404,6 +404,13 @@ struct CanvasView: View {
                         .accessibilityIdentifier("tag-filter-\(tag)")
                 }
                 Divider()
+                Stepper(
+                    "Neighbours: \(canvas.tagFilter.neighbourDepth)",
+                    value: neighbourDepth,
+                    in: 0...10
+                )
+                .accessibilityIdentifier("tag-filter-neighbours")
+                Divider()
                 Button("Clear Filter") { canvas.clearTagFilter() }
                     .disabled(canvas.tagFilter.isNarrowing == false)
                     .accessibilityIdentifier("tag-filter-clear")
@@ -429,6 +436,14 @@ struct CanvasView: View {
         Binding(
             get: { canvas.tagFilter.isPicked(tag) },
             set: { _ in canvas.pick(tag: tag) }
+        )
+    }
+
+    /// What the neighbours stepper reads and writes.
+    private var neighbourDepth: Binding<Int> {
+        Binding(
+            get: { canvas.tagFilter.neighbourDepth },
+            set: { canvas.setNeighbourDepth($0) }
         )
     }
 

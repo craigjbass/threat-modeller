@@ -190,6 +190,13 @@ final class CanvasState: CanvasViewport {
         tagFilter.clear()
     }
 
+    /// Sets how many flows out the tag filter and Focus draw around what
+    /// they pick. The value holds while the window is open, and changing
+    /// the picked tags or Focus does not reset it.
+    func setNeighbourDepth(_ depth: Int) {
+        tagFilter.setNeighbourDepth(depth)
+    }
+
     func startDrawingZone() {
         isDrawingZone = true
         zoneDraft = nil

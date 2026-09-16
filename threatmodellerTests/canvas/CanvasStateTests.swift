@@ -168,4 +168,17 @@ struct CanvasStateTests {
         #expect(canvas.connectionDrag == nil)
         #expect(canvas.isDrawingZone)
     }
+
+    /// The neighbours stepper holds its value while the tag filter's own
+    /// tags change, so a person does not re-set it for every tag they pick.
+    @Test func theNeighbourDepthHoldsWhilePickedTagsChange() {
+        let canvas = CanvasState()
+
+        canvas.setNeighbourDepth(2)
+        canvas.pick(tag: "payments")
+        canvas.pick(tag: "payments")
+        canvas.clearTagFilter()
+
+        #expect(canvas.tagFilter.neighbourDepth == 2)
+    }
 }

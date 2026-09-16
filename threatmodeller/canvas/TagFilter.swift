@@ -14,6 +14,12 @@ nonisolated struct TagFilter: Equatable {
     /// The tags a person picked. Empty draws the whole model.
     private(set) var pickedTags: Set<String> = []
 
+    /// How many flows out the filter draws around the tagged elements. Zero
+    /// draws the tagged elements alone. The stepper sets this, and the value
+    /// holds while the picked tags change, so it does not reset for every
+    /// tag a person picks.
+    private(set) var neighbourDepth: Int = 0
+
     /// True while the filter hides anything.
     var isNarrowing: Bool { pickedTags.isEmpty == false }
 
@@ -31,6 +37,13 @@ nonisolated struct TagFilter: Equatable {
     /// Draws the whole model again.
     mutating func clear() {
         pickedTags = []
+    }
+
+    /// Sets how many flows out the filter draws. Never negative; the
+    /// stepper's own lower bound keeps a person from setting one, but a
+    /// caller that passes one anyway still gets zero.
+    mutating func setNeighbourDepth(_ depth: Int) {
+        neighbourDepth = max(0, depth)
     }
 
     /// Every tag the model states, in alphabetical order and with no repeats.
@@ -51,21 +64,58 @@ nonisolated struct TagFilter: Equatable {
     }
 
     /// What the canvas draws: the components and the zones that hold a picked
-    /// tag, and the flows whose two ends the canvas draws.
+    /// tag, every component the walk reaches from them within
+    /// `neighbourDepth` flows, and the flows whose two ends the canvas draws.
     ///
     /// A flow needs both its ends, so a flow to a component this filter hides
     /// is hidden too, whatever the flow itself is filed under.
     func narrow(_ model: ViewThreatModelResponse) -> DrawnDiagram {
-        let components = model.components.filter { keeps(tags: $0.tags) }
-        let drawnIds = Set(components.map(\.id))
+        let matched = model.components.filter { keeps(tags: $0.tags) }
+        let drawnIds = Self.walk(
+            from: Set(matched.map(\.id)),
+            depth: isNarrowing ? neighbourDepth : 0,
+            in: model
+        )
         return DrawnDiagram(
-            components: components,
+            components: model.components.filter { drawnIds.contains($0.id) },
             zones: model.zones.filter { keeps(tags: $0.tags) },
             connections: model.connections.filter {
                 drawnIds.contains($0.sourceComponentId)
                     && drawnIds.contains($0.targetComponentId)
             }
         )
+    }
+
+    /// Every component id in `seedIds`, and every component id the walk
+    /// reaches from them within `depth` flows, either direction.
+    ///
+    /// Focus (#129) calls this with one seed id, so the tag filter and Focus
+    /// walk the model by the same rule.
+    static func walk(
+        from seedIds: Set<String>,
+        depth: Int,
+        in model: ViewThreatModelResponse
+    ) -> Set<String> {
+        guard depth > 0, seedIds.isEmpty == false else { return seedIds }
+        var reachedIds = seedIds
+        var frontier = seedIds
+        for _ in 0..<depth {
+            var next: Set<String> = []
+            for connection in model.connections {
+                if frontier.contains(connection.sourceComponentId),
+                    reachedIds.contains(connection.targetComponentId) == false {
+                    next.insert(connection.targetComponentId)
+                }
+                if frontier.contains(connection.targetComponentId),
+                    reachedIds.contains(connection.sourceComponentId) == false {
+                    next.insert(connection.sourceComponentId)
+                }
+            }
+            guard next.isEmpty == false else { break }
+            reachedIds.formUnion(next)
+            frontier = next
+        }
+        return reachedIds
     }
 
     /// The tags one line of text states: trimmed, in the order typed, with no

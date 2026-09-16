@@ -157,6 +157,95 @@ struct TagFilterTests {
         #expect(drawn.connections.isEmpty)
     }
 
+    // MARK: the neighbours stepper
+
+    /// A chain of five components, one flow apart: a -> b -> c -> d -> e.
+    /// "start" tags `a` alone and "middle" tags `c` alone.
+    private var chain: ViewThreatModelResponse {
+        ViewThreatModelResponse(
+            name: "Chain",
+            components: [
+                component("a", tags: ["start"]),
+                component("b", tags: []),
+                component("c", tags: ["middle"]),
+                component("d", tags: []),
+                component("e", tags: [])
+            ],
+            connections: [
+                flow("a", "b"),
+                flow("b", "c"),
+                flow("c", "d"),
+                flow("d", "e")
+            ],
+            zones: []
+        )
+    }
+
+    @Test func theNeighbourDepthIsZeroByDefault() {
+        #expect(TagFilter().neighbourDepth == 0)
+    }
+
+    @Test func aZeroDepthDrawsTheTaggedElementsAlone() {
+        var filter = TagFilter()
+        filter.pick("start")
+
+        let drawn = filter.narrow(chain)
+
+        #expect(drawn.components.map(\.id) == ["a"])
+        #expect(drawn.connections.isEmpty)
+    }
+
+    @Test func aDepthOfOneDrawsTheTaggedElementAndItsNeighbourAndTheFlowBetweenThem() {
+        var filter = TagFilter()
+        filter.pick("start")
+        filter.setNeighbourDepth(1)
+
+        let drawn = filter.narrow(chain)
+
+        #expect(drawn.components.map(\.id) == ["a", "b"])
+        #expect(drawn.connections.map(\.id) == ["a->b"])
+    }
+
+    @Test func aDepthOfTwoDrawsElementsTwoFlowsAwayAndNotThree() {
+        var filter = TagFilter()
+        filter.pick("start")
+        filter.setNeighbourDepth(2)
+
+        let drawn = filter.narrow(chain)
+
+        #expect(drawn.components.map(\.id) == ["a", "b", "c"])
+        #expect(drawn.components.map(\.id).contains("d") == false)
+        #expect(drawn.connections.map(\.id) == ["a->b", "b->c"])
+    }
+
+    @Test func theWalkReachesEitherDirection() {
+        var filter = TagFilter()
+        filter.pick("middle")
+        filter.setNeighbourDepth(1)
+
+        let drawn = filter.narrow(chain)
+
+        #expect(drawn.components.map(\.id) == ["b", "c", "d"])
+        #expect(drawn.connections.map(\.id) == ["b->c", "c->d"])
+    }
+
+    @Test func settingTheDepthNeverGoesBelowZero() {
+        var filter = TagFilter()
+        filter.setNeighbourDepth(-1)
+
+        #expect(filter.neighbourDepth == 0)
+    }
+
+    @Test func changingTheFilterTagsLeavesTheDepthUnchanged() {
+        var filter = TagFilter()
+        filter.setNeighbourDepth(2)
+        filter.pick("payments")
+        filter.pick("payments")
+        filter.clear()
+
+        #expect(filter.neighbourDepth == 2)
+    }
+
     // MARK: the words a person types
 
     @Test func readsACommaSeparatedLineAsTags() {

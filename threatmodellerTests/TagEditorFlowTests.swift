@@ -138,6 +138,23 @@ struct TagEditorFlowTests {
         #expect(model.canvas.components.count == 2)
     }
 
+    @Test func theNeighbourDepthChangesNoFileAndNoScore() async throws {
+        let (session, useCases) = await aProject(tagged)
+        let model = try #require(session.model)
+        let canvas = CanvasState()
+        let threatsBefore = model.threats.count
+        let before = architecture(useCases)
+
+        canvas.pick(tag: "payments")
+        canvas.setNeighbourDepth(1)
+
+        #expect(model.threats.count == threatsBefore)
+        #expect(architecture(useCases) == before)
+        #expect(model.canvas.components.count == 2)
+        let drawn = canvas.tagFilter.narrow(model.canvas)
+        #expect(drawn.components.map(\.id) == ["api", "db"])
+    }
+
     @Test func clearFilterDrawsTheWholeModelAgain() async throws {
         let (session, _) = await aProject(tagged)
         let model = try #require(session.model)
