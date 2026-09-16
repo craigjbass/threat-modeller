@@ -45,6 +45,13 @@ public struct ReadProjectFingerprint: ReadProjectFingerprintUseCase {
                     fingerprint[path] = try projects.read(path: path).hashValue
                 }
             }
+
+            // Every system reads every library, so a library edit is a change
+            // to the project the same way a header file edit is.
+            for path in layout.libraryPaths {
+                guard projects.exists(path: path) else { continue }
+                fingerprint[path] = try projects.read(path: path).hashValue
+            }
             return .read(fingerprint: fingerprint)
         } catch ProjectError.notADirectory(let path) {
             return .notAProject(reason: "\(path) is not a directory")

@@ -164,4 +164,54 @@ struct ReadProjectFingerprintTests {
 
         #expect(first == second)
     }
+
+    // MARK: a shared library
+
+    private func aProjectWithALibrary() -> InMemoryProject {
+        let project = aProject()
+        project.put(
+            "library \"acme\" { name = \"Acme Platform\" }",
+            at: "/work/threatmodel/library/acme.lib"
+        )
+        return project
+    }
+
+    @Test func namesEveryLibraryFile() {
+        guard case .read(let fingerprint) = read(aProjectWithALibrary()) else {
+            Issue.record("the project was not read")
+            return
+        }
+
+        #expect(fingerprint["/work/threatmodel/library/acme.lib"] != nil)
+    }
+
+    @Test func answersADifferentFingerprintForAChangedLibraryFile() {
+        let project = aProjectWithALibrary()
+        guard case .read(let before) = read(project) else {
+            Issue.record("the project was not read")
+            return
+        }
+
+        project.put(
+            "library \"acme\" { name = \"Acme Platform\"\n// changed\n }",
+            at: "/work/threatmodel/library/acme.lib"
+        )
+
+        guard case .read(let after) = read(project) else {
+            Issue.record("the project was not read")
+            return
+        }
+        #expect(before != after)
+    }
+
+    @Test func answersTheSameFingerprintForAnUnchangedProjectWithALibrary() {
+        let project = aProjectWithALibrary()
+
+        guard case .read(let first) = read(project), case .read(let second) = read(project) else {
+            Issue.record("the project was not read")
+            return
+        }
+
+        #expect(first == second)
+    }
 }

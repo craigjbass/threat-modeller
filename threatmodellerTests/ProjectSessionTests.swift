@@ -1074,6 +1074,104 @@ struct ProjectLibraryTests {
         #expect(session.errorMessage == nil)
         #expect(session.model != nil)
     }
+
+    // MARK: a library file changed on disk
+
+    private func aWatchedProject(
+        _ files: [String: String]
+    ) async -> (ProjectSession, TestDependencies, FakeProjectWatcher) {
+        let useCases = TestDependencies()
+        for (path, text) in files { useCases.project.put(text, at: path) }
+        let watcher = FakeProjectWatcher()
+        return (ProjectSession(useCases: useCases, watcher: watcher, defaults: aTestDefaults()), useCases, watcher)
+    }
+
+    @Test func thePaletteListsATechnologyAddedToTheLibraryAfterTheFilesChange() async {
+        let (session, useCases, watcher) = await aWatchedProject([
+            "/work/threatmodel/payments.arch": payments,
+            "/work/threatmodel/library/acme.lib": acme
+        ])
+        await session.open(root: "/work")
+
+        useCases.project.put(
+            """
+            library "acme" {
+              name = "Acme Platform"
+
+              technology "cribl-stream" {
+                name     = "Cribl Stream"
+                category = "compute"
+                threats  = ["pipeline-tamper"]
+              }
+
+              technology "edge-router" {
+                name     = "Edge Router"
+                category = "compute"
+              }
+
+              threat "pipeline-tamper" {
+                name     = "Pipeline tampering"
+                severity = "high"
+
+                control "Sign pipeline configurations"
+              }
+            }
+            """,
+            at: "/work/threatmodel/library/acme.lib"
+        )
+
+        watcher.fire()
+        await session.settle()
+
+        #expect(session.hasFilesChangedOnDisk == false)
+        let acmeGroup = session.model?.palette.first { $0.id == "acme" }
+        let everyTechnology = acmeGroup?.categories.flatMap(\.technologies) ?? []
+        #expect(everyTechnology.contains { $0.id == "acme-edge-router" })
+    }
+
+    @Test func theSidebarRaisesAThreatAddedToTheLibraryAfterTheReload() async {
+        let (session, useCases, watcher) = await aWatchedProject([
+            "/work/threatmodel/payments.arch": payments,
+            "/work/threatmodel/library/acme.lib": acme
+        ])
+        await session.open(root: "/work")
+        #expect(session.model?.threats.contains { $0.threatId == "acme-supply-chain" } == false)
+
+        useCases.project.put(
+            """
+            library "acme" {
+              name = "Acme Platform"
+
+              technology "cribl-stream" {
+                name     = "Cribl Stream"
+                category = "compute"
+                threats  = ["pipeline-tamper", "supply-chain"]
+              }
+
+              threat "pipeline-tamper" {
+                name     = "Pipeline tampering"
+                severity = "high"
+
+                control "Sign pipeline configurations"
+              }
+
+              threat "supply-chain" {
+                name     = "Supply chain compromise"
+                severity = "high"
+
+                control "Verify build provenance"
+              }
+            }
+            """,
+            at: "/work/threatmodel/library/acme.lib"
+        )
+
+        watcher.fire()
+        await session.settle()
+
+        #expect(session.hasFilesChangedOnDisk == false)
+        #expect(session.model?.threats.contains { $0.threatId == "acme-supply-chain" } == true)
+    }
 }
 
 /// The rules the project states for itself, as the window lists them beside
