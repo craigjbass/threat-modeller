@@ -260,6 +260,17 @@ unchanged upstream writes the same bytes. `cve list` prints what the lock
 file holds and makes no network call. `check` warns for a CVE a component
 states that the lock file does not hold, and does not fail for it.
 
+A CVE the CISA KEV catalogue lists raises every threat on its component to
+the `commodity` likelihood, the claim a faced commodity actor makes; a CVE the
+catalogue does not list changes no score. The report writes
+`## Known vulnerabilities` after `## Third parties`: one row per CVE per
+component with its CVSS, EPSS, KEV and a priority by the
+[CVE_Prioritizer](https://github.com/TURROKS/CVE_Prioritizer) quadrant, `1+`
+for a known exploited CVE and `1` to `4` by CVSS at or above 6.0 and EPSS at
+or above 0.2. `cve_cvss_threshold` and `cve_epss_threshold` in
+`threatmodel/policy.hcl` move the two thresholds. The JSON export writes the
+same rows as `knownVulnerabilities`.
+
 WARNING: the NVD answers five requests in thirty seconds to a caller with no
 key, so `cve sync` waits six seconds between NVD requests after the fifth.
 `THREATMODELLER_CVE_FEEDS=<directory>` reads the three feeds from files in

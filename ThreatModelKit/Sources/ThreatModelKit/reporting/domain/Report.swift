@@ -40,6 +40,12 @@ public struct Report: Equatable, Sendable {
     public let dataInventory: [ReportAssetRow]
     /// One row per party outside this team the system depends on.
     public let thirdParties: [ReportThirdParty]
+    /// One row per CVE per component, in model order. Empty when no
+    /// component states a CVE.
+    public let knownVulnerabilities: [ReportKnownVulnerability]
+    /// The thresholds the priorities were ranked by: the policy's, or the
+    /// defaults.
+    public let vulnerabilityThresholds: VulnerabilityPriority.Thresholds
     /// The pictures the team keeps beside the diagram, in model order.
     public let diagrams: [ReportDiagram]
     /// What this model does not cover, in file order.
@@ -103,6 +109,8 @@ public struct Report: Equatable, Sendable {
         users: [ReportUser] = [],
         dataInventory: [ReportAssetRow] = [],
         thirdParties: [ReportThirdParty] = [],
+        knownVulnerabilities: [ReportKnownVulnerability] = [],
+        vulnerabilityThresholds: VulnerabilityPriority.Thresholds = .default,
         diagrams: [ReportDiagram] = [],
         exclusions: [ReportExclusion] = [],
         assumedMitigations: [ReportAssumedMitigation] = [],
@@ -140,6 +148,8 @@ public struct Report: Equatable, Sendable {
         self.users = users
         self.dataInventory = dataInventory
         self.thirdParties = thirdParties
+        self.knownVulnerabilities = knownVulnerabilities
+        self.vulnerabilityThresholds = vulnerabilityThresholds
         self.diagrams = diagrams
         self.exclusions = exclusions
         self.assumedMitigations = assumedMitigations
@@ -157,6 +167,40 @@ public struct Report: Equatable, Sendable {
         self.attackTrees = attackTrees
         self.attackPathCount = attackPathCount
     }
+}
+
+/// One CVE one component states, ranked, in report form.
+public struct ReportKnownVulnerability: Equatable, Sendable {
+    public let cveId: String
+    public let componentName: String
+    /// The version the component states. Empty when it states none.
+    public let version: String
+    public let cvss: Double?
+    public let epss: Double?
+    public let isKnownExploited: Bool
+    /// `1+` to `4`, or nil when the lock file does not hold the CVE.
+    public let priorityLabel: String?
+
+    public init(
+        cveId: String,
+        componentName: String,
+        version: String,
+        cvss: Double?,
+        epss: Double?,
+        isKnownExploited: Bool,
+        priorityLabel: String?
+    ) {
+        self.cveId = cveId
+        self.componentName = componentName
+        self.version = version
+        self.cvss = cvss
+        self.epss = epss
+        self.isKnownExploited = isKnownExploited
+        self.priorityLabel = priorityLabel
+    }
+
+    /// True when the lock file holds the CVE.
+    public var isSynchronised: Bool { priorityLabel != nil }
 }
 
 /// One adversary the assessment is written against.

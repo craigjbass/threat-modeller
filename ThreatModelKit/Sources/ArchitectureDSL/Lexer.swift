@@ -204,6 +204,17 @@ public struct Lexer {
                     value.append(characters[index])
                     advance()
                 }
+                // A decimal: digits, one full stop, digits. A full stop with
+                // no digit after it is not part of the number.
+                if index < characters.count, characters[index] == ".",
+                   peek(index + 1)?.isNumber ?? false {
+                    value.append(".")
+                    advance()
+                    while index < characters.count, characters[index].isNumber {
+                        value.append(characters[index])
+                        advance()
+                    }
+                }
                 tokens.append(
                     Token(
                         kind: .number,

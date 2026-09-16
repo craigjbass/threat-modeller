@@ -419,8 +419,13 @@ nonisolated final class Dependencies: UseCaseFactory {
             imports: importArchitecture(),
             applies: applyControlAnswers(),
             governance: applyGovernance(),
-            policy: applyPolicy()
+            policy: applyPolicy(),
+            vulnerabilities: applyVulnerabilityLock()
         )
+    }
+
+    func applyVulnerabilityLock() -> ApplyVulnerabilityLockUseCase {
+        ApplyVulnerabilityLock(models: models)
     }
 
     func saveSystemAnswers() -> SaveSystemAnswersUseCase {

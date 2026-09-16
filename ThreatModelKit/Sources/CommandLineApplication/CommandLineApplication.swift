@@ -839,6 +839,14 @@ public struct CommandLineApplication {
         return try? projects.read(path: layout.policyPath)
     }
 
+    /// What the lock file states about each CVE, or nil when the project
+    /// holds no lock file.
+    private func vulnerabilityLockText(root: String) -> String? {
+        guard let layout = try? projects.discover(root: root) else { return nil }
+        guard projects.exists(path: layout.vulnerabilityLockPath) else { return nil }
+        return try? projects.read(path: layout.vulnerabilityLockPath)
+    }
+
     /// Who carries each accepted risk, or nil when the project holds no such
     /// file.
     private func governanceText(of system: ProjectSystem) -> String? {
@@ -1293,6 +1301,13 @@ public struct CommandLineApplication {
                         output(warning.described(in: system.controlsPath))
                     }
                 }
+            }
+
+            // What the lock file states about each CVE, so a known exploited
+            // one moves the score the report prints.
+            if let lockText = vulnerabilityLockText(root: root) {
+                _ = useCases.applyVulnerabilityLock()
+                    .execute(ApplyVulnerabilityLockRequest(text: lockText))
             }
 
             // The rules the project states for itself, so the report says
@@ -1912,6 +1927,10 @@ public struct CommandLineApplication {
                     .execute(ApplyControlAnswersRequest(text: controlsText))
             }
 
+            if let lockText = vulnerabilityLockText(root: root) {
+                _ = useCases.applyVulnerabilityLock()
+                    .execute(ApplyVulnerabilityLockRequest(text: lockText))
+            }
             if let policyText = policyText(root: root) {
                 _ = useCases.applyPolicy().execute(ApplyPolicyRequest(text: policyText))
             }

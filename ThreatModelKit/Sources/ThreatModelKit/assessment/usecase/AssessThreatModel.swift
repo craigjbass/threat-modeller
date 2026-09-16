@@ -149,6 +149,56 @@ public struct AssessedControl: Hashable, Sendable {
 ///
 /// Milestone 3 adds a `zone` case. Every call site handles the cases
 /// exhaustively, so a new case is a compile error rather than a silent gap.
+/// One CVE the component a threat is raised on carries, as the threat card
+/// reads it.
+public struct AssessedVulnerability: Hashable, Sendable {
+    public let cveId: String
+    public let cvss: Double?
+    public let epss: Double?
+    public let isKnownExploited: Bool
+    /// `1+` to `4`, or nil when the lock file does not hold the CVE.
+    public let priorityLabel: String?
+
+    public init(
+        cveId: String,
+        cvss: Double? = nil,
+        epss: Double? = nil,
+        isKnownExploited: Bool = false,
+        priorityLabel: String? = nil
+    ) {
+        self.cveId = cveId
+        self.cvss = cvss
+        self.epss = epss
+        self.isKnownExploited = isKnownExploited
+        self.priorityLabel = priorityLabel
+    }
+
+    /// `CVE-2023-44487 (KEV, 1+)`, `CVE-2024-7347 (4)`, or
+    /// `CVE-2025-0001 (not synchronised)`.
+    public var described: String {
+        guard let priorityLabel else { return "\(cveId) (not synchronised)" }
+        return isKnownExploited ? "\(cveId) (KEV, \(priorityLabel))" : "\(cveId) (\(priorityLabel))"
+    }
+
+    /// The CVEs of one component, each ranked against the lock file.
+    public static func of(
+        cves: [String],
+        held: [String: KnownVulnerability],
+        thresholds: VulnerabilityPriority.Thresholds
+    ) -> [AssessedVulnerability] {
+        cves.map { cveId in
+            guard let record = held[cveId] else { return AssessedVulnerability(cveId: cveId) }
+            return AssessedVulnerability(
+                cveId: cveId,
+                cvss: record.cvss,
+                epss: record.epss,
+                isKnownExploited: record.isKnownExploited,
+                priorityLabel: VulnerabilityPriority.priority(of: record, thresholds: thresholds).label
+            )
+        }
+    }
+}
+
 public enum AssessedThreatSource: Hashable, Sendable {
     case component(id: String, name: String, providerId: String)
     case connection(id: String, sourceName: String, targetName: String)
@@ -248,6 +298,9 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The faced threat actors that perform this threat, by name. Empty when
     /// the system faces nobody who does.
     public let performedByLabels: [String]
+    /// The CVEs the component this threat is raised on carries, in file
+    /// order. Empty for a threat on a zone or a flow.
+    public let knownVulnerabilities: [AssessedVulnerability]
     /// The score when every assumed mitigation is in place. Equal to
     /// `riskScore` when no assumed edge answers this threat.
     public let scoreIfAssumptionsHold: Int
@@ -296,6 +349,7 @@ public struct AssessedThreat: Hashable, Sendable {
         likelihoodSources: [String] = [],
         likelihoodReason: String = LikelihoodSource.catalogue(.commodity).reason,
         performedByLabels: [String] = [],
+        knownVulnerabilities: [AssessedVulnerability] = [],
         scoreIfAssumptionsHold: Int? = nil,
         assumedByComponentLabels: [String] = [],
         severityDecision: AssessedSeverityDecision? = nil,
@@ -335,6 +389,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.likelihoodSources = likelihoodSources
         self.likelihoodReason = likelihoodReason
         self.performedByLabels = performedByLabels
+        self.knownVulnerabilities = knownVulnerabilities
         self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? riskScore
         self.assumedByComponentLabels = assumedByComponentLabels
         self.severityDecision = severityDecision
@@ -350,6 +405,20 @@ public struct AssessedThreat: Hashable, Sendable {
 /// the base score.
 /// Lists every threat the model raises, as plain values.
 public struct AssessThreatModel: AssessThreatModelUseCase {
+    /// The CVEs of the component a threat is raised on, ranked. A threat on a
+    /// zone or a flow carries none.
+    static func vulnerabilities(on source: ResolvedSource, in model: ThreatModel) -> [AssessedVulnerability] {
+        guard case .component(let id, _, _) = source,
+              let component = model.components.first(where: { $0.id == id }) else {
+            return []
+        }
+        return AssessedVulnerability.of(
+            cves: component.cves,
+            held: model.vulnerabilities,
+            thresholds: VulnerabilityPriority.Thresholds(policy: model.policy)
+        )
+    }
+
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
     /// The day a review date is measured against.
@@ -463,6 +532,7 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     likelihoodSources: threat.likelihoodFinding?.sources ?? [],
                     likelihoodReason: threat.likelihoodSource.reason,
                     performedByLabels: threat.performedBy.map(\.name),
+                    knownVulnerabilities: Self.vulnerabilities(on: threat.source, in: model),
                     scoreIfAssumptionsHold: threat.scoreIfAssumptionsHold,
                     assumedByComponentLabels: threat.assumedMitigations.map(\.protectorName),
                     severityDecision: threat.severityDecision.map { decision in

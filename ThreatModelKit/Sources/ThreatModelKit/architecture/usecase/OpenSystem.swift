@@ -28,19 +28,22 @@ public struct OpenSystem: OpenSystemUseCase {
     private let applies: ApplyControlAnswersUseCase
     private let governance: ApplyGovernanceUseCase?
     private let policy: ApplyPolicyUseCase?
+    private let vulnerabilities: ApplyVulnerabilityLockUseCase?
 
     public init(
         projects: ProjectSourceGateway,
         imports: ImportArchitectureUseCase,
         applies: ApplyControlAnswersUseCase,
         governance: ApplyGovernanceUseCase? = nil,
-        policy: ApplyPolicyUseCase? = nil
+        policy: ApplyPolicyUseCase? = nil,
+        vulnerabilities: ApplyVulnerabilityLockUseCase? = nil
     ) {
         self.projects = projects
         self.imports = imports
         self.applies = applies
         self.governance = governance
         self.policy = policy
+        self.vulnerabilities = vulnerabilities
     }
 
     public func execute(_ request: OpenSystemRequest) -> OpenSystemResponse {
@@ -125,6 +128,15 @@ public struct OpenSystem: OpenSystemUseCase {
                         diagnostics: diagnostics
                     )
                 }
+            }
+            // What the lock file states about each CVE. A lock file that is
+            // not there leaves the model holding no record, and no score
+            // moves.
+            if let vulnerabilities,
+               let layout = try? projects.discover(root: request.root),
+               projects.exists(path: layout.vulnerabilityLockPath),
+               let lockText = try? projects.read(path: layout.vulnerabilityLockPath) {
+                _ = vulnerabilities.execute(ApplyVulnerabilityLockRequest(text: lockText))
             }
             return .opened(name: name, warnings: everyWarning, catalogueTag: catalogueTag)
         case .refused(let diagnostics):

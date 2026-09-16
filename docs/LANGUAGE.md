@@ -139,7 +139,8 @@ The policy language reads these keywords: `policy`, `max_open_at_level`,
 `accepted_requires_owner`, `accepted_requires_review_by`,
 `implemented_requires_evidence_above`,
 `restricted_data_stays_out_of_public_zones`, `assumptions_require_owner`,
-`system_requires_owner`, `template`.
+`system_requires_owner`, `template`, `cve_cvss_threshold`,
+`cve_epss_threshold`.
 
 The governance language reads these keywords: `governance`, `for`, `threat`,
 `on`, `stale`, `accepted`, `work`, `action`, `owner`, `accepted_on`,
@@ -179,11 +180,14 @@ and the lexer produces no token for it.
 ### 2.8 Number literals
 
 ```
-Number = [ "-" ] Digit { Digit } ;
+Number = [ "-" ] Digit { Digit } [ "." Digit { Digit } ] ;
 ```
 
-A number is a whole number. There are no fractions, no exponents and no
-separators. A `-` followed by `>` is the arrow token, not a number.
+A number is a whole number, or a whole number, one full stop and one or more
+digits. There are no exponents and no separators. A full stop with no digit
+after it is not part of the number. A `-` followed by `>` is the arrow token,
+not a number. The two CVE thresholds of the policy language read a decimal;
+every other number attribute reads a whole number.
 
 ### 2.9 Boolean literals
 
@@ -2653,7 +2657,9 @@ PolicyEntry = "max_open_at_level"                         "=" String
             | "restricted_data_stays_out_of_public_zones" "=" Boolean
             | "assumptions_require_owner"                 "=" Boolean
             | "system_requires_owner"                     "=" Boolean
-            | "template"                                  "=" String ;
+            | "template"                                  "=" String
+            | "cve_cvss_threshold"                        "=" Number
+            | "cve_epss_threshold"                        "=" Number ;
 ```
 
 A file holds exactly one `policy` block. Text after its closing brace is not
@@ -2672,6 +2678,8 @@ not "<word>"`.
 | `assumptions_require_owner` | boolean | every assumption names an owner |
 | `system_requires_owner` | boolean | the `.arch` file states `owner` |
 | `template` | string | the report template this project renders through, as a path from the project root. It asks nothing and breaches nothing |
+| `cve_cvss_threshold` | number, `0.0` to `10.0` | the CVSS at or above which a CVE ranks in the top half of the priority quadrant. Default `6.0`. It asks nothing and breaches nothing |
+| `cve_epss_threshold` | number, `0.0` to `1.0` | the EPSS at or above which a CVE ranks in the top half. Default `0.2`. It asks nothing and breaches nothing |
 
 A rule the file does not state is not in force, and `false` is the same as not
 stating it, so a team turns one off without deleting the line.
@@ -2689,13 +2697,28 @@ policy {
 over the file. The template language is stated in
 `docs/superpowers/specs/2026-09-15-report-template-design.md`.
 
+`cve_cvss_threshold` and `cve_epss_threshold` are not rules and breach
+nothing. They move the two thresholds the CVE priority rule reads: a known
+exploited CVE is `1+`; otherwise CVSS at or above the CVSS threshold and EPSS
+at or above the EPSS threshold is `1`, high CVSS alone is `2`, high EPSS alone
+is `3`, and neither is `4`. A number outside its range is the error
+`<setting> is <value>; this application holds 0.0 to <top>`.
+
+```hcl
+policy {
+  cve_cvss_threshold = 7.0
+  cve_epss_threshold = 0.1
+}
+```
+
 A risk level is `low`, `medium`, `high` or `critical`. A value outside the four
 is the error `<rule> is "<raw>"; this application holds "low", "medium",
 "high", "critical"`. A name outside the set is the error `a policy holds
 max_open_at_level, accepted_requires_owner, accepted_requires_review_by,
 implemented_requires_evidence_above,
 restricted_data_stays_out_of_public_zones, assumptions_require_owner,
-system_requires_owner, template, not "<word>"`.
+system_requires_owner, template, cve_cvss_threshold, cve_epss_threshold, not
+"<word>"`.
 
 ### 9.3 What a breach prints
 
@@ -2923,7 +2946,7 @@ answer. `threatmodeller report` writes `threatmodel/payments.md`.
 
 Identifier = ( Letter | "_" ) { Letter | Digit | "_" | "-" } ;
 String     = '"' { Character | "\" AnyCharacter } '"' ;
-Number     = [ "-" ] Digit { Digit } ;
+Number     = [ "-" ] Digit { Digit } [ "." Digit { Digit } ] ;
 Boolean    = "true" | "false" ;
 StringList = "[" [ String { [ "," ] String } ] "]" ;
 Comment    = ( "#" | "//" ) { AnyCharacter } LineEnd ;

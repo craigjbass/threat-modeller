@@ -454,8 +454,13 @@ public final class TestDependencies: UseCaseFactory {
             imports: importArchitecture(),
             applies: applyControlAnswers(),
             governance: applyGovernance(),
-            policy: applyPolicy()
+            policy: applyPolicy(),
+            vulnerabilities: applyVulnerabilityLock()
         )
+    }
+
+    public func applyVulnerabilityLock() -> ApplyVulnerabilityLockUseCase {
+        ApplyVulnerabilityLock(models: models)
     }
 
     public func saveSystemAnswers() -> SaveSystemAnswersUseCase {

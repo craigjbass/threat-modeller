@@ -62,6 +62,10 @@ struct CommandLineDependencies {
         ApplyPolicy(models: models, sources: policySources)
     }
 
+    func applyVulnerabilityLock() -> ApplyVulnerabilityLockUseCase {
+        ApplyVulnerabilityLock(models: models)
+    }
+
     func checkPolicy() -> CheckPolicyUseCase {
         CheckPolicy(
             policies: policySources,

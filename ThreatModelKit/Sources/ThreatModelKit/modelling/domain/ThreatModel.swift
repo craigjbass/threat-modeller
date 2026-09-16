@@ -106,6 +106,10 @@ public struct ThreatModel: Equatable, Sendable {
     /// The threat actors the `.arch` file declares for itself. One of these
     /// beats a library actor of the same id, whole.
     public var localActors: [ThreatActor]
+    /// What the lock file states about each CVE the components name, by id.
+    /// Empty when the project holds no lock file. A known exploited one
+    /// raises every threat on its component to commodity.
+    public var vulnerabilities: [String: KnownVulnerability]
     /// When the model was first created, and when it last changed. A document
     /// carries both. Spec section 8.
     public var createdAt: Date
@@ -148,6 +152,7 @@ public struct ThreatModel: Equatable, Sendable {
         actionWork: [String: PlannedWork] = [:],
         facedActorIds: [String] = [],
         localActors: [ThreatActor] = [],
+        vulnerabilities: [String: KnownVulnerability] = [:],
         createdAt: Date = Date(timeIntervalSince1970: 0),
         updatedAt: Date = Date(timeIntervalSince1970: 0),
         catalogueVersion: CatalogueVersion? = nil
@@ -189,6 +194,7 @@ public struct ThreatModel: Equatable, Sendable {
         self.actionWork = actionWork
         self.facedActorIds = facedActorIds
         self.localActors = localActors
+        self.vulnerabilities = vulnerabilities
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.catalogueVersion = catalogueVersion

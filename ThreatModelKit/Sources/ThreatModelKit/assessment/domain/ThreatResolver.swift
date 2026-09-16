@@ -533,9 +533,13 @@ public struct ThreatResolver {
         let finding = model.likelihoodFindings[key]
         let performers = ActorLikelihood.performers(of: threat.threat, among: facedActors)
         // Spec section 4.3: a finding in the controls file is the strongest
-        // claim, the faced actors come next, and the catalogue's own tier
-        // stands when neither says anything.
+        // claim, a known exploited CVE on the component comes next, the
+        // faced actors after that, and the catalogue's own tier stands when
+        // none says anything. The CVE sits above the actors because it
+        // claims commodity, the highest tier, and the earlier of two equal
+        // claims names the reason.
         let source: LikelihoodSource = finding.map(LikelihoodSource.finding)
+            ?? vulnerabilityClaim(on: threat.source)
             ?? ActorLikelihood.likelihood(of: threat.threat, faced: facedActors)
         let likelihood = source.likelihood
         let reduced = Likelihood.apply(to: threat.score.value, likelihood: likelihood)
@@ -567,6 +571,16 @@ public struct ThreatResolver {
             scoreIfAssumptionsHold: reducedTarget,
             assumedMitigations: threat.assumedMitigations
         )
+    }
+
+    /// The claim a known exploited CVE on the component makes, or nil. A
+    /// threat on a zone or a flow reads no CVE: the CVE is the component's.
+    private func vulnerabilityClaim(on source: ResolvedSource) -> LikelihoodSource? {
+        guard case .component(let id, _, _) = source,
+              let component = model.components.first(where: { $0.id == id }) else {
+            return nil
+        }
+        return VulnerabilityLikelihood.claim(cves: component.cves, held: model.vulnerabilities)
     }
 
     /// Spec section 5: a compensating control is applied last, after the zone

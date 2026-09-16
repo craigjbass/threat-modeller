@@ -65,6 +65,7 @@ One slot per section the report writes, named after the section:
 | `scope` | the use cases and the exclusions |
 | `data_inventory` | one row per named asset |
 | `third_parties` | one row per party outside the team |
+| `known_vulnerabilities` | one row per CVE a component states, ranked |
 | `policy` | the rules the project states and whether this system keeps them |
 | `risk_over_time` | the history graph and its table |
 | `what_changed` | what moved since the previous sampled commit |

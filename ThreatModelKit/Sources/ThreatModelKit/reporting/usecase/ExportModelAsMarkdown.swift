@@ -95,6 +95,7 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         .scope,
         .dataInventory,
         .thirdParties,
+        .knownVulnerabilities,
         .policy,
         .riskOverTime,
         .whatChanged,
@@ -147,6 +148,10 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         )
         sections[.dataInventory] = MarkdownDataInventory.lines(report.dataInventory)
         sections[.thirdParties] = MarkdownThirdParties.lines(report.thirdParties)
+        sections[.knownVulnerabilities] = MarkdownKnownVulnerabilities.lines(
+            report.knownVulnerabilities,
+            thresholds: report.vulnerabilityThresholds
+        )
         sections[.policy] = MarkdownPolicy.lines(report.policy)
         sections[.riskOverTime] = MarkdownRiskOverTime.lines(
             report.history,

@@ -36,6 +36,8 @@ struct PolicyParser {
         var assumptionsRequireOwner = false
         var systemRequiresOwner = false
         var template: String?
+        var cveCvssThreshold: Double?
+        var cveEpssThreshold: Double?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -57,6 +59,10 @@ struct PolicyParser {
                 systemRequiresOwner = parseBooleanAttribute() ?? false
             case "template":
                 template = parseTextAttribute()
+            case "cve_cvss_threshold":
+                cveCvssThreshold = parseThreshold(named: "cve_cvss_threshold", top: 10.0)
+            case "cve_epss_threshold":
+                cveEpssThreshold = parseThreshold(named: "cve_epss_threshold", top: 1.0)
             default:
                 record(
                     "a policy holds "
@@ -77,8 +83,31 @@ struct PolicyParser {
             restrictedDataStaysOutOfPublicZones: restrictedDataStaysOutOfPublicZones,
             assumptionsRequireOwner: assumptionsRequireOwner,
             systemRequiresOwner: systemRequiresOwner,
-            template: template
+            template: template,
+            cveCvssThreshold: cveCvssThreshold,
+            cveEpssThreshold: cveEpssThreshold
         )
+    }
+
+    /// A number from 0.0 to `top`. One outside the range is an error that
+    /// names the range.
+    private mutating func parseThreshold(named setting: String, top: Double) -> Double? {
+        advance()
+        guard expect(.equals, "=") != nil else { return nil }
+        let token = current
+        guard current.kind == .number, let value = Double(current.text) else {
+            record("expected a number")
+            // The value is not read, so the next attribute is.
+            advance()
+            return nil
+        }
+        let raw = current.text
+        advance()
+        guard value >= 0, value <= top else {
+            record("\(setting) is \(raw); this application holds 0.0 to \(top)", at: token)
+            return nil
+        }
+        return value
     }
 
     private mutating func parseLevelAttribute(named rule: String) -> RiskLevel? {

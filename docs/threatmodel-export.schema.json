@@ -18,6 +18,7 @@
     "system",
     "threats",
     "thirdParties",
+    "knownVulnerabilities",
     "useCases",
     "zones"
   ],
@@ -169,6 +170,23 @@
           "link": { "type": ["string", "null"] },
           "provides": { "type": "array", "items": { "type": "string" } },
           "assetNames": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "knownVulnerabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["component", "cveId", "cvss", "epss", "knownExploited", "priority", "version"],
+        "additionalProperties": false,
+        "properties": {
+          "cveId": { "type": "string" },
+          "component": { "type": "string" },
+          "version": { "type": "string" },
+          "cvss": { "type": ["number", "null"] },
+          "epss": { "type": ["number", "null"] },
+          "knownExploited": { "type": "boolean" },
+          "priority": { "type": ["string", "null"], "enum": ["1+", "1", "2", "3", "4", null] }
         }
       }
     },

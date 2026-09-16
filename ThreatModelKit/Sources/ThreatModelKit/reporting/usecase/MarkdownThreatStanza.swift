@@ -23,7 +23,10 @@ public enum MarkdownThreatStanza {
         // both before and after: the tier, the rationale and the
         // sources are the evidence this block exists to publish, and a
         // threat that already scored 1 must not hide them.
-        if threat.likelihoodRationale != nil || threat.likelihoodLabel != Likelihood.commodity.label {
+        // A known exploited CVE names itself even at commodity: the reader
+        // must see what set the tier.
+        if threat.likelihoodRationale != nil || threat.likelihoodLabel != Likelihood.commodity.label
+            || threat.likelihoodReason.hasSuffix(LikelihoodSource.knownExploitedSuffix) {
             let scoreChanged = threat.scoreBeforeLikelihood != threat.riskScore
             // A finding writes its own rationale on the next line, so naming
             // the finding here would say the same thing twice.

@@ -85,6 +85,7 @@ public protocol UseCaseFactory: Sendable {
     func readRiskHistory() -> ReadRiskHistoryUseCase
     func checkPolicy() -> CheckPolicyUseCase
     func applyPolicy() -> ApplyPolicyUseCase
+    func applyVulnerabilityLock() -> ApplyVulnerabilityLockUseCase
     func openProject() -> OpenProjectUseCase
     func readProjectFingerprint() -> ReadProjectFingerprintUseCase
     func initialiseProject() -> InitialiseProjectUseCase

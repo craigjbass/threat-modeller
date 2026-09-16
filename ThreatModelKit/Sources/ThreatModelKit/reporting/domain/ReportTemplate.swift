@@ -20,6 +20,7 @@ public struct ReportTemplate: Equatable, Sendable {
         case scope
         case dataInventory = "data_inventory"
         case thirdParties = "third_parties"
+        case knownVulnerabilities = "known_vulnerabilities"
         case policy
         case riskOverTime = "risk_over_time"
         case whatChanged = "what_changed"

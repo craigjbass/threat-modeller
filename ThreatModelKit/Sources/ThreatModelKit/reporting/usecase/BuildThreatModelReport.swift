@@ -234,6 +234,31 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             )
         }
 
+        // One row per CVE per component, ranked against the lock file with
+        // the policy's thresholds. A CVE two components state writes two rows.
+        let thresholds = VulnerabilityPriority.Thresholds(policy: model.policy)
+        var knownVulnerabilities: [ReportKnownVulnerability] = []
+        for component in model.components where component.cves.isEmpty == false {
+            for ranked in AssessedVulnerability.of(
+                cves: component.cves,
+                held: model.vulnerabilities,
+                thresholds: thresholds
+            ) {
+                knownVulnerabilities.append(
+                    ReportKnownVulnerability(
+                        cveId: ranked.cveId,
+                        componentName: nameById[component.id] ?? component.id.value,
+                        version: component.version,
+                        cvss: ranked.cvss,
+                        epss: ranked.epss,
+                        isKnownExploited: ranked.isKnownExploited,
+                        priorityLabel: ranked.priorityLabel
+                    )
+                )
+            }
+        }
+        knownVulnerabilities = MarkdownKnownVulnerabilities.ordered(knownVulnerabilities)
+
         let thirdParties = model.thirdParties.map { party -> ReportThirdParty in
             let provided = model.components.filter { $0.providedBy == party.id }
             var names: [String] = []
@@ -441,6 +466,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 ),
                 dataInventory: dataInventory,
                 thirdParties: thirdParties,
+                knownVulnerabilities: knownVulnerabilities,
+                vulnerabilityThresholds: thresholds,
                 diagrams: model.diagrams.map {
                     ReportDiagram(label: $0.label, kind: $0.kind, text: $0.text)
                 },

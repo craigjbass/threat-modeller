@@ -65,6 +65,7 @@ struct ExportedModel: Codable {
     let flows: [ExportedFlow]
     let assets: [ExportedAsset]
     let thirdParties: [ExportedThirdParty]
+    let knownVulnerabilities: [ExportedKnownVulnerability]
     let assumptions: [ExportedAssumption]
     let useCases: [ExportedLabelledText]
     let exclusions: [ExportedExclusion]
@@ -82,6 +83,7 @@ struct ExportedModel: Codable {
         flows = report.connections.map(ExportedFlow.init)
         assets = report.dataInventory.map(ExportedAsset.init)
         thirdParties = report.thirdParties.map(ExportedThirdParty.init)
+        knownVulnerabilities = report.knownVulnerabilities.map(ExportedKnownVulnerability.init)
         assumptions = report.assumptions.map(ExportedAssumption.init)
         useCases = report.useCases.map { ExportedLabelledText(label: $0.label, text: $0.text) }
         exclusions = report.exclusions.map(ExportedExclusion.init)
@@ -261,6 +263,27 @@ struct ExportedThirdParty: Codable {
         link = party.link
         provides = party.provides
         assetNames = party.assetNames
+    }
+}
+
+struct ExportedKnownVulnerability: Codable {
+    let cveId: String
+    let component: String
+    let version: String
+    let cvss: Double?
+    let epss: Double?
+    let knownExploited: Bool
+    /// `1+` to `4`, or null when the lock file does not hold the CVE.
+    let priority: String?
+
+    init(_ row: ReportKnownVulnerability) {
+        cveId = row.cveId
+        component = row.componentName
+        version = row.version
+        cvss = row.cvss
+        epss = row.epss
+        knownExploited = row.isKnownExploited
+        priority = row.priorityLabel
     }
 }
 

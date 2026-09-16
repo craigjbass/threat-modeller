@@ -24,6 +24,12 @@ public struct PolicySource: Equatable, Sendable {
     /// The report template this project renders through, as a path from the
     /// project root. Nil renders through the shape this application ships.
     public let template: String?
+    /// The CVSS at or above which a CVE ranks in the top half of the
+    /// priority quadrant, or nil for the default of 6.0.
+    public let cveCvssThreshold: Double?
+    /// The EPSS at or above which a CVE ranks in the top half, or nil for
+    /// the default of 0.2.
+    public let cveEpssThreshold: Double?
 
     public init(
         maxOpenAtLevel: RiskLevel? = nil,
@@ -33,9 +39,13 @@ public struct PolicySource: Equatable, Sendable {
         restrictedDataStaysOutOfPublicZones: Bool = false,
         assumptionsRequireOwner: Bool = false,
         systemRequiresOwner: Bool = false,
-        template: String? = nil
+        template: String? = nil,
+        cveCvssThreshold: Double? = nil,
+        cveEpssThreshold: Double? = nil
     ) {
         self.template = template
+        self.cveCvssThreshold = cveCvssThreshold
+        self.cveEpssThreshold = cveEpssThreshold
         self.maxOpenAtLevel = maxOpenAtLevel
         self.acceptedRequiresOwner = acceptedRequiresOwner
         self.acceptedRequiresReviewBy = acceptedRequiresReviewBy
@@ -46,7 +56,7 @@ public struct PolicySource: Equatable, Sendable {
     }
 
     /// What a policy file holds beside its rules.
-    public static let settingNames = ["template"]
+    public static let settingNames = ["template", "cve_cvss_threshold", "cve_epss_threshold"]
 
     /// The names a policy file holds, in the order the design lists them.
     public static let ruleNames = [

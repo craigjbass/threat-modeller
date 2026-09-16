@@ -75,6 +75,41 @@ struct PolicyParserTests {
         )
     }
 
+    @Test func readsTheCveThresholds() throws {
+        let policy = try #require(gateway.read("""
+        policy {
+          cve_cvss_threshold = 7.0
+          cve_epss_threshold = 0.1
+        }
+        """).source)
+
+        #expect(policy.cveCvssThreshold == 7.0)
+        #expect(policy.cveEpssThreshold == 0.1)
+        #expect(policy.isEmpty)
+    }
+
+    @Test func aPolicyStatingNoThresholdHoldsNone() throws {
+        let policy = try #require(gateway.read("policy { }").source)
+
+        #expect(policy.cveCvssThreshold == nil)
+        #expect(policy.cveEpssThreshold == nil)
+    }
+
+    @Test func refusesAThresholdOutsideItsRange() {
+        #expect(
+            errors("policy { cve_cvss_threshold = 11.0 }")
+                == ["cve_cvss_threshold is 11.0; this application holds 0.0 to 10.0"]
+        )
+        #expect(
+            errors("policy { cve_epss_threshold = 2 }")
+                == ["cve_epss_threshold is 2; this application holds 0.0 to 1.0"]
+        )
+    }
+
+    @Test func refusesAThresholdThatIsNotANumber() {
+        #expect(errors("policy { cve_cvss_threshold = \"high\" }") == ["expected a number"])
+    }
+
     @Test func refusesAFileThatDoesNotStartWithPolicy() {
         #expect(errors("rules { }").first == "expected policy, not \"rules\"")
     }
