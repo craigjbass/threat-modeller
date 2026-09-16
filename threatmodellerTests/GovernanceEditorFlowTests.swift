@@ -34,6 +34,44 @@ struct GovernanceEditorFlowTests {
 
     private let control = "Enforce IMDSv2 to block SSRF-based credential theft"
 
+    /// A system whose assumed mitigates edge carries an action. The
+    /// governance file governs the action's label.
+    private let paymentsWithAnAction = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      component "guard" { technology = "aws-waf" }
+
+      mitigates guard -> api {
+        threats         = ["credential-theft"]
+        reduces_risk_by = 80
+        status          = "assumed"
+
+        recommendation "Turn the guard on" {
+          text = "Turn the guard on in every region."
+        }
+      }
+    }
+
+    """
+
+    /// Answers that accept one control and recommend one piece of work.
+    private let recommending = """
+    controls for "Payments" {
+      threat "credential-theft" on component "api" {
+        recommendation "Write the runbook" { }
+
+        control "Enforce IMDSv2 to block SSRF-based credential theft" {
+          status = "accepted"
+        }
+      }
+    }
+
+    """
+
     private func aProject(files: [String: String] = [:]) async -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
         useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
@@ -130,6 +168,24 @@ struct GovernanceEditorFlowTests {
     }
 
     // MARK: planned work
+
+    /// The executable writes a work stanza for every recommendation and every
+    /// action when it compiles. The window saves the same answers, so the
+    /// list holds them without a run of the executable.
+    @Test func aSaveWritesTheWorkStanzasTheListShows() async throws {
+        let (session, useCases) = await aProject(files: [
+            "/work/threatmodel/payments.arch": paymentsWithAnAction,
+            "/work/threatmodel/payments.controls": recommending
+        ])
+        #expect(session.plannedWork.isEmpty)
+
+        await session.save()
+
+        #expect(useCases.project.text(at: "/work/threatmodel/payments.governance") != nil)
+        #expect(session.plannedWork.contains { $0.work.label == "Write the runbook" })
+        #expect(session.plannedWork.contains { $0.work.label == "Turn the guard on" })
+    }
+
 
     @Test func listsAddsAndChangesAPlannedWorkItem() async throws {
         let (session, _) = await aProject(files: [

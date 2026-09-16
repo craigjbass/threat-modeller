@@ -348,7 +348,9 @@ nonisolated final class Dependencies: UseCaseFactory {
             catalogue: catalogue,
             exports: exportArchitecture(),
             compiles: compileControls(),
-            controlsSources: controlsSources
+            controlsSources: controlsSources,
+            governs: compileGovernance(),
+            architectureSources: architectureSources
         )
     }
 

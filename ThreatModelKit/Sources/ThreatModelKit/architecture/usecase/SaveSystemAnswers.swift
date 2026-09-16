@@ -30,6 +30,8 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
     private let exports: ExportArchitectureUseCase
     private let compiles: CompileControlsUseCase
     private let controlsSources: ControlsSourceGateway
+    private let governs: CompileGovernanceUseCase
+    private let architectureSources: ArchitectureSourceGateway
 
     public init(
         projects: ProjectSourceGateway,
@@ -37,7 +39,9 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
         catalogue: TechnologyCatalogue,
         exports: ExportArchitectureUseCase,
         compiles: CompileControlsUseCase,
-        controlsSources: ControlsSourceGateway
+        controlsSources: ControlsSourceGateway,
+        governs: CompileGovernanceUseCase,
+        architectureSources: ArchitectureSourceGateway
     ) {
         self.projects = projects
         self.models = models
@@ -45,6 +49,8 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
         self.exports = exports
         self.compiles = compiles
         self.controlsSources = controlsSources
+        self.governs = governs
+        self.architectureSources = architectureSources
     }
 
     public func execute(_ request: SaveSystemAnswersRequest) -> SaveSystemAnswersResponse {
@@ -111,20 +117,47 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
             return updated
         }
 
-        do {
-            try projects.write(
-                controlsSources.write(
-                    ControlsSource(
-                        systemName: compiled.systemName,
-                        catalogueTag: compiled.catalogueTag,
-                        riskTolerance: compiled.riskTolerance,
-                        answers: answers
-                    )
-                ),
-                to: system.controlsPath
+        let savedControls = controlsSources.write(
+            ControlsSource(
+                systemName: compiled.systemName,
+                catalogueTag: compiled.catalogueTag,
+                riskTolerance: compiled.riskTolerance,
+                answers: answers
             )
+        )
+        do {
+            try projects.write(savedControls, to: system.controlsPath)
         } catch {
             return .cannotWrite(reason: String(describing: error))
+        }
+
+        // The governance file is written from the answers this save just
+        // wrote, the way the executable writes it after a compile, so the
+        // window and the executable never disagree about what is governed.
+        let governance = governs.execute(
+            CompileGovernanceRequest(
+                controlsText: savedControls,
+                governanceText: projects.exists(path: system.governancePath)
+                    ? try? projects.read(path: system.governancePath)
+                    : nil,
+                actionLabels: Self.actionLabels(
+                    of: architectureText,
+                    sources: architectureSources
+                )
+            )
+        )
+        switch governance {
+        case .compiled(let governanceText, _, _):
+            // A system that governs nothing writes no file.
+            if let governanceText {
+                do {
+                    try projects.write(governanceText, to: system.governancePath)
+                } catch {
+                    return .cannotWrite(reason: String(describing: error))
+                }
+            }
+        case .refused(let diagnostics):
+            return .refused(diagnostics: diagnostics)
         }
 
         return .saved(
@@ -133,6 +166,22 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
             unanswered: unanswered,
             stale: stale
         )
+    }
+
+    /// The labels the architecture's actions carry, in the order the file
+    /// declares them. The governance file governs each one.
+    private static func actionLabels(
+        of architectureText: String,
+        sources: ArchitectureSourceGateway
+    ) -> [String] {
+        guard let source = sources.read(architectureText).source else { return [] }
+
+        var labels: [String] = []
+        for edge in source.mitigates {
+            guard let label = edge.action?.label, labels.contains(label) == false else { continue }
+            labels.append(label)
+        }
+        return labels
     }
 
     /// What the model on screen says, keyed the way a file keys it.
