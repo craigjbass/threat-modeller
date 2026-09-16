@@ -55,17 +55,37 @@ struct ViewRenderTests {
     /// `ImageRenderer` draws nothing inside a `ScrollView`, and every
     /// selection editor is a scrolling column, so those are hosted in a
     /// window instead.
+    ///
+    /// The picture is taken again while it is blank. A runner in a virtual
+    /// machine takes more than one pass to draw a column of controls, and one
+    /// pass returned an empty picture there while the same view drew on this
+    /// machine.
     private func expectHosted(
         _ view: some View,
         width: Double = 360,
         height: Double = 700,
         _ what: String
     ) {
-        guard let drawn = hostedDrawing(of: view, width: width, height: height) else {
-            Issue.record("\(what) drew nothing at all")
-            return
+        let host = NSHostingView(rootView: view.frame(width: width, height: height))
+        host.frame = CGRect(x: 0, y: 0, width: width, height: height)
+        let window = NSWindow(
+            contentRect: host.frame,
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = host
+        window.orderBack(nil)
+        defer { window.orderOut(nil) }
+
+        for _ in 0..<6 {
+            host.layoutSubtreeIfNeeded()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            guard let image = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { continue }
+            host.cacheDisplay(in: host.bounds, to: image)
+            if hasContent(image) { return }
         }
-        #expect(hasContent(drawn.image), "\(what) drew a blank rectangle")
+        Issue.record("\(what) drew a blank rectangle")
     }
 
     private func expectDrawn(
@@ -352,32 +372,38 @@ struct ViewRenderTests {
 
     /// The right sidebar draws one of two views: the default content, the
     /// editor for the one selected element, or the multi-selection view.
-    @Test func drawsTheRightSidebarInEachOfItsStates() throws {
-        let session = aModel()
-        session.addAtDefaultPoint(technologyId: "aws-rds")
-        let components = session.canvas.components
-        let component = try #require(components.first)
 
+    @Test func drawsTheRightSidebarWithItsDefaultContent() {
         expectHosted(
-            SelectionSidebar(session: session, canvas: CanvasState()),
+            SelectionSidebar(session: aModel(), canvas: CanvasState()),
             width: 360,
             height: 700,
             "the sidebar with the default content"
         )
+    }
 
-        let one = CanvasState()
-        one.select(componentId: component.id, addingToSelection: false)
+    @Test func drawsTheRightSidebarWithAComponentEditor() throws {
+        let session = aModel()
+        let component = try #require(session.canvas.components.first)
+        let canvas = CanvasState()
+        canvas.select(componentId: component.id, addingToSelection: false)
+
         expectHosted(
-            SelectionSidebar(session: session, canvas: one),
+            SelectionSidebar(session: session, canvas: canvas),
             width: 360,
             height: 700,
             "the sidebar with a component editor"
         )
+    }
 
-        let both = CanvasState()
-        both.select(componentIds: components.map(\.id))
+    @Test func drawsTheRightSidebarWithTheMultiSelectionView() {
+        let session = aModel()
+        session.addAtDefaultPoint(technologyId: "aws-rds")
+        let canvas = CanvasState()
+        canvas.select(componentIds: session.canvas.components.map(\.id))
+
         expectHosted(
-            SelectionSidebar(session: session, canvas: both),
+            SelectionSidebar(session: session, canvas: canvas),
             width: 360,
             height: 700,
             "the sidebar with the multi-selection view"
