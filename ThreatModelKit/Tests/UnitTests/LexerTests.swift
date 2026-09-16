@@ -87,6 +87,30 @@ struct LexerTests {
         #expect(scanned.faults[0].column == 8)
     }
 
+    @Test func keepsACommentWhenAskedFor() {
+        let scanned = Lexer("# a note\nsystem \"P\" {").scan(keepingComments: true)
+
+        #expect(scanned.tokens.first?.kind == .comment)
+        #expect(scanned.tokens.first?.text == "# a note")
+        #expect(scanned.tokens.first?.line == 1)
+        #expect(scanned.tokens.first?.column == 1)
+        #expect(scanned.tokens.first?.length == 8)
+    }
+
+    @Test func countsHowManyCharactersATextTakesInTheFile() {
+        let scanned = scan("name = \"The \\\"one\\\" that matters\"")
+
+        #expect(scanned.tokens[2].kind == .string)
+        #expect(scanned.tokens[2].length == 26)
+    }
+
+    @Test func countsHowManyCharactersAWordTakesInTheFile() {
+        let scanned = scan("reduces_risk_by = 30")
+
+        #expect(scanned.tokens[0].length == 15)
+        #expect(scanned.tokens[2].length == 2)
+    }
+
     @Test func endsWithAnEndOfFileToken() {
         #expect(scan("").tokens.map(\.kind) == [.endOfFile])
     }

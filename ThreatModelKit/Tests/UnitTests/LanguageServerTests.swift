@@ -72,6 +72,150 @@ struct LanguageServerTests {
         #expect(capabilities["completionProvider"] != nil)
     }
 
+    // MARK: semantic tokens
+
+    /// The tokens one document answers, as the protocol's flat array.
+    private func semanticTokens(_ text: String, at uri: String) -> [Int] {
+        let answers = ask(opened(text, at: uri), [
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/semanticTokens/full",
+            "params": ["textDocument": ["uri": uri]]
+        ])
+        return (result(answers) as? [String: Any])?["data"] as? [Int] ?? []
+    }
+
+    @Test func statesTheSemanticTokensLegend() throws {
+        let answers = ask(server(), ["jsonrpc": "2.0", "id": 1, "method": "initialize", "params": [:]])
+        let capabilities = try #require(
+            (result(answers) as? [String: Any])?["capabilities"] as? [String: Any]
+        )
+        let provider = try #require(capabilities["semanticTokensProvider"] as? [String: Any])
+        let legend = try #require(provider["legend"] as? [String: Any])
+
+        #expect(
+            legend["tokenTypes"] as? [String]
+                == ["keyword", "string", "number", "comment", "operator", "variable"]
+        )
+        #expect(legend["tokenModifiers"] as? [String] == [])
+        #expect(provider["full"] as? Bool == true)
+    }
+
+    @Test func encodesTheTokensOfAnArchitectureFile() {
+        let data = semanticTokens("""
+        # a note
+        system "Payments" {
+          flow api -> db
+        }
+        """, at: "file:///work/threatmodel/small.arch")
+
+        #expect(data == [
+            0, 0, 8, 3, 0,
+            1, 0, 6, 0, 0,
+            0, 7, 10, 5, 0,
+            1, 2, 4, 0, 0,
+            0, 5, 3, 5, 0,
+            0, 4, 2, 4, 0,
+            0, 3, 2, 5, 0
+        ])
+    }
+
+    @Test func encodesTheTokensOfAControlsFile() {
+        let data = semanticTokens("""
+        controls for "Payments" {
+          score = 40
+        }
+        """, at: "file:///work/threatmodel/small.controls")
+
+        #expect(data == [
+            0, 0, 8, 0, 0,
+            0, 9, 3, 0, 0,
+            0, 4, 10, 5, 0,
+            1, 2, 5, 0, 0,
+            0, 8, 2, 2, 0
+        ])
+    }
+
+    @Test func encodesTheTokensOfALibraryFile() {
+        let data = semanticTokens("""
+        library "endpoint" {
+          encrypts = true
+        }
+        """, at: "file:///work/libraries/small.lib")
+
+        #expect(data == [
+            0, 0, 7, 0, 0,
+            0, 8, 10, 5, 0,
+            1, 2, 8, 0, 0,
+            0, 11, 4, 0, 0
+        ])
+    }
+
+    @Test func encodesTheTokensOfAnAttackTreeFile() {
+        let data = semanticTokens("""
+        attack_trees for "Payments" {
+          raises_risk_by = 40
+        }
+        """, at: "file:///work/threatmodel/small.attacktree")
+
+        #expect(data == [
+            0, 0, 12, 0, 0,
+            0, 13, 3, 0, 0,
+            0, 4, 10, 5, 0,
+            1, 2, 14, 0, 0,
+            0, 17, 2, 2, 0
+        ])
+    }
+
+    @Test func encodesTheTokensOfAGovernanceFile() {
+        let data = semanticTokens("""
+        governance for "Payments" {
+          owner = "team"
+        }
+        """, at: "file:///work/threatmodel/small.governance")
+
+        #expect(data == [
+            0, 0, 10, 0, 0,
+            0, 11, 3, 0, 0,
+            0, 4, 10, 5, 0,
+            1, 2, 5, 0, 0,
+            0, 8, 6, 1, 0
+        ])
+    }
+
+    @Test func encodesTheTokensOfAPolicyFile() {
+        let data = semanticTokens("""
+        policy {
+          # a note
+          accepted_requires_owner = true
+        }
+        """, at: "file:///work/threatmodel/policy.hcl")
+
+        #expect(data == [
+            0, 0, 6, 0, 0,
+            1, 2, 8, 3, 0,
+            1, 2, 23, 0, 0,
+            0, 26, 4, 0, 0
+        ])
+    }
+
+    @Test func encodesTheTokensOfAFileThatDoesNotParse() {
+        let data = semanticTokens("""
+        system "Payments" {
+          component
+        """, at: "file:///work/threatmodel/broken.arch")
+
+        #expect(data == [
+            0, 0, 6, 0, 0,
+            0, 7, 10, 5, 0,
+            1, 2, 9, 0, 0
+        ])
+    }
+
+    @Test func answersAnEmptyArrayForAnEmptyDocument() {
+        #expect(semanticTokens("", at: "file:///work/threatmodel/empty.arch") == [])
+    }
+
     // MARK: diagnostics
 
     @Test func publishesTheParsersOwnDiagnostics() throws {

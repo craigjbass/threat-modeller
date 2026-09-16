@@ -12,7 +12,10 @@ public struct Lexer {
     }
 
     /// The tokens, and the faults found while reading them.
-    public func scan() -> (tokens: [Token], faults: [Diagnostic]) {
+    ///
+    /// A parse drops a comment. Highlighting colours one, so
+    /// `keepingComments` asks for a `.comment` token in the same walk.
+    public func scan(keepingComments: Bool = false) -> (tokens: [Token], faults: [Diagnostic]) {
         var tokens: [Token] = []
         var faults: [Diagnostic] = []
         var index = 0
@@ -39,15 +42,31 @@ public struct Lexer {
                 continue
             }
 
-            // A comment runs to the end of the line. It is read and dropped:
-            // the writer does not put comments back.
-            if character == "#" || (character == "/" && peek(index + 1) == "/") {
-                while index < characters.count && characters[index] != "\n" { advance() }
-                continue
-            }
-
             let startLine = line
             let startColumn = column
+            let startIndex = index
+
+            /// How many characters the token read so far takes in the file.
+            func length() -> Int { index - startIndex }
+
+            // A comment runs to the end of the line. The writer does not put
+            // comments back, so the parse drops one and highlighting keeps
+            // one.
+            if character == "#" || (character == "/" && peek(index + 1) == "/") {
+                while index < characters.count && characters[index] != "\n" { advance() }
+                if keepingComments {
+                    tokens.append(
+                        Token(
+                            kind: .comment,
+                            text: String(characters[startIndex ..< index]),
+                            line: startLine,
+                            column: startColumn,
+                            length: length()
+                        )
+                    )
+                }
+                continue
+            }
 
             if character == "\"" {
                 advance()
@@ -71,7 +90,13 @@ public struct Lexer {
                 }
                 if isClosed {
                     tokens.append(
-                        Token(kind: .string, text: value, line: startLine, column: startColumn)
+                        Token(
+                            kind: .string,
+                            text: value,
+                            line: startLine,
+                            column: startColumn,
+                            length: length()
+                        )
                     )
                 } else {
                     faults.append(
@@ -147,14 +172,28 @@ public struct Lexer {
                     continue
                 }
                 tokens.append(
-                    Token(kind: .string, text: body, line: startLine, column: startColumn)
+                    Token(
+                        kind: .string,
+                        text: body,
+                        line: startLine,
+                        column: startColumn,
+                        length: length()
+                    )
                 )
                 continue
             }
 
             if character == "-" && peek(index + 1) == ">" {
                 advance(2)
-                tokens.append(Token(kind: .arrow, text: "->", line: startLine, column: startColumn))
+                tokens.append(
+                    Token(
+                        kind: .arrow,
+                        text: "->",
+                        line: startLine,
+                        column: startColumn,
+                        length: length()
+                    )
+                )
                 continue
             }
 
@@ -165,7 +204,15 @@ public struct Lexer {
                     value.append(characters[index])
                     advance()
                 }
-                tokens.append(Token(kind: .number, text: value, line: startLine, column: startColumn))
+                tokens.append(
+                    Token(
+                        kind: .number,
+                        text: value,
+                        line: startLine,
+                        column: startColumn,
+                        length: length()
+                    )
+                )
                 continue
             }
 
@@ -180,7 +227,15 @@ public struct Lexer {
                     advance()
                 }
                 let kind: TokenKind = (value == "true" || value == "false") ? .boolean : .identifier
-                tokens.append(Token(kind: kind, text: value, line: startLine, column: startColumn))
+                tokens.append(
+                    Token(
+                        kind: kind,
+                        text: value,
+                        line: startLine,
+                        column: startColumn,
+                        length: length()
+                    )
+                )
                 continue
             }
 
@@ -191,7 +246,8 @@ public struct Lexer {
                         kind: punctuation,
                         text: String(character),
                         line: startLine,
-                        column: startColumn
+                        column: startColumn,
+                        length: length()
                     )
                 )
                 continue

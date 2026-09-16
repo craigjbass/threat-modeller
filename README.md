@@ -517,6 +517,16 @@ four source languages stop being plain text:
   threat a `.lib` file declares.
 - Format on request writes the document again through the same writer
   `threatmodeller format` uses.
+- Semantic tokens colour the files, so an editor needs no grammar of its own.
+  The server states a `semanticTokensProvider` with the legend
+  `keyword`, `string`, `number`, `comment`, `operator`, `variable`, and
+  answers `textDocument/semanticTokens/full` for `.arch`, `.controls`,
+  `.lib`, `.attacktree`, `.governance` and `policy.hcl`. A block name, an
+  attribute name and a boolean read as a keyword; a block's label and the
+  component ids beside a `flow` arrow read as a variable, so a name shows
+  apart from a keyword. The colour comes from the same lexer the parsers
+  read, so a file mid-edit that does not parse still shows its colour, and a
+  comment the parse drops is coloured.
 
 An editor extension is a separate piece of work; any editor that speaks the
 protocol reads this server today.

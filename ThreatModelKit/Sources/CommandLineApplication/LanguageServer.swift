@@ -86,6 +86,8 @@ public final class LanguageServer: @unchecked Sendable {
             return [Self.result(id: id, definition(at: parameters))]
         case "textDocument/formatting":
             return [Self.result(id: id, formatting(of: parameters))]
+        case "textDocument/semanticTokens/full":
+            return [Self.result(id: id, semanticTokens(at: parameters))]
         default:
             guard id != nil else { return [] }
             return [Self.error(id: id, code: -32601, message: "there is no method \"\(method)\"")]
@@ -102,10 +104,106 @@ public final class LanguageServer: @unchecked Sendable {
                 "completionProvider": ["triggerCharacters": ["\"", " ", "="]],
                 "hoverProvider": true,
                 "definitionProvider": true,
-                "documentFormattingProvider": true
+                "documentFormattingProvider": true,
+                "semanticTokensProvider": [
+                    "legend": [
+                        "tokenTypes": Self.tokenTypes,
+                        "tokenModifiers": [String]()
+                    ],
+                    "full": true
+                ]
             ],
             "serverInfo": ["name": "threatmodeller", "version": "1.0.0"]
         ]
+    }
+
+    // MARK: semantic tokens
+
+    /// The token types this server colours, in the order the legend states
+    /// them. A client reads a token's type as an index into this list.
+    static let tokenTypes = ["keyword", "string", "number", "comment", "operator", "variable"]
+
+    private enum TokenType: Int {
+        case keyword = 0
+        case string = 1
+        case number = 2
+        case comment = 3
+        case `operator` = 4
+        case variable = 5
+    }
+
+    /// Every token of one document, encoded the way the protocol states it.
+    ///
+    /// A document in a language this server does not read answers an empty
+    /// array, and so does an empty document.
+    func semanticTokens(at parameters: [String: Any]) -> [String: Any] {
+        let uri = (parameters["textDocument"] as? [String: Any])?["uri"] as? String ?? ""
+        guard Language.of(uri) != nil else { return ["data": [Int]()] }
+        return ["data": Self.encoded(documents[uri] ?? "")]
+    }
+
+    /// The lexer's tokens as five numbers each: the lines down from the token
+    /// before, the characters across from the token before, the length, the
+    /// type, and the modifiers.
+    ///
+    /// The lexer reads every language this server reads, so one walk colours
+    /// all six. A file the parser rejects still holds tokens, so a person
+    /// mid-edit keeps the colour.
+    static func encoded(_ text: String) -> [Int] {
+        let lengths = text.split(separator: "\n", omittingEmptySubsequences: false)
+            .map(\.count)
+        let tokens = Lexer(text).scan(keepingComments: true).tokens
+        var data: [Int] = []
+        var lastLine = 0
+        var lastColumn = 0
+
+        for (index, token) in tokens.enumerated() {
+            let before = index > 0 ? tokens[index - 1] : nil
+            let after = index + 1 < tokens.count ? tokens[index + 1] : nil
+            guard let type = type(of: token, after: before, before: after) else { continue }
+            // The protocol counts from zero and the lexer counts from one.
+            let line = token.line - 1
+            let column = token.column - 1
+            guard line >= 0, column >= 0, line < lengths.count else { continue }
+            // The protocol states that a token stays on one line, and a
+            // heredoc does not, so a token stops at the end of its own line.
+            let length = min(token.length, lengths[line] - column)
+            guard length > 0 else { continue }
+            data += [
+                line - lastLine,
+                line == lastLine ? column - lastColumn : column,
+                length,
+                type.rawValue,
+                0
+            ]
+            lastLine = line
+            lastColumn = column
+        }
+        return data
+    }
+
+    /// The type one token takes, or nil for a token an editor colours itself.
+    ///
+    /// A brace, a bracket, an equals sign and a comma get no type: every
+    /// editor already draws punctuation.
+    private static func type(of token: Token, after before: Token?, before after: Token?)
+        -> TokenType? {
+        switch token.kind {
+        case .comment: .comment
+        case .number: .number
+        case .boolean: .keyword
+        case .arrow: .operator
+        case .identifier:
+            // A flow names two components beside the arrow. Every other word
+            // is a block name or an attribute name.
+            (before?.kind == .arrow || after?.kind == .arrow) ? .variable : .keyword
+        case .string:
+            // A block header states its label straight after a word, as in
+            // `component "api"`. An attribute and a list state a text after
+            // an equals sign, a bracket or a comma.
+            before?.kind == .identifier ? .variable : .string
+        default: nil
+        }
     }
 
     // MARK: the parser's own diagnostics
