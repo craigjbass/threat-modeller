@@ -8,3 +8,6 @@ build/
 
 # The build writes this page from LANGUAGE.md.
 docs/documentation.html
+
+# Pictures a reproduction writes, for an issue.
+.screenshots/

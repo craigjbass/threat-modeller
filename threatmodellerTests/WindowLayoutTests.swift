@@ -633,6 +633,182 @@ struct WindowLayoutTests {
         )
     }
 
+    /// The diagram column the person sees, and the panel under it.
+    ///
+    /// The palette floats over the column: the column's view keeps the whole
+    /// width and the canvas draws inside the leading safe area the palette
+    /// states. So the column a person sees is what the canvas draws on, not
+    /// the split view's arranged subview.
+    private func diagramAndPanel(in pane: NSView) throws -> (diagram: NSRect, panel: NSRect) {
+        var takers: [NSRect] = []
+        dropTakers(in: pane, into: &takers)
+        let diagram = try #require(
+            takers.max(by: { $0.height < $1.height }), "no diagram in the canvas column"
+        )
+        let panelView = try #require(selectionPanel(in: pane), "no selection panel in the column")
+        return (diagram, panelView.convert(panelView.bounds, to: nil))
+    }
+
+    /// States that the panel covers the diagram column exactly.
+    private func expectThePanelFitsTheColumn(
+        _ pane: NSView,
+        _ what: String
+    ) throws {
+        let (diagram, panel) = try diagramAndPanel(in: pane)
+        #expect(
+            abs(panel.minX - diagram.minX) <= 1,
+            "\(what): the panel starts at \(panel.minX) and the column at \(diagram.minX)"
+        )
+        #expect(
+            abs(panel.width - diagram.width) <= 1,
+            "\(what): the panel is \(panel.width) wide in a column of \(diagram.width)"
+        )
+    }
+
+    /// A window holding the view, laid out, that a test then resizes.
+    private func aResizableWindow(_ view: some View, width: Double) -> (NSWindow, NSHostingView<some View>) {
+        let hosting = NSHostingView(rootView: view)
+        hosting.frame = NSRect(x: 0, y: 0, width: width, height: 800)
+        let window = NSWindow(
+            contentRect: hosting.frame,
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hosting
+        settle(hosting)
+        return (window, hosting)
+    }
+
+    /// Lets AppKit lay the view out and lets SwiftUI answer the new size.
+    private func settle(_ host: NSView) {
+        host.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        host.layoutSubtreeIfNeeded()
+    }
+
+    /// A project window with one component selected on the Architecture stage.
+    private func anArchitectureWindow(
+        _ project: ProjectSession,
+        _ model: ThreatModelSession,
+        _ canvas: CanvasState,
+        width: Double
+    ) -> (NSWindow, NSHostingView<some View>) {
+        aResizableWindow(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: canvas,
+                stage: .constant(.architecture)
+            ),
+            width: width
+        )
+    }
+
+    /// The person drags the window's edge with a component selected. The panel
+    /// follows the diagram column at both sizes.
+    ///
+    /// This is the path a live resize takes: the window changes size after the
+    /// panel is already on screen, and `CanvasView`'s reader states the new
+    /// column width.
+    @Test func thePanelFitsTheDiagramColumnAfterTheWindowIsResized() async throws {
+        let project = await aFlowProject()
+        project.paletteColumns = .all
+        let model = try #require(project.model)
+        let canvas = CanvasState()
+        canvas.select(componentId: model.canvas.components[0].id, addingToSelection: false)
+
+        let (window, host) = anArchitectureWindow(project, model, canvas, width: 1400)
+        let content = try #require(window.contentView)
+        let split = try #require(columns(in: content))
+        try expectThePanelFitsTheColumn(split.arrangedSubviews[1], "at 1400")
+
+        window.setContentSize(NSSize(width: 900, height: 800))
+        host.frame = NSRect(x: 0, y: 0, width: 900, height: 800)
+        settle(host)
+        let resized = try #require(columns(in: content))
+        try expectThePanelFitsTheColumn(resized.arrangedSubviews[1], "after the resize to 900")
+
+        // The assumptions column is dragged wider, which narrows the diagram
+        // column without changing the window.
+        moveDivider(resized, to: 420)
+        try expectThePanelFitsTheColumn(resized.arrangedSubviews[1], "after the assumptions column moved")
+    }
+
+    /// The person shows and hides the palette with the panel on screen. The
+    /// panel follows the diagram column each time.
+    @Test func thePanelFitsTheDiagramColumnAfterThePaletteIsToggled() async throws {
+        let project = await aFlowProject()
+        project.paletteColumns = .all
+        let model = try #require(project.model)
+        let canvas = CanvasState()
+        canvas.select(componentId: model.canvas.components[0].id, addingToSelection: false)
+
+        let (window, host) = anArchitectureWindow(project, model, canvas, width: 1400)
+        let content = try #require(window.contentView)
+        let split = try #require(columns(in: content))
+        try expectThePanelFitsTheColumn(split.arrangedSubviews[1], "with the palette shown")
+
+        project.paletteColumns = .doubleColumn
+        settle(host)
+        try expectThePanelFitsTheColumn(split.arrangedSubviews[1], "with the palette hidden")
+
+        project.paletteColumns = .all
+        settle(host)
+        try expectThePanelFitsTheColumn(split.arrangedSubviews[1], "with the palette shown again")
+    }
+
+    /// Every selection panel is one height at every column width the split
+    /// allows. The floating panel lifts by that height, so a panel that grew
+    /// a second row at a narrow width would cover its own controls.
+    @Test func everySelectionPanelIsOneHeightAtEveryColumnWidth() async throws {
+        let model = ThreatModelSession(useCases: TestDependencies())
+        model.add(technologyId: "aws-ec2", x: 0, y: 0)
+        model.add(technologyId: "aws-rds", x: 400, y: 0)
+        let components = model.canvas.components
+        model.connect(
+            sourceComponentId: components[0].id,
+            targetComponentId: components[1].id
+        )
+        let connection = try #require(model.canvas.connections.first)
+        _ = model.addZone(x: 0, y: 0, width: 400, height: 300)
+        let zone = try #require(model.canvas.zones.first)
+
+        let panels: [(String, AnyView)] = [
+            ("component", AnyView(ComponentPanel(session: model, component: components[0]))),
+            ("user", AnyView(UserPanel(session: model, user: components[0]))),
+            ("zone", AnyView(ZonePanel(session: model, zone: zone))),
+            ("connection", AnyView(ConnectionPanel(session: model, connection: connection))),
+            (
+                "mitigates",
+                AnyView(
+                    MitigatesPanel(
+                        session: model,
+                        source: components[0],
+                        target: components[1]
+                    )
+                )
+            )
+        ]
+
+        for (name, panel) in panels {
+            var heights: [Double: CGFloat] = [:]
+            for width in [ProjectColumns.minimumDiagramWidth, 700.0, 900.0, 1200.0] {
+                let hosting = NSHostingView(rootView: panel)
+                hosting.frame = NSRect(x: 0, y: 0, width: width, height: 0)
+                heights[width] = hosting.fittingSize.height
+            }
+            let first = try #require(heights[ProjectColumns.minimumDiagramWidth])
+            #expect(first > 0, "the \(name) panel measured no height")
+            for (width, height) in heights {
+                #expect(
+                    abs(height - first) <= 0.5,
+                    "the \(name) panel is \(height) tall at \(width) and \(first) at 400"
+                )
+            }
+        }
+    }
+
     /// The selection panel: the one scroller the canvas column holds.
     private func selectionPanel(in view: NSView) -> NSScrollView? {
         if let scroll = view as? NSScrollView { return scroll }

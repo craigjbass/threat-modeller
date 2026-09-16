@@ -131,6 +131,14 @@ struct CanvasView: View {
         // A GeometryReader takes the space the split view offers and never
         // reports its children's size back up. Without it the drawing layer,
         // which is thousands of points across, sizes the whole window.
+        //
+        // The palette floats over the diagram column: the column's own view
+        // keeps the whole width and states a leading safe area of the palette's
+        // width, and this reader takes what is inside that safe area, which is
+        // what a person sees. The selection panel is drawn in this reader for
+        // that reason. A `safeAreaInset` places its content over the whole
+        // column instead, so a panel placed that way started under the palette
+        // and ran wider than the column by the palette's width.
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
                 Color(nsColor: .textBackgroundColor)
@@ -169,10 +177,23 @@ struct CanvasView: View {
                 // so a control that measures itself against the stack never
                 // sees the column narrow.
                 canvasToolbar(inColumnOfWidth: geometry.size.width)
+
+                // The panel floats at the bottom of the column the way the
+                // toolbar floats at the top of it, and for the same reason:
+                // the ZStack around it is as wide as the drawing layer, so a
+                // control that measures itself against the stack never sees
+                // the column at all.
+                selectionPanel(inColumn: geometry.size)
             }
-            // Zoom to Fit needs to know how much room there is.
-            .onAppear { canvas.visibleSize = geometry.size }
-            .onChange(of: geometry.size) { _, size in canvas.visibleSize = size }
+            // Zoom to Fit needs to know how much room there is, which is the
+            // reader less the room the panel takes.
+            .onAppear { canvas.visibleSize = drawingSize(in: geometry.size) }
+            .onChange(of: geometry.size) { _, size in
+                canvas.visibleSize = drawingSize(in: size)
+            }
+            .onChange(of: showsSelectionPanel) { _, _ in
+                canvas.visibleSize = drawingSize(in: geometry.size)
+            }
         }
         .coordinateSpace(.named("canvas"))
         .clipped()
@@ -227,28 +248,6 @@ struct CanvasView: View {
                     )
                 }
         )
-        .safeAreaInset(edge: .bottom) {
-            // One panel at a time. A node and a zone are never both the one
-            // thing selected.
-            Group {
-                if let pair = selectedPair {
-                    MitigatesPanel(session: session, source: pair.source, target: pair.target)
-                } else if let component = selectedComponent, component.isUser {
-                    UserPanel(session: session, user: component)
-                } else if let component = selectedComponent {
-                    ComponentPanel(session: session, canvas: canvas, component: component)
-                } else if let zone = selectedZone {
-                    ZonePanel(session: session, zone: zone)
-                } else if let connection = selectedConnection {
-                    ConnectionPanel(session: session, connection: connection)
-                }
-            }
-            // The floating workflow panel floats above this one, so it has to
-            // know how tall this one is.
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
-                canvas.selectionPanelHeight = height
-            }
-        }
         // The drop runs through the gestures, the way the tree canvas runs
         // its own, so a test drives the same code the drop runs.
         .dropDestination(for: String.self) { technologyIds, location in
@@ -261,6 +260,58 @@ struct CanvasView: View {
             )
         ) {
             MergeSheet(session: session, canvas: canvas)
+        }
+    }
+
+    /// True while one element is selected, which is when a panel is drawn.
+    private var showsSelectionPanel: Bool {
+        selectedPair != nil
+            || selectedComponent != nil
+            || selectedZone != nil
+            || selectedConnection != nil
+    }
+
+    /// How much room the drawing has: the column, less the room the panel
+    /// takes at the bottom of it.
+    private func drawingSize(in column: CGSize) -> CGSize {
+        CGSize(
+            width: column.width,
+            height: max(0, column.height - (showsSelectionPanel ? SelectionPanel.height : 0))
+        )
+    }
+
+    /// The bar at the bottom of the column, one row of controls tall and as
+    /// wide as the part of the column a person sees.
+    @ViewBuilder
+    private func selectionPanel(inColumn column: CGSize) -> some View {
+        // One panel at a time. A node and a zone are never both the one
+        // thing selected.
+        Group {
+            if let pair = selectedPair {
+                MitigatesPanel(session: session, source: pair.source, target: pair.target)
+            } else if let component = selectedComponent, component.isUser {
+                UserPanel(session: session, user: component)
+            } else if let component = selectedComponent {
+                ComponentPanel(session: session, canvas: canvas, component: component)
+            } else if let zone = selectedZone {
+                ZonePanel(session: session, zone: zone)
+            } else if let connection = selectedConnection {
+                ConnectionPanel(session: session, connection: connection)
+            }
+        }
+        .fitsTheDiagramColumn(width: column.width)
+        // The panel sits at the bottom of the column, and this frame is what
+        // puts it there: the stack it is in is as wide and as tall as the
+        // drawing layer, not as the column.
+        .frame(width: column.width, height: column.height, alignment: .bottom)
+        // The floating workflow panel floats above this one, so it has to
+        // know how tall this one is.
+        .onAppear {
+            canvas.selectionPanelHeight = showsSelectionPanel ? SelectionPanel.height : 0
+        }
+        .onDisappear { canvas.selectionPanelHeight = 0 }
+        .onChange(of: showsSelectionPanel) { _, shows in
+            canvas.selectionPanelHeight = shows ? SelectionPanel.height : 0
         }
     }
 
