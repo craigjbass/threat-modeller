@@ -166,13 +166,17 @@ struct ProjectColumns: View {
 
     /// The five controls, floating at the bottom middle of the column they
     /// act on.
+    ///
+    /// `canvas.selectionPanelHeight` keeps the height the Architecture stage
+    /// last measured, even after the Controls stage draws no selection panel
+    /// of its own. The lift reads that height only on a stage that draws one.
     private func workflowPanel(inColumnOfWidth width: CGFloat) -> some View {
         WorkflowPanel(
             session: project,
             stage: $stage,
             canvas: canvas,
             model: session,
-            liftedBy: canvas.selectionPanelHeight,
+            liftedBy: stage == .controls ? 0 : canvas.selectionPanelHeight,
             columnWidth: width
         )
     }

@@ -511,6 +511,77 @@ struct WindowLayoutTests {
         }
     }
 
+    /// The Controls stage draws no selection panel, so the floating panel
+    /// keeps the plain margin there, even after a component stays selected on
+    /// the Architecture stage. Switching back to Architecture lifts the panel
+    /// over the selection panel again.
+    @Test func theFloatingPanelDropsItsLiftOnTheControlsStage() async throws {
+        let project = await aFlowProject()
+        let model = try #require(project.model)
+        let canvas = CanvasState()
+        canvas.select(componentId: model.canvas.components[0].id, addingToSelection: false)
+
+        // Architecture, with a component selected: the canvas measures the
+        // selection panel and writes its height onto the canvas.
+        _ = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: canvas,
+                stage: .constant(.architecture)
+            )
+        )
+        #expect(canvas.selectionPanelHeight > 0, "the selection panel measured no height")
+
+        // Controls, with the same canvas: the stage draws no selection panel,
+        // so the floating panel keeps the plain margin.
+        let controlsWindow = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: canvas,
+                stage: .constant(.controls)
+            )
+        )
+        let controlsContent = try #require(controlsWindow.contentView)
+        var controlsTakers: [NSRect] = []
+        dropTakers(in: controlsContent, into: &controlsTakers)
+        let controlsPanel = try #require(
+            controlsTakers.first, "no workflow panel on the Controls stage"
+        )
+        let controlsColumn = controlsContent.convert(controlsContent.bounds, to: nil)
+
+        #expect(
+            abs((controlsPanel.minY - controlsColumn.minY) - WorkflowPanel.bottomMargin) < 0.5,
+            "the panel sits \(controlsPanel.minY - controlsColumn.minY) above the bottom on the Controls stage"
+        )
+
+        // Back on Architecture, with the same canvas: the panel lifts over
+        // the selection panel again.
+        let architectureWindow = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: canvas,
+                stage: .constant(.architecture)
+            )
+        )
+        let architectureContent = try #require(architectureWindow.contentView)
+        var architectureTakers: [NSRect] = []
+        dropTakers(in: architectureContent, into: &architectureTakers)
+        // The canvas is the tall one and the workflow panel the short one.
+        let architecturePanel = try #require(
+            architectureTakers.sorted(by: { $0.height < $1.height }).first,
+            "no workflow panel on the Architecture stage"
+        )
+        let architectureColumn = architectureContent.convert(architectureContent.bounds, to: nil)
+
+        #expect(
+            architecturePanel.minY - architectureColumn.minY > WorkflowPanel.bottomMargin,
+            "the panel sits at the plain margin on the Architecture stage with a selection shown"
+        )
+    }
+
     /// The selection panel: the one scroller the canvas column holds.
     private func selectionPanel(in view: NSView) -> NSScrollView? {
         if let scroll = view as? NSScrollView { return scroll }
