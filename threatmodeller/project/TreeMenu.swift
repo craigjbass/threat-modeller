@@ -40,6 +40,7 @@ struct TreeMenu {
         }
         if let offered = joinTo(id) { rows.append(offered) }
         rows.append(contentsOf: cutOutgoing(id))
+        rows.append(contentsOf: threatsOfABox(id))
         if rows.isEmpty == false {
             rows.append(.separator(id: "context-tree-separator"))
         }
@@ -67,10 +68,24 @@ struct TreeMenu {
                     id: feeds ? "context-tree-join-to-\(other)" : "context-tree-join-from-\(other)",
                     title: feeds ? title : "From \(title)"
                 ) {
-                    editor.join(from: edge.from, to: edge.to)
+                    gestures.join(from: edge.from, to: edge.to)
                 }
             }
         )
+    }
+
+    /// A filled box is offered the threats the model raises on its element,
+    /// the way a pending element is.
+    private func threatsOfABox(_ id: String) -> [ElementMenu.Row] {
+        guard case .placeholder(let element?) = editor.graph.node(id)?.kind else { return [] }
+        if element.threats.isEmpty {
+            return [.item(id: "context-box-none", title: "Raises no threat", isEnabled: false) {}]
+        }
+        return element.threats.map { threat in
+            .item(id: "context-box-\(threat.threatKey)", title: threat.name) {
+                editor.pick(threat, for: id)
+            }
+        }
     }
 
     /// Cut the Outgoing Join: one row for a node that feeds one node, and a
@@ -139,7 +154,7 @@ struct TreeMenu {
         if canvas.selectedEdges.isEmpty, canvas.selectedInOrder.count == 2 {
             let pair = canvas.selectedInOrder
             rows.append(.item(id: "context-tree-join", title: "Join") {
-                editor.join(from: pair[0], to: pair[1])
+                gestures.join(from: pair[0], to: pair[1])
             })
             rows.append(.separator(id: "context-tree-join-separator"))
         }

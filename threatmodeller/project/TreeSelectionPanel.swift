@@ -14,9 +14,12 @@ struct TreeSelectionPanel: View {
     /// What the assessment bound for the tree in front, or nil while it is
     /// unwritten.
     let bound: BoundAttackTree?
+    /// The elements the `.arch` file states, for the search on a box and
+    /// the warning on a join the flows do not support.
+    var elements: [TreeElement] = []
 
     private var selection: TreeSelection {
-        TreeSelection.of(editor: editor, canvas: canvas, bound: bound)
+        TreeSelection.of(editor: editor, canvas: canvas, bound: bound, elements: elements)
     }
 
     var body: some View {
@@ -33,6 +36,8 @@ struct TreeSelectionPanel: View {
                     nodePanel(node)
                 case .pending(let pending):
                     pendingPanel(pending)
+                case .box(let box):
+                    boxPanel(box)
                 case .join(let join):
                     joinPanel(join)
                 case .several(let count):
@@ -136,6 +141,13 @@ struct TreeSelectionPanel: View {
             LabeledContent("Chain", value: chain)
                 .accessibilityIdentifier("tree-selected-chain")
         }
+        if let warning = node.warning {
+            Label(warning, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("tree-selected-warning")
+        }
 
         Divider()
 
@@ -167,6 +179,52 @@ struct TreeSelectionPanel: View {
 
         Button("Cut this Join") { editor.cut(join.edge) }
             .accessibilityIdentifier("tree-selection-cut-this-join")
+        Button("Delete", role: .destructive) { gestures.deleteSelection() }
+            .accessibilityIdentifier("tree-selection-delete")
+    }
+
+    // MARK: a box waiting for an element
+
+    @ViewBuilder
+    private func boxPanel(_ box: TreeSelection.Box) -> some View {
+        Text(box.element == nil ? "A box" : "A filled box")
+            .font(.subheadline.weight(.semibold))
+
+        Text(TreeSelection.Box.notWritten)
+            .font(.caption)
+            .foregroundStyle(.orange)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("tree-box-not-written")
+
+        if let element = box.element {
+            LabeledContent("Element", value: element.name)
+                .accessibilityIdentifier("tree-selected-element")
+
+            if element.threats.isEmpty {
+                Text("This element raises no threat, so it becomes no step.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Pick the threat this step reaches.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(element.threats, id: \.threatKey) { threat in
+                    Button(threat.name) { editor.pick(threat, for: box.id) }
+                        .accessibilityIdentifier("tree-selection-pick-\(threat.threatKey)")
+                }
+            }
+
+            Button("Pick another element") { editor.fill(box.id, with: nil) }
+                .accessibilityIdentifier("tree-box-empty")
+        } else {
+            BoxSearch(box: box, elements: elements, editor: editor)
+                // A new box starts a new search.
+                .id(box.id)
+        }
+
+        Divider()
+
         Button("Delete", role: .destructive) { gestures.deleteSelection() }
             .accessibilityIdentifier("tree-selection-delete")
     }
@@ -203,6 +261,73 @@ struct TreeSelectionPanel: View {
     }
 }
 
+/// The search on a box: the elements the known end reaches, ranked by the
+/// threats each raises, narrowed by what is typed.
+private struct BoxSearch: View {
+    let box: TreeSelection.Box
+    let elements: [TreeElement]
+    let editor: TreeEditor
+
+    @State private var query = ""
+    @State private var everyElement = false
+
+    private var found: [TreeElement] {
+        TreeConnectable.search(elements, from: box.anchor, query: query, everyElement: everyElement)
+    }
+
+    var body: some View {
+        Text(scope)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("tree-box-scope")
+
+        TextField("Search elements", text: $query)
+            .textFieldStyle(.roundedBorder)
+            .accessibilityIdentifier("tree-box-search")
+
+        if found.isEmpty {
+            Text(query.isEmpty ? "No element to offer." : "No element matches \"\(query)\".")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("tree-box-no-match")
+            if everyElement == false, box.anchor != nil {
+                Button("Show every element") { everyElement = true }
+                    .accessibilityIdentifier("tree-box-every-element")
+            }
+        }
+
+        ForEach(found) { element in
+            Button {
+                editor.fill(box.id, with: element)
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(element.name).font(.callout).lineLimit(1)
+                        Text(element.kind).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 4)
+                    Text("\(element.threats.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("tree-box-pick-\(element.payload)")
+        }
+    }
+
+    private var scope: String {
+        guard let knownEnd = box.knownEnd else {
+            return "Every element. Join this box to a node to search what that node reaches."
+        }
+        return everyElement
+            ? "Every element, with what an attacker at \(knownEnd) reaches first."
+            : "The elements an attacker at \(knownEnd) reaches."
+    }
+}
+
 /// What the right sidebar shows, as words a test reads.
 enum TreeSelection: Equatable {
     struct Tree: Equatable {
@@ -226,6 +351,24 @@ enum TreeSelection: Equatable {
         /// "Link 2 of 3, after Steal X, before Obtain Z.", or nil for a
         /// step outside every chain.
         var chain: String? = nil
+        /// The join this step makes that no flow or zone supports, as
+        /// "No flow or zone joins A to B.", or nil.
+        var warning: String? = nil
+    }
+
+    /// One selected box: the element it holds, if any, and the element at
+    /// its known end, which the search reads.
+    struct Box: Equatable {
+        let id: String
+        let element: TreeElement?
+        /// The payload of the element at the known end, or nil while the
+        /// box is joined to nothing.
+        let anchor: String?
+        /// The name of the element at the known end, or nil.
+        let knownEnd: String?
+
+        static let notWritten =
+            "This box is not written. The tree is not saved until you pick an element, or delete the box."
     }
 
     /// One selected join, with the label of each end.
@@ -239,11 +382,17 @@ enum TreeSelection: Equatable {
     case tree(Tree)
     case node(Node)
     case pending(PendingElement)
+    case box(Box)
     case join(Join)
     case several(Int)
 
     @MainActor
-    static func of(editor: TreeEditor, canvas: TreeCanvasState, bound: BoundAttackTree?) -> TreeSelection {
+    static func of(
+        editor: TreeEditor,
+        canvas: TreeCanvasState,
+        bound: BoundAttackTree?,
+        elements: [TreeElement] = []
+    ) -> TreeSelection {
         guard editor.isEditing else { return .noTree }
         let selected = canvas.selectedIds
         guard canvas.selectionCount <= 1 else { return .several(canvas.selectionCount) }
@@ -278,7 +427,20 @@ enum TreeSelection: Equatable {
                 isJunction: false,
                 canBecomeGoal: isGoal == false,
                 feedsANode: editor.graph.edges.contains { $0.from == id },
-                chain: isGoal ? nil : chain(of: id, in: editor.graph)
+                chain: isGoal ? nil : chain(of: id, in: editor.graph),
+                warning: TreeConnectable.outsideJoin(from: id, in: editor.graph, elements: elements).map {
+                    "No flow or zone joins \($0.from.name) to \($0.to.name)."
+                }
+            ))
+        case .placeholder(let element):
+            let anchor = editor.graph.elementPayload(anchoring: id)
+            return .box(Box(
+                id: id,
+                element: element,
+                anchor: anchor,
+                knownEnd: anchor.map { payload in
+                    elements.first { $0.payload == payload }?.name ?? payload
+                }
             ))
         case .allOf, .anyOf:
             let feeders = editor.graph.edges.filter { $0.to == id }.count

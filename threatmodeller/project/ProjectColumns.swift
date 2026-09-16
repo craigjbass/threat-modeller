@@ -81,7 +81,7 @@ struct ProjectColumns: View {
             } content: {
                 treeDiagram
             } detail: {
-                TreeSelectionPanel(editor: trees, canvas: treeCanvas, bound: boundTree)
+                TreeSelectionPanel(editor: trees, canvas: treeCanvas, bound: boundTree, elements: treeElements)
                     .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
             }
         case .threats:

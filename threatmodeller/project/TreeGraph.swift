@@ -15,6 +15,20 @@ struct TreeGraph: Equatable {
         case step(target: SourceTreeTarget, note: String?)
         case allOf
         case anyOf
+        /// A box waiting for an element, then a threat. It is never written:
+        /// `tree(id:...)` refuses a graph that holds one. The design in
+        /// `docs/superpowers/specs/2026-09-16-tree-connectable-elements-design.md`
+        /// states it.
+        case placeholder(element: TreeElement?)
+
+        /// True for a node that takes one feeder: a step, and a box, which
+        /// becomes a step.
+        var takesOneFeeder: Bool {
+            switch self {
+            case .step, .placeholder: true
+            case .allOf, .anyOf: false
+            }
+        }
     }
 
     struct Node: Equatable, Identifiable {
@@ -79,6 +93,15 @@ struct TreeGraph: Equatable {
 
     func node(_ id: String) -> Node? { nodes.first { $0.id == id } }
 
+    /// Changes what one node is and what it shows. The id and the edges
+    /// stay, so a box that becomes a step keeps its joins.
+    mutating func set(_ id: String, kind: Kind, title: String, subtitle: String) {
+        guard let at = nodes.firstIndex(where: { $0.id == id }) else { return }
+        nodes[at].kind = kind
+        nodes[at].title = title
+        nodes[at].subtitle = subtitle
+    }
+
     // MARK: what a join is allowed to be
 
     /// True when `from` may feed `to`. The rules are the ones `tree(id:...)`
@@ -90,7 +113,7 @@ struct TreeGraph: Equatable {
         guard from != to, node(from) != nil, let target = node(to) else { return false }
         guard goalId != from else { return false }
         guard edges.contains(where: { $0.from == from }) == false else { return false }
-        if case .step = target.kind {
+        if target.kind.takesOneFeeder {
             guard edges.contains(where: { $0.to == to }) == false else { return false }
         }
 
@@ -170,6 +193,8 @@ struct TreeGraph: Equatable {
         case noSteps
         case twoRoots
         case junctionHoldsNothing(kind: String)
+        case unfilledBox
+        case boxNamesNoThreat(element: String)
 
         var message: String {
             switch self {
@@ -191,6 +216,10 @@ struct TreeGraph: Equatable {
                 "two nodes feed the goal; one root feeds it"
             case .junctionHoldsNothing(let kind):
                 "the \(kind) holds nothing"
+            case .unfilledBox:
+                "a box holds no element yet; pick one, or delete the box"
+            case .boxNamesNoThreat(let element):
+                "\"\(element)\" names no threat yet; pick one"
             }
         }
     }
@@ -205,6 +234,15 @@ struct TreeGraph: Equatable {
         guard let goalId, let goalNode = node(goalId) else { return .failure(.noGoal) }
         guard case .step(let goalTarget, _) = goalNode.kind else {
             return .failure(.junctionGoal)
+        }
+
+        // A box is never written. The save waits until it is filled, then
+        // given a threat, or removed.
+        for node in nodes {
+            if case .placeholder(let element) = node.kind {
+                guard let element else { return .failure(.unfilledBox) }
+                return .failure(.boxNamesNoThreat(element: element.name))
+            }
         }
 
         // Every node but the goal feeds exactly one node.
@@ -293,6 +331,10 @@ struct TreeGraph: Equatable {
             return .all(feeders(of: id).map { subtree(of: $0) })
         case .anyOf:
             return .any(feeders(of: id).map { subtree(of: $0) })
+        case .placeholder:
+            // `tree(id:...)` refuses a graph that holds a box before it
+            // reaches here.
+            return .all([])
         }
     }
 

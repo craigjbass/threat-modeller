@@ -1666,4 +1666,35 @@ struct ViewRenderTests {
         #expect(edge == chosenEdge)
         #expect(unselected != selected)
     }
+
+    // MARK: a box waiting for an element
+
+    /// A box draws, and a canvas holding one draws differently from the
+    /// same canvas without it.
+    @Test func drawsABoxWaitingForAnElement() async throws {
+        let (editor, canvas, _) = aDrawnTree()
+        let without = try #require(pixels(of: aTreeCanvas(editor, canvas), width: 900, height: 700))
+
+        let (other, chosen, _) = aDrawnTree()
+        #expect(other.drop("placeholder", at: CGPoint(x: 300, y: 300), elements: []) != nil)
+        expectDrawn(aTreeCanvas(other, chosen), "the box")
+        let with = try #require(pixels(of: aTreeCanvas(other, chosen), width: 900, height: 700))
+
+        #expect(without != with)
+    }
+
+    /// A marked sidebar row draws differently from an unmarked one, so a
+    /// person sees which elements the selected node reaches.
+    @Test func drawsAMarkedSidebarRowDifferentlyFromAnUnmarkedOne() throws {
+        let element = TreeElement(kind: "component", sourceId: "api", name: "API", threats: [])
+        let marked = TreeElementRow(row: RankedElement(element: element, isConnectable: true), isRanked: true)
+        let unmarked = TreeElementRow(row: RankedElement(element: element, isConnectable: false), isRanked: true)
+
+        expectDrawn(marked, width: 260, height: 44, "a marked element row")
+        expectDrawn(unmarked, width: 260, height: 44, "an unmarked element row")
+
+        let markedPixels = try #require(pixels(of: marked, width: 260, height: 44))
+        let unmarkedPixels = try #require(pixels(of: unmarked, width: 260, height: 44))
+        #expect(markedPixels != unmarkedPixels)
+    }
 }

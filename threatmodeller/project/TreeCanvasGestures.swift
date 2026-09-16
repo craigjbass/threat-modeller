@@ -244,7 +244,20 @@ struct TreeCanvasGestures: CanvasZooming {
         let point = canvas.transform.modelPoint(location)
         guard let target = node(at: point), target != id,
               editor.graph.node(target) != nil else { return }
-        editor.join(from: id, to: target)
+        join(from: id, to: target)
+    }
+
+    /// `from` feeds `to`, as one change. A join that touches a box with no
+    /// element selects the box, so the panel opens the search over the
+    /// elements the known end reaches.
+    func join(from: String, to: String) {
+        editor.join(from: from, to: to)
+        for end in [to, from] {
+            if case .placeholder(nil) = editor.graph.node(end)?.kind {
+                canvas.select(end, addingToSelection: false)
+                return
+            }
+        }
     }
 
     /// Every node takes the point the layout states, as one undoable change.

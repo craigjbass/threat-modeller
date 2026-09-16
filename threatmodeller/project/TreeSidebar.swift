@@ -94,16 +94,35 @@ struct TreeSidebar: View {
 
     // MARK: the elements a person drops
 
+    /// The rows, ranked for the one selected node: what its element reaches
+    /// first and marked, the rest dimmed and still draggable.
+    private var rows: [RankedElement] {
+        TreeConnectable.sidebarRows(editor: editor, canvas: canvas, elements: elements)
+    }
+
+    /// The name of the element the selected node is on, or nil.
+    private var anchorName: String? {
+        guard let anchor = TreeConnectable.anchor(editor: editor, canvas: canvas) else { return nil }
+        return elements.first { $0.payload == anchor }?.name ?? anchor
+    }
+
     private var elementList: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let rows = rows
+        let isRanked = rows.contains { $0.isConnectable }
+        return VStack(alignment: .leading, spacing: 6) {
             Text("This system's elements")
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
-            Text("Drag one onto the canvas. A junction joins steps.")
+            Text(
+                anchorName.map { "Marked: what an attacker at \($0) reaches." }
+                    ?? "Drag one onto the canvas. A junction joins steps."
+            )
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 12)
+                .accessibilityIdentifier("tree-elements-caption")
 
             List {
                 Section {
@@ -113,22 +132,20 @@ struct TreeSidebar: View {
                     Text("ANY OF").font(.caption.weight(.bold))
                         .draggable("junction:any")
                         .accessibilityIdentifier("tree-element-junction-any")
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Any element").font(.caption.weight(.bold))
+                        Text("A box: join it, then search for the element.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .draggable(TreeElement.boxPayload)
+                    .accessibilityIdentifier("tree-element-placeholder")
                 }
                 Section {
-                    ForEach(elements) { element in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(element.name).font(.callout).lineLimit(1)
-                                Text(element.kind).font(.caption2).foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 4)
-                            Text("\(element.threats.count)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .help("The threats this model raises here.")
-                        }
-                        .draggable(element.payload)
-                        .accessibilityIdentifier("tree-element-\(element.payload)")
+                    ForEach(rows) { row in
+                        TreeElementRow(row: row, isRanked: isRanked)
+                            .draggable(row.element.payload)
+                            .accessibilityIdentifier("tree-element-\(row.element.payload)")
                     }
                 }
             }
@@ -150,6 +167,38 @@ struct TreeSidebar: View {
     private func addTree() {
         editor.addTree(among: trees)
         canvas.clearSelection()
+    }
+}
+
+/// One element row of the sidebar. While a node is selected, a row the
+/// node's element reaches carries a check mark, and every other row is
+/// dimmed and still draggable.
+struct TreeElementRow: View {
+    let row: RankedElement
+    /// True while a node is selected, so the rows are marked or dimmed.
+    let isRanked: Bool
+
+    var body: some View {
+        HStack {
+            if isRanked {
+                Image(systemName: row.isConnectable ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(row.isConnectable ? Color.accentColor : Color.secondary.opacity(0.4))
+                    .help(row.isConnectable
+                        ? "A flow or a zone joins this element to the selected node's element."
+                        : "No flow or zone joins this element to the selected node's element.")
+                    .accessibilityIdentifier(row.isConnectable ? "tree-element-connectable" : "tree-element-outside")
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(row.element.name).font(.callout).lineLimit(1)
+                Text(row.element.kind).font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            Text("\(row.element.threats.count)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .help("The threats this model raises here.")
+        }
+        .opacity(isRanked && row.isConnectable == false ? 0.5 : 1)
     }
 }
 

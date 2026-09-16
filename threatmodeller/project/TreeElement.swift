@@ -9,10 +9,18 @@ struct TreeElement: Identifiable, Equatable {
     let sourceId: String
     let name: String
     let threats: [AssessedThreat]
+    /// The payloads of the elements an attacker at this element reaches,
+    /// read from the flows and the zones. The design in
+    /// `docs/superpowers/specs/2026-09-16-tree-connectable-elements-design.md`
+    /// states the rule; this element is among them.
+    var neighbours: Set<String> = []
 
     var id: String { payload }
     /// What a drag from the list carries.
     var payload: String { "\(kind):\(sourceId)" }
+
+    /// What a drag of the **Any element** row carries: a box with no element.
+    static let boxPayload = "placeholder"
 
     /// Every element the model states, with the threats raised on it, in the
     /// order the canvas holds them: components, flows, zones.
@@ -54,7 +62,69 @@ struct TreeElement: Identifiable, Equatable {
         rows += zones.map {
             TreeElement(kind: "zone", sourceId: $0.id, name: $0.name, threats: raised("zone", $0.id))
         }
-        return rows
+        let reach = neighbours(components: components, connections: connections, zones: zones)
+        return rows.map { row in
+            var row = row
+            row.neighbours = reach[row.payload] ?? [row.payload]
+            return row
+        }
+    }
+
+    /// What an attacker at each element reaches, by payload. A component
+    /// reaches the components it flows to or from, its zone, the components
+    /// in that zone and its flows. A zone reaches the components in it and
+    /// the flows that cross its boundary. A flow reaches its two ends and
+    /// the zone each end sits in. Every element reaches itself.
+    private static func neighbours(
+        components: [ViewedComponent],
+        connections: [ViewedConnection],
+        zones: [ViewedZone]
+    ) -> [String: Set<String>] {
+        var reach: [String: Set<String>] = [:]
+        func link(_ a: String, _ b: String) {
+            reach[a, default: []].insert(b)
+            reach[b, default: []].insert(a)
+        }
+        let zoneOf: [String: String] = Dictionary(
+            uniqueKeysWithValues: components.compactMap { component in
+                component.zoneId.map { (component.id, $0) }
+            }
+        )
+        let zoneIds = Set(zones.map(\.id))
+
+        for component in components {
+            let payload = "component:\(component.id)"
+            reach[payload, default: []].insert(payload)
+            if let zone = zoneOf[component.id], zoneIds.contains(zone) {
+                link(payload, "zone:\(zone)")
+                for other in components where zoneOf[other.id] == zone {
+                    link(payload, "component:\(other.id)")
+                }
+            }
+        }
+        for zone in zones {
+            reach["zone:\(zone.id)", default: []].insert("zone:\(zone.id)")
+        }
+        for flow in connections {
+            let payload = "flow:\(flow.id)"
+            let source = "component:\(flow.sourceComponentId)"
+            let target = "component:\(flow.targetComponentId)"
+            reach[payload, default: []].insert(payload)
+            link(payload, source)
+            link(payload, target)
+            link(source, target)
+            let sourceZone = zoneOf[flow.sourceComponentId]
+            let targetZone = zoneOf[flow.targetComponentId]
+            for zone in [sourceZone, targetZone].compactMap({ $0 }) where zoneIds.contains(zone) {
+                // A flow reaches the zone each end sits in. The zone reaches
+                // the flow only when the flow crosses its boundary.
+                reach[payload, default: []].insert("zone:\(zone)")
+                if sourceZone != targetZone {
+                    reach["zone:\(zone)", default: []].insert(payload)
+                }
+            }
+        }
+        return reach
     }
 }
 
