@@ -1091,6 +1091,8 @@ final class ThreatModelSession {
             errorMessage = "That shape is not one this application holds."
         case .unknownAsset:
             errorMessage = "This system declares no such asset."
+        case .notACveId(let word):
+            errorMessage = "\"\(word)\" is not a CVE id. A CVE id reads CVE-<year>-<number>."
         }
 
         refresh()
