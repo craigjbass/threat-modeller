@@ -6,18 +6,14 @@ import TestSupport
 @testable import threatmodeller
 
 /// A defaults suite made for one test, so nothing a test writes reaches the
-/// user's own defaults.
+/// user's own defaults, and no other process or test shares the suite name.
 @MainActor
 func aTestDefaults() -> UserDefaults {
-    let suite = "project-session-test-\(testDefaultsCount)"
-    testDefaultsCount += 1
+    let suite = "project-session-test-\(ProcessInfo.processInfo.processIdentifier)-\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
     defaults.removePersistentDomain(forName: suite)
     return defaults
 }
-
-@MainActor
-private var testDefaultsCount = 0
 
 /// A watcher a test drives by hand.
 @MainActor
