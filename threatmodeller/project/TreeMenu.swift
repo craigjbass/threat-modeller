@@ -78,7 +78,7 @@ struct TreeMenu {
             },
             .separator(id: "context-tree-background-separator"),
             .item(id: "context-tree-lay-out", title: "Lay Out Tree") {
-                gestures.layOutAgain()
+                gestures.layOutTree()
             }
         ]
     }

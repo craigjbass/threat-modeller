@@ -4,7 +4,8 @@ import Observation
 /// Everything the tree canvas needs that is not part of the tree.
 ///
 /// The tree canvas's own `CanvasState`: the viewport, the selected ids, the
-/// held offsets, the drag in flight and the join in flight. `CanvasState` is
+/// drag in flight and the join in flight. A node's point lives in
+/// `TreeEditor`, so the history undoes a move. `CanvasState` is
 /// not reused because it selects components, zones and connections, and a
 /// tree canvas selects none of those. This object calls no use case.
 @MainActor
@@ -18,10 +19,6 @@ final class TreeCanvasState: CanvasViewport {
 
     /// The selected nodes and pending elements, by id.
     private(set) var selectedIds: Set<String> = []
-
-    /// Where a drag holds a node, in model units, until Lay Out Tree or the
-    /// next open lays it out again. Positions are not in the file.
-    var held: [String: CGSize] = [:]
 
     /// How far the selection has moved while a node drag is in flight, in
     /// model units. Nil when no drag is in flight.
@@ -65,12 +62,6 @@ final class TreeCanvasState: CanvasViewport {
     /// Drops selected ids the tree no longer holds. Call after any removal.
     func retainOnly(_ ids: Set<String>) {
         selectedIds.formIntersection(ids)
-        held = held.filter { ids.contains($0.key) }
-    }
-
-    /// Drops every hold, so the derived layout is drawn again.
-    func layOutAgain() {
-        held = [:]
     }
 
     /// Escape: cancel a join in flight, else clear the selection. Returns

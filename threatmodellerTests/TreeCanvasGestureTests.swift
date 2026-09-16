@@ -178,7 +178,7 @@ struct TreeCanvasGestureTests {
 
     // MARK: node drag
 
-    @Test func aNodeDragHoldsEverySelectedNodeByTheModelDistance() {
+    @Test func aNodeDragMovesEverySelectedNodeByTheModelDistance() {
         let (_, canvas, gestures, goal, step) = drawn()
         canvas.transform = CanvasTransform(zoom: 0.5)
         let goalBefore = gestures.position(of: goal)
@@ -205,16 +205,15 @@ struct TreeCanvasGestureTests {
         #expect(canvas.selectedIds == [step])
     }
 
-    @Test func layOutTreeDropsEveryHold() {
-        let (_, canvas, gestures, _, step) = drawn()
+    @Test func layOutTreePutsEveryNodeBackOnTheLayoutPoint() {
+        let (_, _, gestures, _, step) = drawn()
         let before = gestures.position(of: step)
         gestures.nodeDragChanged(step, CGSize(width: 50, height: 10))
         gestures.nodeDragEnded(CGSize(width: 50, height: 10))
 
-        gestures.layOutAgain()
+        gestures.layOutTree()
 
         #expect(gestures.position(of: step) == before)
-        #expect(canvas.held.isEmpty)
     }
 
     // MARK: join

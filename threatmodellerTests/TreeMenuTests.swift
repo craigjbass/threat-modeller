@@ -113,10 +113,11 @@ struct TreeMenuTests {
         #expect(editor.graph.nodes.count == 1)
     }
 
-    @Test func theBackgroundOffersSelectAllZoomToFitAndLayOutTree() {
-        let (_, canvas, menu, goal, step) = drawn()
+    @Test func theBackgroundOffersSelectAllZoomToFitAndLayOutTree() throws {
+        let (editor, canvas, menu, goal, step) = drawn()
         canvas.visibleSize = CGSize(width: 800, height: 600)
-        canvas.held[step] = CGSize(width: 40, height: 40)
+        let placed = try #require(editor.layout.point(of: step))
+        editor.move([step], by: CGSize(width: 40, height: 40))
 
         let rows = menu.background()
         #expect(titles(rows) == ["Select All", "Zoom to Fit", "Lay Out Tree"])
@@ -125,7 +126,7 @@ struct TreeMenuTests {
         #expect(canvas.selectedIds == [goal, step])
 
         run(rows, "context-tree-lay-out")
-        #expect(canvas.held.isEmpty)
+        #expect(editor.layout.point(of: step) == placed)
 
         let before = canvas.transform
         run(rows, "context-tree-zoom-to-fit")

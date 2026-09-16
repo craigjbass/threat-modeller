@@ -301,6 +301,24 @@ struct TreeEditorTests {
         #expect(editor.isEditing == false)
     }
 
+    /// A pick makes a node where the pending element sat, and the node the
+    /// person placed before it does not move.
+    @Test func aThreatPickPlacesTheNodeAtTheDropPointAndMovesNoOtherNode() async throws {
+        let (editor, project, _, goal) = try await anEditorWithADrop()
+        let elements = try elements(of: project)
+        editor.pick(try #require(goal.element.threats.first), for: goal.id)
+        let goalId = try #require(editor.graph.goalId)
+        let goalPoint = try #require(editor.layout.point(of: goalId))
+        let api = try #require(editor.drop("component:api", at: CGPoint(x: 400, y: 250), elements: elements))
+        let apiElement = try #require(elements.first { $0.payload == "component:api" })
+
+        editor.pick(try #require(apiElement.threats.first), for: api)
+
+        let step = try #require(editor.graph.nodes.first { $0.id != goalId })
+        #expect(editor.layout.point(of: step.id) == CGPoint(x: 400, y: 250))
+        #expect(editor.layout.point(of: goalId) == goalPoint)
+    }
+
     @Test func closeLeavesNoTreeInFront() async throws {
         let (editor, _, _, _) = try await anEditorWithADrop()
 

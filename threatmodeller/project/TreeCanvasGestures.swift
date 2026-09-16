@@ -19,24 +19,9 @@ struct TreeCanvasGestures: CanvasZooming {
     /// key, because AppKit states no modifier flag for Space.
     var isSpaceDown = false
 
-    static let nodeSize = CGSize(width: 190, height: 56)
-    static let junctionSize = CGSize(width: 90, height: 40)
-    static let horizontalGap: CGFloat = 56
-    static let verticalGap: CGFloat = 28
-    /// The room the derived layout keeps from the origin.
-    static let margin: CGFloat = 32
-
     private var viewport: ViewportGestures { ViewportGestures(viewport: canvas) }
 
     // MARK: where everything sits, in model coordinates
-
-    private var laidOut: [String: CGPoint] {
-        editor.graph.positions(
-            nodeSize: Self.nodeSize,
-            horizontalGap: Self.horizontalGap,
-            verticalGap: Self.verticalGap
-        )
-    }
 
     /// Every id the canvas draws: the nodes, then the pending elements.
     var everyId: [String] {
@@ -45,27 +30,22 @@ struct TreeCanvasGestures: CanvasZooming {
 
     func size(of id: String) -> CGSize {
         switch editor.graph.node(id)?.kind {
-        case .allOf, .anyOf: Self.junctionSize
-        default: Self.nodeSize
+        case .allOf, .anyOf: TreeLayout.junctionSize
+        default: TreeLayout.nodeSize
         }
     }
 
-    /// The centre of one node: the derived layout, plus the hold a drag left,
-    /// plus the drag in flight while the node is selected.
+    /// The centre of one node: the point the editor holds for it, plus the
+    /// drag in flight while the node is selected.
     func position(of id: String) -> CGPoint {
         let base: CGPoint
         if let pending = editor.pending.first(where: { $0.id == id }) {
             base = pending.point
         } else {
-            let laid = laidOut[id] ?? .zero
-            base = CGPoint(x: laid.x + Self.margin, y: laid.y + Self.margin)
+            base = editor.layout.point(of: id) ?? .zero
         }
-        let hold = canvas.held[id] ?? .zero
         let drag = canvas.isSelected(id) ? (canvas.dragTranslation ?? .zero) : .zero
-        return CGPoint(
-            x: base.x + hold.width + drag.width,
-            y: base.y + hold.height + drag.height
-        )
+        return CGPoint(x: base.x + drag.width, y: base.y + drag.height)
     }
 
     func rect(of id: String) -> CGRect {
@@ -167,15 +147,12 @@ struct TreeCanvasGestures: CanvasZooming {
         canvas.dragTranslation = canvas.transform.modelDistance(translation)
     }
 
-    /// The drag holds every selected node where it ended, until Lay Out Tree
-    /// or the next open lays it out again.
+    /// The drag moves every selected node to where it ended. One drag is one
+    /// undoable change.
     func nodeDragEnded(_ translation: CGSize) {
         let shift = canvas.transform.modelDistance(translation)
         canvas.dragTranslation = nil
-        for id in canvas.selectedIds {
-            let hold = canvas.held[id] ?? .zero
-            canvas.held[id] = CGSize(width: hold.width + shift.width, height: hold.height + shift.height)
-        }
+        editor.move(canvas.selectedIds, by: shift)
     }
 
     /// A drag from a node's join handle. The location is a view point.
@@ -193,24 +170,19 @@ struct TreeCanvasGestures: CanvasZooming {
         editor.join(from: id, to: target)
     }
 
-    /// Drops every hold, so the derived layout is drawn again.
-    func layOutAgain() {
-        canvas.layOutAgain()
+    /// Every node takes the point the layout states, as one undoable change.
+    func layOutTree() {
+        editor.layOutTree()
     }
 
     // MARK: what a drop makes
 
-    /// A drop lands at the model point under the pointer. A junction is laid
-    /// out by the tree, so it is held at the drop point until the next lay
-    /// out; a pending element sits where it was dropped.
+    /// A drop lands at the model point under the pointer. The editor places
+    /// what the drop makes at that point, so the layout never runs for it.
     func drop(_ payloads: [String], at location: CGPoint) -> Bool {
         guard let payload = payloads.first else { return false }
         let point = canvas.transform.modelPoint(location)
         guard let id = editor.drop(payload, at: point, elements: elements) else { return false }
-        if editor.graph.node(id) != nil {
-            let laid = position(of: id)
-            canvas.held[id] = CGSize(width: point.x - laid.x, height: point.y - laid.y)
-        }
         canvas.select(id, addingToSelection: false)
         return true
     }

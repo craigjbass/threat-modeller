@@ -22,6 +22,9 @@ final class TreeEditor {
     /// Everything a change can touch, so one snapshot puts all of it back.
     struct Draft: Equatable {
         var graph = TreeGraph()
+        /// Where each node sits. The window holds the points; the file
+        /// states none.
+        var layout = TreeLayout()
         var pending: [PendingElement] = []
         var name = ""
         var description = ""
@@ -43,6 +46,7 @@ final class TreeEditor {
     private var nextPendingNumber = 1
 
     var graph: TreeGraph { draft.graph }
+    var layout: TreeLayout { draft.layout }
     var pending: [PendingElement] { draft.pending }
     var name: String { draft.name }
     var description: String { draft.description }
@@ -75,6 +79,8 @@ final class TreeEditor {
     private func change(_ label: String, _ apply: (inout Draft) -> Void) {
         let before = draft
         apply(&draft)
+        draft.layout.retainOnly(Set(draft.graph.nodes.map(\.id)))
+        draft.layout.placeUnplaced(in: draft.graph)
         guard draft != before else { return }
         past.append((label: label, draft: before))
         future = []
@@ -83,17 +89,22 @@ final class TreeEditor {
 
     // MARK: opening and closing
 
-    /// Opens one tree the file states, laid out again from the file.
+    /// Opens one tree the file states. The file holds no point, so every
+    /// node takes the layout's point once.
     func open(_ tree: SourceAttackTree, threats: [AssessedThreat]) {
         id = tree.id
+        let graph = TreeGraph.graph(of: tree) { target in
+            let key = TreeDraft.key(of: target)
+            guard let threat = threats.first(where: { $0.threatKey == key }) else {
+                return (target.threatId, "\(target.sourceKind) \(target.sourceId)")
+            }
+            return (threat.name, threat.source.displayName)
+        }
+        // The file states no point, so the window places every node once,
+        // from the layout.
         draft = Draft(
-            graph: TreeGraph.graph(of: tree) { target in
-                let key = TreeDraft.key(of: target)
-                guard let threat = threats.first(where: { $0.threatKey == key }) else {
-                    return (target.threatId, "\(target.sourceKind) \(target.sourceId)")
-                }
-                return (threat.name, threat.source.displayName)
-            },
+            graph: graph,
+            layout: TreeLayout(laidOut: graph),
             pending: [],
             name: tree.name ?? tree.id,
             description: tree.description ?? "",
@@ -146,12 +157,18 @@ final class TreeEditor {
     func drop(_ payload: String, at point: CGPoint, elements: [TreeElement]) -> String? {
         if payload == "junction:all" {
             var id = ""
-            change("Drop") { id = $0.graph.add(.allOf, title: "ALL") }
+            change("Drop") {
+                id = $0.graph.add(.allOf, title: "ALL")
+                $0.layout.place(id, at: point)
+            }
             return id
         }
         if payload == "junction:any" {
             var id = ""
-            change("Drop") { id = $0.graph.add(.anyOf, title: "ANY") }
+            change("Drop") {
+                id = $0.graph.add(.anyOf, title: "ANY")
+                $0.layout.place(id, at: point)
+            }
             return id
         }
         guard let element = elements.first(where: { $0.payload == payload }) else { return nil }
@@ -179,6 +196,7 @@ final class TreeEditor {
                 title: threat.name,
                 subtitle: item.element.name
             )
+            draft.layout.place(id, at: item.point)
             if draft.graph.goalId == nil { draft.graph.goalId = id }
             draft.pending.removeAll { $0.id == pendingId }
         }
@@ -204,6 +222,29 @@ final class TreeEditor {
             for id in ids { draft.graph.remove(id) }
             draft.pending.removeAll { ids.contains($0.id) }
         }
+    }
+
+    /// Moves the named nodes and pending elements by one distance. The drag
+    /// on the canvas ends here, so one drag is one undoable change.
+    func move(_ ids: Set<String>, by shift: CGSize) {
+        guard ids.isEmpty == false, shift != .zero else { return }
+        change("Move") { draft in
+            draft.layout.move(ids, by: shift)
+            draft.pending = draft.pending.map { item in
+                guard ids.contains(item.id) else { return item }
+                return PendingElement(
+                    id: item.id,
+                    element: item.element,
+                    point: CGPoint(x: item.point.x + shift.width, y: item.point.y + shift.height)
+                )
+            }
+        }
+    }
+
+    /// Every node takes the point the layout states. Lay Out Tree calls this,
+    /// and one undo puts the old points back.
+    func layOutTree() {
+        change("Lay Out Tree") { $0.layout.layOut($0.graph) }
     }
 
     func setGoal(_ id: String) {

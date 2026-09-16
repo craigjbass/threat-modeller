@@ -45,7 +45,6 @@ struct TreeSidebar: View {
         .onChange(of: project.chosenSystem) { _, _ in
             editor.close()
             canvas.clearSelection()
-            canvas.layOutAgain()
             chooseTheFirstTree()
         }
         .accessibilityIdentifier("tree-sidebar")
@@ -146,13 +145,11 @@ struct TreeSidebar: View {
     private func open(_ tree: SourceAttackTree) {
         editor.open(tree, threats: session.threats)
         canvas.clearSelection()
-        canvas.layOutAgain()
     }
 
     private func addTree() {
         editor.addTree(among: trees)
         canvas.clearSelection()
-        canvas.layOutAgain()
     }
 }
 

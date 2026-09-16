@@ -448,7 +448,7 @@ private struct PendingElementView: View {
             }
         }
         .padding(.horizontal, 8)
-        .frame(width: TreeCanvasGestures.nodeSize.width, height: TreeCanvasGestures.nodeSize.height)
+        .frame(width: TreeLayout.nodeSize.width, height: TreeLayout.nodeSize.height)
         .background(RoundedRectangle(cornerRadius: 8).fill(.bar).opacity(0.8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
