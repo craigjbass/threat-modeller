@@ -41,23 +41,44 @@ struct CanvasGestures: CanvasZooming {
         )
     }
 
+    /// The mitigates marks as the canvas draws them, so a click lands where
+    /// the picture says it should.
+    private var protection: MitigatesGeometry {
+        MitigatesGeometry.of(mitigations: session.canvas.mitigations, boxes: boxes)
+    }
+
     // MARK: background
 
     var backgroundTap: some Gesture {
         SpatialTapGesture(coordinateSpace: .named("canvas")).onEnded { value in
-            let point = canvas.transform.modelPoint(value.location)
-            // The flows are hit tested against the curves the canvas drew,
-            // and a callout counts as part of its own flow.
-            if let connectionId = flows.connection(
-                under: point,
-                within: ConnectionPath.hitTolerance / canvas.transform.zoom
-            ) {
-                canvas.select(connectionId: connectionId, addingToSelection: false)
-            } else if let zoneId = CanvasHitTest.zone(under: point, zones: session.canvas.zones) {
-                canvas.select(zoneId: zoneId, addingToSelection: false)
-            } else {
-                canvas.clearSelection()
-            }
+            backgroundTapped(at: value.location)
+        }
+    }
+
+    /// A single click on the background. Internal so a test can walk the tap
+    /// without SwiftUI's gesture plumbing.
+    ///
+    /// A flow is read first, then a mitigates mark, then a zone. A click on a
+    /// mark selects both ends of the edge, which is what the canvas shows the
+    /// mitigates bar for.
+    func backgroundTapped(at viewPoint: CGPoint) {
+        let point = canvas.transform.modelPoint(viewPoint)
+        // The flows are hit tested against the curves the canvas drew,
+        // and a callout counts as part of its own flow.
+        if let connectionId = flows.connection(
+            under: point,
+            within: ConnectionPath.hitTolerance / canvas.transform.zoom
+        ) {
+            canvas.select(connectionId: connectionId, addingToSelection: false)
+        } else if let mark = protection.mark(
+            under: point,
+            within: MitigatesGeometry.hitTolerance / canvas.transform.zoom
+        ) {
+            canvas.select(componentIds: [mark.sourceComponentId, mark.targetComponentId])
+        } else if let zoneId = CanvasHitTest.zone(under: point, zones: session.canvas.zones) {
+            canvas.select(zoneId: zoneId, addingToSelection: false)
+        } else {
+            canvas.clearSelection()
         }
     }
 

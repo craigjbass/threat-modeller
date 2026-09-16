@@ -42,6 +42,13 @@ struct ConnectionsLayer: View {
     /// The components the user turned threats off for.
     let outOfScopeComponentIds: Set<String>
     let selectedConnectionIds: Set<String>
+    /// Which components are selected. A mitigates mark both ends of which are
+    /// selected is the one the bar under the canvas edits, so that mark is
+    /// drawn in the accent colour.
+    var selectedComponentIds: Set<String> = []
+    /// What one component lowers on another. Each of these draws its own
+    /// mark.
+    var mitigations: [ViewedMitigation] = []
     let preview: (start: CGPoint, end: CGPoint)?
 
     var body: some View {
@@ -55,12 +62,18 @@ struct ConnectionsLayer: View {
             outOfScopeComponentIds: outOfScopeComponentIds
         )
 
+        let protection = MitigatesGeometry.of(mitigations: mitigations, boxes: boxes)
+
         return Canvas { context, _ in
             context.translateBy(x: -origin.x, y: -origin.y)
 
             for connection in connections {
                 guard let curve = geometry.curves[connection.id] else { continue }
                 draw(connection, along: ConnectionPath(curve), in: &context)
+            }
+
+            for mark in protection.marks {
+                draw(mark, in: &context)
             }
 
             for run in geometry.runs {
@@ -99,6 +112,46 @@ struct ConnectionsLayer: View {
             }
         }
         .allowsHitTesting(false)
+    }
+
+    // MARK: what one mitigates edge looks like
+
+    /// The colour of a mark. A mark both ends of which are selected is the
+    /// edge the bar under the canvas edits.
+    private func colour(of mark: MitigatesMark) -> Color {
+        isSelected(mark) ? .accentColor : .teal
+    }
+
+    private func isSelected(_ mark: MitigatesMark) -> Bool {
+        selectedComponentIds.contains(mark.sourceComponentId)
+            && selectedComponentIds.contains(mark.targetComponentId)
+    }
+
+    /// A bowed curve with a shield on it and no arrowhead. A broken curve and
+    /// a hollow shield state an assumed edge, which the team would run and
+    /// does not run today.
+    private func draw(_ mark: MitigatesMark, in context: inout GraphicsContext) {
+        let colour = colour(of: mark)
+
+        context.stroke(
+            mark.drawnPath,
+            with: .color(colour),
+            style: StrokeStyle(
+                lineWidth: isSelected(mark) ? 4 : 3,
+                lineCap: .round,
+                dash: mark.dash
+            )
+        )
+
+        context.fill(
+            mark.shieldPath,
+            with: .color(mark.isShieldFilled ? colour : Color(nsColor: .textBackgroundColor))
+        )
+        context.stroke(
+            mark.shieldPath,
+            with: .color(colour),
+            style: StrokeStyle(lineWidth: 1.5, dash: mark.isAssumed ? [3, 3] : [])
+        )
     }
 
     private func tint(of run: BoundaryCrossings.BoundaryRun) -> Color {

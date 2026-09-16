@@ -33,6 +33,7 @@ struct CanvasImageRenderer {
                 zones: canvas.zones,
                 risks: risks,
                 guards: guards,
+                mitigations: canvas.mitigations,
                 origin: CGPoint(x: area.x, y: area.y),
                 size: CGSize(width: area.width, height: area.height)
             )
@@ -67,6 +68,7 @@ struct CanvasImageRenderer {
                 zones: canvas.zones,
                 risks: risks,
                 guards: guards,
+                mitigations: canvas.mitigations,
                 origin: CGPoint(x: area.x, y: area.y),
                 size: CGSize(width: area.width, height: area.height)
             )

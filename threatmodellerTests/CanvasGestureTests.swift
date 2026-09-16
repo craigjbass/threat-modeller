@@ -135,6 +135,100 @@ struct CanvasGestureTests {
         #expect(session.canvas.connections.isEmpty)
     }
 
+    // MARK: clicking a mitigates mark
+
+    /// Two nodes and the edge that states the first lowers a threat on the
+    /// second.
+    private func twoNodesAndAnEdge(
+        status: String = "adopted"
+    ) -> (ThreatModelSession, CanvasState, CanvasGestures, String, String) {
+        let (session, canvas, gestures, api, db) = twoNodes()
+        session.setMitigatesEdge(
+            from: api,
+            to: db,
+            threatIds: ["t1"],
+            reducesRiskBy: 40,
+            status: status
+        )
+        return (session, canvas, gestures, api, db)
+    }
+
+    /// The middle of the mark, in model coordinates, which is where a click
+    /// has to land.
+    private func markApex(_ session: ThreatModelSession) -> CGPoint? {
+        MitigatesGeometry.of(
+            mitigations: session.canvas.mitigations,
+            boxes: CanvasHitTest.boxes(
+                for: session.canvas.components,
+                selected: [],
+                dragTranslation: .zero
+            )
+        ).marks.first?.apex
+    }
+
+    /// A click on the mark selects both ends of the edge. Two selected
+    /// components is what the canvas shows the mitigates bar for, so the
+    /// click opens the bar that names the edge.
+    @Test func aClickOnAMitigatesMarkSelectsBothItsComponents() throws {
+        let (session, canvas, gestures, api, db) = twoNodesAndAnEdge()
+        let apex = try #require(markApex(session))
+
+        gestures.backgroundTapped(at: apex)
+
+        #expect(canvas.selectedComponentIds == [api, db])
+        #expect(canvas.selectedConnectionIds.isEmpty)
+    }
+
+    @Test func aClickAwayFromEveryMarkSelectsNothing() throws {
+        let (session, canvas, gestures, _, _) = twoNodesAndAnEdge()
+        let apex = try #require(markApex(session))
+
+        gestures.backgroundTapped(at: CGPoint(x: apex.x, y: apex.y + 400))
+
+        #expect(canvas.selectedComponentIds.isEmpty)
+    }
+
+    /// The edge is removed, and the mark goes with it. A click where the mark
+    /// was then selects nothing.
+    @Test func aClickWhereARemovedMarkWasSelectsNothing() throws {
+        let (session, canvas, gestures, api, db) = twoNodesAndAnEdge()
+        let apex = try #require(markApex(session))
+
+        session.removeMitigatesEdge(from: api, to: db)
+        gestures.backgroundTapped(at: apex)
+
+        #expect(session.canvas.mitigations.isEmpty)
+        #expect(markApex(session) == nil)
+        #expect(canvas.selectedComponentIds.isEmpty)
+    }
+
+    /// A flow is read before a mark, so a flow keeps every click it had.
+    @Test func aClickOnAFlowStillSelectsTheFlow() throws {
+        let (session, canvas, gestures, api, db) = twoNodesAndAnEdge()
+        session.connect(sourceComponentId: api, targetComponentId: db)
+        let flowId = try #require(session.canvas.connections.first?.id)
+        let flows = FlowGeometry.of(
+            connections: session.canvas.connections,
+            boxes: CanvasHitTest.boxes(
+                for: session.canvas.components,
+                selected: [],
+                dragTranslation: .zero
+            ),
+            componentsById: Dictionary(
+                uniqueKeysWithValues: session.canvas.components.map { ($0.id, $0) }
+            ),
+            zones: [],
+            guards: [:],
+            risks: [:],
+            outOfScopeComponentIds: []
+        )
+        let curve = try #require(flows.curves[flowId])
+
+        gestures.backgroundTapped(at: CGPoint(curve.point(at: 0.5)))
+
+        #expect(canvas.selectedConnectionIds == [flowId])
+    }
+
     // MARK: zone move and zone resize
 
     @Test func aZoneHeaderDragMovesTheZone() throws {

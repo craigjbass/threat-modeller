@@ -17,6 +17,9 @@ nonisolated struct CanvasPicture: View {
     /// What guards every element, by source id. Empty names no guard at any
     /// crossing.
     let guards: [String: [EdgeGuard]]
+    /// What one component lowers on another. Each of these draws its own
+    /// mark, the same mark the canvas draws.
+    var mitigations: [ViewedMitigation] = []
     /// Where the picture starts in model coordinates, so a node at x = 900
     /// draws inside the image rather than off its edge.
     let origin: CGPoint
@@ -88,6 +91,8 @@ nonisolated struct CanvasPicture: View {
                 guards: guards,
                 outOfScopeComponentIds: Set(components.filter(\.threatsDisabled).map(\.id)),
                 selectedConnectionIds: [],
+                selectedComponentIds: [],
+                mitigations: mitigations,
                 preview: nil
             )
             // The layer's own top-left is the model point the picture starts

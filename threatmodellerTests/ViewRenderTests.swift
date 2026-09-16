@@ -1022,4 +1022,194 @@ struct ViewRenderTests {
             "an unguarded crossing"
         )
     }
+
+    // MARK: the mitigates mark
+
+    /// Every sampled pixel of a drawn view, so one picture is compared with
+    /// another. A mark that differs changes some of these.
+    private func pixels(
+        of view: some View,
+        width: Double,
+        height: Double
+    ) -> [String]? {
+        guard let image = draw(view, width: width, height: height) else { return nil }
+        var read: [String] = []
+        for x in stride(from: 0, to: image.pixelsWide, by: 2) {
+            for y in stride(from: 0, to: image.pixelsHigh, by: 2) {
+                guard let colour = image.colorAt(x: x, y: y) else { continue }
+                read.append(
+                    String(
+                        format: "%.2f,%.2f,%.2f",
+                        colour.redComponent,
+                        colour.greenComponent,
+                        colour.blueComponent
+                    )
+                )
+            }
+        }
+        return read
+    }
+
+    private func aMitigatedComponent(_ id: String, x: Double) -> ViewedComponent {
+        ViewedComponent(
+            id: id,
+            technologyId: "aws-ec2",
+            name: "Gateway",
+            customName: nil,
+            providerId: "aws",
+            categoryId: "compute",
+            x: x,
+            y: 120,
+            sensitivityId: "internal",
+            threatsDisabled: false,
+            isUnknownTechnology: false,
+            zoneId: nil
+        )
+    }
+
+    private func aMitigatesEdge(status: String) -> ViewedMitigation {
+        ViewedMitigation(
+            sourceComponentId: "c1",
+            targetComponentId: "c2",
+            threatIds: ["t1"],
+            reducesRiskBy: 40,
+            status: status
+        )
+    }
+
+    private func aLayer(
+        connections: [ViewedConnection],
+        mitigations: [ViewedMitigation]
+    ) -> ConnectionsLayer {
+        let components = [aMitigatedComponent("c1", x: 40), aMitigatedComponent("c2", x: 440)]
+        return ConnectionsLayer(
+            origin: .zero,
+            connections: connections,
+            boxes: CanvasHitTest.boxes(for: components, selected: [], dragTranslation: .zero),
+            componentsById: Dictionary(uniqueKeysWithValues: components.map { ($0.id, $0) }),
+            zones: [],
+            risks: [:],
+            guards: [:],
+            outOfScopeComponentIds: [],
+            selectedConnectionIds: [],
+            selectedComponentIds: [],
+            mitigations: mitigations,
+            preview: nil
+        )
+    }
+
+    private var aFlowBetweenTheSamePair: [ViewedConnection] {
+        [ViewedConnection(id: "k1", sourceComponentId: "c1", targetComponentId: "c2")]
+    }
+
+    @Test func drawsAMitigatesEdge() async {
+        expectDrawn(
+            aLayer(connections: [], mitigations: [aMitigatesEdge(status: "adopted")]),
+            width: 640,
+            height: 400,
+            "a mitigates edge"
+        )
+    }
+
+    /// A flow and a mitigates edge run between the same two components. The
+    /// two pictures differ, so the mark for an edge is not the mark for a
+    /// flow.
+    @Test func drawsAMitigatesEdgeDifferentlyFromAFlow() async throws {
+        let flow = try #require(
+            pixels(
+                of: aLayer(connections: aFlowBetweenTheSamePair, mitigations: []),
+                width: 640,
+                height: 400
+            )
+        )
+        let edge = try #require(
+            pixels(
+                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "adopted")]),
+                width: 640,
+                height: 400
+            )
+        )
+
+        #expect(flow != edge)
+    }
+
+    @Test func drawsAnAssumedEdgeDifferentlyFromAnAdoptedOne() async throws {
+        let adopted = try #require(
+            pixels(
+                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "adopted")]),
+                width: 640,
+                height: 400
+            )
+        )
+        let assumed = try #require(
+            pixels(
+                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "assumed")]),
+                width: 640,
+                height: 400
+            )
+        )
+
+        #expect(adopted != assumed)
+    }
+
+    /// The edge is removed, and the canvas draws no mark for it. The picture
+    /// is then the picture of a model that never held one.
+    @Test func drawsNoMarkForARemovedEdge() async throws {
+        let removed = try #require(
+            pixels(of: aLayer(connections: [], mitigations: []), width: 640, height: 400)
+        )
+        let never = try #require(
+            pixels(of: aLayer(connections: [], mitigations: []), width: 640, height: 400)
+        )
+        let held = try #require(
+            pixels(
+                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "adopted")]),
+                width: 640,
+                height: 400
+            )
+        )
+
+        #expect(removed == never)
+        #expect(removed != held)
+    }
+
+    /// The exported picture draws the same layer the canvas draws, so a
+    /// mitigates edge reaches the image a report carries.
+    @Test func theExportedPictureShowsTheMitigatesMark() async throws {
+        let components = [aMitigatedComponent("c1", x: 40), aMitigatedComponent("c2", x: 440)]
+        let without = try #require(
+            pixels(
+                of: CanvasPicture(
+                    components: components,
+                    connections: [],
+                    zones: [],
+                    risks: [:],
+                    guards: [:],
+                    mitigations: [],
+                    origin: .zero,
+                    size: CGSize(width: 640, height: 400)
+                ),
+                width: 640,
+                height: 400
+            )
+        )
+        let with = try #require(
+            pixels(
+                of: CanvasPicture(
+                    components: components,
+                    connections: [],
+                    zones: [],
+                    risks: [:],
+                    guards: [:],
+                    mitigations: [aMitigatesEdge(status: "adopted")],
+                    origin: .zero,
+                    size: CGSize(width: 640, height: 400)
+                ),
+                width: 640,
+                height: 400
+            )
+        )
+
+        #expect(without != with)
+    }
 }

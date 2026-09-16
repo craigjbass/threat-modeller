@@ -235,6 +235,8 @@ struct CanvasView: View {
                 guards: session.elementGuards,
                 outOfScopeComponentIds: outOfScopeComponentIds,
                 selectedConnectionIds: canvas.selectedConnectionIds,
+                selectedComponentIds: canvas.selectedComponentIds,
+                mitigations: session.canvas.mitigations,
                 preview: previewLine
             )
             .frame(width: contentRect.width, height: contentRect.height)
@@ -363,8 +365,7 @@ struct CanvasView: View {
     private var selectedPair: (source: ViewedComponent, target: ViewedComponent)? {
         guard canvas.selectedComponentIds.count == 2 else { return nil }
         let both = session.canvas.components.filter { canvas.selectedComponentIds.contains($0.id) }
-        guard both.count == 2 else { return nil }
-        return (both[0], both[1])
+        return MitigatesGeometry.ordered(both, mitigations: session.canvas.mitigations)
     }
 
     private var selectedZone: ViewedZone? {
