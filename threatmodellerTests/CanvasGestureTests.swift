@@ -1,4 +1,6 @@
 import CoreGraphics
+import Foundation
+import SwiftUI
 import Testing
 import ThreatModelKit
 import TestSupport
@@ -677,6 +679,104 @@ struct CanvasGestureTests {
         #expect(canvas.transform.pan == CGSize(width: 100, height: 60))
         #expect(canvas.zoneDraft == nil)
         #expect(canvas.marquee == nil)
+    }
+
+    // MARK: one drawn set (#151)
+
+    /// Three components in a line, with Focus on the middle one at depth
+    /// zero. The other two, and the flow between them, are hidden.
+    private func threeNodesFocusedOnTheMiddleOne() -> (
+        session: ThreatModelSession,
+        canvas: CanvasState,
+        gestures: CanvasGestures,
+        hiddenIds: [String],
+        shownId: String
+    ) {
+        let (session, canvas, gestures) = drawn()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 400, y: 0)
+        session.add(technologyId: "aws-ec2", x: 800, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        session.connect(sourceComponentId: ids[0], targetComponentId: ids[2])
+        canvas.focus(componentId: ids[1])
+        return (session, canvas, gestures, [ids[0], ids[2]], ids[1])
+    }
+
+    @Test func aTapOnAComponentFocusHidesSelectsNothing() {
+        let (_, canvas, gestures, _, _) = threeNodesFocusedOnTheMiddleOne()
+
+        // The first component's rectangle, at (0, 0); Focus hides it, and no
+        // flow, mark or zone is there either.
+        gestures.backgroundTapped(at: CGPoint(x: 40, y: 20))
+
+        #expect(canvas.hasSelection == false)
+    }
+
+    @Test func aMarqueeOverTheWholeModelSelectsOnlyWhatFocusDraws() {
+        let (_, canvas, gestures, _, shownId) = threeNodesFocusedOnTheMiddleOne()
+
+        canvas.marquee = (start: CGPoint(x: -50, y: -50), end: CGPoint(x: 900, y: 200))
+        gestures.endMarqueeDrag()
+
+        #expect(canvas.selectedComponentIds == [shownId])
+    }
+
+    /// Before this fix, `CanvasGestures.drawn` read the tag filter alone, so
+    /// a flow between two components Focus hides still counted for a
+    /// right-click's flow-or-background choice.
+    @Test func aRightClickFindsNoFlowWhereFocusHidesBothEnds() {
+        let (_, _, gestures, _, _) = threeNodesFocusedOnTheMiddleOne()
+
+        #expect(gestures.drawn.components.count == 1)
+        #expect(gestures.drawn.connections.isEmpty)
+    }
+
+    @Test func theDrawnSetTheGesturesReadEqualsTheDrawnSetTheViewDrawsWithATagFilterOn() {
+        let (session, canvas, gestures) = drawn()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 400, y: 0)
+        canvas.pick(tag: "payments")
+        let view = CanvasView(session: session, canvas: canvas)
+
+        #expect(gestures.drawn.components.map(\.id) == view.drawn.components.map(\.id))
+        #expect(gestures.drawn.connections.map(\.id) == view.drawn.connections.map(\.id))
+        #expect(gestures.drawn.zones.map(\.id) == view.drawn.zones.map(\.id))
+    }
+
+    @Test func theDrawnSetTheGesturesReadEqualsTheDrawnSetTheViewDrawsWithFocusOn() {
+        let (session, canvas, gestures, _, _) = threeNodesFocusedOnTheMiddleOne()
+        let view = CanvasView(session: session, canvas: canvas)
+
+        #expect(gestures.drawn.components.map(\.id) == view.drawn.components.map(\.id))
+        #expect(gestures.drawn.connections.map(\.id) == view.drawn.connections.map(\.id))
+        #expect(gestures.drawn.zones.map(\.id) == view.drawn.zones.map(\.id))
+    }
+
+    /// `CanvasState.drawn(in:)` is the one function that applies Focus and
+    /// then the tag filter. No other file under `threatmodeller/canvas`
+    /// computes the drawn set a second time.
+    @Test func onlyCanvasStateComputesTheDrawnSet() throws {
+        let canvasDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("threatmodeller/canvas")
+
+        let files = try FileManager.default.contentsOfDirectory(
+            at: canvasDirectory,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "swift" && $0.lastPathComponent != "CanvasState.swift" }
+
+        for file in files {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            #expect(
+                text.contains("tagFilter.narrow(") == false,
+                "\(file.lastPathComponent) computes the drawn set itself"
+            )
+            #expect(
+                text.contains("TagFilter.focus(") == false,
+                "\(file.lastPathComponent) computes the drawn set itself"
+            )
+        }
     }
 }
 

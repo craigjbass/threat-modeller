@@ -1,5 +1,6 @@
 import CoreGraphics
 import Observation
+import ThreatModelKit
 
 /// Everything the canvas needs that is not part of the threat model.
 ///
@@ -226,6 +227,24 @@ final class CanvasState: CanvasViewport {
         tagFilter.clear()
         focusedComponentId = componentId
         clearSelection()
+    }
+
+    /// The one diagram the window draws, hit tests and acts on: Focus
+    /// narrows it to one component and its neighbours; else the tag filter
+    /// narrows it, and with neither on that is the whole model.
+    ///
+    /// The view, the gestures and the menus all call this, so a click, a
+    /// marquee, Select All and the drawing itself never disagree about what
+    /// a person can see.
+    func drawn(in model: ViewThreatModelResponse) -> DrawnDiagram {
+        if let focusedComponentId {
+            return TagFilter.focus(
+                on: focusedComponentId,
+                depth: tagFilter.neighbourDepth,
+                in: model
+            )
+        }
+        return tagFilter.narrow(model)
     }
 
     func startDrawingZone() {

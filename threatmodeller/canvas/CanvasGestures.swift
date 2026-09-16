@@ -20,7 +20,10 @@ struct CanvasGestures: CanvasZooming {
 
     /// The part of the model the canvas draws. A hidden element is not on
     /// screen, so no click and no marquee reaches it.
-    private var drawn: DrawnDiagram { canvas.tagFilter.narrow(session.canvas) }
+    ///
+    /// `CanvasState.drawn(in:)` is the one function every reader calls, so
+    /// this never disagrees with what `CanvasView` draws.
+    var drawn: DrawnDiagram { canvas.drawn(in: session.canvas) }
 
     private var boxes: [String: ComponentBox] {
         CanvasHitTest.boxes(

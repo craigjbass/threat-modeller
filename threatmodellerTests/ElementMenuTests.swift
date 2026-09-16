@@ -367,6 +367,22 @@ struct ElementMenuTests {
         #expect(canvas.selectedZoneIds.count == 1)
     }
 
+    /// #151: Select All read the tag filter alone, so it once selected a
+    /// component Focus was hiding. A right click on that same hidden point
+    /// finds no flow either, so it opens this background menu, not the
+    /// component's own.
+    @Test func selectAllFromTheCanvasMenuRespectsFocus() {
+        let (session, canvas, menu) = drawn()
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        session.add(technologyId: "aws-rds", x: 400, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        canvas.focus(componentId: ids[0])
+
+        run(menu.background(at: .zero), "context-canvas-select-all")
+
+        #expect(canvas.selectedComponentIds == [ids[0]])
+    }
+
     @Test func pasteFromTheCanvasMenuPutsTheCopyBack() {
         let (session, canvas, menu, api, _) = twoNodes()
         session.copySelection(componentIds: [api], zoneIds: [])

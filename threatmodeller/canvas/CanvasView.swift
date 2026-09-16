@@ -114,19 +114,10 @@ struct CanvasView: View {
         isSpaceDown = false
     }
 
-    /// The part of the model the canvas draws. Focus narrows it to one
-    /// component and its neighbours; else the tag filter narrows it, and
-    /// with no tag picked that is the whole model.
-    private var drawn: DrawnDiagram {
-        if let focusedComponentId = canvas.focusedComponentId {
-            return TagFilter.focus(
-                on: focusedComponentId,
-                depth: canvas.tagFilter.neighbourDepth,
-                in: session.canvas
-            )
-        }
-        return canvas.tagFilter.narrow(session.canvas)
-    }
+    /// The part of the model the canvas draws. `CanvasState.drawn(in:)` is
+    /// the one function every reader calls, so the view, the gestures and
+    /// the menus never disagree about what a person can see.
+    var drawn: DrawnDiagram { canvas.drawn(in: session.canvas) }
 
     private var boxes: [String: ComponentBox] {
         CanvasHitTest.boxes(
