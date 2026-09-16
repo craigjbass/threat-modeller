@@ -38,7 +38,7 @@ struct ComponentPanel: View {
 
     var body: some View {
         // The controls scroll sideways. Their widths are fixed and they need
-        // 1328 points; the canvas column can be 400. Without the scroll the
+        // 1658 points; the canvas column can be 400. Without the scroll the
         // row reflowed and the bar grew to 208 points, taking that height
         // from the diagram above it.
         ScrollView(.horizontal) {
@@ -140,6 +140,25 @@ struct ComponentPanel: View {
                 commit: { commitTags($0) }
             )
 
+            // The version the component runs and the CVEs that version
+            // carries. A known exploited CVE raises every threat on the
+            // component; the threat card names each one.
+            DeferredTextField(
+                title: "Version",
+                text: component.version,
+                width: 110,
+                identifier: "component-version",
+                commit: { commitVersion($0) }
+            )
+
+            DeferredTextField(
+                title: "CVEs",
+                text: cvesText,
+                width: 220,
+                identifier: "component-cves",
+                commit: { commitCves($0) }
+            )
+
             Toggle("Raise threats", isOn: threatsRaised)
                 .toggleStyle(.switch)
                 .accessibilityIdentifier("component-threats-raised")
@@ -161,6 +180,22 @@ struct ComponentPanel: View {
     /// tag off the component.
     func commitTags(_ text: String) {
         write(tags: TagFilter.tags(from: text))
+    }
+
+    /// The line the CVEs field shows: every CVE id the component states,
+    /// separated by commas.
+    var cvesText: String { TagFilter.text(from: component.cves) }
+
+    /// Writes what a person typed in the version field. An empty field takes
+    /// the version off the component.
+    func commitVersion(_ text: String) {
+        write(version: text)
+    }
+
+    /// Writes what a person typed in the CVEs field. A word that is not a CVE
+    /// id is refused whole, and the session says which word.
+    func commitCves(_ text: String) {
+        write(cves: TagFilter.tags(from: text))
     }
 
     /// What the menu reads when it is closed.
@@ -216,7 +251,9 @@ struct ComponentPanel: View {
         shape newShape: String? = nil,
         holds newHolds: [String]? = nil,
         tags newTags: [String]? = nil,
-        status newStatus: String? = nil
+        status newStatus: String? = nil,
+        version newVersion: String? = nil,
+        cves newCves: [String]? = nil
     ) {
         let picked = newShape ?? component.shapeOverrideId ?? ""
 
@@ -229,7 +266,9 @@ struct ComponentPanel: View {
             shapeId: picked.isEmpty ? nil : picked,
             holds: newHolds,
             tags: newTags,
-            status: newStatus
+            status: newStatus,
+            version: newVersion,
+            cves: newCves
         )
     }
 

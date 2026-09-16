@@ -38,6 +38,14 @@ struct ThreatCard: View {
     /// file or a ticket. A test gives its own.
     var clipboard: Clipboard = SystemClipboard()
 
+    /// `Known vulnerabilities: CVE-2023-44487 (KEV, 1+), CVE-2024-7347 (4)`,
+    /// or nil for a threat whose component states no CVE.
+    static func knownVulnerabilitiesLine(_ threat: AssessedThreat) -> String? {
+        guard threat.knownVulnerabilities.isEmpty == false else { return nil }
+        return "Known vulnerabilities: "
+            + threat.knownVulnerabilities.map(\.described).joined(separator: ", ")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             header
@@ -68,6 +76,16 @@ struct ThreatCard: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("performed-by-\(threat.threatKey)")
+            }
+
+            // Read only. The component panel writes the CVEs; the lock file
+            // ranks them.
+            if let line = Self.knownVulnerabilitiesLine(threat) {
+                Text(line)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("known-vulnerabilities-\(threat.threatKey)")
             }
 
             if focus == .controls {

@@ -108,6 +108,7 @@ struct ReportStagePage: Equatable {
         case .scope: scope(report)
         case .dataInventory: dataInventory(report.dataInventory)
         case .thirdParties: thirdParties(report.thirdParties)
+        case .knownVulnerabilities: knownVulnerabilities(report)
         case .policy: policy(report.policy)
         case .riskOverTime: []
         case .whatChanged: []
@@ -350,6 +351,41 @@ struct ReportStagePage: Equatable {
             }))
         }
         return blocks
+    }
+
+    /// One row per CVE per component, ordered by priority, under the sentence
+    /// naming the thresholds the rows were ranked by.
+    private static func knownVulnerabilities(_ report: Report) -> [ReportBlock] {
+        let rows = report.knownVulnerabilities
+        guard rows.isEmpty == false else { return [] }
+
+        func number(_ value: Double?, digits: Int, held: Bool) -> String {
+            guard held, let value else { return "\u{2014}" }
+            return String(format: "%.\(digits)f", value)
+        }
+
+        return [
+            .heading("Known vulnerabilities"),
+            .paragraph(
+                "The CVEs this system's components state, ranked by the CVE_Prioritizer rule with "
+                    + "\(report.vulnerabilityThresholds.described). A known exploited vulnerability "
+                    + "raises every threat on its component to Commodity."
+            ),
+            .table(ReportTable(
+                columns: ["CVE", "Component", "Version", "CVSS", "EPSS", "KEV", "Priority"],
+                rows: MarkdownKnownVulnerabilities.ordered(rows).map { row in
+                    [
+                        row.cveId,
+                        row.componentName,
+                        row.version.isEmpty ? "\u{2014}" : row.version,
+                        number(row.cvss, digits: 1, held: row.isSynchronised),
+                        number(row.epss, digits: 2, held: row.isSynchronised),
+                        row.isSynchronised ? (row.isKnownExploited ? "Yes" : "No") : "\u{2014}",
+                        row.priorityLabel ?? "not synchronised"
+                    ]
+                }
+            ))
+        ]
     }
 
     private static func thirdParties(_ parties: [ReportThirdParty]) -> [ReportBlock] {

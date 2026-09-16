@@ -1226,7 +1226,9 @@ final class ThreatModelSession {
         shapeId: String? = nil,
         holds: [String]? = nil,
         tags: [String]? = nil,
-        status: String? = nil
+        status: String? = nil,
+        version: String? = nil,
+        cves: [String]? = nil
     ) {
         switch useCases.setComponentProperties().execute(
             SetComponentPropertiesRequest(
@@ -1238,7 +1240,9 @@ final class ThreatModelSession {
                 shape: shapeId,
                 holds: holds,
                 tags: tags,
-                status: status
+                status: status,
+                version: version,
+                cves: cves
             )
         ) {
         case .updated:
