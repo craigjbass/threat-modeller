@@ -26,8 +26,15 @@ struct ViewRenderTests {
         return NSBitmapImageRep(cgImage: image)
     }
 
-    /// True when the picture holds more than one colour, which is what tells a
-    /// view that drew its content from a view that drew a blank rectangle.
+    /// True when the picture holds more than one pixel value, which is what
+    /// tells a view that drew its content from a view that drew a blank
+    /// rectangle.
+    ///
+    /// A pixel value is the colour and the alpha together. A view that draws
+    /// no background of its own draws text on nothing, so every pixel reads
+    /// one colour and only the alpha says which pixel the view drew. A
+    /// machine with no screen leaves the untouched pixels at one colour, so a
+    /// check that reads the colour alone calls such a view blank.
     private func hasContent(_ image: NSBitmapImageRep) -> Bool {
         var seen: Set<String> = []
         let across = stride(from: 4, to: image.pixelsWide - 4, by: max(1, image.pixelsWide / 40))
@@ -38,10 +45,11 @@ struct ViewRenderTests {
                 guard let colour = image.colorAt(x: x, y: y) else { continue }
                 seen.insert(
                     String(
-                        format: "%.2f,%.2f,%.2f",
+                        format: "%.2f,%.2f,%.2f,%.2f",
                         colour.redComponent,
                         colour.greenComponent,
-                        colour.blueComponent
+                        colour.blueComponent,
+                        colour.alphaComponent
                     )
                 )
                 if seen.count > 1 { return true }
@@ -53,39 +61,19 @@ struct ViewRenderTests {
     /// Draws a view the way AppKit draws it, then states it drew something.
     ///
     /// `ImageRenderer` draws nothing inside a `ScrollView`, and every
-    /// selection editor is a scrolling column, so those are hosted in a
-    /// window instead.
-    ///
-    /// The picture is taken again while it is blank. A runner in a virtual
-    /// machine takes more than one pass to draw a column of controls, and one
-    /// pass returned an empty picture there while the same view drew on this
-    /// machine.
+    /// selection editor is a scrolling column, so those go through the
+    /// hosted drawing path instead.
     private func expectHosted(
         _ view: some View,
         width: Double = 360,
         height: Double = 700,
         _ what: String
     ) {
-        let host = NSHostingView(rootView: view.frame(width: width, height: height))
-        host.frame = CGRect(x: 0, y: 0, width: width, height: height)
-        let window = NSWindow(
-            contentRect: host.frame,
-            styleMask: [.titled],
-            backing: .buffered,
-            defer: false
-        )
-        window.contentView = host
-        window.orderBack(nil)
-        defer { window.orderOut(nil) }
-
-        for _ in 0..<6 {
-            host.layoutSubtreeIfNeeded()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
-            guard let image = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { continue }
-            host.cacheDisplay(in: host.bounds, to: image)
-            if hasContent(image) { return }
+        guard let drawn = hostedDrawing(of: view, width: width, height: height) else {
+            Issue.record("\(what) drew nothing at all")
+            return
         }
-        Issue.record("\(what) drew a blank rectangle")
+        #expect(hasContent(drawn.image), "\(what) drew a blank rectangle")
     }
 
     private func expectDrawn(
