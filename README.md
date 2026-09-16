@@ -528,8 +528,47 @@ four source languages stop being plain text:
   read, so a file mid-edit that does not parse still shows its colour, and a
   comment the parse drops is coloured.
 
-An editor extension is a separate piece of work; any editor that speaks the
-protocol reads this server today.
+Any editor that speaks the protocol reads this server. VS Code reads it
+through the extension below.
+
+### The VS Code extension
+
+`vscode/` holds a VS Code extension, written in TypeScript against
+`vscode-languageclient`. The extension gives:
+
+- A language for each source file: `.arch`, `.controls`, `.lib`,
+  `.attacktree`, `.governance` and `policy.hcl`, each with a comment and
+  bracket configuration.
+- The language server. The extension starts `threatmodeller lsp` and speaks
+  to it over standard input and output, so the diagnostics, the completion,
+  the hover, the go to definition, the formatting and the colour all come
+  from the executable.
+- Three commands in the command palette: **Threat Modeller: Check**,
+  **Threat Modeller: Compile** and **Threat Modeller: Draw**. Each command
+  runs the executable over the first folder of the workspace and writes what
+  the executable wrote into the *Craig's Threat Modeller* output channel.
+
+One setting names the executable:
+
+| Setting | Default | What it states |
+| --- | --- | --- |
+| `threatmodeller.path` | `threatmodeller` | The path of the executable. The default reads the name from `PATH`. |
+
+WARNING: the languages stop colouring when the executable is not there. The
+extension then shows one message that names `threatmodeller.path`.
+
+Build and test the extension with `scripts/vscode-extension-smoke.sh`, which
+runs `npm ci`, `npm run compile` and `npm test` in `vscode/`. The test suite
+starts a VS Code through `@vscode/test-electron` and states the file
+associations, the setting default, the three commands, and that the client
+sends `initialize` to the server.
+
+The release workflow builds the extension from the tag, names the version
+after the tag, and attaches `threatmodeller-<tag>.vsix` to the release.
+Install that file with **Extensions: Install from VSIX…**. The workflow
+publishes to the Visual Studio Marketplace only when the repository holds a
+`VSCE_PAT` secret. The repository holds no such token today, so the
+`vsce publish` step does not run.
 
 ### Offering the model to an assistant
 

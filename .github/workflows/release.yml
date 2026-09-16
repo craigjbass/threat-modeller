@@ -249,6 +249,70 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # The VS Code extension builds from the same tag, so its version equals the
+  # release version. The job runs the extension's own test suite before it
+  # packages. The suite starts a VS Code, which needs a display, and xvfb
+  # gives one.
+  vscode-extension:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TAG_NAME: ${{ github.ref_name }}
+      # A step's `if` cannot read the secrets context, so the token reaches
+      # the publish step's condition through the job's environment.
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
+
+      - name: Install the dependencies
+        working-directory: vscode
+        run: npm ci
+
+      - name: Compile the extension
+        working-directory: vscode
+        run: npm run compile
+
+      - name: Test the extension
+        working-directory: vscode
+        run: xvfb-run -a npm test
+
+      - name: Name the version after the tag
+        working-directory: vscode
+        run: |
+          # The Marketplace reads a version of digits and dots only, so a
+          # pre-release suffix comes off the tag name.
+          VERSION=$(printf '%s' "$TAG_NAME" | sed -E 's/^v//; s/-.*$//')
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Package the extension
+        working-directory: vscode
+        run: npx @vscode/vsce package --out "threatmodeller-${TAG_NAME}.vsix"
+
+      - name: Publish the extension to the Marketplace
+        # The repository holds no Marketplace token today. The step runs once
+        # a VSCE_PAT secret is set, and the release carries the .vsix either
+        # way.
+        if: ${{ env.VSCE_PAT != '' }}
+        working-directory: vscode
+        run: npx @vscode/vsce publish --packagePath "threatmodeller-${TAG_NAME}.vsix"
+
+      - name: Upload the extension as a workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vscode-extension
+          path: vscode/threatmodeller-${{ github.ref_name }}.vsix
+          if-no-files-found: error
+          retention-days: 1
+
   # The two builds run at the same time. This job is where they meet: it holds
   # every file a release carries, so one attestation names all of them and one
   # subject list feeds the SLSA generator.
@@ -341,7 +405,7 @@ jobs:
       compile-generator: true
 
   publish:
-    needs: [build-and-notarize, bundle, provenance]
+    needs: [build-and-notarize, bundle, provenance, vscode-extension]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -353,6 +417,12 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-assets
+          path: artifacts
+
+      - name: Download the VS Code extension
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: vscode-extension
           path: artifacts
 
       - name: Download SLSA provenance
@@ -372,6 +442,7 @@ jobs:
             "artifacts/threatmodeller-cli-${TAG_NAME}-linux-aarch64.tar.gz" \
             "artifacts/threatmodeller-${TAG_NAME}.sigstore" \
             "artifacts/${PROVENANCE_NAME}" \
+            "artifacts/threatmodeller-${TAG_NAME}.vsix" \
             --repo "$GITHUB_REPOSITORY" \
             --generate-notes \
             --title "$TAG_NAME"
