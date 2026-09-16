@@ -50,6 +50,9 @@ public protocol UseCaseFactory: Sendable {
     func setSystemAsset() -> SetSystemAssetUseCase
     func removeSystemAsset() -> RemoveSystemAssetUseCase
     func setConnectionAssets() -> SetConnectionAssetsUseCase
+    func setFacedThreatActors() -> SetFacedThreatActorsUseCase
+    func setLocalThreatActor() -> SetLocalThreatActorUseCase
+    func removeLocalThreatActor() -> RemoveLocalThreatActorUseCase
     func setCompensatingControl() -> SetCompensatingControlUseCase
     func compileControls() -> CompileControlsUseCase
     func applyControlAnswers() -> ApplyControlAnswersUseCase

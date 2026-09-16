@@ -1130,6 +1130,66 @@ final class ThreatModelSession {
         refresh()
     }
 
+    // MARK: the adversaries this system faces
+
+    /// The actors this project may face, with what each one performs.
+    ///
+    /// Read on demand rather than held: the ATT&CK groups are parsed the first
+    /// time something asks for them, and a window that never opens the actors
+    /// sheet must not pay for that.
+    var threatActorsInUse: [ListedThreatActor] {
+        useCases.listThreatActorsInUse()
+            .execute(ListThreatActorsInUseRequest())
+            .actors
+    }
+
+    /// States which actors this system faces. The whole list is written, so
+    /// an id left out comes out of the file.
+    func setFacedThreatActors(_ actorIds: [String]) {
+        useCases.setFacedThreatActors()
+            .execute(SetFacedThreatActorsRequest(actorIds: actorIds))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    /// Writes one `threat_actor` block into this system's file. Writing the
+    /// same id again changes the block that is there.
+    func setLocalThreatActor(
+        id: String,
+        name: String,
+        description: String = "",
+        aliases: [String] = [],
+        capability: String? = nil,
+        intent: String = "",
+        performs: [String] = [],
+        techniques: [String] = [],
+        performsCatalogueTier: String? = nil
+    ) {
+        useCases.setLocalThreatActor()
+            .execute(
+                SetLocalThreatActorRequest(
+                    id: id,
+                    name: name,
+                    description: description,
+                    aliases: aliases,
+                    capability: capability,
+                    intent: intent,
+                    performs: performs,
+                    techniques: techniques,
+                    performsCatalogueTier: performsCatalogueTier
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func removeLocalThreatActor(id: String) {
+        useCases.removeLocalThreatActor()
+            .execute(RemoveLocalThreatActorRequest(id: id))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
     // MARK: what one component lowers on another
 
     /// States that one component lowers a named threat set on another. The two

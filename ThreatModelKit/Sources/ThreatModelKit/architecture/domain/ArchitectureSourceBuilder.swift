@@ -129,6 +129,23 @@ public enum ArchitectureSourceBuilder {
                     SourceDiagram(label: $0.label, kind: $0.kind, text: $0.text)
                 },
                 owner: model.owner.isEmpty ? nil : model.owner,
+                // The adversaries this system states. A model that faces
+                // nobody writes no line, and a file that stated a list round
+                // trips it.
+                faces: model.facedActorIds,
+                threatActors: model.localActors.map { actor in
+                    SourceThreatActor(
+                        id: actor.id.value,
+                        name: actor.name,
+                        description: actor.description,
+                        aliases: actor.aliases,
+                        capability: actor.capability.id,
+                        intent: actor.intent,
+                        performs: actor.performs.map(\.value),
+                        techniques: actor.techniques,
+                        performsCatalogueTier: actor.performsCatalogueTier?.id
+                    )
+                },
                 // What the model states about itself. A model that states
                 // none writes none, so a file that never held these lines
                 // round trips unchanged.

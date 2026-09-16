@@ -1,0 +1,248 @@
+import ArchitectureDSL
+import SwiftUI
+import Testing
+import ThreatModelKit
+import TestSupport
+@testable import threatmodeller
+
+/// Reading and writing the threat actors in the window, end to end: the list
+/// the sheet draws, the `faces` line the save writes, and the local
+/// `threat_actor` block.
+@MainActor
+@Suite("Threat actors in the window")
+struct ThreatActorEditorFlowTests {
+    private let payments = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+    }
+
+    """
+
+    private func aProject(_ text: String? = nil) async -> (ProjectSession, TestDependencies) {
+        let useCases = TestDependencies()
+        useCases.project.put(text ?? payments, at: "/work/threatmodel/payments.arch")
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+        return (session, useCases)
+    }
+
+    private func architecture(_ useCases: TestDependencies) -> String? {
+        useCases.project.text(at: "/work/threatmodel/payments.arch")
+    }
+
+    // MARK: the list
+
+    @Test func listsTheActorsTheProjectMayFace() async throws {
+        let (session, _) = await aProject()
+        let model = try #require(session.model)
+
+        let crimeware = try #require(
+            model.threatActorsInUse.first { $0.id == "commodity-crimeware" }
+        )
+        #expect(crimeware.capabilityLabel == "Commodity")
+        #expect(crimeware.intent == "opportunistic")
+        #expect(crimeware.threatNames.isEmpty == false)
+        #expect(crimeware.isFaced == false)
+    }
+
+    @Test func statesWhichActorsTheFileAlreadyFaces() async throws {
+        let (session, _) = await aProject("""
+        system "Payments" {
+          faces = ["contractor"]
+
+          threat_actor "contractor" {
+            name       = "Third-party contractor"
+            capability = "targeted"
+            intent     = "financial"
+            performs   = ["credential-theft"]
+          }
+
+          component "api" {
+            technology = "aws-ec2"
+          }
+        }
+
+        """)
+        let model = try #require(session.model)
+
+        let contractor = try #require(
+            model.threatActorsInUse.first { $0.id == "contractor" }
+        )
+        #expect(contractor.isFaced)
+        #expect(contractor.isLocal)
+        #expect(contractor.threatNames == ["Credential Theft"])
+        // The faced actors sort first.
+        #expect(model.threatActorsInUse.first?.id == "contractor")
+    }
+
+    // MARK: writing faces
+
+    @Test func writesTheFacesListIntoTheFile() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+
+        model.setFacedThreatActors(["commodity-crimeware"])
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("faces"))
+        #expect(written.contains("commodity-crimeware"))
+    }
+
+    @Test func saysSoWhenTheProjectHoldsNoSuchActor() async throws {
+        let (session, _) = await aProject()
+        let model = try #require(session.model)
+
+        model.setFacedThreatActors(["nobody"])
+
+        #expect(model.errorMessage == "This project holds no threat actor called \"nobody\".")
+        #expect(model.threatActorsInUse.contains { $0.isFaced } == false)
+    }
+
+    // MARK: writing a local block
+
+    @Test func writesALocalBlockIntoTheFileAndFacesIt() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+
+        model.setLocalThreatActor(
+            id: "contractor",
+            name: "Third-party contractor",
+            description: "A person who builds a part of the system and leaves.",
+            capability: "targeted",
+            intent: "financial",
+            performs: ["credential-theft"],
+            techniques: ["T1552"]
+        )
+        model.setFacedThreatActors(["contractor"])
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("threat_actor \"contractor\""))
+        // The writer lines the values up, so the attribute reads with two spaces.
+        #expect(written.contains("capability  = \"targeted\""))
+        #expect(written.contains("faces"))
+    }
+
+    @Test func takesALocalBlockBackOff() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        model.setLocalThreatActor(id: "contractor", name: "Third-party contractor")
+        model.setFacedThreatActors(["contractor"])
+
+        model.removeLocalThreatActor(id: "contractor")
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("threat_actor \"contractor\"") == false)
+        #expect(written.contains("faces") == false)
+    }
+
+    @Test func writesFacesAndLeavesEveryOtherBlockWhereItWas() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        // A save with nothing changed, so the two texts differ by the faces
+        // line alone and by nothing the writer normalises.
+        await session.save()
+        let before = try #require(architecture(useCases))
+
+        model.setFacedThreatActors(["commodity-crimeware"])
+        await session.save()
+
+        let after = try #require(architecture(useCases))
+        let lines = after.split(separator: "\n", omittingEmptySubsequences: true)
+        let added = lines.filter { $0.contains("faces") }
+        #expect(added.count == 1)
+        #expect(
+            lines.filter { $0.contains("faces") == false }
+                == before.split(separator: "\n", omittingEmptySubsequences: true)
+        )
+    }
+
+    @Test func theParserReadsTheLocalBlockBackWithTheSameFields() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+
+        model.setLocalThreatActor(
+            id: "contractor",
+            name: "Third-party contractor",
+            description: "A person who builds a part of the system and leaves.",
+            aliases: ["supplier"],
+            capability: "targeted",
+            intent: "financial",
+            performs: ["credential-theft"],
+            techniques: ["T1552"]
+        )
+        await session.save()
+
+        let text = try #require(architecture(useCases))
+        let source = try #require(HclArchitectureSource().read(text).source)
+        let actor = try #require(source.threatActors.first)
+        #expect(actor.id == "contractor")
+        #expect(actor.name == "Third-party contractor")
+        #expect(actor.description == "A person who builds a part of the system and leaves.")
+        #expect(actor.aliases == ["supplier"])
+        #expect(actor.capability == "targeted")
+        #expect(actor.intent == "financial")
+        #expect(actor.performs == ["credential-theft"])
+        #expect(actor.techniques == ["T1552"])
+    }
+
+    // MARK: what the threat card reads
+
+    @Test func theThreatCardNamesTheActorThatPerformsTheThreat() async throws {
+        let (session, _) = await aProject()
+        let model = try #require(session.model)
+        model.setLocalThreatActor(
+            id: "contractor",
+            name: "Third-party contractor",
+            capability: "targeted",
+            performs: ["credential-theft"]
+        )
+
+        model.setFacedThreatActors(["contractor"])
+
+        let threat = try #require(model.threats.first { $0.threatId == "credential-theft" })
+        #expect(threat.performedByLabels == ["Third-party contractor"])
+    }
+
+    // MARK: the sheet
+
+    @Test func theSheetSaysSoWhenTheSystemFacesNobody() async throws {
+        let (session, _) = await aProject()
+        let model = try #require(session.model)
+
+        let sheet = ThreatActorsSheet(session: model, dismiss: {})
+
+        #expect(
+            sheet.says == "This system faces no threat actor. "
+                + "Every threat keeps the catalogue's own likelihood."
+        )
+
+        model.setFacedThreatActors(["commodity-crimeware"])
+        #expect(ThreatActorsSheet(session: model, dismiss: {}).says.contains("faces 1 of"))
+    }
+
+    @Test func theSheetDraws() async throws {
+        let (session, _) = await aProject()
+        let model = try #require(session.model)
+
+        let renderer = ImageRenderer(
+            content: ThreatActorsSheet(session: model, dismiss: {})
+                .frame(width: 900, height: 700)
+        )
+        renderer.scale = 1
+
+        #expect(renderer.cgImage != nil)
+    }
+}

@@ -219,6 +219,18 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetConnectionAssets(models: models)
     }
 
+    func setFacedThreatActors() -> SetFacedThreatActorsUseCase {
+        SetFacedThreatActors(models: models, catalogue: catalogue)
+    }
+
+    func setLocalThreatActor() -> SetLocalThreatActorUseCase {
+        SetLocalThreatActor(models: models)
+    }
+
+    func removeLocalThreatActor() -> RemoveLocalThreatActorUseCase {
+        RemoveLocalThreatActor(models: models, catalogue: catalogue)
+    }
+
     func setCompensatingControl() -> SetCompensatingControlUseCase {
         SetCompensatingControl(models: models)
     }
@@ -519,7 +531,7 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func listThreatActorsInUse() -> ListThreatActorsInUseUseCase {
-        ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors)
+        ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors, models: models)
     }
 
     func readLibraryIndex() -> ReadLibraryIndexUseCase {

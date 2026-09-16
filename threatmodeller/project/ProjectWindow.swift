@@ -12,6 +12,8 @@ struct ProjectWindow: View {
     /// True while the question about downloading ATT&CK is on screen.
     @State private var isAskingAboutAttack = false
     @State private var isShowingLibraries = false
+    /// True while the threat actors sheet is on screen.
+    @State private var isShowingThreatActors = false
     /// True while the planned-work list is on screen.
     @State private var isShowingPlannedWork = false
     @State private var isShowingHistory = false
@@ -107,6 +109,14 @@ struct ProjectWindow: View {
                 HistorySheet(
                     session: HistorySession(useCases: session.useCases, root: root),
                     dismiss: { isShowingHistory = false }
+                )
+            }
+        }
+        .sheet(isPresented: $isShowingThreatActors) {
+            if let model = session.model {
+                ThreatActorsSheet(
+                    session: model,
+                    dismiss: { isShowingThreatActors = false }
                 )
             }
         }
@@ -218,6 +228,15 @@ struct ProjectWindow: View {
                     isShowingHistory = true
                 }
                 .accessibilityIdentifier("show-history")
+            }
+
+            ToolbarItem {
+                Button("Threat Actors", systemImage: "person.badge.shield.checkmark") {
+                    isShowingThreatActors = true
+                }
+                .disabled(session.model == nil)
+                .help("Which adversaries this system faces, and what each one performs.")
+                .accessibilityIdentifier("threat-actors")
             }
 
             ToolbarItem {

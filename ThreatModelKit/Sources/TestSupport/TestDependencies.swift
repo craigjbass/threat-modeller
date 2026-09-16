@@ -218,6 +218,18 @@ public final class TestDependencies: UseCaseFactory {
         SetConnectionAssets(models: models)
     }
 
+    public func setFacedThreatActors() -> SetFacedThreatActorsUseCase {
+        SetFacedThreatActors(models: models, catalogue: catalogue)
+    }
+
+    public func setLocalThreatActor() -> SetLocalThreatActorUseCase {
+        SetLocalThreatActor(models: models)
+    }
+
+    public func removeLocalThreatActor() -> RemoveLocalThreatActorUseCase {
+        RemoveLocalThreatActor(models: models, catalogue: catalogue)
+    }
+
     public func setCompensatingControl() -> SetCompensatingControlUseCase {
         SetCompensatingControl(models: models)
     }
@@ -523,7 +535,7 @@ public final class TestDependencies: UseCaseFactory {
     }
 
     public func listThreatActorsInUse() -> ListThreatActorsInUseUseCase {
-        ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors)
+        ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors, models: models)
     }
 
     public func readLibraryIndex() -> ReadLibraryIndexUseCase {
