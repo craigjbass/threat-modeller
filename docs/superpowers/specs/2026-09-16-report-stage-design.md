@@ -101,29 +101,18 @@ is monospaced text in a box.
 
 ## What a diagram section shows
 
-`ReportDiagram` carries a label, a kind (`mermaid`, `d2`) and the diagram text a
-team wrote. The Markdown report writes each one as a fenced block, and the HTML
-page shows the source of a diagram it cannot draw.
-
-**The stage shows the diagram block's text**, under the diagram's label, with
-the kind beside it, in a monospaced box a person can read and copy. The window
-draws no Mermaid and no D2 renderer, and a picture the window cannot draw says
-less than the text. The data-flow diagram is a picture the window does draw,
-and it is the Architecture stage.
+**Superseded on 17 September 2026 by
+`docs/superpowers/specs/2026-09-17-report-stage-pictures-design.md`.** The
+stage draws a `mermaid` block as a picture, and shows the text only for a
+kind the window does not draw.
 
 ## The sections the stage leaves out
 
-`Generate Report` writes Markdown through `CompileSystemReport`, which passes no
-threat pictures, no control pictures, no risk-over-time picture and no history.
-Three sections write nothing in that file for that reason:
-
-- `threat_pictures`, which needs a drawn picture per threat,
-- `risk_over_time`, which needs two or more sampled commits,
-- `what_changed`, which needs a change against a sampled commit.
-
-The stage leaves the same three out, so what the stage shows is what the file
-holds. A reader who wants the history opens the History sheet, which samples
-the commits when a person asks.
+**Superseded on 17 September 2026 by
+`docs/superpowers/specs/2026-09-17-report-stage-pictures-design.md`.** The
+stage draws `threat_pictures`, `risk_over_time` and `what_changed`, and
+`Generate Report` passes the pictures and the history to
+`CompileSystemReport`.
 
 ## The columns
 
@@ -155,4 +144,4 @@ writes.
   the stage that owns it.
 - It does not render a template's own words. The template's text lines are the
   team's Markdown, and the stage draws the sections, not the wrapper.
-- It does not draw pictures. See the sections the stage leaves out.
+- It drew no picture until 17 September 2026. See the pictures design.

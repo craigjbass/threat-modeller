@@ -200,9 +200,9 @@ struct ReportStageTests {
         #expect(page.fault == ["There is no template at /work/board.md."])
     }
 
-    /// A diagram section shows the diagram block's text, in the language the
-    /// team wrote it in.
-    @Test func showsTheDiagramBlocksText() async throws {
+    /// A diagram section draws the diagram, under the label the team gave it.
+    /// The stage draws mermaid, so the text is not what a reader reads.
+    @Test func drawsTheDiagramBlock() async throws {
         let useCases = TestDependencies()
         useCases.project.put(
             """
@@ -231,7 +231,12 @@ struct ReportStageTests {
 
         #expect(section.title == "Diagrams")
         #expect(section.blocks.contains(.subheading("Login")))
-        #expect(section.blocks.contains(.fenced(kind: "mermaid", text: "graph TD; a-->b;")))
+        #expect(
+            section.blocks.contains { block in
+                if case .picture = block { return true }
+                return false
+            }
+        )
     }
 
     // MARK: reaching the stage

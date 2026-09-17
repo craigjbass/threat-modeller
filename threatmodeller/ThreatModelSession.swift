@@ -49,6 +49,10 @@ final class ThreatModelSession {
     private var resortsOnNextRead = true
     /// The risk of every element on the diagram, by source id. The canvas
     /// paints from this, so the picture and the threat list never disagree.
+    /// What the last sampling of the project's git history found. The window
+    /// samples it when a person asks, and every report path reads it, so the
+    /// stage and the file state the same history.
+    var sampledHistory = RiskHistory()
     private(set) var elementRisks: [String: ElementRisk] = [:]
     /// What guards every element on the diagram, by source id. The canvas
     /// names these beside the boundary a flow crosses.
@@ -922,9 +926,25 @@ final class ThreatModelSession {
         case .none: template = nil
         case .found(let found, _): template = found
         }
+        let drawn = reportPictureSet(history: sampledHistory.rows)
         let response = useCases.exportModelAsMarkdown()
-            .execute(ExportModelAsMarkdownRequest(template: template))
+            .execute(
+                ExportModelAsMarkdownRequest(
+                    threatPictures: drawn.threatPictures,
+                    controlPictures: drawn.controlPictures,
+                    template: template,
+                    riskOverTimePicture: drawn.riskOverTimePicture,
+                    history: sampledHistory.rows,
+                    historyTruncated: sampledHistory.truncated,
+                    change: change(against: sampledHistory)
+                )
+            )
         return (Data(response.markdown.utf8), response.fileName)
+    }
+
+    /// The picture files a Markdown export needs beside it, by file name.
+    func reportPictureFiles() -> [String: String] {
+        reportPictureSet(history: sampledHistory.rows).sources
     }
 
     /// What the Report stage draws: the report as sections, in the order the
@@ -934,7 +954,8 @@ final class ThreatModelSession {
     /// through `BuildThreatModelReport`, which are the two use cases the
     /// exporters run, so the stage and the file cannot drift. It writes
     /// nothing and it sets no error: a template fault travels on the page.
-    func reportStagePage() -> ReportStagePage {
+    func reportStagePage(history stated: RiskHistory? = nil) -> ReportStagePage {
+        let history = stated ?? sampledHistory
         var template = ExportModelAsMarkdown.defaultTemplate
         var path: String?
 
@@ -961,13 +982,112 @@ final class ThreatModelSession {
             }
         }
 
+        let change = self.change(against: history)
         let report = useCases.buildThreatModelReport()
-            .execute(BuildThreatModelReportRequest()).report
+            .execute(
+                BuildThreatModelReportRequest(
+                    history: history.rows,
+                    historyTruncated: history.truncated,
+                    change: change
+                )
+            ).report
+        let drawn = reportPictureSet(history: history.rows)
+
         return ReportStagePage(
-            sections: ReportStagePage.build(report: report, template: template),
+            sections: ReportStagePage.build(
+                report: report,
+                template: template,
+                pictures: ReportStagePictures(
+                    threatPictures: bySvg(drawn.threatPictures, in: drawn.sources),
+                    controlPictures: bySvg(drawn.controlPictures, in: drawn.sources),
+                    riskOverTimeChart: drawn.riskOverTimeChart,
+                    history: history.rows,
+                    historyTruncated: history.truncated,
+                    change: change
+                )
+            ),
             templatePath: path
         )
     }
+
+    /// The same keys, carrying the SVG rather than the file name. The stage
+    /// draws bytes; the file links a name.
+    private func bySvg(
+        _ names: [String: String],
+        in sources: [String: String]
+    ) -> [String: String] {
+        var found: [String: String] = [:]
+        for (key, fileName) in names {
+            guard let svg = sources[fileName] else { continue }
+            found[key] = svg
+        }
+        return found
+    }
+
+    /// What changed between the newest sampled commit and the working tree,
+    /// or nil when nothing is sampled or nothing moved.
+    private func change(against history: RiskHistory) -> RiskChange? {
+        guard history.rows.isEmpty == false else { return nil }
+        let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+        guard case .compared(let compared) = CompareRiskToCommit().execute(
+            CompareRiskToCommitRequest(
+                now: assessment.threats.map(ReadRiskHistory.compared),
+                then: history.previousThreats,
+                catalogueNow: useCases.viewCatalogueVersion()
+                    .execute(ViewCatalogueVersionRequest()).tag,
+                catalogueThen: history.previousCatalogueTag
+            )
+        ) else { return nil }
+        return compared.isEmpty ? nil : compared
+    }
+
+    /// Every picture a report of this model holds, drawn the way the
+    /// executable draws them.
+    ///
+    /// `stem` names the picture files. A report written into the project is
+    /// named after the system, so the pictures beside it are too.
+    func reportPictureSet(
+        stem: String? = nil,
+        history: [RiskHistoryRow] = []
+    ) -> ReportPictures {
+        let named = stem ?? projectSystem ?? FileNaming.stem(from: canvas.name)
+        // Drawing lays every fragment out again, so the Report stage does not
+        // draw the set on every pass over its column. The model's own
+        // revision says when the set is out of date.
+        if let cached = pictureCache,
+           cached.revision == revision,
+           cached.stem == named,
+           cached.commits == history.count {
+            return cached.set
+        }
+
+        let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
+        let report = useCases.buildThreatModelReport()
+            .execute(BuildThreatModelReportRequest()).report
+        let drawn = ReportPictures.of(
+            model: DiagramBuilder.Model(
+                components: canvas.components,
+                connections: canvas.connections,
+                zones: canvas.zones,
+                risks: ElementRiskRollup.byElement(
+                    assessment.threats,
+                    levelOrder: assessment.severities.map(\.id)
+                ),
+                guards: EdgeGuards.byElement(assessment.threats)
+            ),
+            report: report,
+            stem: named,
+            history: history
+        )
+        pictureCache = (revision, named, history.count, drawn)
+        return drawn
+    }
+
+    /// The last picture set drawn, and what it was drawn from. It is not
+    /// observed: a draw of the column writes it, and writing observed state
+    /// while a view draws asks for the draw to run again.
+    @ObservationIgnored
+    private var pictureCache: (revision: Int, stem: String, commits: Int, set: ReportPictures)?
 
     /// The report the stage draws its numbers from.
     func builtReport() -> Report {
@@ -986,44 +1106,13 @@ final class ThreatModelSession {
         case .none: template = nil
         case .found(let found, _): template = found
         }
-        let assessment = useCases.assessThreatModel().execute(AssessThreatModelRequest())
-        let report = useCases.buildThreatModelReport()
-            .execute(BuildThreatModelReportRequest()).report
-        let drawn = DiagramBuilder.Model(
-            components: canvas.components,
-            connections: canvas.connections,
-            zones: canvas.zones,
-            risks: ElementRiskRollup.byElement(
-                assessment.threats,
-                levelOrder: assessment.severities.map(\.id)
-            ),
-            guards: EdgeGuards.byElement(assessment.threats)
-        )
-        let stem = FileNaming.stem(from: report.modelName)
-        let threats = ThreatDiagrams.pictures(
-            of: drawn,
-            for: report.rollups.topResidual,
-            stem: stem
-        )
-        let controls = ThreatDiagrams.controlPictures(
-            of: drawn,
-            for: report.protectionDependencies,
-            stem: stem
-        )
-
-        var sources = Dictionary(uniqueKeysWithValues: threats.map { ($0.fileName, $0.svg) })
-        for picture in controls { sources[picture.fileName] = picture.svg }
-
+        let drawn = reportPictureSet()
         let page = useCases.exportModelAsHtml().execute(
             ExportModelAsHtmlRequest(
-                threatPictures: Dictionary(
-                    uniqueKeysWithValues: threats.map { ($0.key, $0.fileName) }
-                ),
-                controlPictures: Dictionary(
-                    uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) }
-                ),
-                pictureSources: sources,
-                wholePicture: SvgWriter.svg(of: DiagramBuilder.drawing(of: drawn)),
+                threatPictures: drawn.threatPictures,
+                controlPictures: drawn.controlPictures,
+                pictureSources: drawn.sources,
+                wholePicture: drawn.wholePicture,
                 template: template
             )
         )

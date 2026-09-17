@@ -13,6 +13,7 @@
 		A0000000000000000000008 /* FileGateways in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000009 /* FileGateways */; };
 		A0000000000000000000010 /* ArchitectureDSL in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000011 /* ArchitectureDSL */; };
 		A0000000000000000000012 /* DiagramRendering in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000013 /* DiagramRendering */; };
+		A0000000000000000000014 /* CommandLineApplication in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000015 /* CommandLineApplication */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +75,7 @@
 			files = (
 				A0000000000000000000004 /* ThreatModelKit in Frameworks */,
 				A0000000000000000000006 /* TestSupport in Frameworks */,
+				A0000000000000000000014 /* CommandLineApplication in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -156,6 +158,7 @@
 			packageProductDependencies = (
 				A0000000000000000000005 /* ThreatModelKit */,
 				A0000000000000000000007 /* TestSupport */,
+				A0000000000000000000015 /* CommandLineApplication */,
 			);
 			productName = threatmodellerTests;
 			productReference = 46EEEDD5304F3232000F014D /* threatmodellerTests.xctest */;
@@ -653,6 +656,10 @@
 		A0000000000000000000013 /* DiagramRendering */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DiagramRendering;
+		};
+		A0000000000000000000015 /* CommandLineApplication */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CommandLineApplication;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

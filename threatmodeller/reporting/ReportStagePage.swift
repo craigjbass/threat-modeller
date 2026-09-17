@@ -1,3 +1,4 @@
+import DiagramRendering
 import Foundation
 import ThreatModelKit
 
@@ -30,8 +31,17 @@ enum ReportBlock: Equatable {
     case bullets([ReportBullet])
     case numbered([ReportBullet])
     case table(ReportTable)
-    /// A diagram a team wrote, in the language it wrote it in.
+    /// A diagram a team wrote, in the language it wrote it in. The stage
+    /// shows the text only for a kind it cannot draw.
     case fenced(kind: String, text: String)
+    /// A picture the exporter drew, as the SVG the exporter writes.
+    case picture(label: String, svg: String)
+    /// The whole diagram, which the stage draws with the canvas rather than
+    /// with an SVG, so it carries the mitigates marks and the status marks.
+    case dataFlow
+    /// What the stage says when nobody has sampled the history, with the
+    /// action that samples it.
+    case sampleHistory(String)
 }
 
 /// One section of the report, ready to draw.
@@ -42,6 +52,28 @@ struct ReportStageSection: Identifiable, Equatable {
     let blocks: [ReportBlock]
 
     var id: String { slot.rawValue }
+}
+
+/// What the stage draws that is not text.
+///
+/// The pictures are the SVG the exporters write, so the stage and the file
+/// cannot draw two different pictures.
+struct ReportStagePictures: Equatable {
+    /// The picture of each top residual threat, as SVG, keyed
+    /// "<threat id>@<source id>".
+    var threatPictures: [String: String] = [:]
+    /// The picture of each control, as SVG, by the id of the component the
+    /// protection comes from.
+    var controlPictures: [String: String] = [:]
+    /// The risk-over-time graph, as SVG, or nil when the history draws none.
+    var riskOverTimeChart: String?
+    /// What the model scored at each sampled commit, newest first.
+    var history: [RiskHistoryRow] = []
+    var historyTruncated = false
+    /// What changed since the newest sampled commit, or nil.
+    var change: RiskChange?
+
+    static let none = ReportStagePictures()
 }
 
 /// The report as the stage draws it: the sections the template names, in the
@@ -64,12 +96,15 @@ struct ReportStagePage: Equatable {
 
     /// Builds one section per slot the template names.
     ///
-    /// The pictures and the history are the three sections the stage leaves
-    /// out: `Generate Report` passes none of them, so the file writes nothing
-    /// for them and the stage shows nothing for them.
-    static func build(report: Report, template: ReportTemplate) -> [ReportStageSection] {
+    /// `pictures` carries the SVG the exporters write, so a section that holds
+    /// a picture holds the exporter's own bytes.
+    static func build(
+        report: Report,
+        template: ReportTemplate,
+        pictures: ReportStagePictures = .none
+    ) -> [ReportStageSection] {
         template.slots.compactMap { slot in
-            let blocks = self.blocks(of: slot, in: report)
+            let blocks = self.blocks(of: slot, in: report, pictures: pictures)
             guard blocks.isEmpty == false else { return nil }
             return ReportStageSection(
                 slot: slot,
@@ -99,9 +134,13 @@ struct ReportStagePage: Equatable {
     // MARK: one section per slot
 
     // swiftlint:disable:next cyclomatic_complexity
-    private static func blocks(of slot: ReportTemplate.Slot, in report: Report) -> [ReportBlock] {
+    private static func blocks(
+        of slot: ReportTemplate.Slot,
+        in report: Report,
+        pictures: ReportStagePictures
+    ) -> [ReportBlock] {
         switch slot {
-        case .systemName: [.heading(report.modelName)]
+        case .systemName: [.heading(report.modelName), .dataFlow]
         case .catalogueTag: catalogueTag(report)
         case .documentControl: documentControl(report.documentControl)
         case .executiveSummary: executiveSummary(report)
@@ -110,16 +149,17 @@ struct ReportStagePage: Equatable {
         case .thirdParties: thirdParties(report.thirdParties)
         case .knownVulnerabilities: knownVulnerabilities(report)
         case .policy: policy(report.policy)
-        case .riskOverTime: []
-        case .whatChanged: []
+        case .riskOverTime: riskOverTime(pictures)
+        case .whatChanged: whatChanged(report.change ?? pictures.change, since: pictures.history.first?.commit)
         case .rollups: rollups(report)
-        case .threatPictures: []
+        case .threatPictures: threatPictures(report, pictures: pictures.threatPictures)
         case .methodology: methodology(report.methodology)
         case .findings: findings(report)
         case .leverage: leverage(report.actions)
         case .attackPaths: attackPaths(report)
         case .attackTrees: attackTrees(report)
-        case .protectionDependencies: protectionDependencies(report.protectionDependencies)
+        case .protectionDependencies:
+            protectionDependencies(report.protectionDependencies, pictures: pictures.controlPictures)
         case .recommendations: recommendations(report.recommendations)
         case .acceptedRisks: acceptedRisks(report.acceptedRisks)
         case .assumptions: assumptions(report)
@@ -725,13 +765,17 @@ struct ReportStagePage: Equatable {
     }
 
     private static func protectionDependencies(
-        _ dependencies: [ReportProtectionDependency]
+        _ dependencies: [ReportProtectionDependency],
+        pictures: [String: String] = [:]
     ) -> [ReportBlock] {
         guard dependencies.isEmpty == false else { return [] }
 
         var blocks: [ReportBlock] = [.heading("Protection dependencies")]
         for dependency in dependencies {
             blocks.append(.subheading(dependency.protectorName))
+            if let svg = pictures[dependency.protectorId] {
+                blocks.append(.picture(label: dependency.protectorName, svg: svg))
+            }
 
             if dependency.protectsElements.isEmpty {
                 blocks.append(.bullets(dependency.protects.map {
@@ -974,13 +1018,198 @@ struct ReportStagePage: Equatable {
     /// What a diagram section shows: the label, the language and the text the
     /// team wrote. The window draws no Mermaid renderer, so the text is what a
     /// reader reads and copies.
+    /// A diagram block, drawn where the window draws that kind.
+    ///
+    /// Mermaid is drawn. Every other kind, and mermaid this application does
+    /// not read, keeps its text, with a line saying so, because a picture the
+    /// window cannot draw says less than the text.
     private static func diagrams(_ diagrams: [ReportDiagram]) -> [ReportBlock] {
         guard diagrams.isEmpty == false else { return [] }
 
         var blocks: [ReportBlock] = [.heading("Diagrams")]
         for diagram in diagrams {
             blocks.append(.subheading(diagram.label))
+            if diagram.kind.lowercased() == "mermaid",
+               let drawing = MermaidDrawing.drawing(of: diagram.text) {
+                blocks.append(.picture(label: diagram.label, svg: SvgWriter.svg(of: drawing)))
+                continue
+            }
+            blocks.append(
+                .paragraph(
+                    diagram.kind.lowercased() == "mermaid"
+                        ? "This window draws a mermaid flowchart. This diagram is not one,"
+                            + " so the text is what it holds."
+                        : "This window does not draw \(diagram.kind)."
+                            + " The text is what it holds."
+                )
+            )
             blocks.append(.fenced(kind: diagram.kind, text: diagram.text))
+        }
+        return blocks
+    }
+
+    // MARK: the pictures and the history
+
+    /// The report's Top residual risk in detail, the section
+    /// `MarkdownThreatPictures` writes.
+    private static func threatPictures(
+        _ report: Report,
+        pictures: [String: String]
+    ) -> [ReportBlock] {
+        let drawn = report.rollups.topResidual.filter {
+            pictures[MarkdownThreatPictures.key(threatId: $0.threatId, sourceId: $0.sourceId)] != nil
+        }
+        guard drawn.isEmpty == false else { return [] }
+
+        var blocks: [ReportBlock] = [.heading("Top residual risk in detail")]
+        for threat in drawn {
+            let key = MarkdownThreatPictures.key(
+                threatId: threat.threatId,
+                sourceId: threat.sourceId
+            )
+            guard let svg = pictures[key] else { continue }
+
+            blocks.append(.subheading("\(threat.name) \u{2014} \(threat.sourceName)"))
+            blocks.append(
+                .picture(label: "\(threat.name) on \(threat.sourceName)", svg: svg)
+            )
+            blocks.append(
+                .paragraph(
+                    "Residual \(threat.riskScore) of \(threat.inherentScore) before controls."
+                        + " Level \(threat.riskLevel)."
+                )
+            )
+
+            let unanswered = threat.controls.filter { $0.isImplemented == false }
+            if unanswered.isEmpty == false {
+                blocks.append(.lead("Not answered by:"))
+                blocks.append(
+                    .bullets(unanswered.map { ReportBullet(text: $0.description) })
+                )
+            }
+            if threat.mitigatedByComponentLabels.isEmpty == false {
+                blocks.append(
+                    .paragraph(
+                        "Reduced by "
+                            + threat.mitigatedByComponentLabels.joined(separator: ", ")
+                            + "."
+                    )
+                )
+            }
+        }
+        return blocks
+    }
+
+    /// The report's Risk over time section, drawn from the rows the Markdown
+    /// writer reads. With fewer than two rows sampled it says so and offers
+    /// the sampling action.
+    private static func riskOverTime(_ pictures: ReportStagePictures) -> [ReportBlock] {
+        var blocks: [ReportBlock] = [.heading("Risk over time")]
+        guard pictures.history.count >= 2 else {
+            blocks.append(
+                .sampleHistory(
+                    "No commit of this project is sampled yet. Sampling reads the git"
+                        + " history and compiles the model once per commit."
+                )
+            )
+            return blocks
+        }
+
+        if let chart = pictures.riskOverTimeChart {
+            blocks.append(
+                .picture(label: "Total residual risk at each sampled commit", svg: chart)
+            )
+        }
+        blocks.append(
+            .table(
+                ReportTable(
+                    columns: [
+                        "Date", "Commit", "Author", "Total", "Worst",
+                        "Threats", "Accepted", "Open trees", "Catalogue"
+                    ],
+                    rows: pictures.history.map { row in
+                        guard let numbers = row.numbers else {
+                            return [
+                                MarkdownRiskOverTime.day(row.commit.date),
+                                row.commit.shortHash,
+                                row.commit.author,
+                                "did not parse", "", "", "", "", ""
+                            ]
+                        }
+                        return [
+                            MarkdownRiskOverTime.day(row.commit.date),
+                            row.commit.shortHash,
+                            row.commit.author,
+                            "\(numbers.totalScore)",
+                            "\(numbers.worstScore)",
+                            "\(numbers.threatCount)",
+                            "\(numbers.acceptedRisks)",
+                            "\(numbers.openAttackTrees)",
+                            numbers.catalogueTag ?? "\u{2014}"
+                        ]
+                    }
+                )
+            )
+        )
+        if pictures.historyTruncated {
+            blocks.append(
+                .paragraph(
+                    "This is the newest \(pictures.history.count) commits that touched a"
+                        + " threat model file. The project holds more."
+                )
+            )
+        }
+        return blocks
+    }
+
+    /// The report's What changed section, from the same change the Markdown
+    /// writer reads.
+    private static func whatChanged(_ change: RiskChange?, since commit: SourceCommit?) -> [ReportBlock] {
+        guard let change, let commit, change.isEmpty == false else { return [] }
+
+        var blocks: [ReportBlock] = [.heading("What changed")]
+        blocks.append(
+            .paragraph(
+                "Since \(commit.shortHash) on \(MarkdownRiskOverTime.day(commit.date))."
+                    + " \(change.direction)"
+            )
+        )
+        if let catalogueMoved = change.catalogueMoved {
+            blocks.append(
+                .paragraph(
+                    "\(catalogueMoved). A score that moved with it is not a posture change."
+                )
+            )
+        }
+
+        for (heading, items) in [
+            ("Threats raised", change.raised),
+            ("Threats no longer raised", change.gone),
+            ("Controls whose status changed", change.controlsChanged),
+            ("Risks newly accepted", change.acceptedAdded),
+            ("Review dates moved", change.reviewDatesMoved)
+        ] where items.isEmpty == false {
+            blocks.append(.lead(heading))
+            blocks.append(.bullets(items.map { ReportBullet(text: $0) }))
+        }
+
+        if change.scoreDeltas.isEmpty == false {
+            blocks.append(.lead("Score by element"))
+            blocks.append(
+                .table(
+                    ReportTable(
+                        columns: ["Element", "Then", "Now", "Change"],
+                        rows: change.scoreDeltas.map { delta in
+                            [
+                                delta.name,
+                                "\(delta.then)",
+                                "\(delta.now)",
+                                "\(delta.delta > 0 ? "+" : "")\(delta.delta)"
+                            ]
+                        }
+                    )
+                )
+            )
         }
         return blocks
     }

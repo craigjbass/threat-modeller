@@ -12,8 +12,11 @@ final class HistorySession {
     private let useCases: UseCaseFactory
     private let root: String
 
-    private(set) var rows: [RiskHistoryRow] = []
-    private(set) var truncated = false
+    /// Everything the last read found, so the Report stage draws the same
+    /// rows the sheet lists and compares against the same commit.
+    private(set) var found = RiskHistory()
+    var rows: [RiskHistoryRow] { found.rows }
+    var truncated: Bool { found.truncated }
     private(set) var isReading = false
     private(set) var message: String?
     /// How many commits the next read samples.
@@ -36,19 +39,18 @@ final class HistorySession {
 
         switch read {
         case .read(let history):
-            rows = history.rows
-            truncated = history.truncated
+            found = history
             if history.rows.isEmpty {
                 message = "No commit in this project touched a threat model file."
             }
         case .notARepository(let reason):
-            rows = []
+            found = RiskHistory()
             message = reason
         case .noSuchSystem:
-            rows = []
+            found = RiskHistory()
             message = "This project holds no such system."
         case .cannotRead(let reason):
-            rows = []
+            found = RiskHistory()
             message = "The history could not be read: \(reason)"
         }
     }

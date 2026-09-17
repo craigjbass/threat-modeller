@@ -4,14 +4,19 @@ import ThreatModelKit
 /// One section of the report, drawn as native views.
 ///
 /// Nothing here reads Markdown or HTML. A heading is a `Text`, a table is a
-/// `Grid`, and a diagram is the text the team wrote.
+/// `Grid`, and a picture is the SVG the exporter wrote.
 struct ReportSectionView: View {
     let section: ReportStageSection
+    /// The model the whole diagram is drawn from. Nil draws no diagram, which
+    /// is what a preview of one section shows.
+    var session: ThreatModelSession?
+    /// What the sampling line runs. Nil draws the line with no button.
+    var sample: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(section.blocks.enumerated()), id: \.offset) { offset, block in
-                ReportBlockView(block: block)
+                ReportBlockView(block: block, session: session, sample: sample)
                     .accessibilityIdentifier("report-block-\(section.slot.rawValue)-\(offset)")
             }
         }
@@ -23,6 +28,8 @@ struct ReportSectionView: View {
 /// One piece of a section.
 struct ReportBlockView: View {
     let block: ReportBlock
+    var session: ThreatModelSession?
+    var sample: (() -> Void)?
 
     var body: some View {
         switch block {
@@ -50,7 +57,32 @@ struct ReportBlockView: View {
             ReportTableView(table: table)
         case .fenced(let kind, let text):
             fenced(kind: kind, text: text)
+        case .picture(let label, let svg):
+            ReportSvgPicture(label: label, svg: svg)
+        case .dataFlow:
+            if let session {
+                ReportDataFlowPicture(session: session)
+            }
+        case .sampleHistory(let line):
+            sampling(line)
         }
+    }
+
+    /// What the stage says with no commit sampled, and the action that samples
+    /// one. Sampling compiles the model once per commit, so a person asks for
+    /// it rather than the window running it on open.
+    private func sampling(_ line: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(line)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let sample {
+                Button("Sample the history", action: sample)
+                    .accessibilityIdentifier("report-sample-history")
+            }
+        }
+        .accessibilityIdentifier("report-sample-history-line")
     }
 
     /// A list of the report, with the lines the report indents under a row
@@ -81,8 +113,8 @@ struct ReportBlockView: View {
         }
     }
 
-    /// A diagram a team wrote, in the language it wrote it in. The window
-    /// draws no Mermaid renderer, so the text is what a reader reads.
+    /// A diagram a team wrote, in a language the window does not draw. The
+    /// text is what a reader reads.
     private func fenced(kind: String, text: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(kind)

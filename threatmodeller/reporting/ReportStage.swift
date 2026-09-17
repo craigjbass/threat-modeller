@@ -20,7 +20,9 @@ struct ReportStage: View {
 
     /// The report, read again on every draw. Reading it is arithmetic over the
     /// model in memory, and it touches no file.
-    private var page: ReportStagePage { session.reportStagePage() }
+    private var page: ReportStagePage {
+        session.reportStagePage(history: project.sampledHistory)
+    }
 
     var body: some View {
         let page = self.page
@@ -62,7 +64,11 @@ struct ReportStage: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(page.sections) { section in
-                            ReportSectionView(section: section)
+                            ReportSectionView(
+                                section: section,
+                                session: session,
+                                sample: { Task { await project.sampleTheHistory() } }
+                            )
                                 .id(section.slot)
                         }
                     }

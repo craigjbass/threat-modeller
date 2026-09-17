@@ -1,3 +1,4 @@
+import DiagramRendering
 import Foundation
 import Observation
 import SwiftUI
@@ -373,6 +374,9 @@ final class ProjectSession {
             self.root = root
             self.directory = directory
             self.systems = systems
+            // One history per open root. The sheet reads it, and the Report
+            // stage draws the same rows.
+            history = HistorySession(useCases: useCases, root: root)
             errorMessage = systems.isEmpty
                 ? "\(directory) holds no .arch files. Name a system, or start from an example."
                 : nil
@@ -1165,6 +1169,9 @@ final class ProjectSession {
             clearMessage()
             loading = .scoringTheThreats
             let drawn = ThreatModelSession(useCases: useCases, projectRoot: root, projectSystem: systemName)
+            // The history belongs to the project, so a model read again keeps
+            // what the person sampled.
+            drawn.sampledHistory = sampledHistory
             model = drawn
             savedRevision = drawn.revision
             hasFilesChangedOnDisk = false
@@ -1592,6 +1599,20 @@ final class ProjectSession {
     /// another.
     var reportFormat: ReportFormat = .markdown
 
+    /// The project's git history, read when a person asks. Nil until a
+    /// project is open.
+    private(set) var history: HistorySession?
+
+    /// What the last sampling found, which is nothing until a person samples.
+    var sampledHistory: RiskHistory { history?.found ?? RiskHistory() }
+
+    /// Samples the history, which is the read the History sheet runs. The
+    /// Report stage offers it where the Risk over time section would be.
+    func sampleTheHistory() async {
+        await history?.read()
+        model?.sampledHistory = sampledHistory
+    }
+
     /// Writes the report the format picker names.
     ///
     /// Markdown goes to the system's report path in the project, with no save
@@ -1613,11 +1634,27 @@ final class ProjectSession {
     }
 
     /// Writes the Markdown report for the drawn system.
+    ///
+    /// The pictures and the history go with it, the way the executable's
+    /// report verb passes them, so the file and the stage hold the same
+    /// figures.
     func compileReport() {
-        guard let root, let chosenSystem else { return }
+        guard let root, let chosenSystem, let model else { return }
+
+        let sampled = sampledHistory
+        let drawn = model.reportPictureSet(history: sampled.rows)
 
         switch useCases.compileSystemReport().execute(
-            CompileSystemReportRequest(root: root, systemName: chosenSystem)
+            CompileSystemReportRequest(
+                root: root,
+                systemName: chosenSystem,
+                threatPictures: drawn.threatPictures,
+                controlPictures: drawn.controlPictures,
+                pictureFiles: drawn.sources,
+                riskOverTimePicture: drawn.riskOverTimePicture,
+                history: sampled.rows,
+                historyTruncated: sampled.truncated
+            )
         ) {
         case .written(let path):
             errorMessage = nil

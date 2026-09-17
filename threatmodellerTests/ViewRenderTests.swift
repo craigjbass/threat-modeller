@@ -1,3 +1,4 @@
+import DiagramRendering
 import AppKit
 import Foundation
 import SwiftUI
@@ -673,6 +674,32 @@ struct ViewRenderTests {
 
     @Test func drawsTheCanvas() async {
         expectDrawn(CanvasView(session: aModel(), canvas: CanvasState()), "the canvas")
+    }
+
+    // MARK: a report picture
+
+    /// A mermaid diagram block draws a picture on the Report stage. The
+    /// picture is the SVG the reader writes, drawn as an image.
+    @Test func drawsAMermaidDiagramBlock() throws {
+        let drawing = try #require(
+            MermaidDrawing.drawing(of: "flowchart LR\n  user[Person] --> api[API]")
+        )
+
+        expectDrawn(
+            ReportSvgPicture(label: "Login", svg: SvgWriter.svg(of: drawing)),
+            width: 400,
+            height: 300,
+            "the mermaid diagram block"
+        )
+    }
+
+    /// The whole diagram, drawn on the Report stage the way the export draws
+    /// it.
+    @Test func drawsTheReportsDataFlowPicture() throws {
+        let session = aModel()
+        let picture = ReportDataFlowPicture(session: session).picture
+
+        expectDrawn(picture, width: 900, height: 700, "the report data flow picture")
     }
 
     // MARK: the tag filter control

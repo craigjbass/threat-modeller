@@ -59,10 +59,13 @@ struct ReportExporterTests {
             await exporter(session, writing: directory).export(kind)
         }
 
+        // The Markdown report links its pictures by file name, so the export
+        // writes each picture beside the report.
         var wanted = [
             "Untitled.d2", "Untitled.dot", "Untitled.hcl", "Untitled.html", "Untitled.json",
             "Untitled.md", "Untitled.mmd", "Untitled.otm.json", "Untitled.pdf", "Untitled.png"
-        ]
+        ] + session.reportPictureFiles().keys
+        wanted.sort()
         if WebKitInTests.runs == false { wanted.removeAll { $0 == "Untitled.pdf" } }
 
         let written = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()

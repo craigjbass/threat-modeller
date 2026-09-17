@@ -1380,17 +1380,13 @@ public struct CommandLineApplication {
                 ),
                 guards: EdgeGuards.byElement(assessment.threats)
             )
-            let pictures = ThreatDiagrams.pictures(
-                of: drawn,
-                for: report.rollups.topResidual,
-                stem: system.name
-            )
-            // A picture of each control as well, for a reader scrutinising
-            // what one control carries rather than what one threat sits on.
-            let controls = ThreatDiagrams.controlPictures(
-                of: drawn,
-                for: report.protectionDependencies,
-                stem: system.name
+            // One picture set for this verb and for the window, so a report
+            // written either way holds the same figures.
+            let pictures = ReportPictures.of(
+                model: drawn,
+                report: report,
+                stem: system.name,
+                history: historyRead.rows
             )
 
             // A report written in a diagram language holds the diagram
@@ -1407,16 +1403,11 @@ public struct CommandLineApplication {
                 )
                 : [:]
 
-            let threatPictures = wantsText
-                ? [:]
-                : Dictionary(uniqueKeysWithValues: pictures.map { ($0.key, $0.fileName) })
-            let controlPictures = wantsText
-                ? [:]
-                : Dictionary(uniqueKeysWithValues: controls.map { ($0.protectorId, $0.fileName) })
+            let threatPictures: [String: String] = wantsText ? [:] : pictures.threatPictures
+            let controlPictures: [String: String] = wantsText ? [:] : pictures.controlPictures
             // The graph is written beside the report, the way the threat
             // pictures are, and only when the history holds enough to draw.
-            let chart = RiskOverTimeChart.svg(of: historyRead.rows)
-            let chartFileName = chart.isEmpty ? nil : "\(system.name)-risk-over-time.svg"
+            let chartFileName = pictures.riskOverTimePicture
 
             let markdown = useCases.exportModelAsMarkdown()
                 .execute(
@@ -1436,27 +1427,15 @@ public struct CommandLineApplication {
                 ?? system.reportPath
             let beside = String(path.dropLast("\(system.name).md".count))
 
-            if let chartFileName {
-                do {
-                    try projects.write(chart, to: beside + chartFileName)
-                } catch {
-                    output("threatmodeller: \(Self.described(error))")
-                    return .fileFault
-                }
+            // A report holding the diagrams needs no picture beside it. The
+            // graph is a picture of the history, not of a diagram, so it is
+            // written whichever way the diagrams are.
+            let besideTheReport = pictures.sources.filter { fileName, _ in
+                wantsText == false || fileName == chartFileName
             }
-
-            // A report holding the diagrams needs no picture beside it.
-            for picture in (wantsText ? [] : pictures) {
+            for (fileName, svg) in besideTheReport.sorted(by: { $0.key < $1.key }) {
                 do {
-                    try projects.write(picture.svg, to: beside + picture.fileName)
-                } catch {
-                    output("threatmodeller: \(Self.described(error))")
-                    return .fileFault
-                }
-            }
-            for picture in (wantsText ? [] : controls) {
-                do {
-                    try projects.write(picture.svg, to: beside + picture.fileName)
+                    try projects.write(svg, to: beside + fileName)
                 } catch {
                     output("threatmodeller: \(Self.described(error))")
                     return .fileFault
@@ -1473,17 +1452,12 @@ public struct CommandLineApplication {
             if wantsHtml {
                 // The page carries every picture inside it, so a reader opens
                 // one file and needs nothing beside it.
-                var sources = Dictionary(
-                    uniqueKeysWithValues: (pictures.map { ($0.fileName, $0.svg) })
-                )
-                for picture in controls { sources[picture.fileName] = picture.svg }
-
                 let page = useCases.exportModelAsHtml().execute(
                     ExportModelAsHtmlRequest(
                         threatPictures: threatPictures,
                         controlPictures: controlPictures,
-                        pictureSources: sources,
-                        wholePicture: SvgWriter.svg(of: DiagramBuilder.drawing(of: drawn)),
+                        pictureSources: pictures.sources,
+                        wholePicture: pictures.wholePicture,
                         template: template
                     )
                 )
@@ -1505,11 +1479,11 @@ public struct CommandLineApplication {
                 if let htmlPath {
                     output("wrote \(htmlPath)")
                 }
-                if pictures.isEmpty == false {
-                    output("wrote \(pictures.count) threat diagrams beside it")
+                if threatPictures.isEmpty == false {
+                    output("wrote \(threatPictures.count) threat diagrams beside it")
                 }
-                if controls.isEmpty == false {
-                    output("wrote \(controls.count) control diagrams beside it")
+                if controlPictures.isEmpty == false {
+                    output("wrote \(controlPictures.count) control diagrams beside it")
                 }
             }
             return .success

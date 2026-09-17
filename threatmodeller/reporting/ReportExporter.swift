@@ -72,6 +72,15 @@ struct ReportExporter {
 
         do {
             try export.data.write(to: url)
+            // A Markdown report links its pictures by file name, so the files
+            // go beside it, the way the executable's report verb writes them.
+            if kind == .markdown {
+                let beside = url.deletingLastPathComponent()
+                for (fileName, svg) in session.reportPictureFiles() {
+                    try Data(svg.utf8)
+                        .write(to: beside.appendingPathComponent(fileName))
+                }
+            }
             return (url.path, export.data)
         } catch {
             session.reportExportFailed(String(describing: error))

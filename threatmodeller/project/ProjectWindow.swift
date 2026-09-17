@@ -124,9 +124,11 @@ struct ProjectWindow: View {
             }
         }
         .sheet(isPresented: $isShowingHistory) {
-            if let root = session.root {
+            // The window's own history, so a sampling done here shows on the
+            // Report stage and a sampling done there shows here.
+            if let history = session.history {
                 HistorySheet(
-                    session: HistorySession(useCases: session.useCases, root: root),
+                    session: history,
                     dismiss: { isShowingHistory = false }
                 )
             }
