@@ -1697,4 +1697,82 @@ struct ViewRenderTests {
         let unmarkedPixels = try #require(pixels(of: unmarked, width: 260, height: 44))
         #expect(markedPixels != unmarkedPixels)
     }
+
+    // MARK: how much of the canvas the diagram covers
+
+    /// How far the toolbar band reaches down the canvas. The toolbar floats
+    /// over the top of every diagram, and it is the same picture in each, so
+    /// a measurement of the diagram starts below it.
+    private static let toolbarBand = 80
+
+    /// The rectangle the diagram covers, below the toolbar band, or nil when
+    /// the canvas drew nothing but its background.
+    ///
+    /// The background is read from the bottom right corner, which no diagram
+    /// in this file reaches.
+    private func drawnBounds(
+        of view: some View,
+        width: Double,
+        height: Double
+    ) -> CGRect? {
+        guard let image = draw(view, width: width, height: height),
+              let background = image.colorAt(x: image.pixelsWide - 2, y: image.pixelsHigh - 2)
+        else { return nil }
+
+        var left = image.pixelsWide
+        var right = -1
+        var top = image.pixelsHigh
+        var bottom = -1
+        for x in stride(from: 0, to: image.pixelsWide, by: 2) {
+            for y in stride(from: Self.toolbarBand, to: image.pixelsHigh, by: 2) {
+                guard let colour = image.colorAt(x: x, y: y),
+                      Self.differs(colour, from: background) else { continue }
+                left = min(left, x)
+                right = max(right, x)
+                top = min(top, y)
+                bottom = max(bottom, y)
+            }
+        }
+        guard right >= 0 else { return nil }
+        return CGRect(x: left, y: top, width: right - left, height: bottom - top)
+    }
+
+    /// True when two sampled pixels are different colours. The tolerance
+    /// covers the anti-aliasing at the edge of a filled rectangle.
+    private static func differs(_ one: NSColor, from other: NSColor) -> Bool {
+        abs(one.redComponent - other.redComponent) > 0.02
+            || abs(one.greenComponent - other.greenComponent) > 0.02
+            || abs(one.blueComponent - other.blueComponent) > 0.02
+            || abs(one.alphaComponent - other.alphaComponent) > 0.02
+    }
+
+    /// #156: a Focus lays the drawn set out on its own, so the picture covers
+    /// less of the canvas than the full layout's own coordinates did. Both
+    /// canvases draw at the same transform, so the two rectangles are read off
+    /// the same picture size.
+    @Test func aFocusDrawsASmallerPictureOnceTheDrawnSetIsLaidOut() async throws {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        _ = session.addZone(x: 100, y: 120, width: 700, height: 480)
+        session.add(technologyId: "aws-ec2", x: 600, y: 400)
+        let componentId = try #require(session.canvas.components.first).id
+
+        // No layout collaborator: this canvas keeps the model's coordinates,
+        // which is what the canvas drew before #156.
+        let keeping = CanvasState()
+        keeping.focus(componentId: componentId)
+        let before = try #require(
+            drawnBounds(of: CanvasView(session: session, canvas: keeping), width: 900, height: 700)
+        )
+
+        let laidOut = CanvasState()
+        laidOut.layouts = session
+        laidOut.visibleSize = CGSize(width: 900, height: 700)
+        laidOut.focus(componentId: componentId)
+        laidOut.transform = CanvasTransform()
+        let after = try #require(
+            drawnBounds(of: CanvasView(session: session, canvas: laidOut), width: 900, height: 700)
+        )
+
+        #expect(after.width * after.height < before.width * before.height)
+    }
 }

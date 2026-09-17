@@ -1838,3 +1838,17 @@ final class ThreatModelSession {
         onChange?()
     }
 }
+
+/// What the canvas asks for when a filter or a Focus narrows the diagram.
+///
+/// The session already holds the canvas snapshot and the use case factory, so
+/// it answers both questions the canvas asks.
+extension ThreatModelSession: NarrowedDiagramLayouts {
+    var model: ViewThreatModelResponse { canvas }
+
+    func layOutSubset(componentIds: [String], zoneIds: [String]) -> LayOutSubsetResponse {
+        useCases.layOutSubset().execute(
+            LayOutSubsetRequest(componentIds: componentIds, zoneIds: zoneIds)
+        )
+    }
+}

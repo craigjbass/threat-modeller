@@ -1,3 +1,4 @@
+import CoreGraphics
 import ThreatModelKit
 
 /// What one tag filter draws on the canvas.
@@ -181,6 +182,38 @@ nonisolated struct DrawnDiagram: Equatable {
     let components: [ViewedComponent]
     let zones: [ViewedZone]
     let connections: [ViewedConnection]
+
+    /// The same drawn set at the coordinates a narrowed layout gave it.
+    ///
+    /// A narrowed diagram is a picture in its own right, so it is laid out on
+    /// its own and the result is view state: the model keeps its own
+    /// coordinates and the `.arch` file does not change. An element neither
+    /// map names keeps the coordinates it has, so a canvas that narrows
+    /// nothing draws the model.
+    func placed(
+        componentPositions: [String: CGPoint],
+        zoneRects: [String: CGRect]
+    ) -> DrawnDiagram {
+        guard componentPositions.isEmpty == false || zoneRects.isEmpty == false else {
+            return self
+        }
+        return DrawnDiagram(
+            components: components.map { component in
+                guard let point = componentPositions[component.id] else { return component }
+                return component.moved(x: point.x, y: point.y)
+            },
+            zones: zones.map { zone in
+                guard let rect = zoneRects[zone.id] else { return zone }
+                return zone.moved(
+                    x: rect.minX,
+                    y: rect.minY,
+                    width: rect.width,
+                    height: rect.height
+                )
+            },
+            connections: connections
+        )
+    }
 }
 
 private nonisolated extension Substring {

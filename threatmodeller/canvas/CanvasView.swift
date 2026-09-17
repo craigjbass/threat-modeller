@@ -173,6 +173,9 @@ struct CanvasView: View {
             // Zoom to Fit needs to know how much room there is.
             .onAppear { canvas.visibleSize = geometry.size }
             .onChange(of: geometry.size) { _, size in canvas.visibleSize = size }
+            // An edit while a filter is on lays the narrowed set out again.
+            // The verb writes the coordinates; the body only reads them.
+            .onChange(of: session.revision) { canvas.layOutNarrowedSetAgain() }
         }
         .coordinateSpace(.named("canvas"))
         .clipped()

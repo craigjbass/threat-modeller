@@ -289,6 +289,16 @@ struct CanvasGestures: CanvasZooming {
 
     func nodeDragEnded(_ translation: CGSize) {
         let shift = canvas.transform.modelDistance(translation)
+
+        // A drag while a filter narrows the canvas moves the picture only.
+        // The model keeps its own coordinates, so the `.arch` file does not
+        // change and the full layout stays as it is.
+        guard canvas.isNarrowing == false else {
+            canvas.moveNarrowed(componentIds: canvas.selectedComponentIds, by: shift)
+            canvas.dragTranslation = nil
+            return
+        }
+
         let moves = session.canvas.components
             .filter { canvas.isSelected(componentId: $0.id) }
             .map {

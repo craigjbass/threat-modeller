@@ -64,6 +64,9 @@ struct ProjectWindow: View {
                         // threats of what they clicked.
                         .onAppear {
                             canvas.showStage = { stage = $0 }
+                            // What lays a narrowed diagram out. The canvas
+                            // calls it from the four narrowing verbs.
+                            canvas.layouts = model
                             trees.project = session
                         }
                 } else if let loading = session.loading {

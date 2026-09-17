@@ -2,6 +2,20 @@ import CoreGraphics
 import Observation
 import ThreatModelKit
 
+/// What lays a narrowed set out for the canvas, and what the model holds.
+///
+/// `ThreatModelSession` conforms. The canvas holds this rather than the whole
+/// session, so `CanvasState` still calls no use case of its own and a test
+/// hands it whatever it likes.
+@MainActor
+protocol NarrowedDiagramLayouts: AnyObject {
+    /// The model the canvas draws.
+    var model: ViewThreatModelResponse { get }
+    /// Where the named components and zones go, laid out on their own. It
+    /// writes no model and no file.
+    func layOutSubset(componentIds: [String], zoneIds: [String]) -> LayOutSubsetResponse
+}
+
 /// Everything the canvas needs that is not part of the threat model.
 ///
 /// Spec section 3.6 keeps pan, zoom, selection, a drag in flight, the marquee
@@ -36,6 +50,21 @@ final class CanvasState: CanvasViewport {
     /// `tagFilter.neighbourDepth` flows. Nil draws by the tag filter alone.
     /// This is view state: it writes no file and changes no score.
     private(set) var focusedComponentId: String?
+
+    /// What lays the narrowed set out. The window sets it. A canvas with none
+    /// draws the model's own coordinates, which is what a preview wants.
+    var layouts: (any NarrowedDiagramLayouts)?
+
+    /// Where the narrowed set draws, by component id, and by zone id.
+    ///
+    /// Both are empty while nothing narrows the canvas. This is view state:
+    /// it writes no file and moves no element of the model, so a save while a
+    /// filter is on writes the full layout the file already holds.
+    private(set) var narrowedComponentPositions: [String: CGPoint] = [:]
+    private(set) var narrowedZoneRects: [String: CGRect] = [:]
+
+    /// True while the tag filter or Focus narrows the canvas.
+    var isNarrowing: Bool { focusedComponentId != nil || tagFilter.isNarrowing }
 
     /// True while the next background drag draws a zone rather than a marquee.
     private(set) var isDrawingZone = false
@@ -199,6 +228,7 @@ final class CanvasState: CanvasViewport {
     func pick(tag: String) {
         tagFilter.pick(tag)
         clearSelection()
+        layOutNarrowedSet()
     }
 
     /// Draws the whole model again. Clears Focus too, so the one button
@@ -206,6 +236,7 @@ final class CanvasState: CanvasViewport {
     func clearTagFilter() {
         tagFilter.clear()
         focusedComponentId = nil
+        layOutNarrowedSet()
     }
 
     /// Sets how many flows out the tag filter and Focus draw around what
@@ -213,6 +244,7 @@ final class CanvasState: CanvasViewport {
     /// the picked tags or Focus does not reset it.
     func setNeighbourDepth(_ depth: Int) {
         tagFilter.setNeighbourDepth(depth)
+        layOutNarrowedSet()
     }
 
     /// Draws one component and its neighbours. Focus and the tag filter
@@ -222,6 +254,7 @@ final class CanvasState: CanvasViewport {
         tagFilter.clear()
         focusedComponentId = componentId
         clearSelection()
+        layOutNarrowedSet()
     }
 
     /// The one diagram the window draws, hit tests and acts on: Focus
@@ -232,6 +265,18 @@ final class CanvasState: CanvasViewport {
     /// marquee, Select All and the drawing itself never disagree about what
     /// a person can see.
     func drawn(in model: ViewThreatModelResponse) -> DrawnDiagram {
+        narrowedSet(of: model).placed(
+            componentPositions: narrowedComponentPositions,
+            zoneRects: narrowedZoneRects
+        )
+    }
+
+    /// Which elements the canvas draws, at the model's own coordinates.
+    ///
+    /// The narrowed layout reads this, so every run starts from the model and
+    /// never from the run before. Two tags picked in either order draw the
+    /// same picture.
+    private func narrowedSet(of model: ViewThreatModelResponse) -> DrawnDiagram {
         if let focusedComponentId {
             return TagFilter.focus(
                 on: focusedComponentId,
@@ -240,6 +285,92 @@ final class CanvasState: CanvasViewport {
             )
         }
         return tagFilter.narrow(model)
+    }
+
+    /// Lays the drawn set out on its own, and fits the result.
+    ///
+    /// Warning: call this from a narrowing verb, never from `drawn(in:)`. A
+    /// SwiftUI view body reads `drawn(in:)`, and writing observed state from a
+    /// view body is a state change during a view update.
+    ///
+    /// With nothing narrowed the canvas draws the model's own coordinates and
+    /// fits the whole diagram, which is what Zoom to Fit does.
+    func layOutNarrowedSet() {
+        guard let layouts else { return }
+        let model = layouts.model
+
+        guard isNarrowing else {
+            narrowedComponentPositions = [:]
+            narrowedZoneRects = [:]
+            fit(
+                components: model.components.map { ($0.x, $0.y) },
+                zones: model.zones.map { ($0.x, $0.y, $0.width, $0.height) }
+            )
+            return
+        }
+
+        let set = narrowedSet(of: model)
+        let laidOut = layouts.layOutSubset(
+            componentIds: set.components.map(\.id),
+            zoneIds: set.zones.map(\.id)
+        )
+        // Nothing to lay out keeps the coordinates the canvas is already
+        // drawing, so the picture never goes blank.
+        guard case .laidOut(let components, let zones) = laidOut else { return }
+
+        narrowedComponentPositions = Dictionary(
+            uniqueKeysWithValues: components.map { ($0.id, CGPoint(x: $0.x, y: $0.y)) }
+        )
+        narrowedZoneRects = Dictionary(
+            uniqueKeysWithValues: zones.map {
+                ($0.id, CGRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height))
+            }
+        )
+        fit(
+            components: components.map { ($0.x, $0.y) },
+            zones: zones.map { ($0.x, $0.y, $0.width, $0.height) }
+        )
+    }
+
+    /// Lays the narrowed set out again after an edit. A canvas that narrows
+    /// nothing keeps the transform the person set, so adding a component
+    /// never moves the diagram under them.
+    func layOutNarrowedSetAgain() {
+        guard isNarrowing else { return }
+        layOutNarrowedSet()
+    }
+
+    /// Moves the named components in the picture alone.
+    ///
+    /// A drag while a filter is on calls this. It writes the narrowed
+    /// coordinates, calls no use case, and so moves nothing in the model. The
+    /// move is dropped at the next filter change, because every layout run
+    /// starts from the model's own coordinates.
+    func moveNarrowed(componentIds: Set<String>, by shift: CGSize) {
+        guard let layouts else { return }
+        for component in drawn(in: layouts.model).components
+        where componentIds.contains(component.id) {
+            narrowedComponentPositions[component.id] = CGPoint(
+                x: component.x + shift.width,
+                y: component.y + shift.height
+            )
+        }
+    }
+
+    /// Fits a drawn set in the visible canvas. A component draws at
+    /// `Component.size`, the way `CanvasGestures.zoomToFit` measures one.
+    private func fit(
+        components: [(x: Double, y: Double)],
+        zones: [(x: Double, y: Double, width: Double, height: Double)]
+    ) {
+        ViewportGestures(viewport: self).fit(
+            SelectionBounds.rect(
+                components: components.map {
+                    ($0.x, $0.y, Component.size.width, Component.size.height)
+                },
+                zones: zones
+            )
+        )
     }
 
     func startDrawingZone() {
