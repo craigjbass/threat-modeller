@@ -672,6 +672,10 @@ public final class TestDependencies: UseCaseFactory {
         ViewAttackData(data: attackData)
     }
 
+    public func searchAttackData() -> SearchAttackDataUseCase {
+        SearchAttackData(mitre: mitreActors)
+    }
+
     public func listThreatActorsInUse() -> ListThreatActorsInUseUseCase {
         ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors, models: models)
     }

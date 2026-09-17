@@ -1803,6 +1803,99 @@ struct ViewRenderTests {
         #expect(after.width * after.height < before.width * before.height)
     }
 
+    // MARK: the MITRE id field
+
+    /// A session holding the ATT&CK matrix this machine synchronised, so the
+    /// field searches real rows.
+    private func aSessionHoldingTheMatrix() -> ThreatModelSession {
+        let useCases = TestDependencies()
+        useCases.attackData.put(
+            """
+            {
+              "release": "v19.2",
+              "techniques": [
+                {
+                  "id": "T1190",
+                  "name": "Exploit Public-Facing Application",
+                  "tactics": ["initial-access"],
+                  "subtechnique": false
+                },
+                {
+                  "id": "T1078",
+                  "name": "Valid Accounts",
+                  "tactics": ["defense-evasion"],
+                  "subtechnique": false
+                },
+                {
+                  "id": "T1059.001",
+                  "name": "PowerShell",
+                  "tactics": ["execution"],
+                  "subtechnique": true
+                }
+              ]
+            }
+            """,
+            fileName: AttackDataLocation.techniquesFileName
+        )
+        return ThreatModelSession(useCases: useCases)
+    }
+
+    private func aMitreIdField(
+        _ session: ThreatModelSession,
+        ids: [String],
+        typed: String
+    ) -> MitreIdField {
+        MitreIdField(
+            title: "ATT&CK techniques this actor uses",
+            identifier: "render-mitre-ids",
+            ids: .constant(ids),
+            search: { text, kind in session.searchAttackData(text, kind: kind) },
+            synchronise: {},
+            typed: typed
+        )
+    }
+
+    @Test func drawsTheMitreIdFieldWithNothingInIt() {
+        expectDrawn(
+            aMitreIdField(aSessionHoldingTheMatrix(), ids: [], typed: "")
+                .padding(20),
+            width: 520,
+            height: 200,
+            "the empty MITRE id field"
+        )
+    }
+
+    @Test func drawsTheMitreIdFieldWithTokens() {
+        expectDrawn(
+            aMitreIdField(
+                aSessionHoldingTheMatrix(),
+                ids: ["T1190", "T1078", "T9999"],
+                typed: ""
+            )
+            .padding(20),
+            width: 520,
+            height: 200,
+            "the MITRE id field with tokens"
+        )
+    }
+
+    @Test func drawsTheMitreIdFieldWithTheSearchListOpen() {
+        let field = aMitreIdField(aSessionHoldingTheMatrix(), ids: [], typed: "t10")
+
+        #expect(field.rows.isEmpty == false)
+        expectDrawn(field.padding(20), width: 520, height: 300, "the MITRE id field searching")
+    }
+
+    /// With no matrix on this machine the field states how to synchronise and
+    /// draws the button that runs it.
+    @Test func drawsTheMitreIdFieldWithNoSynchronisedData() {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        let field = aMitreIdField(session, ids: ["T1190"], typed: "")
+
+        #expect(field.holdsData == false)
+        expectDrawn(field.padding(20), width: 520, height: 220, "the MITRE id field with no data")
+    }
+
     // MARK: the architecture sidebar
 
     /// A model holding one assumption and one mitigates edge, which is what

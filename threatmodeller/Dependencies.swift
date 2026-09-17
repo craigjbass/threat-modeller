@@ -648,6 +648,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         ViewAttackData(data: attackData)
     }
 
+    func searchAttackData() -> SearchAttackDataUseCase {
+        SearchAttackData(mitre: mitreActors)
+    }
+
     func listThreatActorsInUse() -> ListThreatActorsInUseUseCase {
         ListThreatActorsInUse(catalogue: catalogue, mitre: mitreActors, models: models)
     }

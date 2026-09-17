@@ -1175,6 +1175,9 @@ final class ProjectSession {
             model = drawn
             savedRevision = drawn.revision
             hasFilesChangedOnDisk = false
+            // A MITRE id field with no matrix on this machine offers the
+            // synchronise action, and the one synchronise path is here.
+            drawn.onSynchroniseAttack = { [weak self] in await self?.synchroniseAttack() }
             // Set last, so building the session does not count as a change.
             drawn.onChange = { [weak self] in self?.modelDidChange() }
             readPolicyRules()

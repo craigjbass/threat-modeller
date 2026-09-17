@@ -37,7 +37,9 @@ struct ThreatActorsSheet: View {
         var capability = Likelihood.targeted.id
         var intent = ""
         var performs = ""
-        var techniques = ""
+        /// The ATT&CK technique ids, as `MitreIdField` writes them: ids only,
+        /// the same list the parser reads.
+        var techniques: [String] = []
         var catalogueTier = ""
     }
 
@@ -305,15 +307,27 @@ struct ThreatActorsSheet: View {
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("threat-actor-aliases")
 
-            HStack(spacing: 6) {
-                TextField("Threat ids, separated by a comma", text: $draft.performs)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityIdentifier("threat-actor-performs")
-                TextField("Technique ids, separated by a comma", text: $draft.techniques)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityIdentifier("threat-actor-techniques")
-            }
+            TextField("Threat ids, separated by a comma", text: $draft.performs)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("threat-actor-performs")
+
+            techniqueField($draft.techniques)
         }
+    }
+
+    /// The control that writes this actor's ATT&CK technique ids.
+    ///
+    /// Issue #148: the ids are picked out of the synchronised matrix by id or
+    /// by name, so nobody types one from memory.
+    func techniqueField(_ ids: Binding<[String]>) -> MitreIdField {
+        MitreIdField(
+            title: "ATT&CK techniques this actor uses",
+            identifier: "threat-actor-techniques",
+            kind: .technique,
+            ids: ids,
+            search: { text, kind in session.searchAttackData(text, kind: kind) },
+            synchronise: session.onSynchroniseAttack
+        )
     }
 
     private var isWritable: Bool {
@@ -332,7 +346,7 @@ struct ThreatActorsSheet: View {
             capability: draft.capability,
             intent: draft.intent,
             performs: Self.list(draft.performs),
-            techniques: Self.list(draft.techniques),
+            techniques: draft.techniques,
             performsCatalogueTier: draft.catalogueTier.isEmpty ? nil : draft.catalogueTier
         )
         if session.errorMessage == nil { draft = Draft() }
@@ -349,7 +363,7 @@ struct ThreatActorsSheet: View {
             capability: actor.capabilityId,
             intent: actor.intent,
             performs: actor.performsThreatIds.joined(separator: ", "),
-            techniques: actor.techniques.joined(separator: ", "),
+            techniques: actor.techniques,
             catalogueTier: actor.performsCatalogueTierId ?? Self.noTier
         )
     }

@@ -138,6 +138,8 @@ public protocol UseCaseFactory: Sendable {
     func synchroniseAttack() -> SynchroniseAttackUseCase
     func verifyAttack() -> VerifyAttackUseCase
     func viewAttackData() -> ViewAttackDataUseCase
+    /// Searches the synchronised ATT&CK data by id and by name.
+    func searchAttackData() -> SearchAttackDataUseCase
     func listThreatActorsInUse() -> ListThreatActorsInUseUseCase
     /// The ATT&CK release this project states, or the one this application
     /// offers when it states none.

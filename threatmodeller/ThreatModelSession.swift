@@ -1692,6 +1692,23 @@ final class ThreatModelSession {
         refresh()
     }
 
+    // MARK: the synchronised MITRE ATT&CK data
+
+    /// Searches the ATT&CK matrix on this machine by id and by name. The
+    /// MITRE id field draws what it answers.
+    func searchAttackData(
+        _ text: String,
+        kind: AttackSearchKind = .technique
+    ) -> SearchAttackDataResponse {
+        useCases.searchAttackData()
+            .execute(SearchAttackDataRequest(text: text, kind: kind))
+    }
+
+    /// What brings the ATT&CK matrix onto this machine. `ProjectSession` sets
+    /// it when it builds the session, so a field with no data offers the
+    /// synchronise action. Nil while no project holds this model.
+    var onSynchroniseAttack: (() async -> Void)?
+
     // MARK: the adversaries this system faces
 
     /// The actors this project may face, with what each one performs.

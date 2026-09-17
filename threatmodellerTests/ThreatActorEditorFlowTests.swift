@@ -238,7 +238,7 @@ struct ThreatActorEditorFlowTests {
                 capability: actor.capabilityId,
                 intent: "commercial",
                 performs: actor.performsThreatIds.joined(separator: ", "),
-                techniques: actor.techniques.joined(separator: ", ")
+                techniques: actor.techniques
             )
         )
         sheet.write()
@@ -250,6 +250,77 @@ struct ThreatActorEditorFlowTests {
         let contractor = try #require(source.threatActors.first { $0.id == "contractor" })
         #expect(contractor.intent == "commercial")
         #expect(contractor.aliases == ["supplier", "vendor"])
+    }
+
+    // MARK: the techniques picked through the MITRE id field
+
+    /// The ATT&CK data this machine holds, for the field to search.
+    private static let techniques = """
+    {
+      "release": "v19.2",
+      "techniques": [
+        {
+          "id": "T1190",
+          "name": "Exploit Public-Facing Application",
+          "tactics": ["initial-access"],
+          "subtechnique": false
+        },
+        {
+          "id": "T1078",
+          "name": "Valid Accounts",
+          "tactics": ["defense-evasion"],
+          "subtechnique": false
+        }
+      ]
+    }
+    """
+
+    /// #148: a person picks two techniques out of the synchronised matrix and
+    /// the file holds the same `techniques` list the parser reads.
+    @Test func writesTheTechniquesPickedThroughTheMitreIdField() async throws {
+        // The matrix is on this machine before the project opens, the way it
+        // is for a person who synchronised on another day.
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        useCases.attackData.put(
+            Self.techniques,
+            fileName: AttackDataLocation.techniquesFileName
+        )
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+        let model = try #require(session.model)
+
+        // The control the sheet draws, writing into the list the form holds.
+        let held = MitreIdFieldTests.Held()
+        let field = ThreatActorsSheet(session: model, dismiss: {})
+            .techniqueField(held.binding)
+        field.pick(try #require(field.rows(for: "exploit pub").first))
+        field.pick(try #require(field.rows(for: "valid acc").first))
+        #expect(held.ids == ["T1190", "T1078"])
+
+        let sheet = ThreatActorsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: "contractor",
+                name: "Third-party contractor",
+                capability: "targeted",
+                techniques: held.ids
+            )
+        )
+        sheet.write()
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("[\"T1190\", \"T1078\"]"))
+        let source = try #require(HclArchitectureSource().read(written).source)
+        let actor = try #require(source.threatActors.first { $0.id == "contractor" })
+        #expect(actor.techniques == ["T1190", "T1078"])
     }
 
     // MARK: what the threat card reads

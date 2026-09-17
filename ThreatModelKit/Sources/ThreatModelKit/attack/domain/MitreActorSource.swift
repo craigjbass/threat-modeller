@@ -16,7 +16,9 @@ public final class MitreActorSource: @unchecked Sendable {
     private let data: AttackDataGateway
     private let lock = NSLock()
     private var actorsValue: [ThreatActor]?
-    private var techniquesValue: [String: AttackTechnique]?
+    private var groupsValue: [AttackGroup]?
+    private var techniquesValue: [AttackTechnique]?
+    private var techniquesByIdValue: [String: AttackTechnique]?
 
     public init(data: AttackDataGateway) {
         self.data = data
@@ -32,11 +34,10 @@ public final class MitreActorSource: @unchecked Sendable {
         }
         lock.unlock()
 
-        let text = data.read(fileName: AttackDataLocation.groupsFileName) ?? ""
         // Every group reads `targeted`: ATT&CK states no frequency, and a
         // named intrusion set is not commodity malware. A team that disagrees
         // writes a local `threat_actor` block, which overrides this whole.
-        let built = AttackFiles.groups(from: text).map { group in
+        let built = groups().map { group in
             ThreatActor(
                 id: ThreatActorId("\(Self.prefix)\(group.id)"),
                 name: group.name,
@@ -55,26 +56,63 @@ public final class MitreActorSource: @unchecked Sendable {
         return built
     }
 
-    /// The technique that id names, or nil when this machine holds no such
-    /// technique. The report reads it to print a name beside an id.
-    public func technique(_ id: String) -> AttackTechnique? {
+    /// Every group on this machine, as the file states it. Empty when nothing
+    /// has been synchronised. The MITRE id search reads it.
+    public func groups() -> [AttackGroup] {
+        lock.lock()
+        if let groupsValue {
+            defer { lock.unlock() }
+            return groupsValue
+        }
+        lock.unlock()
+
+        let text = data.read(fileName: AttackDataLocation.groupsFileName) ?? ""
+        let built = AttackFiles.groups(from: text)
+
+        lock.lock()
+        groupsValue = built
+        lock.unlock()
+        return built
+    }
+
+    /// Every technique on this machine, in the order the file states them.
+    /// Empty when nothing has been synchronised.
+    public func techniques() -> [AttackTechnique] {
         lock.lock()
         if let techniquesValue {
             defer { lock.unlock() }
-            return techniquesValue[id]
+            return techniquesValue
         }
         lock.unlock()
 
         let text = data.read(fileName: AttackDataLocation.techniquesFileName) ?? ""
-        let built = Dictionary(
-            AttackFiles.techniques(from: text).map { ($0.id, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
+        let built = AttackFiles.techniques(from: text)
 
         lock.lock()
         techniquesValue = built
+        techniquesByIdValue = Dictionary(
+            built.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         lock.unlock()
-        return built[id]
+        return built
+    }
+
+    /// The technique that id names, or nil when this machine holds no such
+    /// technique. The report reads it to print a name beside an id.
+    public func technique(_ id: String) -> AttackTechnique? {
+        lock.lock()
+        if let techniquesByIdValue {
+            defer { lock.unlock() }
+            return techniquesByIdValue[id]
+        }
+        lock.unlock()
+
+        _ = techniques()
+
+        lock.lock()
+        defer { lock.unlock() }
+        return techniquesByIdValue?[id]
     }
 
     /// Reads the files again. A synchronise calls it, so the window shows what
@@ -82,7 +120,9 @@ public final class MitreActorSource: @unchecked Sendable {
     public func forget() {
         lock.lock()
         actorsValue = nil
+        groupsValue = nil
         techniquesValue = nil
+        techniquesByIdValue = nil
         lock.unlock()
     }
 }
