@@ -458,6 +458,50 @@ struct AttackTreeEditorFlowTests {
         #expect(bound.isStale == false)
     }
 
+    // MARK: a step's note
+
+    /// A note typed on the selection panel's step field writes through
+    /// `TreeEditor` and the one writer, and the file reads it back.
+    @Test func aNoteTypedOnTheSelectionPanelReachesTheFile() async throws {
+        let (session, useCases, editor, goal, step) = try await aTreeWaitingForAJoin()
+        editor.join(from: step, to: goal)
+        editor.setName("Read every record")
+
+        let canvas = TreeCanvasState()
+        canvas.select(step, addingToSelection: false)
+        guard case .node(let node) = TreeSelection.of(editor: editor, canvas: canvas, bound: nil) else {
+            Issue.record("the selection is not a node")
+            return
+        }
+        #expect(node.note == nil)
+
+        // The commit closure the selection panel's note field calls.
+        editor.setNote("The avatar import fetches a URL the user gives it.", for: step)
+        await session.settle()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.attacktree"))
+        #expect(written.contains("note = \"The avatar import fetches a URL the user gives it.\""))
+
+        // The bytes the stage wrote are the bytes the one writer writes.
+        let source = try #require(HclAttackTreeSource().read(written).source)
+        #expect(source.trees.first?.steps.first?.note == "The avatar import fetches a URL the user gives it.")
+    }
+
+    /// The goal carries no note: the grammar states no body for `goal`, so a
+    /// change on it writes nothing.
+    @Test func theGoalRefusesANote() async throws {
+        let (session, useCases, editor, goal, step) = try await aTreeWaitingForAJoin()
+        editor.join(from: step, to: goal)
+        editor.setName("Read every record")
+        await session.settle()
+
+        editor.setNote("Should not write.", for: goal)
+        await session.settle()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.attacktree"))
+        #expect(written.contains("Should not write.") == false)
+    }
+
     /// A tree of a goal and one step, with the step joined to the goal from
     /// the **Join to\u{2026}** submenu. Returns the file the project wrote.
     private func aTreeJoinedByTheMenu() async throws -> String {

@@ -307,6 +307,22 @@ final class TreeEditor {
         change("Set as Goal") { $0.graph.goalId = id }
     }
 
+    /// Sets a step's note. The goal carries none: the grammar states no
+    /// body for `goal`, so a change on it writes nothing. An empty note
+    /// writes none.
+    func setNote(_ note: String, for id: String) {
+        guard case .step(let target, _) = draft.graph.node(id)?.kind, id != draft.graph.goalId else { return }
+        change("Note") { draft in
+            guard let node = draft.graph.node(id) else { return }
+            draft.graph.set(
+                id,
+                kind: .step(target: target, note: note.isEmpty ? nil : note),
+                title: node.title,
+                subtitle: node.subtitle
+            )
+        }
+    }
+
     func setName(_ name: String) {
         change("Rename") { $0.name = name }
     }

@@ -222,6 +222,19 @@ struct TreeSelectionPanel: View {
                 .accessibilityIdentifier("tree-selected-warning")
         }
 
+        // The goal carries no note: the grammar states no body for `goal`.
+        if node.isJunction == false && node.isGoal == false {
+            LabeledContent("Note") {
+                DeferredTextField(
+                    title: "Note",
+                    text: node.note ?? "",
+                    width: 200,
+                    identifier: "tree-step-note",
+                    commit: { editor.setNote($0, for: node.id) }
+                )
+            }
+        }
+
         if node.controls.isEmpty == false {
             Divider()
             controlsSection(node.controls)
@@ -502,6 +515,9 @@ enum TreeSelection: Equatable {
         /// the assessment gives them. Empty for a junction and for a step the
         /// assessment does not hold.
         var controls: [AssessedControl] = []
+        /// The step's own note, or nil for a junction and for the goal: the
+        /// grammar states no body for `goal`.
+        var note: String? = nil
     }
 
     /// One selected box: the element it holds, if any, and the element at
@@ -566,7 +582,7 @@ enum TreeSelection: Equatable {
         let isGoal = editor.graph.goalId == id
         let state = TreeStepState.state(of: node, in: bound)
         switch node.kind {
-        case .step:
+        case .step(_, let note):
             return .node(Node(
                 id: id,
                 threat: node.title,
@@ -582,7 +598,8 @@ enum TreeSelection: Equatable {
                     "No flow or zone joins \($0.from.name) to \($0.to.name)."
                 },
                 sufficient: isGoal ? sufficient(editor: editor, bound: bound) : nil,
-                controls: controls(of: node, in: threats)
+                controls: controls(of: node, in: threats),
+                note: isGoal ? nil : note
             ))
         case .placeholder(let element):
             let anchor = editor.graph.elementPayload(anchoring: id)

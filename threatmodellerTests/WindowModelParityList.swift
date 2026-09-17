@@ -275,7 +275,7 @@ extension WindowModelParityTests {
             ("step", .writes("tree-element-placeholder"))
         ])) { first, _ in first }
         all.merge(rows("attacktree", "step", [
-            ("note", .gap(170))
+            ("note", .writes("tree-step-note"))
         ])) { first, _ in first }
         for node in ["all_of", "any_of", "then"] {
             all.merge(rows("attacktree", node, [
