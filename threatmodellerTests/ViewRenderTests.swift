@@ -1775,4 +1775,50 @@ struct ViewRenderTests {
 
         #expect(after.width * after.height < before.width * before.height)
     }
+
+    // MARK: the architecture sidebar
+
+    /// A model holding one assumption and one mitigates edge, which is what
+    /// the sidebar keeps after the System sheets take the other editors.
+    private func aSidebarModel() -> ThreatModelSession {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-waf", x: 0, y: 0)
+        session.add(technologyId: "aws-ec2", x: 400, y: 0)
+        let ids = session.canvas.components.map(\.id)
+        session.setAssumption(
+            label: "network-segmented",
+            text: "The network is segmented.",
+            owner: "platform"
+        )
+        if ids.count == 2 {
+            session.setMitigatesEdge(
+                from: ids[0],
+                to: ids[1],
+                threatIds: ["credential-theft"],
+                reducesRiskBy: 80,
+                status: "assumed"
+            )
+        }
+        return session
+    }
+
+    /// The sidebar keeps the assumptions, the risk tolerance and the mitigates
+    /// list, and nothing else. The assumptions header comes first, so it is
+    /// visible with no scroll.
+    @Test func drawsTheSidebarWithTheAssumptionsHeaderNearTheTop() async throws {
+        let session = aSidebarModel()
+
+        // The panel is a scrolling column, so it draws through the hosted
+        // path, the way every other scrolling editor in this file draws.
+        expectHosted(AssumptionsPanel(session: session), width: 320, height: 640, "the architecture sidebar")
+
+        let above = NSHostingView(rootView: AssumptionsPanel(session: session).aboveTheAssumptions)
+        above.frame = CGRect(x: 0, y: 0, width: 320, height: 0)
+        let header = above.fittingSize.height + AssumptionsPanel.topPadding
+
+        #expect(
+            header < 640,
+            Comment(rawValue: "the assumptions header sits \(header) points down the sidebar")
+        )
+    }
 }

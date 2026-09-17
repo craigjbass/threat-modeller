@@ -211,14 +211,17 @@ struct SystemDiagramEditorFlowTests {
         #expect(markdown.contains("sequenceDiagram"))
     }
 
-    // MARK: the panel
+    // MARK: the sheet
 
-    @Test func theAssumptionsPanelDraws() async throws {
+    /// #145: the diagram editor left the architecture sidebar for the
+    /// Diagrams sheet the System menu opens, so the drawing test draws the
+    /// sheet.
+    @Test func theDiagramsSheetDraws() async throws {
         let (session, _) = await aProject(withDiagram)
         let model = try #require(session.model)
 
         let renderer = ImageRenderer(
-            content: AssumptionsPanel(session: model).frame(width: 320, height: 1400)
+            content: DiagramsSheet(session: model, dismiss: {}).frame(width: 760, height: 520)
         )
         renderer.scale = 1
 

@@ -154,6 +154,14 @@ struct ThreatModelCommands: Commands {
             .disabled(canRedo == false)
         }
 
+        // What this system states about itself. Each item opens one sheet.
+        // The title is System, which no standard macOS menu uses: issue #153
+        // states that CommandMenu("View") duplicates the standard View menu,
+        // and this menu must not repeat that fault.
+        CommandMenu("System") {
+            ElementMenuView(rows: Self.systemRows(project: project))
+        }
+
         // Replacing this group takes the standard Cut, Copy and Paste away
         // from every text field in the application, so these items carry both:
         // what holds the focus decides what they act on. A text field edits its
@@ -369,6 +377,13 @@ struct ThreatModelCommands: Commands {
                 .disabled(canvas?.selectedZoneIds.isEmpty != false)
                 .accessibilityIdentifier("send-zone-to-back")
         }
+    }
+
+    /// The System menu rows. The project window's toolbar control draws the
+    /// same value, so the menu bar and the toolbar cannot drift. With no
+    /// project in front every row is off.
+    static func systemRows(project: ProjectSession?) -> [ElementMenu.Row] {
+        SystemMenu(project: project).rows
     }
 
     /// Which pointing device drives both canvases. With no project in front

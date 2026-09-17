@@ -117,6 +117,15 @@ A sheet holds no Cancel: every write goes straight through the use case and the
 model, the way the panel wrote, and the project's own save writes the file. The
 sheet states the file so a person knows which one changed.
 
+### The one exception
+
+`ThreatActorsSheet` keeps its own list-above-form layout. Its list is every
+ATT&CK group on the machine, about 180 rows, and a 300-point column cannot hold
+a row of that width. The sheet takes the shared footer, `SystemSheetFooter`, so
+Close sits on Escape, the write button sits on Cmd+S, and the footer names the
+file, in the same places as every other System sheet. No other sheet may take
+this exception without a list of the same size.
+
 ## The System menu
 
 A `CommandMenu("System")` in the menu bar. The title is **System**, which no

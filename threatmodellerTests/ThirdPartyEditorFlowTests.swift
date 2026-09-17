@@ -267,14 +267,17 @@ struct ThirdPartyEditorFlowTests {
         #expect(party.uptimeLabel == "Hard")
     }
 
-    // MARK: the panel
+    // MARK: the sheet
 
-    @Test func theAssumptionsPanelDraws() async throws {
+    /// #145: the third-party editor left the architecture sidebar for the
+    /// Third Parties sheet the System menu opens, so the drawing test draws
+    /// the sheet.
+    @Test func theThirdPartiesSheetDraws() async throws {
         let (session, _) = await aProject(withStripe)
         let model = try #require(session.model)
 
         let renderer = ImageRenderer(
-            content: AssumptionsPanel(session: model).frame(width: 320, height: 900)
+            content: ThirdPartiesSheet(session: model, dismiss: {}).frame(width: 760, height: 520)
         )
         renderer.scale = 1
 

@@ -12,8 +12,6 @@ struct ProjectWindow: View {
     /// True while the question about downloading ATT&CK is on screen.
     @State private var isAskingAboutAttack = false
     @State private var isShowingLibraries = false
-    /// True while the threat actors sheet is on screen.
-    @State private var isShowingThreatActors = false
     /// True while the planned-work list is on screen.
     @State private var isShowingPlannedWork = false
     @State private var isShowingHistory = false
@@ -128,11 +126,12 @@ struct ProjectWindow: View {
                 )
             }
         }
-        .sheet(isPresented: $isShowingThreatActors) {
+        .sheet(item: systemSheet) { kind in
             if let model = session.model {
-                ThreatActorsSheet(
+                SystemSheetView(
+                    kind: kind,
                     session: model,
-                    dismiss: { isShowingThreatActors = false }
+                    dismiss: { session.systemSheet = nil }
                 )
             }
         }
@@ -262,13 +261,18 @@ struct ProjectWindow: View {
                 .accessibilityIdentifier("show-history")
             }
 
+            // What the system states about itself: one item per sheet, with
+            // the count the model holds beside each. The menu bar draws the
+            // same rows under System.
             ToolbarItem {
-                Button("Threat Actors", systemImage: "person.badge.shield.checkmark") {
-                    isShowingThreatActors = true
+                Menu {
+                    ElementMenuView(rows: Self.systemRows(project: session))
+                } label: {
+                    Label("System", systemImage: "list.bullet.rectangle")
                 }
                 .disabled(session.model == nil)
-                .help("Which adversaries this system faces, and what each one performs.")
-                .accessibilityIdentifier("threat-actors")
+                .help("What this system states about itself, one sheet at a time.")
+                .accessibilityIdentifier("system-menu")
             }
 
             ToolbarItem {
@@ -300,6 +304,21 @@ struct ProjectWindow: View {
 
             settingItems
         }
+    }
+
+    /// The System menu rows this toolbar control draws. The menu bar draws
+    /// the same value, so the two entry points cannot drift.
+    static func systemRows(project: ProjectSession) -> [ElementMenu.Row] {
+        SystemMenu(project: project).rows
+    }
+
+    /// Which System sheet is on screen. The session holds it, so a test runs
+    /// a menu row and reads which sheet opened.
+    private var systemSheet: Binding<SystemSheetKind?> {
+        Binding(
+            get: { session.systemSheet },
+            set: { session.systemSheet = $0 }
+        )
     }
 
     /// What a load is doing. Opening a large model takes long enough that a

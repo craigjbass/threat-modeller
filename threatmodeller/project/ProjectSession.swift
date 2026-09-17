@@ -21,6 +21,10 @@ final class ProjectSession {
     var paletteColumns: NavigationSplitViewVisibility = .all {
         didSet { defaults.set(PaletteColumn.isShowing(paletteColumns), forKey: Self.paletteShowingKey) }
     }
+    /// Which System sheet is on screen, or nil while none is. The System menu
+    /// and the toolbar control both write it, and the project window presents
+    /// the sheet it names.
+    var systemSheet: SystemSheetKind?
     private let watcher: ProjectWatching
     private let defaults: UserDefaults
     private let coalescer: ChangeCoalescing

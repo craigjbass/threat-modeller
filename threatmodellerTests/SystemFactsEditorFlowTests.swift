@@ -264,14 +264,17 @@ struct SystemFactsEditorFlowTests {
         #expect(SystemDateField.day(of: "last Tuesday") == nil)
     }
 
-    // MARK: the panel
+    // MARK: the sheet
 
-    @Test func theAssumptionsPanelDraws() async throws {
+    /// #145: the document-control fields and the free attributes left the
+    /// architecture sidebar for the Document Control sheet the System menu
+    /// opens, so the drawing test draws the sheet.
+    @Test func theDocumentControlSheetDraws() async throws {
         let (session, _) = await aProject(described)
         let model = try #require(session.model)
 
         let renderer = ImageRenderer(
-            content: AssumptionsPanel(session: model).frame(width: 320, height: 1400)
+            content: DocumentControlSheet(session: model, dismiss: {}).frame(width: 760, height: 520)
         )
         renderer.scale = 1
 
@@ -279,7 +282,7 @@ struct SystemFactsEditorFlowTests {
     }
 
     @Test func theListFieldsReadAndWriteOneLine() {
-        #expect(AssumptionsPanel.joined(["Ada Lovelace", "Alan Turing"]) == "Ada Lovelace, Alan Turing")
-        #expect(AssumptionsPanel.split(" Ada Lovelace , , Alan Turing ") == ["Ada Lovelace", "Alan Turing"])
+        #expect(SystemSheetWriting.joined(["Ada Lovelace", "Alan Turing"]) == "Ada Lovelace, Alan Turing")
+        #expect(SystemSheetWriting.split(" Ada Lovelace , , Alan Turing ") == ["Ada Lovelace", "Alan Turing"])
     }
 }
