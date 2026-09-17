@@ -29,6 +29,9 @@ final class TreeEditor {
         var name = ""
         var description = ""
         var raisesRiskBy = 0
+        /// The controls that are each sufficient to close the whole route,
+        /// in the order the file states them.
+        var closedBy: [String] = []
     }
 
     /// The id of the tree in front. The file names a tree by it.
@@ -51,6 +54,7 @@ final class TreeEditor {
     var name: String { draft.name }
     var description: String { draft.description }
     var raisesRiskBy: Int { draft.raisesRiskBy }
+    var closedBy: [String] { draft.closedBy }
 
     // MARK: history
 
@@ -108,7 +112,8 @@ final class TreeEditor {
             pending: [],
             name: tree.name ?? tree.id,
             description: tree.description ?? "",
-            raisesRiskBy: tree.raisesRiskBy
+            raisesRiskBy: tree.raisesRiskBy,
+            closedBy: tree.closedBy
         )
         past = []
         future = []
@@ -314,6 +319,17 @@ final class TreeEditor {
         change("Raises Risk By") { $0.raisesRiskBy = percent }
     }
 
+    /// Names one more control as sufficient to close the whole route. A
+    /// control the tree names already is not named twice.
+    func addSufficientControl(_ description: String) {
+        guard draft.closedBy.contains(description) == false else { return }
+        change("Add Sufficient Control") { $0.closedBy.append(description) }
+    }
+
+    func removeSufficientControl(_ description: String) {
+        change("Remove Sufficient Control") { $0.closedBy.removeAll { $0 == description } }
+    }
+
     // MARK: what is written
 
     /// Writes the graph when it states a tree, or states the refusal. There
@@ -323,7 +339,8 @@ final class TreeEditor {
             id: id,
             name: draft.name.isEmpty ? nil : draft.name,
             description: draft.description.isEmpty ? nil : draft.description,
-            raisesRiskBy: draft.raisesRiskBy
+            raisesRiskBy: draft.raisesRiskBy,
+            closedBy: draft.closedBy
         )
         switch result {
         case .success(let tree):

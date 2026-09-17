@@ -233,4 +233,83 @@ struct TreeSelectionTests {
 
         #expect(TreeSelection.of(editor: editor, canvas: canvas, bound: nil) == .several(2))
     }
+
+    // MARK: the controls that are sufficient to close the whole route
+
+    private func closedBound() -> BoundAttackTree {
+        BoundAttackTree(
+            id: "t",
+            name: "T",
+            description: nil,
+            raisesRiskBy: 10,
+            goal: ThreatKey(threatId: "exfiltration", sourceId: "component:db"),
+            goalName: "Exfiltration",
+            goalSourceName: "db",
+            steps: [],
+            chainFactor: 0,
+            isOpen: false,
+            isStale: false,
+            scoreBefore: 40,
+            score: 40,
+            sufficientControls: [
+                BoundSufficientControl(description: "Segment the network", state: .closes),
+                BoundSufficientControl(description: "Alert on the route", state: .open),
+            ],
+            closedBy: "Segment the network"
+        )
+    }
+
+    @Test func theTreeStatesItsSufficientControlsAndWhatClosedIt() {
+        let (editor, canvas, _, _) = drawn()
+        editor.addSufficientControl("Segment the network")
+        editor.addSufficientControl("Alert on the route")
+
+        guard case .tree(let tree) = TreeSelection.of(editor: editor, canvas: canvas, bound: closedBound()) else {
+            Issue.record("the selection is not the tree")
+            return
+        }
+        #expect(tree.standing == "Closed by Segment the network: no score moves.")
+        #expect(tree.sufficient == [
+            TreeSelection.Sufficient(description: "Segment the network", state: "Closes the tree."),
+            TreeSelection.Sufficient(description: "Alert on the route", state: "Open: not implemented."),
+        ])
+    }
+
+    @Test func theGoalStatesTheSufficientControlsAndAStepDoesNot() {
+        let (editor, canvas, goal, step) = drawn()
+        editor.addSufficientControl("Segment the network")
+
+        canvas.select(goal, addingToSelection: false)
+        guard case .node(let goalNode) = TreeSelection.of(editor: editor, canvas: canvas, bound: nil) else {
+            Issue.record("the selection is not a node")
+            return
+        }
+        #expect(goalNode.sufficient == [
+            TreeSelection.Sufficient(description: "Segment the network", state: "Not written yet."),
+        ])
+
+        canvas.select(step, addingToSelection: false)
+        guard case .node(let stepNode) = TreeSelection.of(editor: editor, canvas: canvas, bound: nil) else {
+            Issue.record("the selection is not a node")
+            return
+        }
+        #expect(stepNode.sufficient == nil)
+    }
+
+    @Test func addingAndRemovingASufficientControlAreEachOneUndoableChange() {
+        let (editor, _, _, _) = drawn()
+
+        editor.addSufficientControl("Segment the network")
+        editor.addSufficientControl("Segment the network")
+        #expect(editor.closedBy == ["Segment the network"])
+        #expect(editor.undoLabel == "Add Sufficient Control")
+
+        editor.removeSufficientControl("Segment the network")
+        #expect(editor.closedBy.isEmpty)
+        #expect(editor.undoLabel == "Remove Sufficient Control")
+
+        editor.undo()
+        #expect(editor.closedBy == ["Segment the network"])
+        #expect(editor.lastWritten?.closedBy == ["Segment the network"])
+    }
 }

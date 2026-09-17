@@ -229,7 +229,8 @@ struct TreeGraph: Equatable {
         id: String,
         name: String?,
         description: String?,
-        raisesRiskBy: Int
+        raisesRiskBy: Int,
+        closedBy: [String] = []
     ) -> Result<SourceAttackTree, Refusal> {
         guard let goalId, let goalNode = node(goalId) else { return .failure(.noGoal) }
         guard case .step(let goalTarget, _) = goalNode.kind else {
@@ -302,6 +303,7 @@ struct TreeGraph: Equatable {
             name: name,
             description: description,
             raisesRiskBy: raisesRiskBy,
+            closedBy: closedBy,
             goal: goalTarget,
             root: subtree(of: roots[0])
         ))

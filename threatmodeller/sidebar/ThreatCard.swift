@@ -46,6 +46,12 @@ struct ThreatCard: View {
             + threat.knownVulnerabilities.map(\.described).joined(separator: ", ")
     }
 
+    /// `The tree <name> is closed by <control>.`, one line per tree that
+    /// names this threat as its goal and is closed by a sufficient control.
+    static func treeClosureLines(_ threat: AssessedThreat) -> [String] {
+        threat.closedByTrees.map { "The tree \($0.treeName) is closed by \($0.control)." }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             header
@@ -86,6 +92,16 @@ struct ThreatCard: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("known-vulnerabilities-\(threat.threatKey)")
+            }
+
+            // Read only. The Attack Trees stage names the control; the
+            // Controls stage marks it implemented.
+            ForEach(Self.treeClosureLines(threat), id: \.self) { line in
+                Text(line)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("closed-by-tree-\(threat.threatKey)")
             }
 
             if focus == .controls {

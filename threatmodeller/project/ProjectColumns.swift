@@ -81,8 +81,14 @@ struct ProjectColumns: View {
             } content: {
                 treeDiagram
             } detail: {
-                TreeSelectionPanel(editor: trees, canvas: treeCanvas, bound: boundTree, elements: treeElements)
-                    .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
+                TreeSelectionPanel(
+                    editor: trees,
+                    canvas: treeCanvas,
+                    bound: boundTree,
+                    elements: treeElements,
+                    controls: modelControls
+                )
+                .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
             }
         case .threats:
             // A plain split, not a `NavigationSplitView`. A sidebar column
@@ -162,6 +168,12 @@ struct ProjectColumns: View {
             connections: session.canvas.connections,
             zones: session.canvas.zones
         )
+    }
+
+    /// Every control description the model holds, once each, in
+    /// alphabetical order, for the sufficient control menu.
+    private var modelControls: [String] {
+        Array(Set(session.threats.flatMap(\.controls).map(\.description))).sorted()
     }
 
     /// What the assessment bound for the tree in front, or nil.

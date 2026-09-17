@@ -17,6 +17,9 @@ struct TreeSelectionPanel: View {
     /// The elements the `.arch` file states, for the search on a box and
     /// the warning on a join the flows do not support.
     var elements: [TreeElement] = []
+    /// Every control description the model holds, in alphabetical order,
+    /// for the menu that names one as sufficient to close the whole route.
+    var controls: [String] = []
 
     private var selection: TreeSelection {
         TreeSelection.of(editor: editor, canvas: canvas, bound: bound, elements: elements)
@@ -113,8 +116,60 @@ struct TreeSelectionPanel: View {
 
         Divider()
 
+        sufficientSection(tree.sufficient)
+
+        Divider()
+
         Button("Delete Tree", role: .destructive) { editor.deleteTree() }
             .accessibilityIdentifier("delete-attack-tree")
+    }
+
+    // MARK: the controls that are sufficient to close the whole route
+
+    /// The controls the tree names as each sufficient to close the whole
+    /// route, with what each is doing, a Remove beside each, and a menu of
+    /// every control the model holds that the tree does not name yet.
+    @ViewBuilder
+    private func sufficientSection(_ sufficient: [TreeSelection.Sufficient]) -> some View {
+        Text("Sufficient controls")
+            .font(.subheadline.weight(.semibold))
+
+        if sufficient.isEmpty {
+            Text("No control is named as sufficient to close the whole route.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+
+        ForEach(sufficient, id: \.description) { control in
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(control.description)
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(control.state)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 4)
+                Button("Remove") { editor.removeSufficientControl(control.description) }
+                    .font(.caption)
+                    .accessibilityIdentifier("tree-sufficient-remove-\(control.description)")
+            }
+            .accessibilityIdentifier("tree-sufficient-\(control.description)")
+        }
+
+        let offered = controls.filter { description in
+            sufficient.contains { $0.description == description } == false
+        }
+        if offered.isEmpty == false {
+            Menu("Add a Sufficient Control") {
+                ForEach(offered, id: \.self) { description in
+                    Button(description) { editor.addSufficientControl(description) }
+                }
+            }
+            .accessibilityIdentifier("tree-sufficient-add")
+        }
     }
 
     // MARK: the selected node
@@ -147,6 +202,11 @@ struct TreeSelectionPanel: View {
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("tree-selected-warning")
+        }
+
+        if let sufficient = node.sufficient {
+            Divider()
+            sufficientSection(sufficient)
         }
 
         Divider()
@@ -334,6 +394,27 @@ enum TreeSelection: Equatable {
         /// The bound score, or the refusal.
         let standing: String
         let isRefused: Bool
+        /// The controls the file names as each sufficient to close the
+        /// whole route, with what each is doing.
+        var sufficient: [Sufficient] = []
+    }
+
+    /// One control named as sufficient to close the whole route, and what
+    /// the assessment says about it.
+    struct Sufficient: Equatable {
+        let description: String
+        let state: String
+
+        /// What the panel says beside a sufficient control.
+        static func says(_ state: SufficientControlState?) -> String {
+            switch state {
+            case .closes: "Closes the tree."
+            case .open: "Open: not implemented."
+            case .unevidenced: "Open: implemented with no evidence."
+            case .unknown: "Unknown: no control has this description."
+            case nil: "Not written yet."
+            }
+        }
     }
 
     struct Node: Equatable {
@@ -354,6 +435,9 @@ enum TreeSelection: Equatable {
         /// The join this step makes that no flow or zone supports, as
         /// "No flow or zone joins A to B.", or nil.
         var warning: String? = nil
+        /// The tree's sufficient controls, on the goal; nil on every other
+        /// node.
+        var sufficient: [Sufficient]? = nil
     }
 
     /// One selected box: the element it holds, if any, and the element at
@@ -406,7 +490,8 @@ enum TreeSelection: Equatable {
         guard let id = selected.first else {
             return .tree(Tree(
                 standing: editor.refusal.map { "Not written: \($0)." } ?? written(editor: editor, bound: bound),
-                isRefused: editor.refusal != nil
+                isRefused: editor.refusal != nil,
+                sufficient: sufficient(editor: editor, bound: bound)
             ))
         }
         if let pending = editor.pending.first(where: { $0.id == id }) {
@@ -430,7 +515,8 @@ enum TreeSelection: Equatable {
                 chain: isGoal ? nil : chain(of: id, in: editor.graph),
                 warning: TreeConnectable.outsideJoin(from: id, in: editor.graph, elements: elements).map {
                     "No flow or zone joins \($0.from.name) to \($0.to.name)."
-                }
+                },
+                sufficient: isGoal ? sufficient(editor: editor, bound: bound) : nil
             ))
         case .placeholder(let element):
             let anchor = editor.graph.elementPayload(anchoring: id)
@@ -473,6 +559,22 @@ enum TreeSelection: Equatable {
         return said + "."
     }
 
+    /// The controls the draft names as sufficient, each with what the
+    /// assessment says about it, or "Not written yet." while the written
+    /// tree does not name it.
+    @MainActor
+    private static func sufficient(editor: TreeEditor, bound: BoundAttackTree?) -> [Sufficient] {
+        let scored = bound.flatMap { $0.id == editor.id ? $0 : nil }
+        return editor.closedBy.map { description in
+            Sufficient(
+                description: description,
+                state: Sufficient.says(
+                    scored?.sufficientControls.first { $0.description == description }?.state
+                )
+            )
+        }
+    }
+
     /// What the assessment says about the written tree.
     @MainActor
     private static func written(editor: TreeEditor, bound: BoundAttackTree?) -> String {
@@ -480,6 +582,7 @@ enum TreeSelection: Equatable {
             return "Written. The next assessment scores this tree."
         }
         if scored.isStale { return "Stale: a step names something this model no longer raises." }
+        if let closedBy = scored.closedBy { return "Closed by \(closedBy): no score moves." }
         return scored.isOpen
             ? "Open: the goal's score moves \(scored.scoreBefore) \u{2192} \(scored.score)."
             : "Closed: every route is answered, and no score moves."

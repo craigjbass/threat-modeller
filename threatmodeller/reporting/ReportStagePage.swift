@@ -696,6 +696,12 @@ struct ReportStagePage: Equatable {
                 blocks.append(.paragraph(description))
             }
             blocks.append(.paragraph("Goal: \(tree.goalName) on \(tree.goalSourceName)."))
+            if tree.sufficientControls.isEmpty == false {
+                blocks.append(.lead("Sufficient controls"))
+                blocks.append(.bullets(tree.sufficientControls.map {
+                    ReportBullet(text: "\($0.description): \(MarkdownAttackTrees.said($0.state))")
+                }))
+            }
             blocks.append(.table(ReportTable(
                 columns: ["Step", "Raised on", "State", "Closed by"],
                 rows: tree.steps.map {
@@ -712,6 +718,7 @@ struct ReportStagePage: Equatable {
 
     private static func treeHeading(_ tree: BoundAttackTree) -> String {
         guard tree.isStale == false else { return "\(tree.name) \u{2014} no longer binds" }
+        if let closedBy = tree.closedBy { return "\(tree.name) \u{2014} closed by \(closedBy)" }
         guard tree.isOpen else { return "\(tree.name) \u{2014} every route is closed" }
         return "\(tree.name) \u{2014} \(tree.scoreBefore) \u{2192} \(tree.score),"
             + " chain \(tree.chainPercentage)%"

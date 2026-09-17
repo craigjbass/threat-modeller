@@ -412,6 +412,66 @@ struct AttackTreeEditorFlowTests {
         return try #require(useCases.project.text(at: "/work/threatmodel/payments.attacktree"))
     }
 
+    // MARK: the controls that are sufficient to close the whole route
+
+    /// A sufficient control picked on the stage reaches the file through the
+    /// one writer, and the file reads back with it.
+    @Test func aSufficientControlAddedOnTheStageReachesTheFile() async throws {
+        let (session, useCases, editor, goal, step) = try await aTreeWaitingForAJoin()
+        editor.join(from: step, to: goal)
+        await session.settle()
+        let control = try #require(session.model?.threats.flatMap(\.controls).first).description
+
+        editor.addSufficientControl(control)
+        await session.settle()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.attacktree"))
+        #expect(written.contains("closed_by = [\"\(control)\"]"))
+        #expect(session.attackTreeSources.first?.closedBy == [control])
+        #expect(session.errorMessage == nil)
+
+        // The bytes the stage wrote are the bytes the one writer writes.
+        let reread = try #require(session.attackTreeSources.first)
+        #expect(HclAttackTreeSource().write(AttackTreeSource(systemName: "Payments", trees: [reread])) == written)
+    }
+
+    /// The control that closes the tree is implemented, so the goal's threat
+    /// card and the report stage both name it.
+    @Test func theGoalsCardAndTheReportStageNameTheClosingControl() async throws {
+        let (session, _, editor, goal, step) = try await aTreeWaitingForAJoin()
+        editor.join(from: step, to: goal)
+        editor.setName("Read every record")
+        await session.settle()
+        let model = try #require(session.model)
+        let stepThreat = try #require(model.threats.first { $0.threatId == "credential-theft" })
+        let control = try #require(stepThreat.controls.first)
+        model.setControl(key: control.key, implemented: true)
+        await session.save()
+
+        editor.addSufficientControl(control.description)
+        await session.settle()
+
+        let bound = try #require(session.model?.attackTrees.first)
+        #expect(bound.closedBy == control.description)
+        #expect(bound.isOpen == false)
+
+        let goalThreat = try #require(
+            session.model?.threats.first { $0.threatId == "misconfiguration" && $0.source.id == "component:db" }
+        )
+        #expect(ThreatCard.treeClosureLines(goalThreat)
+            == ["The tree Read every record is closed by \(control.description)."])
+        #expect(ThreatCard.treeClosureLines(stepThreat).isEmpty)
+
+        let page = try #require(session.model).reportStagePage()
+        let section = try #require(page.sections.first { $0.slot == .attackTrees })
+        #expect(section.blocks.contains(
+            .subheading("Read every record \u{2014} closed by \(control.description)")
+        ))
+        #expect(section.blocks.contains(
+            .bullets([ReportBullet(text: "\(control.description): closes the tree")])
+        ))
+    }
+
     /// A stage editor holding a goal and one step that feeds nothing yet.
     private func aTreeWaitingForAJoin() async throws
         -> (ProjectSession, TestDependencies, TreeEditor, String, String) {
