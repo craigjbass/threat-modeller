@@ -113,6 +113,8 @@ public struct AssessedControl: Hashable, Sendable {
     /// Where the proof is, and when somebody last checked.
     public let evidenceReference: String?
     public let verifiedOn: String?
+    /// What a person wrote about this control, beside its evidence, or nil.
+    public let note: String?
     /// The open trees this control closes a step on, by name, in file order.
     /// Empty for a control that closes no route. The order rule of
     /// `RouteClosing` puts a control with names here before one without.
@@ -131,6 +133,7 @@ public struct AssessedControl: Hashable, Sendable {
         evidenceId: String? = nil,
         evidenceReference: String? = nil,
         verifiedOn: String? = nil,
+        note: String? = nil,
         closesTreeNames: [String] = []
     ) {
         self.description = description
@@ -140,6 +143,7 @@ public struct AssessedControl: Hashable, Sendable {
         self.acceptedBy = acceptedBy
         self.reviewBy = reviewBy
         self.isReviewOverdue = isReviewOverdue
+        self.note = note
         self.evidenceId = evidenceId
         self.evidenceReference = evidenceReference
         self.verifiedOn = verifiedOn
@@ -646,6 +650,7 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                             evidenceReference: model.controlProofs[control.key].map(\.reference)
                                 .flatMap { $0.isEmpty ? nil : $0 },
                             verifiedOn: model.controlProofs[control.key]?.verifiedOn?.description,
+                            note: model.controlNotes[control.key],
                             closesTreeNames: Self.closes(
                                 control.description,
                                 onAnOpenStepOf: openStepTrees[

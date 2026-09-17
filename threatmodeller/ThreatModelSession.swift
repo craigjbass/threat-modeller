@@ -1314,6 +1314,15 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// Writes what a person wrote about one control, beside its evidence. An
+    /// empty note clears it.
+    func setControlNote(key: String, note: String) {
+        useCases.setControlNote().execute(
+            SetControlNoteRequest(controlKey: key, note: note)
+        ).describe(into: &errorMessage)
+        refresh()
+    }
+
     /// Adds or replaces what compensates one threat. An empty label removes it.
     func setCompensatingControl(
         threatKey: String,

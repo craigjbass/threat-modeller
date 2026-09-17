@@ -110,7 +110,7 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                     SourceControlAnswer(
                         description: control.description,
                         status: onScreen.statuses[answer.key]?[control.description] ?? control.status,
-                        note: control.note,
+                        note: onScreen.notes[answer.key]?[control.description] ?? control.note,
                         proof: onScreen.proofs[answer.key]?[control.description] ?? control.proof
                     )
                 },
@@ -195,10 +195,12 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
     ) -> (
         statuses: [ThreatKey: [String: ControlStatus]],
         proofs: [ThreatKey: [String: ControlProof]],
+        notes: [ThreatKey: [String: String]],
         compensating: [ThreatKey: [CompensatingControl]]
     ) {
         var statuses: [ThreatKey: [String: ControlStatus]] = [:]
         var proofs: [ThreatKey: [String: ControlProof]] = [:]
+        var notes: [ThreatKey: [String: String]] = [:]
 
         for threat in ThreatResolver(model: model, catalogue: catalogue).resolve() {
             let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
@@ -212,8 +214,14 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                 threat.controls.map { ($0.description, model.controlProofs[$0.key] ?? ControlProof()) },
                 uniquingKeysWith: { first, _ in first }
             )
+            // Every offered control lands here, empty note included, so a
+            // note cleared on screen clears in the file.
+            notes[key] = Dictionary(
+                threat.controls.map { ($0.description, model.controlNotes[$0.key] ?? "") },
+                uniquingKeysWith: { first, _ in first }
+            )
         }
 
-        return (statuses, proofs, model.compensatingControls)
+        return (statuses, proofs, notes, model.compensatingControls)
     }
 }

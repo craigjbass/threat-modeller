@@ -90,6 +90,9 @@ public struct ThreatModel: Equatable, Sendable {
     /// What proves each control is in place, by control key. Sparse: a
     /// control that states none of the three attributes is not in here.
     public var controlProofs: [ControlKey: ControlProof]
+    /// What a person wrote about each control, by control key. Sparse: a
+    /// control with no note is not in here.
+    public var controlNotes: [ControlKey: String]
     /// The risk level at and above which an implemented control must state
     /// evidence, or nil when the project states no such rule.
     public var requiresEvidenceAbove: RiskLevel?
@@ -146,6 +149,7 @@ public struct ThreatModel: Equatable, Sendable {
         documentFacts: DocumentFacts = DocumentFacts(),
         policy: PolicySource? = nil,
         controlProofs: [ControlKey: ControlProof] = [:],
+        controlNotes: [ControlKey: String] = [:],
         requiresEvidenceAbove: RiskLevel? = nil,
         acceptedRisks: [ThreatKey: [RiskAcceptance]] = [:],
         plannedWork: [ThreatKey: [PlannedWork]] = [:],
@@ -188,6 +192,7 @@ public struct ThreatModel: Equatable, Sendable {
         self.documentFacts = documentFacts
         self.policy = policy
         self.controlProofs = controlProofs
+        self.controlNotes = controlNotes
         self.requiresEvidenceAbove = requiresEvidenceAbove
         self.acceptedRisks = acceptedRisks
         self.plannedWork = plannedWork

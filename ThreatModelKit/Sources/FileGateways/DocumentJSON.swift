@@ -22,6 +22,9 @@ struct DocumentJSON: Codable {
     /// Version 10 adds what proves a control. A file at version 9 or below
     /// states none.
     let controlProofs: [String: ControlProofJSON]?
+    /// Version 11 adds what a person wrote about a control, beside its
+    /// evidence. A file at version 10 or below states none.
+    let controlNotes: [String: String]?
     let pathwayMitigations: PathwayMitigationsJSON
     /// Version 4 adds these two. A version 1, 2 or 3 file has neither.
     let mitigatesEdges: [MitigatesEdgeJSON]?

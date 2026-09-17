@@ -109,7 +109,7 @@ struct ThreatModelCodecTests {
         )
 
         #expect(json["formatVersion"] as? Int == ThreatModelCodec.formatVersion)
-        #expect(ThreatModelCodec.formatVersion == 10)
+        #expect(ThreatModelCodec.formatVersion == 11)
         let catalogue = try #require(json["catalogue"] as? [String: Any])
         #expect(catalogue["tag"] as? String == "v1.0.1")
         #expect(json["customTechnologies"] as? [Any] != nil)

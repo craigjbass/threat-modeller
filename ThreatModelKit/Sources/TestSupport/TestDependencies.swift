@@ -162,6 +162,10 @@ public final class TestDependencies: UseCaseFactory {
         SetControlEvidence(models: models)
     }
 
+    public func setControlNote() -> SetControlNoteUseCase {
+        SetControlNote(models: models)
+    }
+
     public func listStaleAnswers() -> ListStaleAnswersUseCase {
         ListStaleAnswers(projects: projects, controlsSources: controlsSources)
     }

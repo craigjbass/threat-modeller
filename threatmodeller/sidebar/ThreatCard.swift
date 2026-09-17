@@ -228,27 +228,34 @@ struct ThreatCard: View {
         }
     }
 
-    /// What proves an implemented control is in place, and the button that
-    /// writes it.
+    /// What proves an implemented control is in place, what a person wrote
+    /// about it, and the button that writes both.
     @ViewBuilder
     private func evidence(_ control: AssessedControl) -> some View {
         if control.isImplemented {
-            HStack(spacing: 4) {
-                if let tier = control.evidenceId {
-                    Text("Evidence: \(tier)")
-                    if let reference = control.evidenceReference {
-                        Text("· \(reference)")
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    if let tier = control.evidenceId {
+                        Text("Evidence: \(tier)")
+                        if let reference = control.evidenceReference {
+                            Text("· \(reference)")
+                        }
+                        if let verifiedOn = control.verifiedOn {
+                            Text("· verified \(verifiedOn)")
+                        }
+                    } else {
+                        Text("No evidence")
                     }
-                    if let verifiedOn = control.verifiedOn {
-                        Text("· verified \(verifiedOn)")
-                    }
-                } else {
-                    Text("No evidence")
+                    Spacer(minLength: 4)
+                    Button("Evidence\u{2026}") { onEvidence(control) }
+                        .font(.caption2)
+                        .accessibilityIdentifier("evidence-edit-\(control.key)")
                 }
-                Spacer(minLength: 4)
-                Button("Evidence\u{2026}") { onEvidence(control) }
-                    .font(.caption2)
-                    .accessibilityIdentifier("evidence-edit-\(control.key)")
+                if let note = control.note, note.isEmpty == false {
+                    Text(note)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("control-note-\(control.key)")
+                }
             }
             .font(.caption2)
             .foregroundStyle(.secondary)

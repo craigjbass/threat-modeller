@@ -30,8 +30,11 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// Version 10 adds what proves a control: the evidence tier, the reference
     /// and the verified-on date, on a control and on a compensating control. A
     /// file at version 9 or below states none and reads back with none.
-    public static let formatVersion = 10
-    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    /// Version 11 adds what a person wrote about a control, beside its
+    /// evidence. A file at version 10 or below states none and reads back
+    /// with none.
+    public static let formatVersion = 11
+    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
     public init() {}
 
@@ -89,6 +92,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                             )
                         )
                     }
+                ),
+                controlNotes: Dictionary(
+                    uniqueKeysWithValues: model.controlNotes.map { ($0.key.value, $0.value) }
                 ),
                 pathwayMitigations: PathwayMitigationsJSON(
                     isMasterEnabled: model.pathwayMitigations.isMasterEnabled,
@@ -446,6 +452,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                         )
                     )
                 }
+            ),
+            controlNotes: Dictionary(
+                uniqueKeysWithValues: (document.controlNotes ?? [:]).map { (ControlKey($0.key), $0.value) }
             ),
             createdAt: document.createdAt,
             updatedAt: document.updatedAt,

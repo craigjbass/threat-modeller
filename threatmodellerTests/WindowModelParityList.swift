@@ -241,7 +241,7 @@ extension WindowModelParityTests {
         ])) { first, _ in first }
         all.merge(rows("controls", "control", [
             ("status", .writes("control-status-")),
-            ("note", .gap(167)),
+            ("note", .writes("control-note")),
             ("evidence", .writes("evidence-tier")),
             ("reference", .writes("evidence-reference")),
             ("verified_on", .writes("evidence-verified-on"))

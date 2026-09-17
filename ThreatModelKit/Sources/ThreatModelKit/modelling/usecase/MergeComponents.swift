@@ -551,6 +551,10 @@ enum ComponentMerge {
             model.controlProofs, keyed: \.value, prefixes: prefixes, make: ControlKey.init,
             describe: describeControl, report: &report
         )
+        model.controlNotes = rekeyed(
+            model.controlNotes, keyed: \.value, prefixes: prefixes, make: ControlKey.init,
+            describe: describeControl, report: &report
+        )
         let overridePrefixes = Dictionary(
             uniqueKeysWithValues: sources.map {
                 (SeverityOverrideKey.componentPrefix($0), SeverityOverrideKey.componentPrefix(survivor))
@@ -579,6 +583,9 @@ enum ComponentMerge {
             keepsControl(key, prefix: survivorPrefix, raised: raised, report: &report)
         }
         model.controlProofs = model.controlProofs.filter { key, _ in
+            keepsControl(key, prefix: survivorPrefix, raised: raised, report: &report)
+        }
+        model.controlNotes = model.controlNotes.filter { key, _ in
             keepsControl(key, prefix: survivorPrefix, raised: raised, report: &report)
         }
         let survivorOverride = SeverityOverrideKey.componentPrefix(survivor)

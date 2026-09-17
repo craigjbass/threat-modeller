@@ -163,6 +163,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetControlEvidence(models: models)
     }
 
+    func setControlNote() -> SetControlNoteUseCase {
+        SetControlNote(models: models)
+    }
+
     func listStaleAnswers() -> ListStaleAnswersUseCase {
         ListStaleAnswers(projects: projects, controlsSources: controlsSources)
     }

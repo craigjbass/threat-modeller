@@ -79,6 +79,7 @@ public enum ChangeLabel {
     public static let recordControl = "Tick Control"
     public static let setControlStatus = "Set Control Status"
     public static let setControlEvidence = "Set Evidence"
+    public static let setControlNote = "Set Control Note"
     public static let overrideSeverity = "Set Severity"
     public static let clearSeverityOverride = "Clear Severity"
     public static let setCompensatingControl = "Set Compensating Control"

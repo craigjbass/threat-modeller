@@ -18,6 +18,7 @@ struct EvidenceSheet: View {
     @State private var reference = ""
     @State private var statesVerifiedOn = false
     @State private var verifiedOn = Date()
+    @State private var note = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -49,6 +50,9 @@ struct EvidenceSheet: View {
                         .disabled(statesVerifiedOn == false)
                         .accessibilityIdentifier("evidence-verified-on")
                 }
+
+                TextField("Note", text: $note)
+                    .accessibilityIdentifier("control-note")
             }
             .formStyle(.grouped)
 
@@ -89,6 +93,7 @@ struct EvidenceSheet: View {
             statesVerifiedOn = true
             verifiedOn = held
         }
+        note = control.note ?? ""
     }
 
     private func save() {
@@ -98,6 +103,7 @@ struct EvidenceSheet: View {
             reference: reference.trimmingCharacters(in: .whitespaces),
             verifiedOn: statesVerifiedOn ? GovernanceSheet.text(of: verifiedOn) : nil
         )
+        session.setControlNote(key: control.key, note: note.trimmingCharacters(in: .whitespaces))
         if session.errorMessage == nil { dismiss() }
     }
 }
