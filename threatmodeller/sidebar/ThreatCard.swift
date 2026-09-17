@@ -123,6 +123,16 @@ struct ThreatCard: View {
                     .accessibilityIdentifier("performed-by-\(threat.threatKey)")
             }
 
+            // Read only. The library's matchers decide this; a person who
+            // wants a different match edits the library file.
+            if let matchReason = threat.matchReason {
+                Text(matchReason)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("match-reason-\(threat.threatKey)")
+            }
+
             // Read only. The component panel writes the CVEs; the lock file
             // ranks them.
             if let line = Self.knownVulnerabilitiesLine(threat) {

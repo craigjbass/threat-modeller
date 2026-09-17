@@ -396,15 +396,15 @@ extension WindowModelParityTests {
             ("severity", readOnly("the threat card states the severity")),
             ("stride", readOnly("the threat card draws a chip for every stride word")),
             ("impacts", readOnly("the threat card draws a chip for every impact")),
-            ("connection", .gap(172)),
-            ("zone", .gap(172)),
+            ("connection", readOnly("the threat card states the reason a matcher narrows")),
+            ("zone", readOnly("the threat card states the reason a matcher narrows")),
             ("zone_context", readOnly("the threat card draws the zone context as its body")),
             ("mitre", nested("mitre")),
             ("control", readOnly("the threat card lists every control the threat offers")),
-            ("applies_to", .gap(172)),
-            ("boundary", .gap(172)),
-            ("runs_as", .gap(172)),
-            ("pathway", .gap(172)),
+            ("applies_to", readOnly("the threat card states the flow kinds a connection threat applies to")),
+            ("boundary", readOnly("the threat card states the boundary a matcher narrows to")),
+            ("runs_as", readOnly("the threat card states the privilege levels a matcher narrows to")),
+            ("pathway", readOnly("the threat card states that its sensitivity considers what feeds it")),
             ("likelihood", readOnly("the threat card states what the threat takes to happen"))
         ])) { first, _ in first }
         all.merge(rows("lib", "mitigation", [

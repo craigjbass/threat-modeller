@@ -401,6 +401,9 @@ public struct AssessedThreat: Hashable, Sendable {
     /// Every tree that names this threat as its goal or as a step, in file
     /// order. Empty for a threat no tree names.
     public let trees: [AssessedTreeRole]
+    /// Why the library's matchers raised this threat here, or nil when the
+    /// threat carries no matcher that narrows where it applies.
+    public let matchReason: String?
 
     public init(
         threatId: String,
@@ -444,7 +447,8 @@ public struct AssessedThreat: Hashable, Sendable {
         severityDecision: AssessedSeverityDecision? = nil,
         recommendations: [AssessedRecommendation] = [],
         closedByTrees: [AssessedTreeClosure] = [],
-        trees: [AssessedTreeRole] = []
+        trees: [AssessedTreeRole] = [],
+        matchReason: String? = nil
     ) {
         self.threatId = threatId
         self.name = name
@@ -488,6 +492,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.recommendations = recommendations
         self.closedByTrees = closedByTrees
         self.trees = trees
+        self.matchReason = matchReason
     }
 }
 
@@ -732,7 +737,8 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                         ),
                         on: staged.trees,
                         statuses: threat.controls.map(\.status)
-                    )
+                    ),
+                    matchReason: Self.matchReason(threat.threat, source: threat.source)
                 )
             },
             severities: taxonomy.severities.map {
@@ -774,5 +780,46 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
         case .zone(let id, let name):
             .zone(id: id.value, name: name)
         }
+    }
+
+    /// Why the library's matchers raised this threat on this element. Nil
+    /// when the threat carries no matcher that narrows where it applies, so
+    /// the card stays quiet for the common, unrestricted threat.
+    public static func matchReason(_ threat: Threat, source: ResolvedSource) -> String? {
+        var reasons: [String] = []
+        switch source {
+        case .component:
+            if threat.appliesToPrivilegeLevels.isEmpty == false {
+                reasons.append(
+                    "Applies only where the component runs as "
+                        + Self.joinedWithOr(threat.appliesToPrivilegeLevels.map(\.label)) + "."
+                )
+            }
+        case .connection:
+            if threat.boundary == .privilege {
+                reasons.append("Applies only where the flow crosses a privilege level.")
+            } else if threat.appliesToFlowKinds.isEmpty == false {
+                reasons.append(
+                    "Applies only to "
+                        + Self.joinedWithOr(threat.appliesToFlowKinds.map(\.label)) + " flows."
+                )
+            }
+        case .zone:
+            reasons.append("Applies within the \((threat.boundary ?? .network).rawValue) boundary.")
+        }
+        if threat.isPathwayThreat {
+            reasons.append(
+                "Its sensitivity considers what this element feeds downstream, not only what it holds."
+            )
+        }
+        return reasons.isEmpty ? nil : reasons.joined(separator: " ")
+    }
+
+    /// `"a"`, `"a or b"`, `"a, b or c"`. English list join with no Oxford
+    /// comma before the last word, the way a short reason sentence reads.
+    private static func joinedWithOr(_ words: [String]) -> String {
+        guard let last = words.last else { return "" }
+        guard words.count > 1 else { return last }
+        return words.dropLast().joined(separator: ", ") + " or " + last
     }
 }
