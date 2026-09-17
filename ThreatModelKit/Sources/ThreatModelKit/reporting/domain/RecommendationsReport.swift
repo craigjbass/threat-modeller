@@ -1,13 +1,15 @@
 /// Turns the recommendations on the model into the report's section.
 ///
 /// Spec section 8.2: worst first, so the reader starts with the work that
-/// matters. A recommendation whose threat the model no longer raises is left
+/// matters. `RouteClosing` then lifts the work that breaks an open route
+/// above the rest, so the report and the Controls stage read the same way. A recommendation whose threat the model no longer raises is left
 /// out, the way an answer to a threat nobody raises is left out.
 public enum RecommendationsReport {
     public static func build(
         threats: [ReportThreat],
         recommendations: [ThreatKey: [Recommendation]],
-        governance: [ThreatKey: [PlannedWork]] = [:]
+        governance: [ThreatKey: [PlannedWork]] = [:],
+        routeClosingThreats: Set<ThreatKey> = []
     ) -> [ReportRecommendation] {
         var built: [ReportRecommendation] = []
 
@@ -32,9 +34,19 @@ public enum RecommendationsReport {
             }
         }
 
-        return built.sorted { left, right in
+        let sorted = built.sorted { left, right in
             if left.riskScore != right.riskScore { return left.riskScore > right.riskScore }
             return left.text < right.text
+        }
+
+        // The order rule of
+        // `docs/superpowers/specs/2026-09-17-trees-in-the-threat-list-design.md`,
+        // which the Controls stage reads too: a recommendation on an open
+        // step of an open tree comes before one that closes no route.
+        return RouteClosing.first(sorted) {
+            routeClosingThreats.contains(
+                ThreatKey(threatId: $0.threatId, sourceId: $0.sourceId)
+            )
         }
     }
 }

@@ -141,4 +141,75 @@ struct ThreatFilterTests {
         #expect(filter.narrow(session.threats).count < session.threats.count)
         #expect(session.summary.totalThreats == session.threats.count)
     }
+
+    // MARK: on a tree
+
+    private func onATree(_ threatId: String, _ roles: [AssessedTreeRole]) -> AssessedThreat {
+        AssessedThreat(
+            threatId: threatId,
+            name: threatId,
+            description: "",
+            severityId: "high",
+            severityLabel: "High",
+            stride: [],
+            mitreTechniques: [],
+            controls: [],
+            source: .component(id: "api", name: "EC2", providerId: "aws"),
+            sensitivityId: "confidential",
+            riskScore: 7,
+            riskLevel: "high",
+            context: nil,
+            isTlsMitigated: false,
+            overrideKey: threatId,
+            overriddenSeverityId: nil,
+            trees: roles
+        )
+    }
+
+    private func role(_ id: String, _ name: String, isGoal: Bool) -> AssessedTreeRole {
+        AssessedTreeRole(
+            treeId: id,
+            treeName: name,
+            isGoal: isGoal,
+            isTreeOpen: true,
+            isTreeStale: false,
+            raisesRiskBy: 40,
+            scoreBefore: 5,
+            score: 7,
+            stepState: isGoal ? nil : "open",
+            stepIsOpenBecause: isGoal ? nil : "no control is implemented"
+        )
+    }
+
+    private var threatsOnTwoTrees: [AssessedThreat] {
+        [
+            onATree("goal-one", [role("one", "Read every record", isGoal: true)]),
+            onATree("step-one", [role("one", "Read every record", isGoal: false)]),
+            onATree("goal-two", [role("two", "Take the keys", isGoal: true)]),
+            onATree("on-no-tree", [])
+        ]
+    }
+
+    @Test func narrowsToOneTreesThreats() {
+        var filter = ThreatFilter()
+        filter.treeId = "one"
+
+        let kept = filter.narrow(threatsOnTwoTrees)
+
+        #expect(kept.map(\.threatId) == ["goal-one", "step-one"])
+        #expect(filter.isNarrowing)
+    }
+
+    @Test func keepsEveryThreatWhileNoTreeIsPicked() {
+        #expect(ThreatFilter().narrow(threatsOnTwoTrees).count == 4)
+    }
+
+    /// The picker names one entry per tree the list holds a threat of, in the
+    /// order the list first meets each tree.
+    @Test func offersOneEntryPerTree() {
+        let choices = ThreatFilter.trees(of: threatsOnTwoTrees)
+
+        #expect(choices.map(\.id) == ["one", "two"])
+        #expect(choices.map(\.name) == ["Read every record", "Take the keys"])
+    }
 }

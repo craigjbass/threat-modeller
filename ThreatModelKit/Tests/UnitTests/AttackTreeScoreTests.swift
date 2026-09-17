@@ -274,4 +274,28 @@ struct AttackTreeScoreTests {
         #expect(goalScore(result) == 7)
         #expect(result.trees[0].closedBy == nil)
     }
+
+    // MARK: what a tree does not move
+
+    /// The design
+    /// `docs/superpowers/specs/2026-09-17-trees-in-the-threat-list-design.md`
+    /// answers the step likelihood question: the goal's boost is the only
+    /// number a tree moves. A step keeps the score and the likelihood its own
+    /// stages gave it, so the chain factor never reads a number the tree
+    /// itself wrote.
+    @Test func aStepKeepsTheScoreAndTheLikelihoodItsOwnStagesGaveIt() {
+        let result = run(raises: 40, goalScore: 5, steps: [
+            ("a", .notImplemented, .commodity),
+            ("b", .notImplemented, .commodity),
+        ])
+
+        #expect(goalScore(result) == 7)
+        for id in ["a", "b"] {
+            let step = result.threats.first { $0.threat.id.value == id }
+            #expect(step?.score.value == 4)
+            #expect(step?.likelihood == .commodity)
+            #expect(step?.scoreIfAssumptionsHold == 4)
+        }
+        #expect(result.trees[0].chainFactor == 1)
+    }
 }

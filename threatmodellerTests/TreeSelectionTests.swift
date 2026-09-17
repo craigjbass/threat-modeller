@@ -312,4 +312,71 @@ struct TreeSelectionTests {
         #expect(editor.closedBy == ["Segment the network"])
         #expect(editor.lastWritten?.closedBy == ["Segment the network"])
     }
+
+    // MARK: the controls on the selected node's threat
+
+    private func threat(_ threatId: String, on sourceId: String) -> AssessedThreat {
+        AssessedThreat(
+            threatId: threatId,
+            name: threatId.uppercased(),
+            description: "",
+            severityId: "high",
+            severityLabel: "High",
+            stride: [],
+            mitreTechniques: [],
+            controls: [
+                AssessedControl(
+                    description: "Enforce IMDSv2",
+                    isTechnologySpecific: true,
+                    key: "\(threatId)-1",
+                    isImplemented: false,
+                    statusId: "not_implemented"
+                )
+            ],
+            source: .component(id: sourceId, name: sourceId, providerId: "aws"),
+            sensitivityId: "confidential",
+            riskScore: 7,
+            riskLevel: "high",
+            context: nil,
+            isTlsMitigated: false,
+            overrideKey: threatId,
+            threatKey: "\(threatId)@component:\(sourceId)",
+            overriddenSeverityId: nil
+        )
+    }
+
+    /// A status changed here writes the `.controls` file the way the threat
+    /// card does, so the panel states the controls on the node's threat.
+    @Test func aSelectedStepStatesTheControlsOnItsThreat() {
+        let (editor, canvas, _, step) = drawn()
+        canvas.select(step, addingToSelection: false)
+
+        guard case .node(let node) = TreeSelection.of(
+            editor: editor,
+            canvas: canvas,
+            bound: bound(open: true),
+            threats: [threat("ssrf", on: "api")]
+        ) else {
+            Issue.record("the selection is not a node")
+            return
+        }
+        #expect(node.controls.map(\.description) == ["Enforce IMDSv2"])
+        #expect(node.controls.map(\.key) == ["ssrf-1"])
+    }
+
+    @Test func aStepTheAssessmentDoesNotHoldStatesNoControl() {
+        let (editor, canvas, _, step) = drawn()
+        canvas.select(step, addingToSelection: false)
+
+        guard case .node(let node) = TreeSelection.of(
+            editor: editor,
+            canvas: canvas,
+            bound: bound(open: true),
+            threats: []
+        ) else {
+            Issue.record("the selection is not a node")
+            return
+        }
+        #expect(node.controls.isEmpty)
+    }
 }

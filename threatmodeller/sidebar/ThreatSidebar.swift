@@ -120,6 +120,12 @@ struct ThreatSidebar: View {
         session.threats.count - shownThreats.count
     }
 
+    /// The trees the filter offers. Read from the threats the list already
+    /// holds, so drawing the bar assesses nothing again.
+    private var treeChoices: [ThreatFilter.TreeChoice] {
+        ThreatFilter.trees(of: session.threats)
+    }
+
     var body: some View {
         sidebar
             // A stage is a different reading of one model, so entering one
@@ -372,6 +378,18 @@ struct ThreatSidebar: View {
                     }
                 }
                 .accessibilityIdentifier("threat-impact-filter")
+
+                // One entry per tree, so the list narrows to one route: the
+                // goal and every step.
+                if treeChoices.isEmpty == false {
+                    Picker("On a tree", selection: $filter.treeId) {
+                        Text("Every tree").tag(String?.none)
+                        ForEach(treeChoices) { tree in
+                            Text(tree.name).tag(String?.some(tree.id))
+                        }
+                    }
+                    .accessibilityIdentifier("threat-tree-filter")
+                }
 
                 Picker("Answered", selection: $filter.answered) {
                     ForEach(ThreatFilter.Answered.allCases) { state in

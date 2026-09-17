@@ -295,7 +295,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         let recommendations = RecommendationsReport.build(
             threats: threats,
             recommendations: model.recommendations,
-            governance: model.plannedWork
+            governance: model.plannedWork,
+            routeClosingThreats: Set(RouteClosing.openSteps(on: assessment.attackTrees).keys)
         )
 
         // A row for every accepted control, governed or not, so a reader sees

@@ -920,4 +920,129 @@ struct AssessThreatModelTests {
 
         #expect(response.threats.contains { $0.source.id == "zone:z1" })
     }
+
+
+    // MARK: the trees a threat is on
+
+    /// A tree whose goal is the misconfiguration on the database and whose
+    /// one step is the credential theft on the server.
+    private func onATree(statuses: [ControlKey: ControlStatus] = [:]) -> AssessThreatModelResponse {
+        assess(
+            ThreatModel(
+                components: [ec2(id: "c1"), rds(id: "c2")],
+                controlStatuses: statuses,
+                attackTrees: [
+                    SourceAttackTree(
+                        id: "read-every-record",
+                        name: "Read every record",
+                        description: nil,
+                        raisesRiskBy: 40,
+                        goal: SourceTreeTarget(
+                            threatId: "misconfiguration", sourceKind: "component", sourceId: "c2"
+                        ),
+                        root: .step(SourceTreeStep(
+                            target: SourceTreeTarget(
+                                threatId: "credential-theft", sourceKind: "component", sourceId: "c1"
+                            )
+                        ))
+                    )
+                ]
+            )
+        )
+    }
+
+    private func credentialTheftKey(_ description: String) -> ControlKey {
+        ControlIdentity.componentControl(
+            componentId: ComponentId("c1"),
+            threatId: ThreatId("credential-theft"),
+            description: description,
+            isTechnologySpecific: true
+        )
+    }
+
+    @Test func theGoalCarriesItsTreeWithTheBoostItGives() throws {
+        let response = onATree()
+
+        let goal = try #require(response.threats.first {
+            $0.threatId == "misconfiguration" && $0.source.id == "component:c2"
+        })
+        let role = try #require(goal.trees.first)
+        #expect(goal.trees.count == 1)
+        #expect(role.treeId == "read-every-record")
+        #expect(role.treeName == "Read every record")
+        #expect(role.isGoal)
+        #expect(role.isTreeOpen)
+        #expect(role.isTreeStale == false)
+        #expect(role.raisesRiskBy == 40)
+        #expect(role.score == goal.riskScore)
+        #expect(role.score > role.scoreBefore)
+        #expect(role.stepState == nil)
+    }
+
+    @Test func aStepCarriesItsTreeWithItsRoleAndWhyItIsOpen() throws {
+        let response = onATree()
+
+        let step = try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        })
+        let role = try #require(step.trees.first)
+        #expect(role.isGoal == false)
+        #expect(role.stepState == "open")
+        #expect(role.stepClosedBy == nil)
+        #expect(role.stepIsOpenBecause == "no control is implemented")
+    }
+
+    @Test func anAcceptedAnswerLeavesTheStepOpenAndSaysSo() throws {
+        let response = onATree(statuses: [
+            credentialTheftKey("Enforce IMDSv2 to block SSRF-based credential theft"): .accepted
+        ])
+
+        let step = try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        })
+        let role = try #require(step.trees.first)
+        #expect(role.stepState == "open")
+        #expect(role.stepIsOpenBecause == "an accepted control closes no step")
+    }
+
+    @Test func aNotApplicableAnswerLeavesTheStepOpenAndSaysSo() throws {
+        let response = onATree(statuses: [
+            credentialTheftKey("Enforce IMDSv2 to block SSRF-based credential theft"): .notApplicable
+        ])
+
+        let step = try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        })
+        #expect(try #require(step.trees.first).stepIsOpenBecause
+            == "a control that does not apply closes no step")
+    }
+
+    @Test func anImplementedAnswerClosesTheStepAndNamesTheControl() throws {
+        let control = "Enforce IMDSv2 to block SSRF-based credential theft"
+        let response = onATree(statuses: [credentialTheftKey(control): .implemented])
+
+        let step = try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        })
+        let role = try #require(step.trees.first)
+        #expect(role.stepState == "closed")
+        #expect(role.stepClosedBy == control)
+        #expect(role.stepIsOpenBecause == nil)
+        #expect(role.isTreeOpen == false)
+    }
+
+    /// Every control on an open step breaks the route, so every control on
+    /// that card names the tree.
+    @Test func aControlOnAnOpenStepNamesTheTreeItWouldBreak() throws {
+        let response = onATree()
+
+        let step = try #require(response.threats.first {
+            $0.threatId == "credential-theft" && $0.source.id == "component:c1"
+        })
+        #expect(step.controls.isEmpty == false)
+        #expect(step.controls.allSatisfy { $0.closesTreeNames == ["Read every record"] })
+
+        let elsewhere = try #require(response.threats.first { $0.threatId == "dos-attack" })
+        #expect(elsewhere.controls.allSatisfy { $0.closesTreeNames.isEmpty })
+    }
 }

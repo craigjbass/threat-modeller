@@ -497,4 +497,54 @@ struct AttackTreeEditorFlowTests {
         let step = try #require(editor.graph.nodes.first { $0.id != goal }).id
         return (session, useCases, editor, goal, step)
     }
+
+    // MARK: a control status written from the tree stage
+
+    /// The Attack Trees stage selection panel states the controls on the
+    /// selected node's threat, and a status change there writes the
+    /// `.controls` file through the write path the threat card uses.
+    @Test func aStatusChangedOnTheTreeStageReachesTheControlsFile() async throws {
+        let (session, useCases, editor, goal, step) = try await aTreeWaitingForAJoin()
+        editor.join(from: step, to: goal)
+        editor.setName("Read every record")
+        await session.settle()
+        let model = try #require(session.model)
+
+        let canvas = TreeCanvasState()
+        canvas.select(step, addingToSelection: false)
+        let panel = TreeSelectionPanel(
+            editor: editor,
+            canvas: canvas,
+            bound: model.attackTrees.first,
+            threats: model.threats,
+            onSetControlStatus: { key, statusId in
+                model.setControlStatus(key: key, statusId: statusId)
+            }
+        )
+
+        guard case .node(let node) = TreeSelection.of(
+            editor: editor,
+            canvas: canvas,
+            bound: model.attackTrees.first,
+            threats: model.threats
+        ) else {
+            Issue.record("the selection is not a node")
+            return
+        }
+        let control = try #require(node.controls.first)
+        #expect(control.statusId == "not_implemented")
+
+        panel.setStatus(of: control, to: "implemented")
+        await session.save()
+
+        let written = try #require(useCases.project.text(at: "/work/threatmodel/payments.controls"))
+        #expect(written.contains(control.description))
+        #expect(written.contains("status = \"implemented\""))
+
+        // The step the panel answered is closed, so the tree gives no boost.
+        let reloaded = try #require(session.model)
+        let reread = try #require(reloaded.attackTrees.first)
+        #expect(reread.steps.first?.state == .closed)
+        #expect(reread.steps.first?.closedBy == control.description)
+    }
 }

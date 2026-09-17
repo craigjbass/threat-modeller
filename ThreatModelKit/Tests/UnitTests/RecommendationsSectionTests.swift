@@ -322,4 +322,38 @@ struct RecommendationsSectionTests {
             pathwayMitigationLabels: []
         )
     }
+
+    /// The order rule of
+    /// `docs/superpowers/specs/2026-09-17-trees-in-the-threat-list-design.md`:
+    /// a recommendation on a threat that is an open step of an open tree
+    /// sorts above a higher scoring recommendation that closes no route.
+    @Test func aRouteClosingRecommendationSortsAboveAWorseOneThatClosesNoRoute() {
+        let onARoute = ThreatKey(threatId: "a", sourceId: "component:one")
+        let built = RecommendationsReport.build(
+            threats: [threat("a", "one", 4), threat("b", "two", 12)],
+            recommendations: [
+                onARoute: [Recommendation(text: "close the route")],
+                ThreatKey(threatId: "b", sourceId: "component:two"):
+                    [Recommendation(text: "close nothing")]
+            ],
+            routeClosingThreats: [onARoute]
+        )
+
+        #expect(built.map(\.text) == ["close the route", "close nothing"])
+    }
+
+    /// Two recommendations on the same side of the rule keep the order the
+    /// score and the text already gave them.
+    @Test func twoRecommendationsOnNoRouteKeepTheOrderTheyHad() {
+        let built = RecommendationsReport.build(
+            threats: [threat("a", "one", 4), threat("b", "two", 12)],
+            recommendations: [
+                ThreatKey(threatId: "a", sourceId: "component:one"): [Recommendation(text: "first")],
+                ThreatKey(threatId: "b", sourceId: "component:two"): [Recommendation(text: "second")]
+            ],
+            routeClosingThreats: []
+        )
+
+        #expect(built.map(\.text) == ["second", "first"])
+    }
 }

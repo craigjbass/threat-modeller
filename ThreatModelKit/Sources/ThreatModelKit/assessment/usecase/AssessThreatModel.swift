@@ -113,6 +113,10 @@ public struct AssessedControl: Hashable, Sendable {
     /// Where the proof is, and when somebody last checked.
     public let evidenceReference: String?
     public let verifiedOn: String?
+    /// The open trees this control closes a step on, by name, in file order.
+    /// Empty for a control that closes no route. The order rule of
+    /// `RouteClosing` puts a control with names here before one without.
+    public let closesTreeNames: [String]
 
     public init(
         description: String,
@@ -126,7 +130,8 @@ public struct AssessedControl: Hashable, Sendable {
         isReviewOverdue: Bool = false,
         evidenceId: String? = nil,
         evidenceReference: String? = nil,
-        verifiedOn: String? = nil
+        verifiedOn: String? = nil,
+        closesTreeNames: [String] = []
     ) {
         self.description = description
         self.isTechnologySpecific = isTechnologySpecific
@@ -138,6 +143,7 @@ public struct AssessedControl: Hashable, Sendable {
         self.evidenceId = evidenceId
         self.evidenceReference = evidenceReference
         self.verifiedOn = verifiedOn
+        self.closesTreeNames = closesTreeNames
         let status = statusId.flatMap(ControlStatus.init(rawValue:))
             ?? (isImplemented ? ControlStatus.implemented : .notImplemented)
         self.statusId = status.rawValue
@@ -232,6 +238,62 @@ public enum AssessedThreatSource: Hashable, Sendable {
 
 /// One tree that names a threat as its goal and is closed as a whole by a
 /// sufficient control. The threat card states it.
+/// One tree a threat is on, and what part the threat plays in it.
+///
+/// The design
+/// `docs/superpowers/specs/2026-09-17-trees-in-the-threat-list-design.md`
+/// states what the card prints from this.
+public struct AssessedTreeRole: Hashable, Sendable {
+    public let treeId: String
+    public let treeName: String
+    /// True when the threat is the tree's goal, false when it is a step.
+    public let isGoal: Bool
+    /// True while an attacker can walk the whole route.
+    public let isTreeOpen: Bool
+    /// True while a step or a sufficient control of the tree does not bind.
+    /// A stale tree moves no score.
+    public let isTreeStale: Bool
+    /// The per cent the file states the tree adds to its goal.
+    public let raisesRiskBy: Int
+    /// The goal's score before the tree moved it.
+    public let scoreBefore: Int
+    /// The goal's score after the tree moved it.
+    public let score: Int
+    /// What this threat is doing as a step: `open`, `closed` or `unbound`.
+    /// Nil on the goal.
+    public let stepState: String?
+    /// The control or the compensating control that closed this step, or nil.
+    public let stepClosedBy: String?
+    /// Why an open step is still open. Nil on a closed step and on the goal.
+    public let stepIsOpenBecause: String?
+
+    public init(
+        treeId: String,
+        treeName: String,
+        isGoal: Bool,
+        isTreeOpen: Bool,
+        isTreeStale: Bool,
+        raisesRiskBy: Int,
+        scoreBefore: Int,
+        score: Int,
+        stepState: String? = nil,
+        stepClosedBy: String? = nil,
+        stepIsOpenBecause: String? = nil
+    ) {
+        self.treeId = treeId
+        self.treeName = treeName
+        self.isGoal = isGoal
+        self.isTreeOpen = isTreeOpen
+        self.isTreeStale = isTreeStale
+        self.raisesRiskBy = raisesRiskBy
+        self.scoreBefore = scoreBefore
+        self.score = score
+        self.stepState = stepState
+        self.stepClosedBy = stepClosedBy
+        self.stepIsOpenBecause = stepIsOpenBecause
+    }
+}
+
 public struct AssessedTreeClosure: Hashable, Sendable {
     public let treeName: String
     public let control: String
@@ -329,6 +391,9 @@ public struct AssessedThreat: Hashable, Sendable {
     /// whole by a sufficient control, in file order. Empty for every other
     /// threat.
     public let closedByTrees: [AssessedTreeClosure]
+    /// Every tree that names this threat as its goal or as a step, in file
+    /// order. Empty for a threat no tree names.
+    public let trees: [AssessedTreeRole]
 
     public init(
         threatId: String,
@@ -370,7 +435,8 @@ public struct AssessedThreat: Hashable, Sendable {
         assumedByComponentLabels: [String] = [],
         severityDecision: AssessedSeverityDecision? = nil,
         recommendations: [AssessedRecommendation] = [],
-        closedByTrees: [AssessedTreeClosure] = []
+        closedByTrees: [AssessedTreeClosure] = [],
+        trees: [AssessedTreeRole] = []
     ) {
         self.threatId = threatId
         self.name = name
@@ -412,6 +478,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.severityDecision = severityDecision
         self.recommendations = recommendations
         self.closedByTrees = closedByTrees
+        self.trees = trees
     }
 }
 
@@ -435,6 +502,59 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
             held: model.vulnerabilities,
             thresholds: VulnerabilityPriority.Thresholds(policy: model.policy)
         )
+    }
+
+    /// Why a step that is open is still open, read from the answers its
+    /// threat holds. Section 7.5 of the language guide: `accepted` and
+    /// `not_applicable` answer a threat and close no step.
+    static func openBecause(_ statuses: [ControlStatus]) -> String {
+        if statuses.contains(.accepted) { return "an accepted control closes no step" }
+        if statuses.contains(.notApplicable) { return "a control that does not apply closes no step" }
+        if statuses.isEmpty { return "no control answers it" }
+        return "no control is implemented"
+    }
+
+    /// Every tree that names one threat as its goal or as a step, in the
+    /// order the trees are given.
+    static func roles(
+        of key: ThreatKey,
+        on trees: [BoundAttackTree],
+        statuses: [ControlStatus]
+    ) -> [AssessedTreeRole] {
+        var roles: [AssessedTreeRole] = []
+        for tree in trees {
+            if tree.goal == key {
+                roles.append(
+                    AssessedTreeRole(
+                        treeId: tree.id,
+                        treeName: tree.name,
+                        isGoal: true,
+                        isTreeOpen: tree.isOpen,
+                        isTreeStale: tree.isStale,
+                        raisesRiskBy: tree.raisesRiskBy,
+                        scoreBefore: tree.scoreBefore,
+                        score: tree.score
+                    )
+                )
+            }
+            guard let step = tree.steps.first(where: { $0.key == key }) else { continue }
+            roles.append(
+                AssessedTreeRole(
+                    treeId: tree.id,
+                    treeName: tree.name,
+                    isGoal: false,
+                    isTreeOpen: tree.isOpen,
+                    isTreeStale: tree.isStale,
+                    raisesRiskBy: tree.raisesRiskBy,
+                    scoreBefore: tree.scoreBefore,
+                    score: tree.score,
+                    stepState: step.state.rawValue,
+                    stepClosedBy: step.closedBy,
+                    stepIsOpenBecause: step.state == .open ? openBecause(statuses) : nil
+                )
+            )
+        }
+        return roles
     }
 
     private let models: ThreatModelGateway
@@ -470,6 +590,10 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
         )
         let staged = AttackTreeScoring.apply(trees: bound, to: resolvedByStages)
         let resolved = staged.threats
+        // The order rule of
+        // `docs/superpowers/specs/2026-09-17-trees-in-the-threat-list-design.md`.
+        let openStepTrees = RouteClosing.openSteps(on: staged.trees)
+        let sufficientTrees = RouteClosing.sufficientControls(on: staged.trees)
         let nameOf: (ComponentId) -> String = { id in
             guard let component = model.components.first(where: { $0.id == id }) else {
                 return id.value
@@ -497,7 +621,7 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     mitreTechniques: threat.threat.mitreTechniques.map {
                         AssessedMitreTechnique(id: $0.id, name: $0.name, tactic: $0.tactic)
                     },
-                    controls: threat.controls.map { control in
+                    controls: Self.ordered(threat.controls.map { control in
                         // An accepted control states who carries the risk and
                         // when they read it again. The governance file writes
                         // both; this only carries them to the reader.
@@ -521,9 +645,19 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                             evidenceId: model.controlProofs[control.key]?.evidence?.rawValue,
                             evidenceReference: model.controlProofs[control.key].map(\.reference)
                                 .flatMap { $0.isEmpty ? nil : $0 },
-                            verifiedOn: model.controlProofs[control.key]?.verifiedOn?.description
+                            verifiedOn: model.controlProofs[control.key]?.verifiedOn?.description,
+                            closesTreeNames: Self.closes(
+                                control.description,
+                                onAnOpenStepOf: openStepTrees[
+                                    ThreatKey(
+                                        threatId: threat.threat.id.value,
+                                        sourceId: threat.source.id
+                                    )
+                                ] ?? [],
+                                sufficientFor: sufficientTrees
+                            )
                         )
-                    },
+                    }),
                     source: Self.source(threat.source),
                     sensitivityId: threat.sensitivity.rawValue,
                     riskScore: threat.score.value,
@@ -579,7 +713,15 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                         }
                         .compactMap { tree in
                             tree.closedBy.map { AssessedTreeClosure(treeName: tree.name, control: $0) }
-                        }
+                        },
+                    trees: Self.roles(
+                        of: ThreatKey(
+                            threatId: threat.threat.id.value,
+                            sourceId: threat.source.id
+                        ),
+                        on: staged.trees,
+                        statuses: threat.controls.map(\.status)
+                    )
                 )
             },
             severities: taxonomy.severities.map {
@@ -589,6 +731,27 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
             warnings: ProtectionDependencies.warnings(for: dependencies),
             attackTrees: staged.trees
         )
+    }
+
+    /// The open trees this control closes a step on, by name. A control on an
+    /// open step breaks that step; a control a tree names as sufficient breaks
+    /// the whole route.
+    private static func closes(
+        _ description: String,
+        onAnOpenStepOf stepTrees: [BoundAttackTree],
+        sufficientFor sufficientTrees: [String: [BoundAttackTree]]
+    ) -> [String] {
+        var names = stepTrees.map(\.name)
+        let fingerprint = ControlIdentity.fingerprint(of: description)
+        for tree in sufficientTrees[fingerprint] ?? [] where names.contains(tree.name) == false {
+            names.append(tree.name)
+        }
+        return names
+    }
+
+    /// The order rule: a control that closes a step on an open tree first.
+    private static func ordered(_ controls: [AssessedControl]) -> [AssessedControl] {
+        RouteClosing.first(controls) { $0.closesTreeNames.isEmpty == false }
     }
 
     private static func source(_ source: ResolvedSource) -> AssessedThreatSource {

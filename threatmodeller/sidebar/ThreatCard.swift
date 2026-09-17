@@ -52,6 +52,38 @@ struct ThreatCard: View {
         threat.closedByTrees.map { "The tree \($0.treeName) is closed by \($0.control)." }
     }
 
+    /// One line per tree this threat is on, stating the role, the tree's
+    /// name, whether the tree is open, and the boost it gives the goal. An
+    /// open step says why it is open.
+    ///
+    /// The design
+    /// `docs/superpowers/specs/2026-09-17-trees-in-the-threat-list-design.md`
+    /// states the words.
+    static func treeLines(_ threat: AssessedThreat) -> [String] {
+        threat.trees.map { role in
+            let head = role.isGoal ? "Goal of \(role.treeName)." : "Step on \(role.treeName)."
+            if role.isTreeStale { return "\(head) The tree is stale and raises nothing." }
+            guard role.isTreeOpen else { return "\(head) The tree is closed and raises nothing." }
+            if role.isGoal {
+                return "\(head) The tree is open and raises this threat by "
+                    + "\(role.raisesRiskBy) per cent, \(role.scoreBefore) \u{2192} \(role.score)."
+            }
+            var said = "\(head) The tree is open and raises its goal by \(role.raisesRiskBy) per cent."
+            if let because = role.stepIsOpenBecause {
+                said += " This step is open: \(because)."
+            } else if let closedBy = role.stepClosedBy {
+                said += " This step is closed by \(closedBy)."
+            }
+            return said
+        }
+    }
+
+    /// `Closing this breaks the tree <name>.`, one line per open tree this
+    /// control closes a step on. Empty for a control that closes no route.
+    static func breaksTreeLines(_ control: AssessedControl) -> [String] {
+        control.closesTreeNames.map { "Closing this breaks the tree \($0)." }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             header
@@ -94,6 +126,16 @@ struct ThreatCard: View {
                     .accessibilityIdentifier("known-vulnerabilities-\(threat.threatKey)")
             }
 
+            // Read only. The Attack Trees stage draws the route; this list
+            // is where a person answers it.
+            ForEach(Self.treeLines(threat), id: \.self) { line in
+                Text(line)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("on-tree-\(threat.threatKey)")
+            }
+
             // Read only. The Attack Trees stage names the control; the
             // Controls stage marks it implemented.
             ForEach(Self.treeClosureLines(threat), id: \.self) { line in
@@ -110,6 +152,7 @@ struct ThreatCard: View {
                     ForEach(threat.controls, id: \.key) { control in
                         VStack(alignment: .leading, spacing: 2) {
                             controlRow(control)
+                            breaksTree(control)
                             evidence(control)
                             governance(control)
                         }
@@ -169,6 +212,19 @@ struct ThreatCard: View {
             .font(.caption2)
             .foregroundStyle(.secondary)
             .accessibilityIdentifier("governance-\(control.key)")
+        }
+    }
+
+    /// Which open tree this control closes a step on. The order rule puts
+    /// such a control first, and this line says what closing it would break.
+    @ViewBuilder
+    private func breaksTree(_ control: AssessedControl) -> some View {
+        ForEach(Self.breaksTreeLines(control), id: \.self) { line in
+            Text(line)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("breaks-tree-\(control.key)")
         }
     }
 

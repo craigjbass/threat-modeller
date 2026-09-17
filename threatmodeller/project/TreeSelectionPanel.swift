@@ -20,9 +20,27 @@ struct TreeSelectionPanel: View {
     /// Every control description the model holds, in alphabetical order,
     /// for the menu that names one as sufficient to close the whole route.
     var controls: [String] = []
+    /// The threats the assessment holds, so the selected node states the
+    /// controls on its own threat.
+    var threats: [AssessedThreat] = []
+    /// Writes one control status. The threat card writes through the same use
+    /// case, so one status has one writer and either stage gives the
+    /// `.controls` file the same bytes.
+    var onSetControlStatus: (_ key: String, _ statusId: String) -> Void = { _, _ in }
 
     private var selection: TreeSelection {
-        TreeSelection.of(editor: editor, canvas: canvas, bound: bound, elements: elements)
+        TreeSelection.of(
+            editor: editor,
+            canvas: canvas,
+            bound: bound,
+            elements: elements,
+            threats: threats
+        )
+    }
+
+    /// The write the status picker makes.
+    func setStatus(of control: AssessedControl, to statusId: String) {
+        onSetControlStatus(control.key, statusId)
     }
 
     var body: some View {
@@ -204,6 +222,11 @@ struct TreeSelectionPanel: View {
                 .accessibilityIdentifier("tree-selected-warning")
         }
 
+        if node.controls.isEmpty == false {
+            Divider()
+            controlsSection(node.controls)
+        }
+
         if let sufficient = node.sufficient {
             Divider()
             sufficientSection(sufficient)
@@ -222,6 +245,43 @@ struct TreeSelectionPanel: View {
         Button("Delete", role: .destructive) { gestures.deleteSelection() }
             .accessibilityIdentifier("tree-selection-delete")
     }
+
+    // MARK: the controls on the selected node's threat
+
+    /// The controls the model offers on this step's threat, each with the
+    /// four way status control the threat card draws. A step closes when one
+    /// of these reads `implemented`, so this is where the route is answered
+    /// without leaving the stage.
+    @ViewBuilder
+    private func controlsSection(_ controls: [AssessedControl]) -> some View {
+        Text("Controls on this threat")
+            .font(.subheadline.weight(.semibold))
+
+        ForEach(controls, id: \.key) { control in
+            VStack(alignment: .leading, spacing: 2) {
+                Text(control.description)
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                Picker("Status", selection: Binding(
+                    get: { control.statusId },
+                    set: { setStatus(of: control, to: $0) }
+                )) {
+                    ForEach(Self.statuses, id: \.0) { Text($0.1).tag($0.0) }
+                }
+                .labelsHidden()
+                .frame(width: 160)
+                .accessibilityIdentifier("tree-control-status-\(control.key)")
+            }
+            .accessibilityIdentifier("tree-control-\(control.key)")
+        }
+    }
+
+    private static let statuses = [
+        ("implemented", "Implemented"),
+        ("not_implemented", "Not implemented"),
+        ("not_applicable", "Not applicable"),
+        ("accepted", "Accepted")
+    ]
 
     // MARK: the selected join
 
@@ -438,6 +498,10 @@ enum TreeSelection: Equatable {
         /// The tree's sufficient controls, on the goal; nil on every other
         /// node.
         var sufficient: [Sufficient]? = nil
+        /// The controls the model offers on this node's threat, in the order
+        /// the assessment gives them. Empty for a junction and for a step the
+        /// assessment does not hold.
+        var controls: [AssessedControl] = []
     }
 
     /// One selected box: the element it holds, if any, and the element at
@@ -475,7 +539,8 @@ enum TreeSelection: Equatable {
         editor: TreeEditor,
         canvas: TreeCanvasState,
         bound: BoundAttackTree?,
-        elements: [TreeElement] = []
+        elements: [TreeElement] = [],
+        threats: [AssessedThreat] = []
     ) -> TreeSelection {
         guard editor.isEditing else { return .noTree }
         let selected = canvas.selectedIds
@@ -516,7 +581,8 @@ enum TreeSelection: Equatable {
                 warning: TreeConnectable.outsideJoin(from: id, in: editor.graph, elements: elements).map {
                     "No flow or zone joins \($0.from.name) to \($0.to.name)."
                 },
-                sufficient: isGoal ? sufficient(editor: editor, bound: bound) : nil
+                sufficient: isGoal ? sufficient(editor: editor, bound: bound) : nil,
+                controls: controls(of: node, in: threats)
             ))
         case .placeholder(let element):
             let anchor = editor.graph.elementPayload(anchoring: id)
@@ -542,6 +608,17 @@ enum TreeSelection: Equatable {
                 feedsANode: editor.graph.edges.contains { $0.from == id }
             ))
         }
+    }
+
+    /// The controls the model offers on one node's threat. A node the
+    /// assessment no longer holds offers none.
+    private static func controls(
+        of node: TreeGraph.Node,
+        in threats: [AssessedThreat]
+    ) -> [AssessedControl] {
+        guard case .step(let target, _) = node.kind else { return [] }
+        let key = TreeDraft.key(of: target)
+        return threats.first { $0.threatKey == key }?.controls ?? []
     }
 
     /// Where one step sits in its chain: its position, the link before it

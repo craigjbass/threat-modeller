@@ -31,11 +31,33 @@ struct ThreatFilter: Equatable {
     var strideId: String?
     /// A `ThreatImpact` raw value, or nil for every impact.
     var impactId: String?
+    /// The id of one attack tree, or nil for every tree. The list then holds
+    /// the threats of one route: the goal, and every step.
+    var treeId: String?
     var answered: Answered = .either
 
     var isNarrowing: Bool {
         text.isEmpty == false || levelId != nil || strideId != nil || impactId != nil
-            || answered != .either
+            || treeId != nil || answered != .either
+    }
+
+    /// One tree the list can be narrowed to.
+    struct TreeChoice: Identifiable, Equatable {
+        let id: String
+        let name: String
+    }
+
+    /// One entry per tree the list holds a threat of, in the order the list
+    /// first meets each tree. A tree whose goal and steps all left the model
+    /// has no threat to show, so the picker does not offer it.
+    static func trees(of threats: [AssessedThreat]) -> [TreeChoice] {
+        var choices: [TreeChoice] = []
+        var known: Set<String> = []
+        for role in threats.flatMap(\.trees) where known.contains(role.treeId) == false {
+            known.insert(role.treeId)
+            choices.append(TreeChoice(id: role.treeId, name: role.treeName))
+        }
+        return choices
     }
 
     /// The threats this filter keeps, in the order they were given.
@@ -50,6 +72,7 @@ struct ThreatFilter: Equatable {
         if let levelId, threat.riskLevel != levelId { return false }
         if let strideId, threat.stride.contains(strideId) == false { return false }
         if let impactId, threat.impacts.contains(impactId) == false { return false }
+        if let treeId, threat.trees.contains(where: { $0.treeId == treeId }) == false { return false }
         switch answered {
         case .either: break
         case .answered: if Self.isAnswered(threat) == false { return false }

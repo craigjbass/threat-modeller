@@ -86,7 +86,13 @@ struct ProjectColumns: View {
                     canvas: treeCanvas,
                     bound: boundTree,
                     elements: treeElements,
-                    controls: modelControls
+                    controls: modelControls,
+                    threats: session.threats,
+                    // The threat card writes a status through this same use
+                    // case, so one status has one writer.
+                    onSetControlStatus: { key, statusId in
+                        session.setControlStatus(key: key, statusId: statusId)
+                    }
                 )
                 .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 480)
             }
