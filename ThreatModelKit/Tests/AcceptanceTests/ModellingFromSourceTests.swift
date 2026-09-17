@@ -235,6 +235,26 @@ struct ModellingFromSourceTests {
         #expect(exported.text == text)
     }
 
+    /// A component that states a source writes back the same bytes. The
+    /// builder must pass `source` through with every other component field.
+    @Test func writesBackAFileWhoseComponentStatesASource() {
+        let text = """
+        system "Payments" {
+          component "aws-instance-api" {
+            technology = "aws-ec2"
+            source     = "terraform"
+          }
+        }
+
+        """
+
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: text))
+
+        let exported = app.exportArchitecture().execute(ExportArchitectureRequest())
+
+        #expect(exported.text == text)
+    }
+
     @Test func exportsAnAssumedEdgeTwoAssumptionsAndTheTolerance() {
         let withAnAssumption = """
         system "S" {

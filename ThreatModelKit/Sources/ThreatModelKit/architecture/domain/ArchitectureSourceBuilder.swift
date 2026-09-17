@@ -34,6 +34,7 @@ public enum ArchitectureSourceBuilder {
                     assets: component.assets.map { SourceAsset(name: $0.name, data: $0.sensitivity.rawValue) },
                     holds: component.holds,
                     providedBy: component.providedBy,
+                    source: component.source,
                     declaredData: component.statesOwnSensitivity
                         ? component.sensitivity.rawValue
                         : nil,

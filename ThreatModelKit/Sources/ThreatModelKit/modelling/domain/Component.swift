@@ -108,6 +108,10 @@ public struct Component: Equatable, Sendable {
     /// The CVE ids the component carries, in file order. A known exploited
     /// one raises every threat on this component to commodity.
     public var cves: [String]
+    /// What wrote this component: `terraform` for one an import wrote, nil
+    /// for one a person wrote. No control in the window changes it; a save
+    /// carries it through unchanged.
+    public var source: String?
 
     public init(
         id: ComponentId,
@@ -127,10 +131,12 @@ public struct Component: Equatable, Sendable {
         status: ComponentStatus = .default,
         user: UserFacts? = nil,
         version: String = "",
-        cves: [String] = []
+        cves: [String] = [],
+        source: String? = nil
     ) {
         self.version = version
         self.cves = cves
+        self.source = source
         self.user = user
         self.status = status
         self.tags = tags

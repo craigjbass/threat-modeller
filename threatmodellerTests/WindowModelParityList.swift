@@ -156,7 +156,9 @@ extension WindowModelParityTests {
             ("cves", .writes("component-cves")),
             ("holds", .writes("component-holds")),
             ("provided_by", .writes("component-provided-by")),
-            ("source", .gap(165)),
+            ("source", .stated(
+                "provenance an import writes; no control changes it, and a save keeps it"
+            )),
             ("threats", .writes("component-threats-raised")),
             ("runs_as", .writes("component-runs-as")),
             ("shape", .writes("component-shape")),

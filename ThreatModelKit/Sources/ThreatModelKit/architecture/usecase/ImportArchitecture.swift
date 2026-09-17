@@ -278,7 +278,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     tags: component.tags,
                     status: ComponentStatus(rawValue: component.status) ?? .default,
                     version: component.version,
-                    cves: component.cves
+                    cves: component.cves,
+                    source: component.source
                 )
             )
         }
