@@ -131,4 +131,15 @@ struct ComponentAssetFlowTests {
         #expect(panel.canAddAsset(named: " ") == false)
         #expect(panel.canAddAsset(named: "ssh-keys"))
     }
+
+    /// The classification picker draws a word before anybody picks one, so
+    /// the Add button never writes an empty classification.
+    @Test func theClassificationPickerStartsOnAWordTheProjectHolds() async throws {
+        let (session, _) = await aProject(plain)
+        let model = try #require(session.model)
+        let panel = try componentPanel(model, componentId: "workstation")
+
+        let first = try #require(model.classificationChoices.first?.id)
+        #expect(panel.draftClassification.wrappedValue == first)
+    }
 }

@@ -151,7 +151,7 @@ struct ComponentPanel: View {
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("component-asset-name")
 
-                Picker("Classification", selection: $assetClassification) {
+                Picker("Classification", selection: draftClassification) {
                     ForEach(session.classificationChoices, id: \.id) {
                         Text($0.label).tag($0.id)
                     }
@@ -160,7 +160,7 @@ struct ComponentPanel: View {
                 .accessibilityIdentifier("component-asset-data")
 
                 Button("Add") {
-                    addAsset(name: assetName, classificationId: assetClassification)
+                    addAsset(name: assetName, classificationId: draftClassification.wrappedValue)
                     assetName = ""
                 }
                 .disabled(canAddAsset(named: assetName) == false)
@@ -221,6 +221,20 @@ struct ComponentPanel: View {
 
         Button("Focus") { canvas.focus(componentId: component.id) }
             .accessibilityIdentifier("component-focus")
+    }
+
+    /// What the classification picker reads and writes. A draft that names
+    /// no classification yet reads the first the project holds, so the
+    /// picker draws a word rather than an empty row.
+    var draftClassification: Binding<String> {
+        Binding(
+            get: {
+                assetClassification.isEmpty
+                    ? (session.classificationChoices.first?.id ?? "internal")
+                    : assetClassification
+            },
+            set: { assetClassification = $0 }
+        )
     }
 
     /// True while the name field holds a word. An asset needs a name, so the
