@@ -163,10 +163,10 @@ extension WindowModelParityTests {
             ("runs_as", .writes("component-runs-as")),
             ("shape", .writes("component-shape")),
             ("tags", .writes("component-tags")),
-            ("asset", .gap(166))
+            ("asset", .writes("add-component-asset"))
         ])) { first, _ in first }
         all.merge(rows("arch", "asset (in component)", [
-            ("data", .gap(166))
+            ("data", .writes("component-asset-data"))
         ])) { first, _ in first }
         all.merge(rows("arch", "flow", [
             ("kind", .writes("connection-kind")),

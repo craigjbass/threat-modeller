@@ -48,7 +48,6 @@ take one issue.
 | `.arch`, `.lib` | `threat_actor` | `aliases` | [#163](https://github.com/craigjbass/threat-modeller/issues/163) |
 | `.arch` | `zone` | `description`, `source` | [#164](https://github.com/craigjbass/threat-modeller/issues/164) |
 | `.arch` | `component` | `source` | [#165](https://github.com/craigjbass/threat-modeller/issues/165) |
-| `.arch` | `component`, `asset` (in component) | `asset`, `data` | [#166](https://github.com/craigjbass/threat-modeller/issues/166) |
 | `.controls` | `control` | `note` | [#167](https://github.com/craigjbass/threat-modeller/issues/167) |
 | `.controls` | `compensating` | `sources` | [#168](https://github.com/craigjbass/threat-modeller/issues/168) |
 | `.attacktree` | `attack_trees for` | `catalogue` | [#169](https://github.com/craigjbass/threat-modeller/issues/169) |

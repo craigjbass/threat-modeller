@@ -28,6 +28,11 @@ struct ComponentPanel: View {
         ("proposed", "Proposed")
     ]
 
+    /// The draft asset the person is typing: its name and its
+    /// classification. The Add button writes it and clears the name.
+    @State private var assetName = ""
+    @State private var assetClassification = ""
+
     private static let privileges = [
         ("user", "User"),
         ("admin", "Administrator"),
@@ -119,6 +124,50 @@ struct ComponentPanel: View {
             }
         }
 
+        // A component may hold things of value of its own, named here
+        // rather than on the system. The component scores at the highest of
+        // its own classification and every asset it states.
+        SelectionField("Assets of its own") {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(component.assets, id: \.name) { asset in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(asset.name)
+                            .font(.callout)
+                        Text(label(ofClassification: asset.classificationId))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 4)
+                        Button {
+                            removeAsset(name: asset.name)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("remove-component-asset-\(asset.name)")
+                    }
+                }
+
+                TextField("Name", text: $assetName)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("component-asset-name")
+
+                Picker("Classification", selection: $assetClassification) {
+                    ForEach(session.classificationChoices, id: \.id) {
+                        Text($0.label).tag($0.id)
+                    }
+                }
+                .labelsHidden()
+                .accessibilityIdentifier("component-asset-data")
+
+                Button("Add") {
+                    addAsset(name: assetName, classificationId: assetClassification)
+                    assetName = ""
+                }
+                .disabled(canAddAsset(named: assetName) == false)
+                .accessibilityIdentifier("add-component-asset")
+            }
+        }
+
         // A component another company runs states which one. The picker
         // is only there when the system declares a third party, so a
         // model with none keeps the editor at the rows it had.
@@ -172,6 +221,34 @@ struct ComponentPanel: View {
 
         Button("Focus") { canvas.focus(componentId: component.id) }
             .accessibilityIdentifier("component-focus")
+    }
+
+    /// True while the name field holds a word. An asset needs a name, so the
+    /// Add button waits for one.
+    func canAddAsset(named name: String) -> Bool {
+        name.trimmingCharacters(in: .whitespaces).isEmpty == false
+    }
+
+    /// Writes one asset the component states on itself. Writing a name that
+    /// is already there changes the classification of that asset.
+    func addAsset(name: String, classificationId: String) {
+        session.setComponentAsset(
+            componentId: component.id,
+            name: name.trimmingCharacters(in: .whitespaces),
+            classificationId: classificationId.isEmpty
+                ? (session.classificationChoices.first?.id ?? "internal")
+                : classificationId
+        )
+    }
+
+    /// Takes one asset off the component.
+    func removeAsset(name: String) {
+        session.removeComponentAsset(componentId: component.id, name: name)
+    }
+
+    /// What a classification id is called in this project's scheme.
+    private func label(ofClassification id: String) -> String {
+        session.classificationChoices.first { $0.id == id }?.label ?? id
     }
 
     /// The line the tag field shows: every tag the component holds, separated

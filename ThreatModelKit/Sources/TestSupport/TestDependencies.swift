@@ -226,6 +226,14 @@ public final class TestDependencies: UseCaseFactory {
         RemoveSystemAsset(models: models)
     }
 
+    public func setComponentAsset() -> SetComponentAssetUseCase {
+        SetComponentAsset(models: models, catalogue: catalogue)
+    }
+
+    public func removeComponentAsset() -> RemoveComponentAssetUseCase {
+        RemoveComponentAsset(models: models)
+    }
+
     public func setConnectionAssets() -> SetConnectionAssetsUseCase {
         SetConnectionAssets(models: models)
     }

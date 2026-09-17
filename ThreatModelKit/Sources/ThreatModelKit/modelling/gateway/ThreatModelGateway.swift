@@ -93,6 +93,8 @@ public enum ChangeLabel {
     public static let removeExclusion = "Remove Exclusion"
     public static let setSystemAsset = "Set Asset"
     public static let removeSystemAsset = "Remove Asset"
+    public static let setComponentAsset = "Set Component Asset"
+    public static let removeComponentAsset = "Remove Component Asset"
     public static let setConnectionAssets = "Set What A Connection Carries"
     public static let setSystemFacts = "Set System Facts"
     public static let setSystemAttribute = "Set System Attribute"

@@ -52,6 +52,8 @@ public protocol UseCaseFactory: Sendable {
     func removeExclusion() -> RemoveExclusionUseCase
     func setSystemAsset() -> SetSystemAssetUseCase
     func removeSystemAsset() -> RemoveSystemAssetUseCase
+    func setComponentAsset() -> SetComponentAssetUseCase
+    func removeComponentAsset() -> RemoveComponentAssetUseCase
     func setConnectionAssets() -> SetConnectionAssetsUseCase
     func setSystemFacts() -> SetSystemFactsUseCase
     func setSystemAttribute() -> SetSystemAttributeUseCase

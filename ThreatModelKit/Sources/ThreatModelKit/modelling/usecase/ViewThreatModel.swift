@@ -6,6 +6,19 @@ public struct ViewThreatModelRequest: Equatable, Sendable {
     public init() {}
 }
 
+/// One `asset` block a component states on itself: a thing of value the
+/// component holds, with the classification of that thing.
+public struct ViewedComponentAsset: Equatable, Sendable {
+    public let name: String
+    /// A classification id, taking the words a component's `data` takes.
+    public let classificationId: String
+
+    public init(name: String, classificationId: String) {
+        self.name = name
+        self.classificationId = classificationId
+    }
+}
+
 public struct ViewedComponent: Equatable, Sendable {
     public let id: String
     public let technologyId: String
@@ -63,6 +76,9 @@ public struct ViewedComponent: Equatable, Sendable {
     public let version: String
     /// The CVE ids the component carries, in model order.
     public let cves: [String]
+    /// The `asset` blocks the component states on itself, in model order.
+    /// These are the component's own assets, not the system assets it holds.
+    public let assets: [ViewedComponentAsset]
 
     public init(
         id: String,
@@ -89,8 +105,10 @@ public struct ViewedComponent: Equatable, Sendable {
         reaches: [String] = [],
         threatActorId: String? = nil,
         version: String = "",
-        cves: [String] = []
+        cves: [String] = [],
+        assets: [ViewedComponentAsset] = []
     ) {
+        self.assets = assets
         self.version = version
         self.cves = cves
         self.isUser = isUser
@@ -122,7 +140,7 @@ public struct ViewedComponent: Equatable, Sendable {
     ///
     /// A narrowed canvas lays the drawn set out on its own and holds the
     /// result in view state, so it needs one field changed and the other
-    /// twenty-four carried over. Nothing here writes the model.
+    /// twenty-five carried over. Nothing here writes the model.
     public func moved(x: Double, y: Double) -> ViewedComponent {
         ViewedComponent(
             id: id,
@@ -149,7 +167,8 @@ public struct ViewedComponent: Equatable, Sendable {
             reaches: reaches,
             threatActorId: threatActorId,
             version: version,
-            cves: cves
+            cves: cves,
+            assets: assets
         )
     }
 }
@@ -604,7 +623,13 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     reaches: component.user?.reaches ?? [],
                     threatActorId: component.user?.threatActorId,
                     version: component.version,
-                    cves: component.cves
+                    cves: component.cves,
+                    assets: component.assets.map {
+                        ViewedComponentAsset(
+                            name: $0.name,
+                            classificationId: $0.sensitivity.rawValue
+                        )
+                    }
                 )
             },
             connections: model.connections.map {

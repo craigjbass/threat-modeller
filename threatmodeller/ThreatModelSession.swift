@@ -1388,6 +1388,29 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// Writes one `asset` block on a component: a thing of value the
+    /// component itself holds, not a system asset the component holds.
+    /// Writing the same name again changes the asset that is there.
+    func setComponentAsset(componentId: String, name: String, classificationId: String) {
+        useCases.setComponentAsset()
+            .execute(
+                SetComponentAssetRequest(
+                    componentId: componentId,
+                    name: name,
+                    classification: classificationId
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func removeComponentAsset(componentId: String, name: String) {
+        useCases.removeComponentAsset()
+            .execute(RemoveComponentAssetRequest(componentId: componentId, name: name))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
     func setConnectionAssets(connectionId: String, carries: [String]) {
         useCases.setConnectionAssets()
             .execute(SetConnectionAssetsRequest(connectionId: connectionId, carries: carries))

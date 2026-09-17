@@ -227,6 +227,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveSystemAsset(models: models)
     }
 
+    func setComponentAsset() -> SetComponentAssetUseCase {
+        SetComponentAsset(models: models, catalogue: catalogue)
+    }
+
+    func removeComponentAsset() -> RemoveComponentAssetUseCase {
+        RemoveComponentAsset(models: models)
+    }
+
     func setConnectionAssets() -> SetConnectionAssetsUseCase {
         SetConnectionAssets(models: models)
     }
