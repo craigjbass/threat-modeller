@@ -671,6 +671,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         ArrangeDiagram(models: models, catalogue: catalogue, layout: layOutModel())
     }
 
+    func layOutSubset() -> LayOutSubsetUseCase {
+        LayOutSubset(models: models, catalogue: catalogue, layout: layOutModel())
+    }
+
     func changeComponentTechnology() -> ChangeComponentTechnologyUseCase {
         ChangeComponentTechnology(models: models, catalogue: catalogue)
     }

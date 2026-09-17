@@ -117,6 +117,41 @@ public struct ViewedComponent: Equatable, Sendable {
         self.shapeId = shapeId
         self.shapeOverrideId = shapeOverrideId
     }
+
+    /// The same component at another point.
+    ///
+    /// A narrowed canvas lays the drawn set out on its own and holds the
+    /// result in view state, so it needs one field changed and the other
+    /// twenty-four carried over. Nothing here writes the model.
+    public func moved(x: Double, y: Double) -> ViewedComponent {
+        ViewedComponent(
+            id: id,
+            technologyId: technologyId,
+            name: name,
+            customName: customName,
+            providerId: providerId,
+            categoryId: categoryId,
+            x: x,
+            y: y,
+            sensitivityId: sensitivityId,
+            threatsDisabled: threatsDisabled,
+            isUnknownTechnology: isUnknownTechnology,
+            zoneId: zoneId,
+            runsAsId: runsAsId,
+            shapeId: shapeId,
+            shapeOverrideId: shapeOverrideId,
+            holds: holds,
+            providedById: providedById,
+            tags: tags,
+            statusId: statusId,
+            isUser: isUser,
+            role: role,
+            reaches: reaches,
+            threatActorId: threatActorId,
+            version: version,
+            cves: cves
+        )
+    }
 }
 
 public struct ViewedConnection: Equatable, Sendable {
@@ -202,6 +237,26 @@ public struct ViewedZone: Equatable, Sendable {
         self.width = width
         self.height = height
         self.boundaryId = boundaryId
+    }
+
+    /// The same zone at another rectangle. A narrowed canvas holds the
+    /// rectangle the subset layout gave the zone, and writes no model.
+    public func moved(x: Double, y: Double, width: Double, height: Double) -> ViewedZone {
+        ViewedZone(
+            id: id,
+            name: name,
+            customName: customName,
+            networkZoneId: networkZoneId,
+            networkTypeId: networkTypeId,
+            riskReductionEnabled: riskReductionEnabled,
+            riskReductionPercent: riskReductionPercent,
+            x: x,
+            y: y,
+            width: width,
+            height: height,
+            boundaryId: boundaryId,
+            tags: tags
+        )
     }
 }
 

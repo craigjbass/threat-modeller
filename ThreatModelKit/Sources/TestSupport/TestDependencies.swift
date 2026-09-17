@@ -691,6 +691,10 @@ public final class TestDependencies: UseCaseFactory {
         ArrangeDiagram(models: models, catalogue: catalogue, layout: layOutModel())
     }
 
+    public func layOutSubset() -> LayOutSubsetUseCase {
+        LayOutSubset(models: models, catalogue: catalogue, layout: layOutModel())
+    }
+
     public func changeComponentTechnology() -> ChangeComponentTechnologyUseCase {
         ChangeComponentTechnology(models: models, catalogue: catalogue)
     }
