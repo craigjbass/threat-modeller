@@ -140,8 +140,10 @@ extension WindowModelParityTests {
             ("reduces_risk_by", .writes("zone-reduction-percent")),
             ("component", nested("component")),
             ("boundary", .writes("zone-boundary")),
-            ("description", .gap(164)),
-            ("source", .gap(164)),
+            ("description", .writes("zone-description")),
+            ("source", .stated(
+                "provenance an import writes; no control changes it, and a save keeps it"
+            )),
             ("tags", .writes("zone-tags"))
         ])) { first, _ in first }
         all.merge(rows("arch", "component", [

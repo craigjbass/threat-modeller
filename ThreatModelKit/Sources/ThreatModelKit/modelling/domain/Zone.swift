@@ -56,6 +56,10 @@ public struct Zone: Equatable, Sendable {
     public var riskReductionPercent: Int
     public var boundary: ZoneBoundary
     public var description: String?
+    /// What wrote this zone: `terraform` for one an import wrote, nil for one
+    /// a person wrote. No control in the window changes it; a save carries it
+    /// through unchanged.
+    public var source: String?
     /// The words a team files this zone under, in model order. A tag groups
     /// elements for a reader; it changes no score.
     public var tags: [String]
@@ -70,6 +74,7 @@ public struct Zone: Equatable, Sendable {
         riskReductionPercent: Int = Zone.defaultRiskReductionPercent,
         boundary: ZoneBoundary = .default,
         description: String? = nil,
+        source: String? = nil,
         tags: [String] = []
     ) {
         self.tags = tags
@@ -82,6 +87,7 @@ public struct Zone: Equatable, Sendable {
         self.riskReductionPercent = riskReductionPercent
         self.boundary = boundary
         self.description = description
+        self.source = source
     }
 
     /// Spec section 5.3: the user's own name, else the network type label when

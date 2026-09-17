@@ -326,6 +326,7 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     riskReductionPercent: zone.reducesRiskBy ?? Zone.defaultRiskReductionPercent,
                     boundary: ZoneBoundary(rawValue: zone.boundary) ?? .default,
                     description: zone.description,
+                    source: zone.source,
                     tags: zone.tags
                 )
             )

@@ -76,6 +76,7 @@ public enum ArchitectureSourceBuilder {
                         components: inZone[zone.id] ?? [],
                         boundary: zone.boundary.rawValue,
                         description: zone.description,
+                        source: zone.source,
                         tags: zone.tags
                     )
                 },

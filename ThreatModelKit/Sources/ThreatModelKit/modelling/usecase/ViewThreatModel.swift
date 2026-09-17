@@ -205,6 +205,9 @@ public struct ViewedZone: Equatable, Sendable {
     public let height: Double
     /// What the zone is a boundary of: network or privilege.
     public let boundaryId: String
+    /// What a team states this zone is, in their own words. Empty when the
+    /// file states none. The zone panel edits this.
+    public let description: String
     /// The words a team files this zone under, in model order. The canvas tag
     /// filter reads them; no score does.
     public let tags: [String]
@@ -222,6 +225,7 @@ public struct ViewedZone: Equatable, Sendable {
         width: Double,
         height: Double,
         boundaryId: String = ZoneBoundary.default.rawValue,
+        description: String = "",
         tags: [String] = []
     ) {
         self.tags = tags
@@ -237,6 +241,7 @@ public struct ViewedZone: Equatable, Sendable {
         self.width = width
         self.height = height
         self.boundaryId = boundaryId
+        self.description = description
     }
 
     /// The same zone at another rectangle. A narrowed canvas holds the
@@ -255,6 +260,7 @@ public struct ViewedZone: Equatable, Sendable {
             width: width,
             height: height,
             boundaryId: boundaryId,
+            description: description,
             tags: tags
         )
     }
@@ -626,6 +632,7 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                     width: $0.rect.size.width,
                     height: $0.rect.size.height,
                     boundaryId: $0.boundary.rawValue,
+                    description: $0.description ?? "",
                     tags: $0.tags
                 )
             },

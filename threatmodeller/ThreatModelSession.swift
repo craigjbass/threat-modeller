@@ -264,6 +264,7 @@ final class ThreatModelSession {
         riskReductionEnabled: Bool,
         riskReductionPercent: Int,
         boundaryId: String,
+        description: String? = nil,
         tags: [String]? = nil
     ) {
         switch useCases.setZoneProperties().execute(
@@ -275,6 +276,7 @@ final class ThreatModelSession {
                 riskReductionEnabled: riskReductionEnabled,
                 riskReductionPercent: riskReductionPercent,
                 boundary: boundaryId,
+                description: description,
                 tags: tags
             )
         ) {

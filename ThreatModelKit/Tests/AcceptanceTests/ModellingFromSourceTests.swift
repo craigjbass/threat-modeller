@@ -212,6 +212,29 @@ struct ModellingFromSourceTests {
         #expect(exported.text == text)
     }
 
+    /// A zone that states a description and a source writes back the same
+    /// bytes. The builder must pass both through with every other zone field.
+    @Test func writesBackAFileWhoseZoneStatesADescriptionAndASource() {
+        let text = """
+        system "Payments" {
+          zone "app" {
+            kind            = "private"
+            network         = "generic"
+            reduces_risk_by = 20
+            description     = "internal traffic only"
+            source          = "terraform"
+          }
+        }
+
+        """
+
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: text))
+
+        let exported = app.exportArchitecture().execute(ExportArchitectureRequest())
+
+        #expect(exported.text == text)
+    }
+
     @Test func exportsAnAssumedEdgeTwoAssumptionsAndTheTolerance() {
         let withAnAssumption = """
         system "S" {

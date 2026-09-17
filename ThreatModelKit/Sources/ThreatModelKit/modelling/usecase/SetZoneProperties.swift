@@ -14,6 +14,10 @@ public struct SetZonePropertiesRequest: Equatable, Sendable {
     public let riskReductionPercent: Int
     /// What the zone is a boundary of: network or privilege.
     public let boundary: String
+    /// What a team states this zone is, in their own words. Nil leaves the
+    /// description alone, so a caller that does not offer one changes none.
+    /// An empty word takes the description off.
+    public let description: String?
     /// The words a team files this zone under. Nil leaves the tags alone, so a
     /// caller that does not offer tags changes none. An empty list takes every
     /// tag off.
@@ -27,6 +31,7 @@ public struct SetZonePropertiesRequest: Equatable, Sendable {
         riskReductionEnabled: Bool,
         riskReductionPercent: Int,
         boundary: String,
+        description: String? = nil,
         tags: [String]? = nil
     ) {
         self.tags = tags
@@ -37,6 +42,7 @@ public struct SetZonePropertiesRequest: Equatable, Sendable {
         self.riskReductionEnabled = riskReductionEnabled
         self.riskReductionPercent = riskReductionPercent
         self.boundary = boundary
+        self.description = description
     }
 }
 
@@ -88,6 +94,10 @@ public struct SetZoneProperties: SetZonePropertiesUseCase {
             model.zones[index].riskReductionEnabled = request.riskReductionEnabled
             model.zones[index].riskReductionPercent = request.riskReductionPercent
             model.zones[index].boundary = boundary
+            if let description = request.description {
+                let trimmedDescription = description.trimmingWhitespace()
+                model.zones[index].description = trimmedDescription.isEmpty ? nil : trimmedDescription
+            }
             if let tags = request.tags {
                 model.zones[index].tags = tags
             }

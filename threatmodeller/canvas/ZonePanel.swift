@@ -69,6 +69,15 @@ struct ZonePanel: View {
             }
         }
 
+        SelectionField("Description") {
+            DeferredTextField(
+                title: "Description",
+                text: zone.description,
+                identifier: "zone-description",
+                commit: { commitDescription($0) }
+            )
+        }
+
         // The tags a zone is filed under, as one line. The canvas tag
         // filter draws the zone and the components inside it.
         SelectionField("Tags") {
@@ -135,6 +144,12 @@ struct ZonePanel: View {
         write(tags: TagFilter.tags(from: text))
     }
 
+    /// Writes what a person typed in the description field. An empty field
+    /// takes the description off the zone.
+    func commitDescription(_ text: String) {
+        write(description: text)
+    }
+
     // MARK: writing through
 
     private func write(
@@ -144,6 +159,7 @@ struct ZonePanel: View {
         enabled newEnabled: Bool? = nil,
         percent newPercent: Int? = nil,
         boundary newBoundary: String? = nil,
+        description newDescription: String? = nil,
         tags newTags: [String]? = nil
     ) {
         session.setZoneProperties(
@@ -154,6 +170,7 @@ struct ZonePanel: View {
             riskReductionEnabled: newEnabled ?? zone.riskReductionEnabled,
             riskReductionPercent: newPercent ?? zone.riskReductionPercent,
             boundaryId: newBoundary ?? zone.boundaryId,
+            description: newDescription,
             tags: newTags
         )
     }
