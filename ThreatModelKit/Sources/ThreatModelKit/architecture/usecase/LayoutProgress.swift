@@ -1,11 +1,44 @@
 import Foundation
 
+/// What a preview draws the layout reports over.
+///
+/// A layout report holds geometry alone: an identifier and a place for each
+/// component, and a rectangle for each zone. A picture needs the name, the
+/// shape, the provider, the category and the flows as well, and the search
+/// knows none of them. So the use case that runs the search states the
+/// subject, and the preview draws the subject at the reported coordinates.
+public struct LayoutSubject: Equatable, Sendable {
+    public let components: [ViewedComponent]
+    public let connections: [ViewedConnection]
+    public let zones: [ViewedZone]
+
+    public init(
+        components: [ViewedComponent],
+        connections: [ViewedConnection],
+        zones: [ViewedZone]
+    ) {
+        self.components = components
+        self.connections = connections
+        self.zones = zones
+    }
+
+    /// The subject one model draws as. The coordinates here are the model's
+    /// own; a report replaces them.
+    public static func of(_ model: ThreatModel, catalogue: TechnologyCatalogue) -> LayoutSubject {
+        LayoutSubject(
+            components: ViewedModel.components(of: model, catalogue: catalogue),
+            connections: ViewedModel.connections(of: model),
+            zones: ViewedModel.zones(of: model)
+        )
+    }
+}
+
 /// Where the layout search says how it is going.
 ///
 /// A large model takes long enough that a person wants to see something. The
-/// search holds only geometry, so what it reports is the shape of the picture
-/// forming: where each component sits and how big each zone is. It carries no
-/// name and no technology, because the layout knows neither.
+/// search reports every plan that beats the best so far. The caller that
+/// runs the search states the subject first, so a listener that hears a
+/// report always has a picture to draw it over.
 ///
 /// Locked, because the search may run off the main actor and the listener is
 /// on it.
@@ -14,6 +47,7 @@ public final class LayoutProgress: @unchecked Sendable {
 
     private let lock = NSLock()
     private var listener: Listener?
+    private var drawnSubject: LayoutSubject?
 
     public init() {}
 
@@ -23,6 +57,21 @@ public final class LayoutProgress: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         self.listener = listener
+    }
+
+    /// What the search's caller states before the search starts, or nil to
+    /// forget the last one.
+    public func describe(_ subject: LayoutSubject?) {
+        lock.lock()
+        defer { lock.unlock() }
+        drawnSubject = subject
+    }
+
+    /// What the reports are about, or nil when nobody has stated it.
+    public var subject: LayoutSubject? {
+        lock.lock()
+        defer { lock.unlock() }
+        return drawnSubject
     }
 
     /// What the search calls. It costs nothing when nobody is listening.

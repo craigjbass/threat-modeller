@@ -58,6 +58,16 @@ public struct LayOutSubset: LayOutSubsetUseCase {
     public static let frameBudget: TimeInterval = 0.0167
     #endif
 
+    /// The number of drawn elements above which a preview shows, where an
+    /// element is a drawn component or a drawn zone.
+    ///
+    /// At or below this size the search finishes inside one frame, so the
+    /// canvas draws the result in the frame the person asked for it and
+    /// there is nothing to preview.
+    /// `docs/superpowers/specs/2026-09-17-filtered-layout-design.md` states
+    /// the number and states that #147 adds the constant that holds it.
+    public static let previewAboveElements = 24
+
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
     private let layout: LayOutModelUseCase

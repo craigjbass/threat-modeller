@@ -132,8 +132,12 @@ public final class TestDependencies: UseCaseFactory {
         SetComponentProperties(models: models, catalogue: catalogue)
     }
 
+    /// Where the layout search says how it is going. A test root reports the
+    /// way the window's root does, so a test can state what a preview draws.
+    public let layoutProgress: LayoutProgress? = LayoutProgress()
+
     public func layOutModel() -> LayOutModelUseCase {
-        LayOutModel()
+        LayOutModel(progress: layoutProgress)
     }
 
     public func importArchitecture() -> ImportArchitectureUseCase {
@@ -142,7 +146,8 @@ public final class TestDependencies: UseCaseFactory {
             catalogue: catalogue,
             sources: architectureSources,
             attackTreeSources: attackTreeSources,
-            layout: layOutModel()
+            layout: layOutModel(),
+            progress: layoutProgress
         )
     }
 
@@ -704,7 +709,12 @@ public final class TestDependencies: UseCaseFactory {
     }
 
     public func arrangeDiagram() -> ArrangeDiagramUseCase {
-        ArrangeDiagram(models: models, catalogue: catalogue, layout: layOutModel())
+        ArrangeDiagram(
+            models: models,
+            catalogue: catalogue,
+            layout: layOutModel(),
+            progress: layoutProgress
+        )
     }
 
     public func layOutSubset() -> LayOutSubsetUseCase {

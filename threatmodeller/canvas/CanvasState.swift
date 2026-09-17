@@ -42,6 +42,15 @@ final class CanvasState: CanvasViewport {
     /// True while a pan is in flight, so the pointer shows a closed hand.
     var isPanning = false
 
+    /// Whether the canvas fits the whole diagram the next time it appears.
+    ///
+    /// The layout preview draws the diagram fitted to the column, so the
+    /// canvas must take over at that fit or the picture jumps. The window
+    /// sets this while the preview is on screen, and a change of stage does
+    /// not, so switching to the report and back keeps the transform the
+    /// person set.
+    var fitsOnNextAppearance = true
+
     /// Which tags the canvas draws. This is view state: it writes no file and
     /// changes no score, so the threat list keeps scoring the whole model.
     private(set) var tagFilter = TagFilter()

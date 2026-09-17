@@ -1821,4 +1821,93 @@ struct ViewRenderTests {
             Comment(rawValue: "the assumptions header sits \(header) points down the sidebar")
         )
     }
+
+    // MARK: the layout preview
+
+    /// The preview a person watches while the layout search runs.
+    ///
+    /// The skeleton drew a plain rectangle for each component and no flow at
+    /// all, because a layout report holds geometry and nothing else. The
+    /// preview draws the real diagram, so the name is inside the node and the
+    /// flow is routed across the gap between two nodes.
+    @Test func thePreviewDrawsTheComponentNamesAndARoutedFlow() throws {
+        let named = try previewPicture(named: true, joined: false)
+        let unnamed = try previewPicture(named: false, joined: false)
+        let joined = try previewPicture(named: true, joined: true)
+
+        #expect(hasContent(named))
+        #expect(differences(named, unnamed) > 0, "the preview drew no component name")
+
+        // The band between the two nodes. Nothing but a routed flow draws
+        // there: the nodes sit at the two ends of the picture.
+        let middle = (joined.pixelsWide / 2 - 20)..<(joined.pixelsWide / 2 + 20)
+        #expect(
+            differences(joined, named, columns: middle) > 0,
+            "the preview routed no flow between the two components"
+        )
+    }
+
+    /// A two component model, drawn at the coordinates one report gives.
+    private func previewPicture(named: Bool, joined: Bool) throws -> NSBitmapImageRep {
+        let subject = LayoutSubject(
+            components: [
+                aPreviewComponent(id: "api", name: named ? "Orders API" : "", x: 0),
+                aPreviewComponent(id: "db", name: named ? "Orders store" : "", x: 700)
+            ],
+            connections: joined
+                ? [ViewedConnection(id: "api->db", sourceComponentId: "api", targetComponentId: "db")]
+                : [],
+            zones: []
+        )
+        let layout = LayOutModelResponse(
+            components: subject.components.map { LaidOutComponent(id: $0.id, x: $0.x, y: $0.y) },
+            zones: []
+        )
+        return try #require(
+            hostedDrawing(
+                of: FormingPicture(subject: subject, layout: layout),
+                width: 640,
+                height: 420
+            )
+        ).image
+    }
+
+    private func aPreviewComponent(id: String, name: String, x: Double) -> ViewedComponent {
+        ViewedComponent(
+            id: id,
+            technologyId: "aws-ec2",
+            name: name,
+            customName: name.isEmpty ? nil : name,
+            providerId: "aws",
+            categoryId: "compute",
+            x: x,
+            y: 0,
+            sensitivityId: "confidential",
+            threatsDisabled: false,
+            isUnknownTechnology: false,
+            zoneId: nil
+        )
+    }
+
+    /// How many pixels of two pictures of the same size read differently.
+    private func differences(
+        _ one: NSBitmapImageRep,
+        _ other: NSBitmapImageRep,
+        columns: Range<Int>? = nil
+    ) -> Int {
+        var count = 0
+        for x in columns ?? 0..<one.pixelsWide {
+            for y in 0..<one.pixelsHigh {
+                guard let left = one.colorAt(x: x, y: y), let right = other.colorAt(x: x, y: y) else {
+                    continue
+                }
+                if abs(left.redComponent - right.redComponent) > 0.02
+                    || abs(left.greenComponent - right.greenComponent) > 0.02
+                    || abs(left.blueComponent - right.blueComponent) > 0.02 {
+                    count += 1
+                }
+            }
+        }
+        return count
+    }
 }

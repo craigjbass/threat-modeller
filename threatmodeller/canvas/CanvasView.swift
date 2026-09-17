@@ -171,7 +171,15 @@ struct CanvasView: View {
                 canvasToolbar(inColumnOfWidth: geometry.size.width)
             }
             // Zoom to Fit needs to know how much room there is.
-            .onAppear { canvas.visibleSize = geometry.size }
+            .onAppear {
+                canvas.visibleSize = geometry.size
+                // The layout preview drew the diagram fitted to the column,
+                // so the canvas takes over at the same fit.
+                if canvas.fitsOnNextAppearance {
+                    canvas.fitsOnNextAppearance = false
+                    gestures.zoomToFit()
+                }
+            }
             .onChange(of: geometry.size) { _, size in canvas.visibleSize = size }
             // An edit while a filter is on lays the narrowed set out again.
             // The verb writes the coordinates; the body only reads them.

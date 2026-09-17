@@ -584,83 +584,12 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
 
     public func execute(_ request: ViewThreatModelRequest) -> ViewThreatModelResponse {
         let model = models.current()
-        let lookup = TechnologyLookup(model: model, catalogue: catalogue)
 
         return ViewThreatModelResponse(
             name: model.name,
-            components: model.components.map { component in
-                // A user has no technology, so the lookup is not asked: a
-                // custom technology called `user` is not what a user is.
-                let technology = component.isUser ? nil : lookup.findById(component.technologyId)
-                let providerId = technology?.provider.value ?? ""
-                let categoryId = technology?.category.value ?? ""
-                return ViewedComponent(
-                    id: component.id.value,
-                    technologyId: component.technologyId.value,
-                    name: component.customName ?? technology?.name
-                        ?? (component.isUser ? component.id.value : component.technologyId.value),
-                    customName: component.customName,
-                    providerId: providerId,
-                    categoryId: categoryId,
-                    x: component.position.x,
-                    y: component.position.y,
-                    sensitivityId: component.sensitivity.rawValue,
-                    threatsDisabled: component.threatsDisabled,
-                    isUnknownTechnology: component.isUser == false && technology == nil,
-                    zoneId: component.zoneId?.value,
-                    runsAsId: component.runsAs.rawValue,
-                    shapeId: component.resolvedShape(
-                        providerId: providerId,
-                        categoryId: categoryId
-                    ).rawValue,
-                    shapeOverrideId: component.shape?.rawValue,
-                    holds: component.holds,
-                    providedById: component.providedBy,
-                    tags: component.tags,
-                    statusId: component.status.rawValue,
-                    isUser: component.isUser,
-                    role: component.user?.role ?? "",
-                    reaches: component.user?.reaches ?? [],
-                    threatActorId: component.user?.threatActorId,
-                    version: component.version,
-                    cves: component.cves,
-                    assets: component.assets.map {
-                        ViewedComponentAsset(
-                            name: $0.name,
-                            classificationId: $0.sensitivity.rawValue
-                        )
-                    }
-                )
-            },
-            connections: model.connections.map {
-                ViewedConnection(
-                    id: $0.id.value,
-                    sourceComponentId: $0.source.value,
-                    targetComponentId: $0.target.value,
-                    kindId: $0.kind.rawValue,
-                    description: $0.description,
-                    carries: $0.carries,
-                    tags: $0.tags
-                )
-            },
-            zones: model.zones.map {
-                ViewedZone(
-                    id: $0.id.value,
-                    name: $0.displayName,
-                    customName: $0.name,
-                    networkZoneId: $0.networkZone.rawValue,
-                    networkTypeId: $0.networkType.rawValue,
-                    riskReductionEnabled: $0.riskReductionEnabled,
-                    riskReductionPercent: $0.riskReductionPercent,
-                    x: $0.rect.origin.x,
-                    y: $0.rect.origin.y,
-                    width: $0.rect.size.width,
-                    height: $0.rect.size.height,
-                    boundaryId: $0.boundary.rawValue,
-                    description: $0.description ?? "",
-                    tags: $0.tags
-                )
-            },
+            components: ViewedModel.components(of: model, catalogue: catalogue),
+            connections: ViewedModel.connections(of: model),
+            zones: ViewedModel.zones(of: model),
             assumptions: model.assumptions.map {
                 ViewedAssumption(label: $0.label, text: $0.text, owner: $0.owner)
             },

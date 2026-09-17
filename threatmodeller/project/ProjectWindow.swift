@@ -39,10 +39,15 @@ struct ProjectWindow: View {
             chrome
 
             Group {
+                // The layout preview wins over the canvas: while the
+                // search runs, the window draws the diagram re-routing, and
+                // Lay Out on an open system draws it too.
+                if let preview = session.layoutPreview {
+                    layoutPreview(preview)
                 // A drawn model wins over a stage. The stage is what the
                 // window has instead of a diagram, never instead of one: a
                 // stage left behind must not be able to hide the diagram.
-                if let model = session.model {
+                } else if let model = session.model {
                     ProjectColumns(
                         project: session,
                         session: model,
@@ -326,15 +331,8 @@ struct ProjectWindow: View {
     /// in and, when it is opening the project, which step that is of the four.
     private func loadingNotice(_ stage: ProjectSession.LoadingStage) -> some View {
         VStack(spacing: 14) {
-            // The shape of the diagram as the layout search last had it, so a
-            // person watches it settle rather than watching nothing.
-            if let forming = session.formingDiagram {
-                FormingDiagram(layout: forming)
-                    .frame(maxWidth: 520, maxHeight: 320)
-            } else {
-                ProgressView()
-                    .controlSize(.large)
-            }
+            ProgressView()
+                .controlSize(.large)
 
             Text(stage.says)
                 .font(.title3)
@@ -345,6 +343,30 @@ struct ProjectWindow: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("loading")
+    }
+
+    /// The diagram the layout search is drawing, with the stage under it.
+    ///
+    /// The canvas fits the whole diagram when it takes over, so the picture
+    /// does not move at the hand-over.
+    private func layoutPreview(
+        _ preview: (subject: LayoutSubject, layout: LayOutModelResponse)
+    ) -> some View {
+        VStack(spacing: 14) {
+            FormingPicture(subject: preview.subject, layout: preview.layout)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if let stage = session.loading {
+                Text(stage.says)
+                    .font(.title3)
+
+                Text(stepOf(stage))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { canvas.fitsOnNextAppearance = true }
     }
 
     /// A directory with nothing in it. Rather than an empty window, this

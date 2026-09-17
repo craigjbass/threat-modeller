@@ -28,6 +28,27 @@ enum LayoutPreview {
         return session
     }
 
+    /// The diagram the layout search is drawing, part way through a plan.
+    @MainActor
+    static func formingPicture() -> FormingPicture {
+        let drawn = session().canvas
+        return FormingPicture(
+            subject: LayoutSubject(
+                components: drawn.components,
+                connections: drawn.connections,
+                zones: drawn.zones
+            ),
+            layout: LayOutModelResponse(
+                components: drawn.components.map {
+                    LaidOutComponent(id: $0.id, x: $0.x + 80, y: $0.y)
+                },
+                zones: drawn.zones.map {
+                    LaidOutZone(id: $0.id, x: $0.x, y: $0.y, width: $0.width, height: $0.height)
+                }
+            )
+        )
+    }
+
     /// The same model with every catalogue mitigation turned on, which is the
     /// state the pathway panel grows tallest in.
     @MainActor
@@ -164,26 +185,12 @@ enum LayoutPreview {
     ProjectWindow(session: LayoutPreview.emptyProjectSession())
 }
 
-// MARK: the diagram forming while a large model opens
+// MARK: the diagram the layout search is drawing
 
-#Preview("A diagram forming, 520x320", traits: .fixedLayout(width: 560, height: 360)) {
-    FormingDiagram(
-        layout: LayOutModelResponse(
-            components: (0..<9).map { index in
-                LaidOutComponent(
-                    id: "c\(index)",
-                    x: 60 + Double(index % 3) * 260,
-                    y: 60 + Double(index / 3) * 160
-                )
-            },
-            zones: [
-                LaidOutZone(id: "app", x: 20, y: 20, width: 700, height: 300),
-                LaidOutZone(id: "data", x: 20, y: 340, width: 700, height: 140)
-            ]
-        )
-    )
-    .frame(width: 520, height: 320)
-    .padding(20)
+#Preview("A diagram forming, 620x420", traits: .fixedLayout(width: 660, height: 460)) {
+    LayoutPreview.formingPicture()
+        .frame(width: 620, height: 420)
+        .padding(20)
 }
 
 // MARK: the viewport, panned back past the origin

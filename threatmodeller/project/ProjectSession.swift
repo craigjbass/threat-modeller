@@ -105,9 +105,65 @@ final class ProjectSession {
     /// re-imports the architecture and that is not instant.
     private(set) var isSaving = false
 
-    /// The diagram as the layout search last had it, while a load runs. It
-    /// holds geometry and nothing else, because that is all the search knows.
+    /// The diagram as the layout search last had it, while a load runs.
     private(set) var formingDiagram: LayOutModelResponse?
+
+    /// What the reports are about: the names, the shapes, the zones and the
+    /// flows. The use case that runs the search states it, because the search
+    /// holds geometry and nothing else.
+    private(set) var formingSubject: LayoutSubject?
+
+    /// What samples the reports while a search runs, or nil when none runs.
+    private var previewSampler: LayoutPreviewSampler?
+
+    /// What the window draws in place of the canvas while the search runs, or
+    /// nil when there is nothing to draw yet. A search that has reported
+    /// nothing draws the stage on its own.
+    var layoutPreview: (subject: LayoutSubject, layout: LayOutModelResponse)? {
+        guard let formingSubject, let formingDiagram else { return nil }
+        return (formingSubject, formingDiagram)
+    }
+
+    /// Starts drawing the layout search, and answers the sampler that draws
+    /// it.
+    ///
+    /// The search reports from its own thread. The sampler stores each report
+    /// and asks for a redraw at most once every
+    /// `LayoutPreviewSampler.redrawInterval`, and the redraw reads the newest
+    /// report here on the main actor.
+    @discardableResult
+    func watchTheLayout() -> LayoutPreviewSampler {
+        formingDiagram = nil
+        formingSubject = nil
+        let sampler = LayoutPreviewSampler(redraw: { [weak self] in
+            Task { @MainActor in self?.drawTheLayoutSoFar() }
+        })
+        previewSampler = sampler
+        useCases.layoutProgress?.listen { [sampler] report in sampler.receive(report) }
+        return sampler
+    }
+
+    /// Draws the last plan and stops listening. The preview stays on screen
+    /// until the canvas takes over.
+    func stopWatchingTheLayout() {
+        previewSampler?.drawTheLast()
+        useCases.layoutProgress?.listen(nil)
+    }
+
+    /// Drops the preview, because the canvas draws the model now.
+    func forgetTheLayoutPreview() {
+        previewSampler = nil
+        formingDiagram = nil
+        formingSubject = nil
+    }
+
+    /// One redraw. It reads the newest report rather than a report carried on
+    /// the call, so a redraw that arrives late still draws the final plan.
+    private func drawTheLayoutSoFar() {
+        guard let previewSampler else { return }
+        if let subject = useCases.layoutProgress?.subject { formingSubject = subject }
+        formingDiagram = previewSampler.latest
+    }
 
     /// What a load can be doing. The first four are the stages of opening a
     /// project, in the order they run. A synchronise is its own stage, not a
@@ -1079,26 +1135,26 @@ final class ProjectSession {
         // Every way out of here says the load has finished. Without this a
         // system picked from the toolbar left a stage behind, and the window
         // drew that stage for good.
-        defer { loading = nil }
+        defer {
+            loading = nil
+            forgetTheLayoutPreview()
+        }
 
         // Reading a system parses its file and lays the diagram out, and the
         // layout is most of what opening a model costs. It runs off the main
         // actor so the window keeps answering while it does. The store guards
         // itself with a lock, which is what lets this leave.
         loading = .drawingTheSystem
-        formingDiagram = nil
         // The search reports every plan that beats the best so far, from
-        // whatever thread it runs on, so each report hops back here.
-        useCases.layoutProgress?.listen { [weak self] forming in
-            Task { @MainActor in self?.formingDiagram = forming }
-        }
+        // whatever thread it runs on. The sampler stores each report and the
+        // window redraws on its own interval.
+        watchTheLayout()
         let outcome = await Task.detached { [useCases] in
             useCases.openSystem().execute(
                 OpenSystemRequest(root: root, systemName: systemName)
             )
         }.value
-        useCases.layoutProgress?.listen(nil)
-        formingDiagram = nil
+        stopWatchingTheLayout()
 
         switch outcome {
         case .opened(_, let warnings, let statedTag):
@@ -1290,7 +1346,12 @@ final class ProjectSession {
     func layOutDiagram(componentIds: [String] = [], zoneIds: [String] = []) async {
         guard let model else { return }
         loading = .drawingTheSystem
-        defer { loading = nil }
+        // Lay Out on an open system draws the same preview as opening one.
+        watchTheLayout()
+        defer {
+            loading = nil
+            forgetTheLayoutPreview()
+        }
 
         let useCases = self.useCases
         await Task.detached {
@@ -1298,6 +1359,7 @@ final class ProjectSession {
                 ArrangeDiagramRequest(componentIds: componentIds, zoneIds: zoneIds)
             )
         }.value
+        stopWatchingTheLayout()
 
         model.reread()
     }

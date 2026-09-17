@@ -35,15 +35,20 @@ public struct ArrangeDiagram: ArrangeDiagramUseCase {
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
     private let layout: LayOutModelUseCase
+    /// Where the subject the search draws is stated, or nil when nobody
+    /// watches the search. Only the window passes one.
+    private let progress: LayoutProgress?
 
     public init(
         models: ThreatModelGateway,
         catalogue: TechnologyCatalogue,
-        layout: LayOutModelUseCase
+        layout: LayOutModelUseCase,
+        progress: LayoutProgress? = nil
     ) {
         self.models = models
         self.catalogue = catalogue
         self.layout = layout
+        self.progress = progress
     }
 
     public func execute(_ request: ArrangeDiagramRequest) -> ArrangeDiagramResponse {
@@ -66,6 +71,10 @@ public struct ArrangeDiagram: ArrangeDiagramUseCase {
                 return (component.id.value, resolved.rawValue)
             }
         )
+
+        // Lay Out on an open system draws the same preview as opening a
+        // system does, so it states the same subject before the search runs.
+        progress?.describe(LayoutSubject.of(model, catalogue: catalogue))
 
         let placed = layout.execute(LayOutModelRequest(source: source, shapes: shapes))
         let positions = Dictionary(

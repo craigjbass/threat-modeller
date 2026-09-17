@@ -143,7 +143,8 @@ nonisolated final class Dependencies: UseCaseFactory {
             catalogue: catalogue,
             sources: architectureSources,
             attackTreeSources: attackTreeSources,
-            layout: layOutModel()
+            layout: layOutModel(),
+            progress: layoutProgress
         )
     }
 
@@ -684,7 +685,12 @@ nonisolated final class Dependencies: UseCaseFactory {
     }
 
     func arrangeDiagram() -> ArrangeDiagramUseCase {
-        ArrangeDiagram(models: models, catalogue: catalogue, layout: layOutModel())
+        ArrangeDiagram(
+            models: models,
+            catalogue: catalogue,
+            layout: layOutModel(),
+            progress: layoutProgress
+        )
     }
 
     func layOutSubset() -> LayOutSubsetUseCase {

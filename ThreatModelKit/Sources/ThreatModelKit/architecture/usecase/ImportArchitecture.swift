@@ -67,19 +67,24 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
     /// gives no layout. A component then keeps the origin and a zone gets a
     /// rectangle of nothing.
     private let layout: LayOutModelUseCase?
+    /// Where the subject the search draws is stated, or nil when nobody
+    /// watches the search. Only the window passes one.
+    private let progress: LayoutProgress?
 
     public init(
         models: ThreatModelGateway,
         catalogue: TechnologyCatalogue,
         sources: ArchitectureSourceGateway,
         attackTreeSources: AttackTreeSourceGateway = NoAttackTreeSource(),
-        layout: LayOutModelUseCase?
+        layout: LayOutModelUseCase?,
+        progress: LayoutProgress? = nil
     ) {
         self.models = models
         self.catalogue = catalogue
         self.sources = sources
         self.attackTreeSources = attackTreeSources
         self.layout = layout
+        self.progress = progress
     }
 
     public func execute(_ request: ImportArchitectureRequest) -> ImportArchitectureResponse {
@@ -115,20 +120,6 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 )
                 return (component.id, resolved.rawValue)
             }
-        )
-
-        // The layout places a user beside the components, as an actor.
-        let placed = layout?.execute(
-            LayOutModelRequest(
-                source: source,
-                shapes: shapes.merging(
-                    source.users.map { ($0.id, DiagramShape.actor.rawValue) },
-                    uniquingKeysWith: { first, _ in first }
-                )
-            )
-        ) ?? LayOutModelResponse(components: [], zones: [])
-        let positions = Dictionary(
-            uniqueKeysWithValues: placed.components.map { ($0.id, Point(x: $0.x, y: $0.y)) }
         )
 
         let customTechnologies = source.technologies.map { technology in
@@ -262,7 +253,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 Component(
                     id: ComponentId(component.id),
                     technologyId: TechnologyId(component.technologyId),
-                    position: positions[component.id] ?? Point(x: 0, y: 0),
+                    // The search runs below, once the model it draws exists.
+                    position: Point(x: 0, y: 0),
                     sensitivity: sensitivity,
                     customName: component.name,
                     threatsDisabled: component.raisesThreats == false,
@@ -292,7 +284,7 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 Component(
                     id: ComponentId(user.id),
                     technologyId: Component.userTechnologyId,
-                    position: positions[user.id] ?? Point(x: 0, y: 0),
+                    position: Point(x: 0, y: 0),
                     sensitivity: .internalData,
                     customName: user.name,
                     runsAs: PrivilegeLevel(rawValue: user.access) ?? .default,
@@ -310,16 +302,10 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             // With no layout there is no rectangle, and a zone with no
             // rectangle still holds its components: membership is the field,
             // not the geometry. The compile path is the caller that does this.
-            let rectangle = placed.zones.first { $0.id == zone.id }
             model.zones.append(
                 Zone(
                     id: ZoneId(zone.id),
-                    rect: Rect(
-                        x: rectangle?.x ?? 0,
-                        y: rectangle?.y ?? 0,
-                        width: rectangle?.width ?? 0,
-                        height: rectangle?.height ?? 0
-                    ),
+                    rect: Rect(x: 0, y: 0, width: 0, height: 0),
                     name: zone.name,
                     networkZone: NetworkZone(rawValue: zone.kind) ?? .privateZone,
                     networkType: ZoneNetworkType(rawValue: zone.network) ?? .generic,
@@ -346,6 +332,25 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 )
             )
         }
+
+        // The search runs here, and not before the model is built, because
+        // a preview draws the model: the names, the shapes and the flows. A
+        // subject is stated first, so a listener that hears a report has a
+        // picture to draw it over.
+        // `docs/superpowers/specs/2026-09-17-layout-preview-design.md`.
+        progress?.describe(LayoutSubject.of(model, catalogue: catalogue))
+
+        // The layout places a user beside the components, as an actor.
+        let placed = layout?.execute(
+            LayOutModelRequest(
+                source: source,
+                shapes: shapes.merging(
+                    source.users.map { ($0.id, DiagramShape.actor.rawValue) },
+                    uniquingKeysWith: { first, _ in first }
+                )
+            )
+        ) ?? LayOutModelResponse(components: [], zones: [])
+        Self.place(&model, at: placed)
 
         var statusWarnings: [Diagnostic] = []
         model.mitigatesEdges = source.mitigates.map { edge in
@@ -490,6 +495,29 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 warnings: warnings,
                 catalogueTag: source.catalogueTag
             )
+        }
+    }
+
+    /// Moves every element the search placed. An element the search did not
+    /// name keeps the coordinates it has, which is the origin for a component
+    /// and a rectangle of nothing for a zone.
+    static func place(_ model: inout ThreatModel, at placed: LayOutModelResponse) {
+        let positions = Dictionary(
+            uniqueKeysWithValues: placed.components.map { ($0.id, Point(x: $0.x, y: $0.y)) }
+        )
+        for index in model.components.indices {
+            guard let point = positions[model.components[index].id.value] else { continue }
+            model.components[index].position = point
+        }
+
+        let rects = Dictionary(
+            uniqueKeysWithValues: placed.zones.map {
+                ($0.id, Rect(x: $0.x, y: $0.y, width: $0.width, height: $0.height))
+            }
+        )
+        for index in model.zones.indices {
+            guard let rect = rects[model.zones[index].id.value] else { continue }
+            model.zones[index].rect = rect
         }
     }
 
