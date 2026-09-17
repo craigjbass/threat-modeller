@@ -13,7 +13,10 @@ struct ThreatCard: View {
     /// Opens the evidence editor for one implemented control.
     var onEvidence: (AssessedControl) -> Void = { _ in }
     let onCompensate: () -> Void
-    var onLikelihood: () -> Void = {}
+    /// Opens the likelihood finding editor, or nil in a window that has no
+    /// project to write the `.controls` file into. The row still shows what
+    /// is known; only the button that opens the editor is disabled.
+    var onLikelihood: (() -> Void)?
     /// Opens the governance editor for one accepted control, or nil in a
     /// window that has no project to write the file into.
     var onGovern: ((AssessedControl) -> Void)?
@@ -437,9 +440,15 @@ struct ThreatCard: View {
             }
             Spacer(minLength: 4)
             Button(threat.likelihoodRationale == nil ? "How often\u{2026}" : "Edit\u{2026}") {
-                onLikelihood()
+                onLikelihood?()
             }
             .font(.caption)
+            .disabled(onLikelihood == nil)
+            .help(
+                onLikelihood == nil
+                    ? "This finding needs an open project."
+                    : "Say how often this happens."
+            )
             .accessibilityIdentifier("likelihood-\(threat.threatKey)")
         }
     }

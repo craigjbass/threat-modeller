@@ -1,3 +1,4 @@
+import AppKit
 import ArchitectureDSL
 import SwiftUI
 import Testing
@@ -179,5 +180,165 @@ struct LikelihoodFindingFlowTests {
             return
         }
         #expect(drawn.image.pixelsWide > 0)
+    }
+
+    // MARK: the sheet the Threats stage opens with How often…
+
+    /// True when the picture holds more than one pixel value, the mark of a
+    /// view that drew real content rather than one blank rectangle.
+    private func hasContent(_ image: NSBitmapImageRep) -> Bool {
+        var seen: Set<String> = []
+        let across = stride(from: 4, to: image.pixelsWide - 4, by: max(1, image.pixelsWide / 40))
+        let down = stride(from: 4, to: image.pixelsHigh - 4, by: max(1, image.pixelsHigh / 40))
+        for x in across {
+            for y in down {
+                guard let colour = image.colorAt(x: x, y: y) else { continue }
+                seen.insert(
+                    String(
+                        format: "%.2f,%.2f,%.2f,%.2f",
+                        colour.redComponent,
+                        colour.greenComponent,
+                        colour.blueComponent,
+                        colour.alphaComponent
+                    )
+                )
+                if seen.count > 1 { return true }
+            }
+        }
+        return false
+    }
+
+    /// Every sampled pixel of a drawn image, so one picture is compared with
+    /// another. A control that draws differently when disabled changes some
+    /// of these.
+    private func pixels(of image: NSBitmapImageRep) -> [String] {
+        var read: [String] = []
+        for x in stride(from: 0, to: image.pixelsWide, by: 2) {
+            for y in stride(from: 0, to: image.pixelsHigh, by: 2) {
+                guard let colour = image.colorAt(x: x, y: y) else { continue }
+                read.append(
+                    String(format: "%.2f,%.2f,%.2f", colour.redComponent, colour.greenComponent, colour.blueComponent)
+                )
+            }
+        }
+        return read
+    }
+
+    /// The Threats stage builds `ThreatSidebar(session:, focus: .likelihood,
+    /// project:)`. With a project, the sidebar draws real content and the
+    /// sheet it opens for "How often…" is the label field, the tier picker
+    /// and the Save button, not a blank sheet.
+    @Test func drawsTheThreatsStageSidebarAndItsLikelihoodSheetWithAProject() async throws {
+        let (session, _) = await aProject()
+        let model = try #require(session.model)
+        let threat = try credentialTheft(in: session)
+
+        let sidebar = try #require(
+            hostedDrawing(
+                of: ThreatSidebar(session: model, focus: .likelihood, project: session),
+                width: 420,
+                height: 700
+            )
+        )
+        #expect(hasContent(sidebar.image), "the Threats stage sidebar drew a blank rectangle")
+
+        let sheet = try #require(
+            hostedDrawing(
+                of: LikelihoodSheet(threat: threat, session: model, project: session),
+                width: 460,
+                height: 560
+            )
+        )
+        #expect(hasContent(sheet.image), "the likelihood sheet drew a blank rectangle")
+    }
+
+    /// The Controls stage builds `ThreatSidebar(session:, focus: .controls,
+    /// project:)`, the pairing that already worked before this fix. The same
+    /// likelihood sheet still draws real content from that pairing, so the
+    /// fix for the Threats stage changed nothing here.
+    @Test func drawsTheControlsStageSidebarAndItsLikelihoodSheetWithAProject() async throws {
+        let (session, _) = await aProject()
+        let model = try #require(session.model)
+        let threat = try credentialTheft(in: session)
+
+        let sidebar = try #require(
+            hostedDrawing(
+                of: ThreatSidebar(session: model, focus: .controls, project: session),
+                width: 420,
+                height: 700
+            )
+        )
+        #expect(hasContent(sidebar.image), "the Controls stage sidebar drew a blank rectangle")
+
+        let sheet = try #require(
+            hostedDrawing(
+                of: LikelihoodSheet(threat: threat, session: model, project: session),
+                width: 460,
+                height: 560
+            )
+        )
+        #expect(hasContent(sheet.image), "the likelihood sheet drew a blank rectangle")
+    }
+
+    /// A window with no project reaches the empty-project case: the sheet
+    /// shows the one line saying the finding needs an open project, and the
+    /// card's How often… button is disabled with the same reason as a
+    /// tooltip, instead of opening an empty sheet.
+    @Test func showsTheOneLineAndDisablesTheButtonWithNoProject() throws {
+        let session = ThreatModelSession(useCases: TestDependencies())
+        session.add(technologyId: "aws-ec2", x: 0, y: 0)
+        let threat = try #require(session.threats.first)
+
+        let sidebar = try #require(
+            hostedDrawing(
+                of: ThreatSidebar(session: session, focus: .likelihood, project: nil),
+                width: 420,
+                height: 700
+            )
+        )
+        #expect(hasContent(sidebar.image), "the sidebar with no project drew a blank rectangle")
+
+        let needsProjectSheet = try #require(
+            hostedDrawing(of: NeedsProjectSheet(), width: 320, height: 200)
+        )
+        #expect(hasContent(needsProjectSheet.image), "the empty-project sheet drew a blank rectangle")
+
+        let disabledCard = try #require(
+            hostedDrawing(
+                of: ThreatCard(
+                    threat: threat,
+                    focus: .likelihood,
+                    severityChoices: [],
+                    onSetControl: { _, _ in },
+                    onSetControlStatus: { _, _ in },
+                    onCompensate: {},
+                    onOverride: { _ in },
+                    onClearOverride: {}
+                ),
+                width: 420,
+                height: 260
+            )
+        )
+        let enabledCard = try #require(
+            hostedDrawing(
+                of: ThreatCard(
+                    threat: threat,
+                    focus: .likelihood,
+                    severityChoices: [],
+                    onSetControl: { _, _ in },
+                    onSetControlStatus: { _, _ in },
+                    onCompensate: {},
+                    onLikelihood: {},
+                    onOverride: { _ in },
+                    onClearOverride: {}
+                ),
+                width: 420,
+                height: 260
+            )
+        )
+        #expect(
+            pixels(of: disabledCard.image) != pixels(of: enabledCard.image),
+            "the card drew the same picture whether the button was disabled or not"
+        )
     }
 }

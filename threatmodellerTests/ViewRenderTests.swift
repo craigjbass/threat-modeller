@@ -853,6 +853,34 @@ struct ViewRenderTests {
         #expect(session.rowsOutOfOrder == 0)
     }
 
+    /// The Threats stage builds `ThreatSidebar(session:, focus: .likelihood,
+    /// project:)`. With the project passed, the sheet "How often…" opens is
+    /// `LikelihoodSheet`, drawn with real content, not the empty sheet a
+    /// missing project once left.
+    @Test func drawsTheLikelihoodSheetFromTheThreatsStage() async throws {
+        let project = await aDrawnProject()
+        let model = try #require(project.model)
+        let threat = try #require(model.threats.first)
+
+        let sidebar = try #require(
+            hostedDrawing(
+                of: ThreatSidebar(session: model, focus: .likelihood, project: project),
+                width: 420,
+                height: 700
+            )
+        )
+        #expect(hasContent(sidebar.image), "the Threats stage sidebar drew a blank rectangle")
+
+        let sheet = try #require(
+            hostedDrawing(
+                of: LikelihoodSheet(threat: threat, session: model, project: project),
+                width: 460,
+                height: 560
+            )
+        )
+        #expect(hasContent(sheet.image), "the likelihood sheet drew a blank rectangle")
+    }
+
     /// A node and a zone mid-edit: the field replaces the name where the name
     /// was, on the element itself.
     @Test func drawsANodeAndAZoneMidEdit() async throws {

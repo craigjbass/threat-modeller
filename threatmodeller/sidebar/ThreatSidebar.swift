@@ -139,6 +139,8 @@ struct ThreatSidebar: View {
             .sheet(item: $likelihooding) { chosen in
                 if let project {
                     LikelihoodSheet(threat: chosen.threat, session: session, project: project)
+                } else {
+                    NeedsProjectSheet()
                 }
             }
             .sheet(item: $evidencing) { chosen in
@@ -155,6 +157,8 @@ struct ThreatSidebar: View {
                         control: chosen.control,
                         project: project
                     )
+                } else {
+                    NeedsProjectSheet()
                 }
             }
             .sheet(item: $deciding) { chosen in
@@ -164,11 +168,15 @@ struct ThreatSidebar: View {
                         severityChoices: session.severityChoices,
                         project: project
                     )
+                } else {
+                    NeedsProjectSheet()
                 }
             }
             .sheet(item: $lookingUp) { chosen in
                 if let project {
                     VulnerabilityLookupSheet(threat: chosen.threat, session: session, project: project)
+                } else {
+                    NeedsProjectSheet()
                 }
             }
             .sheet(item: $recommending) { chosen in
@@ -181,6 +189,8 @@ struct ThreatSidebar: View {
                             ?? chosen.threat,
                         project: project
                     )
+                } else {
+                    NeedsProjectSheet()
                 }
             }
     }
@@ -209,7 +219,7 @@ struct ThreatSidebar: View {
                 // of the window, where nothing could collapse it again.
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        if let project, focus == .controls {
+                        if focus == .controls, let project {
                             StaleAnswersPanel(project: project)
                             Divider()
                         }
@@ -243,7 +253,14 @@ struct ThreatSidebar: View {
                                                     )
                                                 },
                                                 onCompensate: { compensating = CompensatedThreat(threat: threat) },
-                                                onLikelihood: { likelihooding = CompensatedThreat(threat: threat) },
+                                                // The editor writes a file in
+                                                // the project, so a window
+                                                // with no project disables
+                                                // the button instead of
+                                                // opening an empty sheet.
+                                                onLikelihood: project == nil ? nil : {
+                                                    likelihooding = CompensatedThreat(threat: threat)
+                                                },
                                                 // The editor writes a file in
                                                 // the project, so a window
                                                 // with no project offers none.
@@ -504,5 +521,26 @@ struct ThreatSidebar: View {
         .buttonStyle(.plain)
         .background(.bar)
         .accessibilityIdentifier("threat-group-\(group.id)")
+    }
+}
+
+/// What a sheet shows instead of itself, when the finding it writes needs a
+/// project this window does not have. A model with no project, opened from a
+/// single file, reaches this rather than an empty sheet.
+struct NeedsProjectSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("This finding needs an open project.")
+                .font(.callout)
+                .accessibilityIdentifier("needs-project-message")
+            Button("Close") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+                .accessibilityIdentifier("needs-project-close")
+        }
+        .padding(24)
+        .frame(width: 320)
+        .accessibilityIdentifier("needs-project-sheet")
     }
 }

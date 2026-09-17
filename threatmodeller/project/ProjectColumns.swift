@@ -105,7 +105,7 @@ struct ProjectColumns: View {
             HSplitView {
                 diagram
                     .frame(minWidth: Self.minimumDiagramWidth)
-                ThreatSidebar(session: session, focus: .likelihood)
+                ThreatSidebar(session: session, focus: .likelihood, project: project)
                     .frame(minWidth: Self.minimumThreatListWidth, idealWidth: 420)
             }
         case .controls:
