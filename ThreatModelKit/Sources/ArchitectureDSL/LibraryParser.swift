@@ -58,15 +58,15 @@ struct LibraryParser {
             case "mitigation":
                 if let mitigation = parseMitigation() { mitigations.append(mitigation) }
             case "category":
-                if let entry = parseTaxonomyEntry("the category's identifier") {
+                if let entry = parseTaxonomyEntry("the category's identifier", .libraryCategory) {
                     categories.append(entry)
                 }
             case "severity":
-                if let entry = parseTaxonomyEntry("the severity's identifier") {
+                if let entry = parseTaxonomyEntry("the severity's identifier", .librarySeverity) {
                     severities.append(entry)
                 }
             case "stride":
-                if let entry = parseTaxonomyEntry("the stride category's identifier") {
+                if let entry = parseTaxonomyEntry("the stride category's identifier", .libraryStride) {
                     strides.append(entry)
                 }
             case "classification":
@@ -83,12 +83,7 @@ struct LibraryParser {
                     }
                 }
             default:
-                record(
-                    "a library holds name, catalogue, technology, threat, mitigation, "
-                        + "threat_actor, category, severity, stride, override and "
-                        + "classification, not "
-                        + "\"\(current.text)\""
-                )
+                record(LanguageBlockId.libraryLibrary.unknownAttribute(current.text))
                 skipToNextBlock()
             }
         }
@@ -124,7 +119,7 @@ struct LibraryParser {
             case "name": label = parseTextAttribute()
             case "colour": colour = parseTextAttribute()
             default:
-                record("a classification holds name and colour, not \"\(current.text)\"")
+                record(LanguageBlockId.libraryClassification.unknownAttribute(current.text))
                 skipToNextBlock()
             }
         }
@@ -165,10 +160,7 @@ struct LibraryParser {
                     controls.append(text.text)
                 }
             default:
-                record(
-                    "an override holds severity, likelihood, description and control, not "
-                        + "\"\(current.text)\""
-                )
+                record(LanguageBlockId.libraryOverride.unknownAttribute(current.text))
                 skipToNextBlock()
             }
         }
@@ -185,7 +177,10 @@ struct LibraryParser {
 
     /// One word a library adds to the taxonomy. Every one reads the same:
     /// an identifier and a name.
-    private mutating func parseTaxonomyEntry(_ what: String) -> SourceTaxonomyEntry? {
+    private mutating func parseTaxonomyEntry(
+        _ what: String,
+        _ block: LanguageBlockId
+    ) -> SourceTaxonomyEntry? {
         advance()
         guard let id = expect(.string, what) else { return nil }
         guard expect(.leftBrace, "{") != nil else { return nil }
@@ -195,7 +190,7 @@ struct LibraryParser {
             switch current.text {
             case "name": label = parseTextAttribute()
             default:
-                record("this block holds name, not \"\(current.text)\"")
+                record(block.unknownAttribute(current.text))
                 skipToNextBlock()
             }
         }
@@ -231,10 +226,7 @@ struct LibraryParser {
                     controls.append(text.text)
                 }
             default:
-                record(
-                    "a technology holds name, category, description, threats and encrypts, "
-                        + "not \"\(current.text)\""
-                )
+                record(LanguageBlockId.libraryTechnology.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -334,11 +326,7 @@ struct LibraryParser {
                     }
                 }
             default:
-                record(
-                    "a threat holds name, description, severity, stride, impacts, "
-                        + "connection, zone, zone_context, mitre, control, applies_to, "
-                        + "boundary, runs_as, pathway and likelihood, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.libraryThreat.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -407,10 +395,7 @@ struct LibraryParser {
                     mode = nil
                 }
             default:
-                record(
-                    "a mitigation holds name, description, mitigates, provided_by, "
-                        + "reduces_risk_by and mode, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.libraryMitigation.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -486,10 +471,7 @@ struct LibraryParser {
                     performsCatalogueTier = nil
                 }
             default:
-                record(
-                    "a threat actor holds name, description, aliases, capability, intent, "
-                        + "performs, techniques and performs_catalogue_tier, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.libraryThreatActor.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -525,7 +507,7 @@ struct LibraryParser {
             case "name": name = parseTextAttribute()
             case "tactic": tactic = parseTextAttribute()
             default:
-                record("a mitre technique holds name and tactic, not \"\(current.text)\"")
+                record(LanguageBlockId.libraryMitre.unknownAttribute(current.text))
                 skipAttribute()
             }
         }

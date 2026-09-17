@@ -64,10 +64,7 @@ struct GovernanceParser {
                     actions.append(action)
                 }
             default:
-                record(
-                    "a governance file holds threat, action, stale threat and stale action, "
-                        + "not \"\(current.text)\""
-                )
+                record(LanguageBlockId.governanceDocument.unknownAttribute(current.text))
                 skipToNextBlock()
             }
         }
@@ -123,10 +120,7 @@ struct GovernanceParser {
             case "work":
                 if let planned = parseWork(keyword: "work", isStale: false) { work.append(planned) }
             default:
-                record(
-                    "a governed threat holds accepted, work, stale accepted and stale work, "
-                        + "not \"\(current.text)\""
-                )
+                record(LanguageBlockId.governanceThreat.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -161,10 +155,7 @@ struct GovernanceParser {
             case "rationale": rationale = parseTextAttribute() ?? ""
             case "sources": sources = parseListAttribute()
             default:
-                record(
-                    "an accepted risk holds owner, accepted_on, review_by, rationale and "
-                        + "sources, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.governanceAccepted.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -225,10 +216,7 @@ struct GovernanceParser {
             case "note": note = parseTextAttribute() ?? ""
             case "sources": sources = parseListAttribute()
             default:
-                record(
-                    "planned work holds owner, effort, due_by, status, acceptance, note and "
-                        + "sources, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.governanceWork.unknownAttribute(current.text))
                 skipAttribute()
             }
         }

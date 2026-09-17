@@ -64,12 +64,7 @@ struct PolicyParser {
             case "cve_epss_threshold":
                 cveEpssThreshold = parseThreshold(named: "cve_epss_threshold", top: 1.0)
             default:
-                record(
-                    "a policy holds "
-                        + (PolicySource.ruleNames + PolicySource.settingNames)
-                            .joined(separator: ", ")
-                        + ", not \"\(current.text)\""
-                )
+                record(LanguageBlockId.policyDocument.unknownAttribute(current.text))
                 skipAttribute()
             }
         }

@@ -198,14 +198,7 @@ struct ArchitectureParser {
                     }
                 }
             default:
-                record(
-                    "a system holds catalogue, owner, description, authors, links, "
-                        + "repositories, created, reviewed, version, attribute, technology, "
-                        + "zone, component, user, flow, mitigates, risk_tolerance, "
-                        + "requires_evidence_above, assumption, use_case, exclusion, asset, "
-                        + "third_party, diagram, faces and threat_actor, not "
-                        + "\"\(current.text)\""
-                )
+                record(LanguageBlockId.archSystem.unknownAttribute(current.text))
                 skipToNextBlock()
             }
         }
@@ -272,10 +265,7 @@ struct ArchitectureParser {
             case "reaches": reaches = parseListAttribute()
             case "threat_actor": threatActorId = parseTextAttribute()
             default:
-                record(
-                    "a user holds name, role, access, reaches and threat_actor, not "
-                        + "\"\(current.text)\""
-                )
+                record(LanguageBlockId.archUser.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -333,7 +323,7 @@ struct ArchitectureParser {
             switch current.text {
             case "value": value = parseTextAttribute()
             default:
-                record("an attribute holds value, not \"\(current.text)\"")
+                record(LanguageBlockId.archAttribute.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -424,7 +414,7 @@ struct ArchitectureParser {
             case "text": text = parseTextAttribute()
             case "owner": owner = parseTextAttribute()
             default:
-                record("an assumption holds text and owner, not \"\(current.text)\"")
+                record(LanguageBlockId.archAssumption.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -477,7 +467,7 @@ struct ArchitectureParser {
                 expectVocabulary(kind, Self.diagramKinds, field: "kind", at: token)
             case "text": text = parseTextAttribute()
             default:
-                record("a diagram holds kind and text, not \"\(current.text)\"")
+                record(LanguageBlockId.archDiagram.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -527,10 +517,7 @@ struct ArchitectureParser {
             case "owner": owner = parseTextAttribute()
             case "link": link = parseTextAttribute()
             default:
-                record(
-                    "a third_party holds name, description, kind, paying_customer, uptime, "
-                        + "uptime_notes, owner and link, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.archThirdParty.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -612,10 +599,7 @@ struct ArchitectureParser {
             case "description": description = parseTextAttribute() ?? description
             case "owner": owner = parseTextAttribute()
             default:
-                record(
-                    "an asset holds name, classification, description and owner, not "
-                        + "\"\(current.text)\""
-                )
+                record(LanguageBlockId.archSystemAsset.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -682,7 +666,7 @@ struct ArchitectureParser {
             switch current.text {
             case "text": text = parseTextAttribute()
             default:
-                record("a use_case holds text, not \"\(current.text)\"")
+                record(LanguageBlockId.archUseCase.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -711,7 +695,7 @@ struct ArchitectureParser {
             case "text": text = parseTextAttribute()
             case "rationale": rationale = parseTextAttribute()
             default:
-                record("an exclusion holds text and rationale, not \"\(current.text)\"")
+                record(LanguageBlockId.archExclusion.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -779,10 +763,7 @@ struct ArchitectureParser {
                     performsCatalogueTier = nil
                 }
             default:
-                record(
-                    "a threat actor holds name, description, aliases, capability, intent, "
-                        + "performs, techniques and performs_catalogue_tier, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.archThreatActor.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -830,10 +811,7 @@ struct ArchitectureParser {
                     controls.append(text.text)
                 }
             default:
-                record(
-                    "a technology holds name, category, description, threats, encrypts and "
-                        + "control, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.archTechnology.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -919,11 +897,7 @@ struct ArchitectureParser {
             case "tags":
                 tags = parseListAttribute()
             default:
-                record(
-                    "a zone holds kind, network, name, reduces_risk, reduces_risk_by, "
-                        + "component, boundary, description, source and tags, not "
-                        + "\"\(current.text)\""
-                )
+                record(LanguageBlockId.archZone.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -1031,11 +1005,7 @@ struct ArchitectureParser {
                     cves.append(word)
                 }
             default:
-                record(
-                    "a component holds technology, name, zone, data, status, version, cves, "
-                        + "holds, provided_by, source, threats, runs_as, shape, tags and asset, "
-                        + "not \"\(current.text)\""
-                )
+                record(LanguageBlockId.archComponent.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -1084,7 +1054,7 @@ struct ArchitectureParser {
                 // not hold.
                 _ = data
             default:
-                record("an asset holds data, not \"\(current.text)\"")
+                record(LanguageBlockId.archComponentAsset.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -1120,10 +1090,7 @@ struct ArchitectureParser {
             case "tags":
                 tags = parseListAttribute()
             default:
-                record(
-                    "a flow holds kind, description, carries and tags, not "
-                        + "\"\(current.text)\""
-                )
+                record(LanguageBlockId.archFlow.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -1176,7 +1143,7 @@ struct ArchitectureParser {
             case "recommendation":
                 if let read = parseEdgeAction() { action = read }
             default:
-                record("a mitigates edge holds threats, reduces_risk_by, status and recommendation, not \"\(current.text)\"")
+                record(LanguageBlockId.archMitigates.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -1221,7 +1188,7 @@ struct ArchitectureParser {
             case "blocked_by": blockedBy = parseTextAttribute()
             case "sources": sources = parseListAttribute()
             default:
-                record("a recommendation holds text, note, blocked_by and sources, not \"\(current.text)\"")
+                record(LanguageBlockId.archRecommendation.unknownAttribute(current.text))
                 skipAttribute()
             }
         }

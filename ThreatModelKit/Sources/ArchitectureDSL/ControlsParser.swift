@@ -65,10 +65,7 @@ struct ControlsParser {
             case "tree":
                 if let tree = parseTree(isStale: false) { trees.append(tree) }
             default:
-                record(
-                    "a controls file holds catalogue, tolerance, threat, tree, stale threat "
-                        + "and stale tree, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.controlsDocument.unknownAttribute(current.text))
                 skipToNextBlock()
             }
         }
@@ -116,10 +113,7 @@ struct ControlsParser {
             case "step":
                 if let step = parseTreeStep() { steps.append(step) }
             default:
-                record(
-                    "a tree holds goal, chain, raises_risk_by, score, score_before, closed_by, "
-                        + "sufficient and step, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.controlsTree.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -151,7 +145,7 @@ struct ControlsParser {
             switch current.text {
             case "state": state = parseTextAttribute() ?? "open"
             default:
-                record("a sufficient control holds state, not \"\(current.text)\"")
+                record(LanguageBlockId.controlsSufficient.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -173,7 +167,7 @@ struct ControlsParser {
             case "by": closedBy = parseTextAttribute()
             case "position": position = parseNumberAttribute()
             default:
-                record("a step holds state, by and position, not \"\(current.text)\"")
+                record(LanguageBlockId.controlsStep.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -252,10 +246,7 @@ struct ControlsParser {
             case "recommendation":
                 if let recommendation = parseRecommendation() { recommendations.append(recommendation) }
             default:
-                record(
-                    "a threat holds severity, score, impacts, likelihood, severity_override, "
-                        + "control, compensating and recommendation, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.controlsThreat.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -320,7 +311,7 @@ struct ControlsParser {
             case "sources":
                 sources = parseListAttribute()
             default:
-                record("a likelihood holds tier, prior, rationale and sources, not \"\(current.text)\"")
+                record(LanguageBlockId.controlsLikelihood.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -365,7 +356,7 @@ struct ControlsParser {
             case "rationale": rationale = parseTextAttribute()
             case "sources": sources = parseListAttribute()
             default:
-                record("a severity_override holds rationale and sources, not \"\(current.text)\"")
+                record(LanguageBlockId.controlsSeverityOverride.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -411,10 +402,7 @@ struct ControlsParser {
             case "note":
                 note = parseTextAttribute()
             default:
-                record(
-                    "a control holds status, note, evidence, reference and verified_on, "
-                        + "not \"\(current.text)\""
-                )
+                record(LanguageBlockId.controlsControl.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -462,10 +450,7 @@ struct ControlsParser {
             case "sources":
                 sources = parseListAttribute()
             default:
-                record(
-                    "a compensating control holds reduces_risk_by, rationale, sources, "
-                        + "evidence, reference and verified_on, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.controlsCompensating.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -528,7 +513,7 @@ struct ControlsParser {
             case "note": note = parseTextAttribute()
             case "sources": sources = parseListAttribute()
             default:
-                record("a recommendation holds note and sources, not \"\(current.text)\"")
+                record(LanguageBlockId.controlsRecommendation.unknownAttribute(current.text))
                 skipAttribute()
             }
         }

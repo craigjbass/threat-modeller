@@ -107,6 +107,7 @@ When starting any long-running background job — a subagent, a background shell
 - `docs/superpowers/specs/` — design specs.
 - `docs/superpowers/plans/` — implementation plans.
 - `scripts/update-catalogue.sh` — refresh the vendored threat catalogue.
+- Parity: every attribute a language reads is written from the window by a control the parity list names, so a change that adds an attribute adds its control and its row in the same issue (`docs/PARITY.md`).
 - Conflict order: user instruction → `docs/superpowers/specs/` → `docs/superpowers/plans/` → tooling defaults.
 
 ## Skills (`.claude/skills/`)

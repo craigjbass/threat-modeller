@@ -42,7 +42,7 @@ struct AttackTreeParser {
             case "tree":
                 if let tree = parseTree() { trees.append(tree) }
             default:
-                record("an attack tree file holds catalogue and tree, not \"\(current.text)\"")
+                record(LanguageBlockId.attackTreeDocument.unknownAttribute(current.text))
                 skipToNextBlock()
             }
         }
@@ -91,10 +91,7 @@ struct AttackTreeParser {
             case "step":
                 if let step = parseStep() { roots.append(.step(step)) }
             default:
-                record(
-                    "a tree holds name, description, raises_risk_by, closed_by, goal, all_of, "
-                        + "any_of, then and step, not \"\(current.text)\""
-                )
+                record(LanguageBlockId.attackTreeTree.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -146,7 +143,7 @@ struct AttackTreeParser {
             switch current.text {
             case "note": note = parseTextAttribute()
             default:
-                record("a step holds note, not \"\(current.text)\"")
+                record(LanguageBlockId.attackTreeStep.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -196,7 +193,7 @@ struct AttackTreeParser {
             case "all_of", "any_of", "then":
                 if let child = parseNode(treeId: treeId) { children.append(child) }
             default:
-                record("\(article(word)) \(word) holds step, all_of, any_of and then, not \"\(current.text)\"")
+                record(Self.nodeBlock(word).unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -230,8 +227,13 @@ struct AttackTreeParser {
         }
     }
 
-    private func article(_ word: String) -> String {
-        word == "then" ? "a" : "an"
+    /// The vocabulary entry for one node keyword.
+    private static func nodeBlock(_ word: String) -> LanguageBlockId {
+        switch word {
+        case "all_of": .attackTreeAllOf
+        case "any_of": .attackTreeAnyOf
+        default: .attackTreeThen
+        }
     }
 
     // MARK: reading the token list
