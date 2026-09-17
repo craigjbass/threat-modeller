@@ -25,6 +25,10 @@ struct ComponentNodeView: View {
     /// is the component's centre inside the zone below its header, which is
     /// invisible without this badge.
     let zoneName: String?
+    /// The colour the project's classification scheme states for this
+    /// component's sensitivity, or nil to paint the chip in the quiet grey
+    /// default.
+    var classificationColour: Color? = nil
     /// True while this node's name is being edited in place. A picture of the
     /// canvas edits nothing, so it takes the defaults.
     var isEditingName = false
@@ -211,7 +215,8 @@ struct ComponentNodeView: View {
                     .lineLimit(1)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 1)
-                    .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                    .background(Capsule().fill((classificationColour ?? Color.secondary).opacity(0.15)))
+                    .accessibilityIdentifier("node-sensitivity-\(component.id)")
             }
             if isProposed {
                 Text(ComponentStatus.proposed.label)

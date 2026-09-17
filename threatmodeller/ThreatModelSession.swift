@@ -858,10 +858,11 @@ final class ThreatModelSession {
     }
 
     /// How this project names the sensitivity of what a component holds. The
-    /// standard four unless a library states its own scheme.
-    var classificationChoices: [(id: String, label: String)] {
+    /// standard four unless a library states its own scheme. `colour` is the
+    /// hex text a library states for the level, such as `#4c7a34`, or nil.
+    var classificationChoices: [(id: String, label: String, colour: String?)] {
         useCases.listClassifications().execute(ListClassificationsRequest()).classifications
-            .map { (id: $0.id, label: $0.label) }
+            .map { (id: $0.id, label: $0.label, colour: $0.colour) }
     }
 
     /// What the technology editor offers as a category, taken from the

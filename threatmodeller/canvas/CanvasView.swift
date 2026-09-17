@@ -322,6 +322,7 @@ struct CanvasView: View {
                     onAnchorDragChanged: { gestures.anchorDragChanged(component.id, $0) },
                     onAnchorDragEnded: { gestures.anchorDragEnded(component.id, $0) },
                     zoneName: drawn.zones.first { $0.id == component.zoneId }?.name,
+                    classificationColour: classificationColours[component.sensitivityId],
                     isEditingName: canvas.isEditingName(.component(component.id)),
                     onStartEditingName: { canvas.startEditingName(.component(component.id)) },
                     onCommitName: { gestures.renameComponent(component.id, to: $0) },
@@ -552,6 +553,21 @@ struct CanvasView: View {
     /// which is one of these is out of scope too.
     private var outOfScopeComponentIds: Set<String> {
         Set(drawn.components.filter(\.threatsDisabled).map(\.id))
+    }
+
+    /// The colour the project's classification scheme states for each
+    /// sensitivity id, so a node's chip paints the colour a library states.
+    /// A level that states no colour is absent, and the chip keeps the
+    /// quiet grey default.
+    private var classificationColours: [String: Color] {
+        Dictionary(
+            uniqueKeysWithValues: session.classificationChoices.compactMap { level in
+                guard let hex = level.colour, let colour = RiskPalette.colour(fromHex: hex) else {
+                    return nil
+                }
+                return (level.id, colour)
+            }
+        )
     }
 
     /// The drawing layer follows the model, so a diagram that reaches far from

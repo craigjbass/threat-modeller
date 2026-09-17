@@ -369,7 +369,7 @@ extension WindowModelParityTests {
         ])) { first, _ in first }
         all.merge(rows("lib", "classification", [
             ("name", readOnly("the sensitivity picker lists every classification by name")),
-            ("colour", .gap(171))
+            ("colour", readOnly("the node chip paints the sensitivity in the colour the classification states"))
         ])) { first, _ in first }
         all.merge(rows("lib", "override", [
             ("severity", readOnly("the threat card states the severity the override gives")),

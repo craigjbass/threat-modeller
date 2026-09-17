@@ -127,7 +127,8 @@ struct ViewRenderTests {
         risk: ElementRisk?,
         zoneName: String? = nil,
         statusId: String = "live",
-        isUser: Bool = false
+        isUser: Bool = false,
+        classificationColour: Color? = nil
     ) -> ComponentNodeView {
         ComponentNodeView(
             component: aViewedComponent(shapeId: shapeId, statusId: statusId, isUser: isUser),
@@ -138,7 +139,8 @@ struct ViewRenderTests {
             onDragEnded: { _ in },
             onAnchorDragChanged: { _ in },
             onAnchorDragEnded: { _ in },
-            zoneName: zoneName
+            zoneName: zoneName,
+            classificationColour: classificationColour
         )
     }
 
@@ -1245,6 +1247,70 @@ struct ViewRenderTests {
             height: 180,
             "a node with no threats"
         )
+    }
+
+    /// A library states a colour for one of its classification levels. The
+    /// session carries that colour, and the node's sensitivity chip paints
+    /// it, instead of the quiet grey every chip painted before.
+    @Test func drawsTheSensitivityChipInTheColourALibraryStates() throws {
+        let app = TestDependencies()
+        app.project.put(
+            """
+            library "hmg" {
+              name = "Government Scheme"
+
+              classification "official" {
+                name   = "Official"
+                colour = "#ff0000"
+              }
+            }
+            """,
+            at: "/work/threatmodel/library/hmg.lib"
+        )
+        guard case .loaded(let libraries, _) = app.loadLibraries()
+            .execute(LoadLibrariesRequest(root: "/work")) else {
+            Issue.record("expected the library to load")
+            return
+        }
+        app.useLibraries(libraries)
+
+        let session = ThreatModelSession(useCases: app)
+        let colourHex = try #require(
+            session.classificationChoices.first { $0.id == "official" }?.colour
+        )
+        #expect(colourHex == "#ff0000")
+
+        let coloured = try #require(
+            draw(
+                aNode(
+                    shapeId: "process",
+                    risk: nil,
+                    classificationColour: RiskPalette.colour(fromHex: colourHex)
+                ),
+                width: 200,
+                height: 180
+            )
+        )
+        let plain = try #require(draw(aNode(shapeId: "process", risk: nil), width: 200, height: 180))
+
+        #expect(hasReddishPixel(coloured), "the chip did not draw the library's colour")
+        #expect(hasReddishPixel(plain) == false, "the default chip already reads red")
+    }
+
+    /// True when a pixel reads with more red than green or blue, the mark of
+    /// a chip painted in the library's red rather than the grey default,
+    /// which reads equal in every channel.
+    private func hasReddishPixel(_ image: NSBitmapImageRep) -> Bool {
+        for x in stride(from: 0, to: image.pixelsWide, by: 2) {
+            for y in stride(from: 0, to: image.pixelsHigh, by: 2) {
+                guard let colour = image.colorAt(x: x, y: y) else { continue }
+                if colour.redComponent - colour.greenComponent > 0.15,
+                   colour.redComponent - colour.blueComponent > 0.15 {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     @Test func drawsAFlowWithItsLabelAndItsOpenThreatCount() async {
