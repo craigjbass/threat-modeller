@@ -17,7 +17,10 @@ final class ProjectSession {
     /// button writes to the split view's own visibility, and a split view
     /// that holds none has nothing for the button to change, so the window
     /// holds it here and the button, the menu item and the key all write it.
-    var paletteColumns: NavigationSplitViewVisibility = .all
+    /// The choice outlives the run, the way the pointer mode does.
+    var paletteColumns: NavigationSplitViewVisibility = .all {
+        didSet { defaults.set(PaletteColumn.isShowing(paletteColumns), forKey: Self.paletteShowingKey) }
+    }
     private let watcher: ProjectWatching
     private let defaults: UserDefaults
     private let coalescer: ChangeCoalescing
@@ -167,10 +170,15 @@ final class ProjectSession {
         isAutoSyncOn = defaults.bool(forKey: Self.autoSyncKey)
         pointerMode = PointerMode(rawValue: defaults.string(forKey: Self.pointerModeKey) ?? "")
             ?? PointerMode.standard
+        if defaults.object(forKey: Self.paletteShowingKey) == nil {
+            defaults.set(true, forKey: Self.paletteShowingKey)
+        }
+        paletteColumns = defaults.bool(forKey: Self.paletteShowingKey) ? .all : .doubleColumn
     }
 
     private static let autoSyncKey = "autoSync"
     private static let pointerModeKey = "pointerMode"
+    private static let paletteShowingKey = "paletteShowing"
 
     /// True while this application redraws the project on its own when a file
     /// changes on disk. It starts on, and the user turns it off in the

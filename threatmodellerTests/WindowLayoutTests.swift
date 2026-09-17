@@ -374,6 +374,58 @@ struct WindowLayoutTests {
         #expect(several.offersMerge, "the sidebar offers no Merge for two components")
     }
 
+    /// #158: the toggle hides and shows the palette's own column in the real
+    /// three-column split, at the leading edge, and not some other column.
+    ///
+    /// On this macOS, the shown palette draws as a floating panel over the
+    /// leading edge of the diagram rather than pushing the diagram column
+    /// aside, so the diagram column's frame does not itself move or resize
+    /// on the toggle. What does change, and what `NavigationSplitView`
+    /// itself uses to hide a column, is whether the split collapses the
+    /// palette's own arranged column: collapsed while hidden, not while
+    /// shown.
+    @Test func togglingThePaletteCollapsesAndExpandsItsOwnColumn() async throws {
+        let project = await aDrawnProject()
+        let model = try #require(project.model)
+
+        func paletteColumn() throws -> (split: NSSplitView, palette: NSView) {
+            let window = laidOut(
+                ProjectColumns(
+                    project: project,
+                    session: model,
+                    canvas: CanvasState(),
+                    stage: .constant(.architecture)
+                ),
+                width: 1200
+            )
+            let content = try #require(window.contentView)
+            let split = try #require(columns(in: content))
+            let palette = try #require(split.arrangedSubviews.first, "the split holds no columns")
+            return (split, palette)
+        }
+
+        let shown = try paletteColumn()
+        #expect(shown.palette.frame.minX == 0, "the palette column sits at \(shown.palette.frame.minX)")
+        #expect(
+            shown.split.isSubviewCollapsed(shown.palette) == false,
+            "the palette starts collapsed"
+        )
+
+        project.togglePalette()
+        let hidden = try paletteColumn()
+        #expect(
+            hidden.split.isSubviewCollapsed(hidden.palette),
+            "the palette did not collapse after one toggle"
+        )
+
+        project.togglePalette()
+        let shownAgain = try paletteColumn()
+        #expect(
+            shownAgain.split.isSubviewCollapsed(shownAgain.palette) == false,
+            "the palette did not expand after a second toggle"
+        )
+    }
+
     /// Closing the palette widens the canvas, not the assumptions: the detail
     /// column stops at its stated cap.
     @Test func closingThePaletteWidensTheCanvasNotTheAssumptions() async throws {

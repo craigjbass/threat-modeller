@@ -201,15 +201,19 @@ struct ProjectColumns: View {
 /// Which columns the palette sits in, and what the toggle does to them.
 ///
 /// `NavigationSplitViewVisibility` states more than two states, and a person
-/// pressing a toggle means one thing: show the palette, or hide it. This says
-/// what each state becomes.
+/// pressing a toggle means one thing: show the palette, or hide it. The
+/// Architecture stage draws a three-column split, and that split does not
+/// honour `.detailOnly`: setting it left every column's measured width
+/// where it was (see #143). `.doubleColumn` is the state the split does
+/// honour to drop the leading, palette column, so the toggle maps to
+/// `.doubleColumn` and `.all`, never to `.detailOnly`.
 nonisolated enum PaletteColumn {
     static func toggled(_ visibility: NavigationSplitViewVisibility) -> NavigationSplitViewVisibility {
-        visibility == .detailOnly ? .all : .detailOnly
+        visibility == .doubleColumn ? .all : .doubleColumn
     }
 
     /// True while the palette is on screen.
     static func isShowing(_ visibility: NavigationSplitViewVisibility) -> Bool {
-        visibility != .detailOnly
+        visibility != .doubleColumn
     }
 }
