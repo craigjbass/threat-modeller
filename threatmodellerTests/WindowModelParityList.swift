@@ -99,7 +99,7 @@ extension WindowModelParityTests {
         all.merge(rows("arch", "asset (in system)", [
             ("name", .writes("asset-name")),
             ("classification", .writes("asset-classification")),
-            ("description", .gap(162)),
+            ("description", .writes("asset-description")),
             ("owner", .writes("asset-owner"))
         ])) { first, _ in first }
         all.merge(rows("arch", "use_case", [

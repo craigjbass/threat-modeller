@@ -16,6 +16,7 @@ struct AssetsSheet: View {
         var id = ""
         var name = ""
         var classification = ""
+        var description = ""
         var owner = ""
     }
 
@@ -62,6 +63,12 @@ struct AssetsSheet: View {
                         Text(label(ofClassification: asset.classificationId))
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        if asset.description.isEmpty == false {
+                            Text(asset.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         if let owner = asset.owner {
                             Text("Owner: \(owner)")
                                 .font(.caption2)
@@ -84,6 +91,10 @@ struct AssetsSheet: View {
             }
             .labelsHidden()
             .accessibilityIdentifier("asset-classification")
+            TextField("Description (optional)", text: $draft.description, axis: .vertical)
+                .lineLimit(2 ... 4)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("asset-description")
             TextField("Owner (optional)", text: $draft.owner)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("asset-owner")
@@ -104,6 +115,7 @@ struct AssetsSheet: View {
             classificationId: draft.classification.isEmpty
                 ? (session.classificationChoices.first?.id ?? "internal")
                 : draft.classification,
+            description: draft.description.trimmingCharacters(in: .whitespaces),
             owner: owner.isEmpty ? nil : owner
         )
         if session.errorMessage == nil { startANewOne() }
@@ -117,6 +129,7 @@ struct AssetsSheet: View {
             id: asset.id,
             name: asset.name,
             classification: asset.classificationId,
+            description: asset.description,
             owner: asset.owner ?? ""
         )
     }

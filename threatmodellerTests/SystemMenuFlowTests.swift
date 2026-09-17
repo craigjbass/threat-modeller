@@ -104,6 +104,7 @@ struct SystemMenuFlowTests {
                 id: "card-data",
                 name: "Card data",
                 classification: "confidential",
+                description: "The card number and expiry a customer enters.",
                 owner: "Payments team"
             )
         )
@@ -115,6 +116,7 @@ struct SystemMenuFlowTests {
         #expect(asset.id == "card-data")
         #expect(asset.name == "Card data")
         #expect(asset.classification == "confidential")
+        #expect(asset.description == "The card number and expiry a customer enters.")
         #expect(asset.owner == "Payments team")
     }
 
