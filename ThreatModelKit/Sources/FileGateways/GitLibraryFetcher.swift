@@ -172,7 +172,7 @@ public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @un
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git"] + arguments
 
-        var environment = ProcessInfo.processInfo.environment
+        var environment = ShellPath.environment
         // A repository the user cannot read fails and says so, rather than
         // waiting for a password nobody can type.
         environment["GIT_TERMINAL_PROMPT"] = "0"

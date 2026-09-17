@@ -4,7 +4,9 @@ import ThreatModelKit
 /// Runs `vulnx` as a child process, the way `git` and `curl` are run.
 ///
 /// The tool is found on `PATH` through `/usr/bin/env`, so the person's own
-/// install is the one that runs. The application ships no tool. The command
+/// install is the one that runs. The `PATH` is the one `ShellPath` reads, so a
+/// window started from the Finder finds a tool under `~/go/bin` the way a
+/// terminal does. The application ships no tool. The command
 /// is `vulnx search --json --limit 50 <product> [<version>]`, and the records
 /// are read from the JSON it prints, one object per line or one array.
 public struct VulnxLookup: VulnerabilityLookup {
@@ -27,11 +29,14 @@ public struct VulnxLookup: VulnerabilityLookup {
     }
 
     private let timeout: TimeInterval
+    /// The `PATH` the tool is looked for on.
+    private let path: String
     /// How many records the tool is asked for.
     public static let limit = 50
 
-    public init(timeout: TimeInterval = 60) {
+    public init(timeout: TimeInterval = 60, path: String = ShellPath.value) {
         self.timeout = timeout
+        self.path = path
     }
 
     public func search(_ query: VulnerabilityQuery) throws -> [KnownVulnerability] {
@@ -43,6 +48,7 @@ public struct VulnxLookup: VulnerabilityLookup {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["vulnx", "search", "--json", "--limit", String(Self.limit)] + query.words
+        process.environment = ShellPath.environment(path: path, of: ProcessInfo.processInfo.environment)
 
         let output = Pipe()
         let errors = Pipe()

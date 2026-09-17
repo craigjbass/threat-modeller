@@ -277,7 +277,10 @@ threat is raised on, with the technology's name and the component's version,
 and lists what came back with its CVSS, EPSS and KEV. *Attach* writes the
 picked ids onto the component. The tool is the person's own, found on their
 `PATH`; the application ships no tool and calls no network of its own for a
-lookup. A machine without it says
+lookup. The application reads `PATH` from the person's interactive login
+shell once at the first lookup, so a tool under `~/go/bin` that `~/.zshrc`
+puts on `PATH` is found by a window started from the Finder, which inherits
+launchd's `PATH` alone. A machine without it says
 `vulnx is not installed; install it with go install github.com/projectdiscovery/vulnx/cmd/vulnx@latest`.
 The command the application runs is `vulnx search --json --limit 50 <product> [<version>]`.
 

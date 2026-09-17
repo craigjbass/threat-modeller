@@ -104,7 +104,7 @@ public struct GitHistory: GitHistoryGateway {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git"] + arguments
 
-        var environment = ProcessInfo.processInfo.environment
+        var environment = ShellPath.environment
         environment["GIT_TERMINAL_PROMPT"] = "0"
         // A pager would wait for a key nobody can press.
         environment["GIT_PAGER"] = "cat"

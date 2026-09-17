@@ -48,6 +48,7 @@ public struct CurlDownloader: AttackDownloading {
             "curl", "--fail", "--silent", "--show-error", "--location",
             "--output", into.path, "--", address
         ]
+        process.environment = ShellPath.environment
 
         let errors = Pipe()
         process.standardError = errors
