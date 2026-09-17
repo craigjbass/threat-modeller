@@ -12,6 +12,7 @@ struct DiagramsSheet: View {
     /// The fields of one `diagram` block, as a person edits them.
     struct Draft: Equatable {
         var label = ""
+        var kind = DiagramKind.mermaid.rawValue
         var text = ""
     }
 
@@ -55,6 +56,9 @@ struct DiagramsSheet: View {
                     ) {
                         Text(diagram.label)
                             .font(.callout.weight(.semibold))
+                        Text(label(ofKind: diagram.kind))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         Text(diagram.text)
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
@@ -67,6 +71,13 @@ struct DiagramsSheet: View {
             TextField("Label", text: $draft.label)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("diagram-label")
+            Picker("Kind", selection: $draft.kind) {
+                ForEach(DiagramKind.allCases, id: \.rawValue) { kind in
+                    Text(kind.label).tag(kind.rawValue)
+                }
+            }
+            .labelsHidden()
+            .accessibilityIdentifier("diagram-kind")
             TextField("Mermaid text", text: $draft.text, axis: .vertical)
                 .lineLimit(8 ... 20)
                 .textFieldStyle(.roundedBorder)
@@ -79,6 +90,7 @@ struct DiagramsSheet: View {
     func write() {
         session.setSystemDiagram(
             label: draft.label.trimmingCharacters(in: .whitespaces),
+            kind: draft.kind,
             text: draft.text.trimmingCharacters(in: .whitespaces)
         )
         if session.errorMessage == nil { startANewOne() }
@@ -86,7 +98,7 @@ struct DiagramsSheet: View {
 
     private func read(_ diagram: ViewedSystemDiagram) {
         editing = diagram.label
-        draft = Draft(label: diagram.label, text: diagram.text)
+        draft = Draft(label: diagram.label, kind: diagram.kind, text: diagram.text)
     }
 
     private func remove(_ diagram: ViewedSystemDiagram) {
@@ -97,5 +109,9 @@ struct DiagramsSheet: View {
     private func startANewOne() {
         editing = nil
         draft = Draft()
+    }
+
+    private func label(ofKind id: String) -> String {
+        DiagramKind(rawValue: id)?.label ?? id
     }
 }

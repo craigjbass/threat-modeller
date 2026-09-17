@@ -192,6 +192,42 @@ struct SystemDiagramEditorFlowTests {
         #expect(diagram.text.contains("Customer->>API: signs in"))
     }
 
+    // MARK: the kind
+
+    /// #161: the window stated no `kind` on a `diagram` block, so a person
+    /// could not write a D2 picture even though the parser reads one.
+    @Test func writesTheD2KindIntoTheFile() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+
+        model.setSystemDiagram(label: "Deployment", kind: "d2", text: "a -> b")
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("kind = \"d2\""))
+    }
+
+    @Test func theParserReadsTheD2KindBackWithTheSameValue() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+
+        model.setSystemDiagram(label: "Deployment", kind: "d2", text: "a -> b")
+        await session.save()
+
+        let text = try #require(architecture(useCases))
+        let source = try #require(HclArchitectureSource().read(text).source)
+        let diagram = try #require(source.diagrams.first)
+        #expect(diagram.kind == "d2")
+    }
+
+    @Test func theSheetShowsTheKindPicker() async throws {
+        let (session, _) = await aProject(withDiagram)
+        let model = try #require(session.model)
+
+        #expect(model.canvas.diagrams.first?.kind == "mermaid")
+    }
+
     // MARK: the report
 
     @Test func aReportBuiltAfterTheWriteShowsTheDiagramUnderItsLabel() async throws {

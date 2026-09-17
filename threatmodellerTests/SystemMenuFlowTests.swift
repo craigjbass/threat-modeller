@@ -213,6 +213,7 @@ struct SystemMenuFlowTests {
             dismiss: {},
             draft: .init(
                 label: "The login sequence",
+                kind: "d2",
                 text: "sequenceDiagram\n  Customer->>API: signs in"
             )
         )
@@ -222,6 +223,7 @@ struct SystemMenuFlowTests {
         #expect(model.errorMessage == nil)
         let diagram = try #require(try written(useCases).diagrams.first)
         #expect(diagram.label == "The login sequence")
+        #expect(diagram.kind == "d2")
         #expect(diagram.text.contains("sequenceDiagram"))
     }
 

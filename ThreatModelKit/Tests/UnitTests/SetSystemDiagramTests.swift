@@ -66,6 +66,29 @@ struct SetSystemDiagramTests {
         #expect(app.modelStore.current().diagrams.isEmpty)
     }
 
+    @Test func writesADiagramWithTheD2Kind() throws {
+        let app = app()
+
+        let response = app.setSystemDiagram().execute(
+            SetSystemDiagramRequest(label: "Deployment", kind: "d2", text: "a -> b")
+        )
+
+        #expect(response == .recorded)
+        let diagram = try #require(app.modelStore.current().diagrams.first)
+        #expect(diagram.kind == "d2")
+    }
+
+    @Test func refusesAKindNoDrawingSupports() {
+        let app = app()
+
+        let response = app.setSystemDiagram().execute(
+            SetSystemDiagramRequest(label: "Deployment", kind: "plantuml", text: "a -> b")
+        )
+
+        #expect(response == .unknownKind)
+        #expect(app.modelStore.current().diagrams.isEmpty)
+    }
+
     // MARK: taking a block off
 
     @Test func takesADiagramOff() {
@@ -100,6 +123,7 @@ struct SetSystemDiagramTests {
 
         let diagram = try #require(view.diagrams.first)
         #expect(diagram.label == "The login sequence")
+        #expect(diagram.kind == "mermaid")
         #expect(diagram.text == "sequenceDiagram\n  Customer->>API: signs in")
     }
 

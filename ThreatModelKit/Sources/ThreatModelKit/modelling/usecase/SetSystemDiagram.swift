@@ -6,10 +6,13 @@ public struct SetSystemDiagramRequest: Equatable, Sendable {
     /// Names the diagram. Writing the same label again changes the block
     /// that is there.
     public let label: String
+    /// A kind id: `mermaid` or `d2`.
+    public let kind: String
     public let text: String
 
-    public init(label: String, text: String) {
+    public init(label: String, kind: String = "mermaid", text: String) {
         self.label = label
+        self.kind = kind
         self.text = text
     }
 }
@@ -18,12 +21,14 @@ public enum SetSystemDiagramResponse: Equatable, Sendable {
     case recorded
     case noLabel
     case noText
+    case unknownKind
 
     public func describe(into message: inout String?) {
         switch self {
         case .recorded: message = nil
         case .noLabel: message = "A diagram needs a label."
         case .noText: message = "A diagram needs mermaid text."
+        case .unknownKind: message = "A diagram's kind is mermaid or d2."
         }
     }
 }
@@ -32,7 +37,7 @@ public enum SetSystemDiagramResponse: Equatable, Sendable {
 /// the canvas draws.
 ///
 /// The label names it, so writing the same label again changes the block that
-/// is there rather than adding a second. Mermaid is the one kind this
+/// is there rather than adding a second. Mermaid and D2 are the kinds this
 /// application draws.
 public struct SetSystemDiagram: SetSystemDiagramUseCase {
     private let models: ThreatModelGateway
@@ -47,9 +52,12 @@ public struct SetSystemDiagram: SetSystemDiagramUseCase {
 
         guard label.isEmpty == false else { return .noLabel }
         guard text.isEmpty == false else { return .noText }
+        guard let kind = DiagramKind(rawValue: request.kind.trimmingWhitespace()) else {
+            return .unknownKind
+        }
 
         return models.mutate(label: ChangeLabel.setSystemDiagram) { model in
-            let written = SystemDiagram(label: label, text: text)
+            let written = SystemDiagram(label: label, kind: kind.rawValue, text: text)
             if let already = model.diagrams.firstIndex(where: { $0.label == label }) {
                 model.diagrams[already] = written
             } else {

@@ -945,7 +945,7 @@ The label is what the report calls the picture.
 
 | Attribute | Type | Values | Default |
 | --- | --- | --- | --- |
-| `kind` | string | `mermaid` | `mermaid` |
+| `kind` | string | `mermaid`, `d2` | `mermaid` |
 | `text` | string or heredoc | any, and not only whitespace | **required** |
 
 **The heredoc rule.** `<<TAG` starts a heredoc. The body starts on the next

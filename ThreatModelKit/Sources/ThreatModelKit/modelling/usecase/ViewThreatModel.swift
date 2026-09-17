@@ -368,13 +368,16 @@ public struct ViewedThirdParty: Equatable, Sendable {
 }
 
 /// One picture a team keeps beside the diagram the canvas draws, as the
-/// interface reads it. Mermaid is the one kind this application draws.
+/// interface reads it. Mermaid and D2 are the kinds a team may write.
 public struct ViewedSystemDiagram: Equatable, Sendable {
     public let label: String
+    /// A kind id: `mermaid` or `d2`.
+    public let kind: String
     public let text: String
 
-    public init(label: String, text: String) {
+    public init(label: String, kind: String = "mermaid", text: String) {
         self.label = label
+        self.kind = kind
         self.text = text
     }
 }
@@ -629,7 +632,7 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                 )
             },
             diagrams: model.diagrams.map {
-                ViewedSystemDiagram(label: $0.label, text: $0.text)
+                ViewedSystemDiagram(label: $0.label, kind: $0.kind, text: $0.text)
             },
             systemFacts: ViewedSystemFacts(
                 owner: model.owner,

@@ -1591,9 +1591,9 @@ final class ThreatModelSession {
 
     /// Writes one `diagram` block. Writing the same label again changes the
     /// block that is there.
-    func setSystemDiagram(label: String, text: String) {
+    func setSystemDiagram(label: String, kind: String = "mermaid", text: String) {
         useCases.setSystemDiagram()
-            .execute(SetSystemDiagramRequest(label: label, text: text))
+            .execute(SetSystemDiagramRequest(label: label, kind: kind, text: text))
             .describe(into: &errorMessage)
         refresh()
     }

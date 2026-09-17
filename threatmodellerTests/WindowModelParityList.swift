@@ -83,7 +83,7 @@ extension WindowModelParityTests {
             ("owner", .writes("assumption-owner"))
         ])) { first, _ in first }
         all.merge(rows("arch", "diagram", [
-            ("kind", .gap(161)),
+            ("kind", .writes("diagram-kind")),
             ("text", .writes("diagram-text"))
         ])) { first, _ in first }
         all.merge(rows("arch", "third_party", [

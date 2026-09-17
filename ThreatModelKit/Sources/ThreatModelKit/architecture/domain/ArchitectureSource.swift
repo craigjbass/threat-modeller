@@ -513,7 +513,7 @@ public struct SourceAssumption: Equatable, Sendable {
 /// One picture a team keeps beside the diagram the canvas draws.
 public struct SourceDiagram: Equatable, Sendable {
     public let label: String
-    /// `mermaid`, the one kind this application draws.
+    /// `mermaid` or `d2`.
     public let kind: String
     /// The picture's source, byte for byte as the file states it.
     public let text: String

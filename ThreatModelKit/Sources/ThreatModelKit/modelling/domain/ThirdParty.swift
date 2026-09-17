@@ -76,6 +76,19 @@ public struct ThirdParty: Equatable, Sendable {
 }
 
 
+/// What language one picture beside the diagram is written in.
+public enum DiagramKind: String, CaseIterable, Equatable, Sendable {
+    case mermaid
+    case d2
+
+    public var label: String {
+        switch self {
+        case .mermaid: "Mermaid"
+        case .d2: "D2"
+        }
+    }
+}
+
 /// One picture a team keeps beside the diagram the canvas draws.
 ///
 /// A sequence diagram of a login, or a deployment diagram, says something the
@@ -83,7 +96,7 @@ public struct ThirdParty: Equatable, Sendable {
 /// reader sees it where the rest of the model is.
 public struct SystemDiagram: Equatable, Sendable {
     public let label: String
-    /// `mermaid`, the one kind this application draws.
+    /// `mermaid` or `d2`, the values of `DiagramKind`.
     public let kind: String
     /// The picture's source, byte for byte as the team wrote it.
     public let text: String

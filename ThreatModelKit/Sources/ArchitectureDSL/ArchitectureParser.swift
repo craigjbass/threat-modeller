@@ -447,7 +447,7 @@ struct ArchitectureParser {
         }
     }
 
-    static let diagramKinds: Set<String> = ["mermaid"]
+    static let diagramKinds: Set<String> = ["mermaid", "d2"]
 
     /// A `diagram` block: one picture the team keeps beside the diagram the
     /// canvas draws.
