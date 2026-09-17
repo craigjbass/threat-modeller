@@ -349,6 +349,9 @@ public struct AssessedThreat: Hashable, Sendable {
     public let compensatingEvidenceReference: String?
     /// When somebody last checked the compensating control, or nil.
     public let compensatingVerifiedOn: String?
+    /// Where the compensating control comes from, from the controls file.
+    /// Empty when the file names none.
+    public let compensatingSources: [String]
     /// The score before the compensating control. Equal to `riskScore` when
     /// none applied.
     public let scoreBeforeCompensation: Int
@@ -424,6 +427,7 @@ public struct AssessedThreat: Hashable, Sendable {
         compensatingEvidenceId: String? = nil,
         compensatingEvidenceReference: String? = nil,
         compensatingVerifiedOn: String? = nil,
+        compensatingSources: [String] = [],
         scoreBeforeCompensation: Int? = nil,
         inherentScore: Int? = nil,
         mitigatedByComponentLabels: [String] = [],
@@ -466,6 +470,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.compensatingEvidenceId = compensatingEvidenceId
         self.compensatingEvidenceReference = compensatingEvidenceReference
         self.compensatingVerifiedOn = compensatingVerifiedOn
+        self.compensatingSources = compensatingSources
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
         self.inherentScore = inherentScore ?? riskScore
         self.mitigatedByComponentLabels = mitigatedByComponentLabels
@@ -683,6 +688,7 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                         $0.proof.reference.isEmpty ? nil : $0.proof.reference
                     },
                     compensatingVerifiedOn: threat.compensating.first?.proof.verifiedOn?.description,
+                    compensatingSources: threat.compensating.first?.sources ?? [],
                     scoreBeforeCompensation: threat.scoreBeforeCompensation,
                     inherentScore: threat.scoreBeforeControls,
                     mitigatedByComponentLabels: threat.mitigatedByComponents.map(\.protectorName),

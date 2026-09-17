@@ -376,6 +376,13 @@ struct ThreatCard: View {
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("compensating-evidence-\(threat.threatKey)")
                     }
+                    if threat.compensatingSources.isEmpty == false {
+                        Text(threat.compensatingSources.joined(separator: ", "))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("compensating-sources-\(threat.threatKey)")
+                    }
                     Text("\(threat.scoreBeforeCompensation) \u{2192} \(threat.riskScore)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)

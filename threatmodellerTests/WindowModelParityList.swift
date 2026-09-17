@@ -249,7 +249,7 @@ extension WindowModelParityTests {
         all.merge(rows("controls", "compensating", [
             ("reduces_risk_by", .writes("compensating-percent")),
             ("rationale", .writes("compensating-rationale")),
-            ("sources", .gap(168)),
+            ("sources", .writes("compensating-sources")),
             ("evidence", .writes("compensating-evidence-tier")),
             ("reference", .writes("compensating-evidence-reference")),
             ("verified_on", .writes("compensating-verified-on"))

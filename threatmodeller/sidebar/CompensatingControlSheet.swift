@@ -18,6 +18,7 @@ struct CompensatingControlSheet: View {
     @State private var reference = ""
     @State private var statesVerifiedOn = false
     @State private var verifiedOn = Date()
+    @State private var sources = ""
 
     private var threatKey: String { threat.threatKey }
 
@@ -48,6 +49,10 @@ struct CompensatingControlSheet: View {
                 TextField("Why that is enough", text: $rationale, axis: .vertical)
                     .lineLimit(2 ... 5)
                     .accessibilityIdentifier("compensating-rationale")
+
+                TextField("Sources, one a line", text: $sources, axis: .vertical)
+                    .lineLimit(1 ... 4)
+                    .accessibilityIdentifier("compensating-sources")
 
                 // What proves the control is in place. The tier moves no
                 // score, and check reads it the way it reads a control's.
@@ -117,6 +122,7 @@ struct CompensatingControlSheet: View {
                 statesVerifiedOn = true
                 verifiedOn = held
             }
+            sources = threat.compensatingSources.joined(separator: "\n")
         }
     }
 
@@ -128,7 +134,11 @@ struct CompensatingControlSheet: View {
             rationale: rationale,
             evidenceId: tierId.isEmpty ? nil : tierId,
             evidenceReference: reference.trimmingCharacters(in: .whitespaces),
-            verifiedOn: statesVerifiedOn ? GovernanceSheet.text(of: verifiedOn) : nil
+            verifiedOn: statesVerifiedOn ? GovernanceSheet.text(of: verifiedOn) : nil,
+            sources: sources
+                .split(separator: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.isEmpty == false }
         )
         if session.errorMessage == nil { dismiss() }
     }

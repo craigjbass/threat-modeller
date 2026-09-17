@@ -14,6 +14,9 @@ public struct SetCompensatingControlRequest: Equatable, Sendable {
     public let evidenceReference: String
     /// When somebody last checked, written `YYYY-MM-DD`, or nil.
     public let verifiedOn: String?
+    /// Where the compensating control comes from: a URL, a CVE identifier,
+    /// or any other text. Empty when a person names none.
+    public let sources: [String]
 
     public init(
         threatKey: String,
@@ -22,7 +25,8 @@ public struct SetCompensatingControlRequest: Equatable, Sendable {
         rationale: String,
         evidenceId: String? = nil,
         evidenceReference: String = "",
-        verifiedOn: String? = nil
+        verifiedOn: String? = nil,
+        sources: [String] = []
     ) {
         self.threatKey = threatKey
         self.label = label
@@ -31,6 +35,7 @@ public struct SetCompensatingControlRequest: Equatable, Sendable {
         self.evidenceId = evidenceId
         self.evidenceReference = evidenceReference
         self.verifiedOn = verifiedOn
+        self.sources = sources
     }
 }
 
@@ -99,12 +104,17 @@ public struct SetCompensatingControl: SetCompensatingControlUseCase {
             proof = read
         }
 
+        let sources = request.sources
+            .map { $0.trimmingWhitespace() }
+            .filter { $0.isEmpty == false }
+
         return models.mutate(label: ChangeLabel.setCompensatingControl) { model in
             model.compensatingControls[key] = [
                 CompensatingControl(
                     label: label,
                     reducesRiskBy: request.reducesRiskBy,
                     rationale: rationale,
+                    sources: sources,
                     proof: proof
                 )
             ]

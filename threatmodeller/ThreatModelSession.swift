@@ -1331,7 +1331,8 @@ final class ThreatModelSession {
         rationale: String,
         evidenceId: String? = nil,
         evidenceReference: String = "",
-        verifiedOn: String? = nil
+        verifiedOn: String? = nil,
+        sources: [String] = []
     ) {
         useCases.setCompensatingControl().execute(
             SetCompensatingControlRequest(
@@ -1341,7 +1342,8 @@ final class ThreatModelSession {
                 rationale: rationale,
                 evidenceId: evidenceId,
                 evidenceReference: evidenceReference,
-                verifiedOn: verifiedOn
+                verifiedOn: verifiedOn,
+                sources: sources
             )
         ).describe(into: &errorMessage)
         refresh()
