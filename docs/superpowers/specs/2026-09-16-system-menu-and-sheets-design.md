@@ -158,7 +158,7 @@ Each item's title ends with the count the model holds, after an en space:
 - `Assets  3` when the model holds three assets.
 - `Assets  —` when the model holds none.
 
-Document Control counts the nine named fields the document states plus the free
+Document Control counts the eight named fields the document states plus the free
 attributes, so a document that states nothing shows a dash and a document that
 states an owner alone shows 1.
 
