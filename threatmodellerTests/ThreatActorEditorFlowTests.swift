@@ -198,6 +198,60 @@ struct ThreatActorEditorFlowTests {
         #expect(actor.techniques == ["T1552"])
     }
 
+    // MARK: the aliases the sheet carries
+
+    /// #163: the sheet had no aliases field, so editing an actor through it
+    /// dropped whatever aliases the file already held.
+    @Test func editingAnActorThroughTheSheetKeepsItsAliases() async throws {
+        let (session, useCases) = await aProject("""
+        system "Payments" {
+          faces = ["contractor"]
+
+          threat_actor "contractor" {
+            name       = "Third-party contractor"
+            aliases    = ["supplier", "vendor"]
+            capability = "targeted"
+            intent     = "financial"
+            performs   = ["credential-theft"]
+          }
+
+          component "api" {
+            technology = "aws-ec2"
+          }
+        }
+
+        """)
+        let model = try #require(session.model)
+
+        // Read the actor into the form the way the pencil button does, then
+        // change the intent alone. The aliases the read carried over must
+        // still write, because the sheet never cleared them.
+        let actor = try #require(model.threatActorsInUse.first { $0.id == "contractor" })
+        let sheet = ThreatActorsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: actor.id,
+                name: actor.name,
+                description: actor.description,
+                aliases: actor.aliases.joined(separator: ", "),
+                capability: actor.capabilityId,
+                intent: "commercial",
+                performs: actor.performsThreatIds.joined(separator: ", "),
+                techniques: actor.techniques.joined(separator: ", ")
+            )
+        )
+        sheet.write()
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        let source = try #require(HclArchitectureSource().read(written).source)
+        let contractor = try #require(source.threatActors.first { $0.id == "contractor" })
+        #expect(contractor.intent == "commercial")
+        #expect(contractor.aliases == ["supplier", "vendor"])
+    }
+
     // MARK: what the threat card reads
 
     @Test func theThreatCardNamesTheActorThatPerformsTheThreat() async throws {

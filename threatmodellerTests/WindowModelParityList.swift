@@ -112,7 +112,7 @@ extension WindowModelParityTests {
         all.merge(rows("arch", "threat_actor", [
             ("name", .writes("threat-actor-name")),
             ("description", .writes("threat-actor-description")),
-            ("aliases", .gap(163)),
+            ("aliases", .writes("threat-actor-aliases")),
             ("capability", .writes("threat-actor-capability")),
             ("intent", .writes("threat-actor-intent")),
             ("performs", .writes("threat-actor-performs")),
@@ -418,7 +418,7 @@ extension WindowModelParityTests {
         all.merge(rows("lib", "threat_actor", [
             ("name", readOnly("a library actor is read; the arch threat_actor rows state the controls")),
             ("description", readOnly("a library actor is read; the arch threat_actor rows state the controls")),
-            ("aliases", .gap(163)),
+            ("aliases", .writes("threat-actor-aliases")),
             ("capability", readOnly("a library actor is read; the arch threat_actor rows state the controls")),
             ("intent", readOnly("a library actor is read; the arch threat_actor rows state the controls")),
             ("performs", readOnly("a library actor is read; the arch threat_actor rows state the controls")),

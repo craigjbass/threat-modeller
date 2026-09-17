@@ -33,6 +33,7 @@ struct ThreatActorsSheet: View {
         var id = ""
         var name = ""
         var description = ""
+        var aliases = ""
         var capability = Likelihood.targeted.id
         var intent = ""
         var performs = ""
@@ -191,6 +192,13 @@ struct ThreatActorsSheet: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if actor.aliases.isEmpty == false {
+                Text("Aliases: \(actor.aliases.joined(separator: ", "))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if actor.mitreGroups.isEmpty == false {
                 Text("MITRE groups: \(groups(actor))")
                     .font(.caption2)
@@ -293,6 +301,10 @@ struct ThreatActorsSheet: View {
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("threat-actor-description")
 
+            TextField("Aliases, separated by a comma", text: $draft.aliases)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("threat-actor-aliases")
+
             HStack(spacing: 6) {
                 TextField("Threat ids, separated by a comma", text: $draft.performs)
                     .textFieldStyle(.roundedBorder)
@@ -316,6 +328,7 @@ struct ThreatActorsSheet: View {
             id: draft.id,
             name: draft.name,
             description: draft.description,
+            aliases: Self.list(draft.aliases),
             capability: draft.capability,
             intent: draft.intent,
             performs: Self.list(draft.performs),
@@ -332,6 +345,7 @@ struct ThreatActorsSheet: View {
             id: actor.id,
             name: actor.name,
             description: actor.description,
+            aliases: actor.aliases.joined(separator: ", "),
             capability: actor.capabilityId,
             intent: actor.intent,
             performs: actor.performsThreatIds.joined(separator: ", "),

@@ -15,6 +15,8 @@ public struct ListedThreatActor: Equatable, Sendable {
     public let id: String
     public let name: String
     public let description: String
+    /// Other names this actor is known by, which an editor writes back.
+    public let aliases: [String]
     public let capabilityLabel: String
     /// The tier id, which is what an editor writes back.
     public let capabilityId: String
@@ -42,6 +44,7 @@ public struct ListedThreatActor: Equatable, Sendable {
         id: String,
         name: String,
         description: String = "",
+        aliases: [String] = [],
         capabilityLabel: String,
         capabilityId: String = "",
         intent: String = "",
@@ -57,6 +60,7 @@ public struct ListedThreatActor: Equatable, Sendable {
         self.id = id
         self.name = name
         self.description = description
+        self.aliases = aliases
         self.capabilityLabel = capabilityLabel
         self.capabilityId = capabilityId
         self.intent = intent
@@ -122,6 +126,7 @@ public struct ListThreatActorsInUse: ListThreatActorsInUseUseCase {
                     id: actor.id.value,
                     name: actor.name,
                     description: actor.description,
+                    aliases: actor.aliases,
                     capabilityLabel: actor.capability.label,
                     capabilityId: actor.capability.id,
                     intent: actor.intent,
