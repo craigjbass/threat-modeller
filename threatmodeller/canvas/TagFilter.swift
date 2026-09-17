@@ -64,15 +64,23 @@ nonisolated struct TagFilter: Equatable {
         return tags.contains { pickedTags.contains($0) }
     }
 
-    /// What the canvas draws: the components that hold a picked tag, every
-    /// component the walk reaches from them within `neighbourDepth` flows,
-    /// the zones that rule keeps (below), and the flows whose two ends the
-    /// canvas draws.
+    /// What the canvas draws: the components that hold a picked tag, the
+    /// components that sit in a zone holding a picked tag, every component the
+    /// walk reaches from those within `neighbourDepth` flows, the zones that
+    /// rule keeps (below), and the flows whose two ends the canvas draws.
+    ///
+    /// A tag on a zone names a whole part of the system, so it draws the zone
+    /// and the components inside it. Tagging the zone is the short way to name
+    /// a view; a zone drawn empty names nothing.
     ///
     /// A flow needs both its ends, so a flow to a component this filter hides
     /// is hidden too, whatever the flow itself is filed under.
     func narrow(_ model: ViewThreatModelResponse) -> DrawnDiagram {
-        let matched = model.components.filter { keeps(tags: $0.tags) }
+        let taggedZoneIds = Set(model.zones.filter { keeps(tags: $0.tags) }.map(\.id))
+        let matched = model.components.filter { component in
+            keeps(tags: component.tags)
+                || component.zoneId.map(taggedZoneIds.contains) == true
+        }
         let drawnIds = Self.walk(
             from: Set(matched.map(\.id)),
             depth: isNarrowing ? neighbourDepth : 0,

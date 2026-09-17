@@ -69,6 +69,17 @@ struct ZonePanel: View {
             }
         }
 
+        // The tags a zone is filed under, as one line. The canvas tag
+        // filter draws the zone and the components inside it.
+        SelectionField("Tags") {
+            DeferredTextField(
+                title: "Tags",
+                text: tagsText,
+                identifier: "zone-tags",
+                commit: { commitTags($0) }
+            )
+        }
+
         Divider()
 
         Toggle("Reduce risk", isOn: reductionEnabled)
@@ -114,6 +125,16 @@ struct ZonePanel: View {
         .accessibilityIdentifier("zone-remove")
     }
 
+    /// The line the tag field shows: every tag the zone holds, separated by
+    /// commas.
+    var tagsText: String { TagFilter.text(from: zone.tags) }
+
+    /// Writes what a person typed in the tag field. An empty line takes every
+    /// tag off the zone.
+    func commitTags(_ text: String) {
+        write(tags: TagFilter.tags(from: text))
+    }
+
     // MARK: writing through
 
     private func write(
@@ -122,7 +143,8 @@ struct ZonePanel: View {
         networkType newNetworkType: String? = nil,
         enabled newEnabled: Bool? = nil,
         percent newPercent: Int? = nil,
-        boundary newBoundary: String? = nil
+        boundary newBoundary: String? = nil,
+        tags newTags: [String]? = nil
     ) {
         session.setZoneProperties(
             zoneId: zone.id,
@@ -131,7 +153,8 @@ struct ZonePanel: View {
             networkTypeId: newNetworkType ?? zone.networkTypeId,
             riskReductionEnabled: newEnabled ?? zone.riskReductionEnabled,
             riskReductionPercent: newPercent ?? zone.riskReductionPercent,
-            boundaryId: newBoundary ?? zone.boundaryId
+            boundaryId: newBoundary ?? zone.boundaryId,
+            tags: newTags
         )
     }
 

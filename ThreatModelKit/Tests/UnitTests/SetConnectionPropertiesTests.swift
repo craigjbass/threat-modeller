@@ -95,4 +95,77 @@ struct SetConnectionPropertiesTests {
         #expect(view.components.first?.runsAsId == "root")
         #expect(view.zones.first?.boundaryId == "privilege")
     }
+
+    @Test func itSetsTheTags() {
+        let models = gateway()
+
+        let response = SetConnectionProperties(models: models).execute(
+            SetConnectionPropertiesRequest(
+                connectionId: "a->b",
+                kind: "ipc",
+                description: nil,
+                tags: ["payments", "pci"]
+            )
+        )
+
+        #expect(response == .updated)
+        #expect(models.current().connections.first?.tags == ["payments", "pci"])
+    }
+
+    @Test func itLeavesTheTagsAloneWhenTheRequestNamesNone() {
+        let models = gateway()
+        _ = SetConnectionProperties(models: models).execute(
+            SetConnectionPropertiesRequest(
+                connectionId: "a->b",
+                kind: "ipc",
+                description: nil,
+                tags: ["payments"]
+            )
+        )
+
+        _ = SetConnectionProperties(models: models).execute(
+            SetConnectionPropertiesRequest(connectionId: "a->b", kind: "file", description: nil)
+        )
+
+        #expect(models.current().connections.first?.tags == ["payments"])
+    }
+
+    @Test func itTakesEveryTagOffWithAnEmptyList() {
+        let models = gateway()
+        _ = SetConnectionProperties(models: models).execute(
+            SetConnectionPropertiesRequest(
+                connectionId: "a->b",
+                kind: "ipc",
+                description: nil,
+                tags: ["payments"]
+            )
+        )
+
+        _ = SetConnectionProperties(models: models).execute(
+            SetConnectionPropertiesRequest(
+                connectionId: "a->b",
+                kind: "ipc",
+                description: nil,
+                tags: []
+            )
+        )
+
+        #expect(models.current().connections.first?.tags.isEmpty == true)
+    }
+
+    @Test func itWritesNoTagWhenTheKindIsRefused() {
+        let models = gateway()
+
+        let response = SetConnectionProperties(models: models).execute(
+            SetConnectionPropertiesRequest(
+                connectionId: "a->b",
+                kind: "carrier-pigeon",
+                description: nil,
+                tags: ["payments"]
+            )
+        )
+
+        #expect(response == .unknownKind)
+        #expect(models.current().connections.first?.tags.isEmpty == true)
+    }
 }

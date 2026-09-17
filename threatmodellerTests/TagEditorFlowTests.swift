@@ -47,6 +47,56 @@ struct TagEditorFlowTests {
 
     """
 
+    private let zoned = """
+    system "Payments" {
+      zone "app" {
+        kind            = "private"
+        network         = "generic"
+        reduces_risk_by = 20
+
+        component "api" {
+          technology = "aws-ec2"
+          data       = "confidential"
+        }
+
+        component "db" {
+          technology = "aws-rds"
+          data       = "restricted"
+        }
+      }
+
+      flow api -> db
+    }
+
+    """
+
+    private let zonedAndTagged = """
+    system "Payments" {
+      zone "app" {
+        kind            = "private"
+        network         = "generic"
+        reduces_risk_by = 20
+        tags            = ["payments", "pci"]
+
+        component "api" {
+          technology = "aws-ec2"
+          data       = "confidential"
+        }
+
+        component "db" {
+          technology = "aws-rds"
+          data       = "restricted"
+        }
+      }
+
+      flow api -> db {
+        kind = "network"
+        tags = ["ingest"]
+      }
+    }
+
+    """
+
     private func aProject(_ text: String? = nil) async -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
         useCases.project.put(text ?? payments, at: "/work/threatmodel/payments.arch")
@@ -69,6 +119,21 @@ struct TagEditorFlowTests {
     ) throws -> ComponentPanel {
         let component = try #require(model.canvas.components.first { $0.id == componentId })
         return ComponentPanel(session: model, component: component)
+    }
+
+    private func zonePanel(_ model: ThreatModelSession, zoneId: String) throws -> ZonePanel {
+        let zone = try #require(model.canvas.zones.first { $0.id == zoneId })
+        return ZonePanel(session: model, zone: zone)
+    }
+
+    private func flowPanel(
+        _ model: ThreatModelSession,
+        connectionId: String
+    ) throws -> ConnectionPanel {
+        let connection = try #require(
+            model.canvas.connections.first { $0.id == connectionId }
+        )
+        return ConnectionPanel(session: model, connection: connection)
     }
 
     // MARK: the panel
@@ -215,5 +280,91 @@ struct TagEditorFlowTests {
         #expect(canvas.focusedComponentId == nil)
         let drawn = canvas.tagFilter.narrow(model.canvas)
         #expect(drawn.components.map(\.id) == ["api", "db"])
+    }
+
+    // MARK: the zone panel and the flow panel
+
+    @Test func theZonePanelShowsTheTagsAZoneHolds() async throws {
+        let (session, _) = await aProject(zonedAndTagged)
+        let model = try #require(session.model)
+
+        #expect(try zonePanel(model, zoneId: "app").tagsText == "payments, pci")
+    }
+
+    @Test func theFlowPanelShowsTheTagsAFlowHolds() async throws {
+        let (session, _) = await aProject(zonedAndTagged)
+        let model = try #require(session.model)
+
+        #expect(try flowPanel(model, connectionId: "api->db").tagsText == "ingest")
+    }
+
+    /// The acceptance of #152: the window tags a zone and a flow, and the
+    /// `.arch` file reads back with both tag lists.
+    @Test func theZoneAndFlowPanelsWriteTheirTagsIntoTheFile() async throws {
+        let (session, useCases) = await aProject(zoned)
+        let model = try #require(session.model)
+
+        try zonePanel(model, zoneId: "app").commitTags("payments, pci")
+        try flowPanel(model, connectionId: "api->db").commitTags("ingest")
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        #expect(architecture(useCases) == zonedAndTagged)
+    }
+
+    @Test func theZonePanelTakesEveryTagBackOff() async throws {
+        let (session, useCases) = await aProject(zonedAndTagged)
+        let model = try #require(session.model)
+
+        try zonePanel(model, zoneId: "app").commitTags("")
+        try flowPanel(model, connectionId: "api->db").commitTags("")
+        await session.save()
+
+        #expect(architecture(useCases) == zoned)
+    }
+
+    /// The zone panel writes tags and nothing else: the kind, the network and
+    /// the risk reduction the file states stay as they are.
+    @Test func theZonePanelChangesNoOtherZoneProperty() async throws {
+        let (session, _) = await aProject(zoned)
+        let model = try #require(session.model)
+
+        try zonePanel(model, zoneId: "app").commitTags("payments")
+
+        let zone = try #require(model.canvas.zones.first { $0.id == "app" })
+        #expect(zone.tags == ["payments"])
+        #expect(zone.networkZoneId == "private")
+        #expect(zone.networkTypeId == "generic")
+        #expect(zone.boundaryId == "network")
+    }
+
+    /// The flow panel writes tags and nothing else: the kind and the
+    /// description the file states stay as they are.
+    @Test func theFlowPanelChangesNoOtherFlowProperty() async throws {
+        let (session, _) = await aProject(zonedAndTagged)
+        let model = try #require(session.model)
+
+        try flowPanel(model, connectionId: "api->db").commitTags("payments")
+
+        let flow = try #require(model.canvas.connections.first { $0.id == "api->db" })
+        #expect(flow.tags == ["payments"])
+        #expect(flow.kindId == "network")
+    }
+
+    /// A tag on the zone alone gives a view: the toolbar offers it, and the
+    /// canvas draws the zone with the components inside it.
+    @Test func aTagOnTheZoneAloneDrawsTheZoneAndTheComponentsInIt() async throws {
+        let (session, _) = await aProject(zoned)
+        let model = try #require(session.model)
+        let canvas = CanvasState()
+
+        try zonePanel(model, zoneId: "app").commitTags("payments")
+
+        #expect(TagFilter.tags(in: model.canvas) == ["payments"])
+        canvas.pick(tag: "payments")
+        let drawn = canvas.tagFilter.narrow(model.canvas)
+        #expect(drawn.zones.map(\.id) == ["app"])
+        #expect(drawn.components.map(\.id) == ["api", "db"])
+        #expect(drawn.connections.map(\.id) == ["api->db"])
     }
 }

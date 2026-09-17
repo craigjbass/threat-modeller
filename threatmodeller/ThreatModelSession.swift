@@ -263,7 +263,8 @@ final class ThreatModelSession {
         networkTypeId: String,
         riskReductionEnabled: Bool,
         riskReductionPercent: Int,
-        boundaryId: String
+        boundaryId: String,
+        tags: [String]? = nil
     ) {
         switch useCases.setZoneProperties().execute(
             SetZonePropertiesRequest(
@@ -273,7 +274,8 @@ final class ThreatModelSession {
                 networkType: networkTypeId,
                 riskReductionEnabled: riskReductionEnabled,
                 riskReductionPercent: riskReductionPercent,
-                boundary: boundaryId
+                boundary: boundaryId,
+                tags: tags
             )
         ) {
         case .updated:
@@ -326,9 +328,19 @@ final class ThreatModelSession {
         refresh()
     }
 
-    func setConnectionProperties(connectionId: String, kind: String, description: String?) {
+    func setConnectionProperties(
+        connectionId: String,
+        kind: String,
+        description: String?,
+        tags: [String]? = nil
+    ) {
         switch useCases.setConnectionProperties().execute(
-            SetConnectionPropertiesRequest(connectionId: connectionId, kind: kind, description: description)
+            SetConnectionPropertiesRequest(
+                connectionId: connectionId,
+                kind: kind,
+                description: description,
+                tags: tags
+            )
         ) {
         case .updated:
             errorMessage = nil

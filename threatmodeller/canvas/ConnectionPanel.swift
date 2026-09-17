@@ -54,6 +54,17 @@ struct ConnectionPanel: View {
             }
         }
 
+        // The tags a flow is filed under, as one line. The canvas tag
+        // filter draws the view a tag names.
+        SelectionField("Tags") {
+            DeferredTextField(
+                title: "Tags",
+                text: tagsText,
+                identifier: "connection-tags",
+                commit: { commitTags($0) }
+            )
+        }
+
         Divider()
 
         // The direction decides which threats the flow raises, so it is
@@ -61,6 +72,21 @@ struct ConnectionPanel: View {
         // again, which loses the kind and the description.
         Button("Reverse Direction") { session.reverseConnection(connection.id) }
             .accessibilityIdentifier("reverse-connection")
+    }
+
+    /// The line the tag field shows: every tag the flow holds, separated by
+    /// commas.
+    var tagsText: String { TagFilter.text(from: connection.tags) }
+
+    /// Writes what a person typed in the tag field. An empty line takes every
+    /// tag off the flow.
+    func commitTags(_ text: String) {
+        session.setConnectionProperties(
+            connectionId: connection.id,
+            kind: connection.kindId,
+            description: connection.description,
+            tags: TagFilter.tags(from: text)
+        )
     }
 
     /// What the menu reads when it is closed.

@@ -16,7 +16,8 @@ struct SetZonePropertiesTests {
         networkType: String = "vpc",
         enabled: Bool = true,
         percent: Int = 40,
-        boundary: String = "network"
+        boundary: String = "network",
+        tags: [String]? = nil
     ) -> SetZonePropertiesResponse {
         SetZoneProperties(models: models).execute(
             SetZonePropertiesRequest(
@@ -26,7 +27,8 @@ struct SetZonePropertiesTests {
                 networkType: networkType,
                 riskReductionEnabled: enabled,
                 riskReductionPercent: percent,
-                boundary: boundary
+                boundary: boundary,
+                tags: tags
             )
         )
     }
@@ -100,5 +102,33 @@ struct SetZonePropertiesTests {
     @Test func refusesABoundaryItDoesNotKnow() {
         #expect(set(boundary: "physical") == .unknownBoundary)
         #expect(zone()?.name == nil)
+    }
+
+    @Test func setsTheTags() throws {
+        #expect(set(tags: ["payments", "pci"]) == .updated)
+
+        #expect(try #require(zone()).tags == ["payments", "pci"])
+    }
+
+    @Test func leavesTheTagsAloneWhenTheRequestNamesNone() throws {
+        _ = set(tags: ["payments"])
+
+        #expect(set(tags: nil) == .updated)
+
+        #expect(try #require(zone()).tags == ["payments"])
+    }
+
+    @Test func takesEveryTagOffWithAnEmptyList() throws {
+        _ = set(tags: ["payments"])
+
+        #expect(set(tags: []) == .updated)
+
+        #expect(try #require(zone()).tags.isEmpty)
+    }
+
+    @Test func writesNoTagWhenAnotherValueIsRefused() throws {
+        #expect(set(boundary: "physical", tags: ["payments"]) == .unknownBoundary)
+
+        #expect(try #require(zone()).tags.isEmpty)
     }
 }

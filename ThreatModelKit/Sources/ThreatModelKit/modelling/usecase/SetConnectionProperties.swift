@@ -8,11 +8,21 @@ public struct SetConnectionPropertiesRequest: Equatable, Sendable {
     public let kind: String
     /// Why the flow is there, or nil. An empty text is the same as nil.
     public let description: String?
+    /// The words a team files this flow under. Nil leaves the tags alone, so a
+    /// caller that does not offer tags changes none. An empty list takes every
+    /// tag off.
+    public let tags: [String]?
 
-    public init(connectionId: String, kind: String, description: String?) {
+    public init(
+        connectionId: String,
+        kind: String,
+        description: String?,
+        tags: [String]? = nil
+    ) {
         self.connectionId = connectionId
         self.kind = kind
         self.description = description
+        self.tags = tags
     }
 }
 
@@ -45,6 +55,9 @@ public struct SetConnectionProperties: SetConnectionPropertiesUseCase {
             let trimmed = request.description?.trimmingWhitespace() ?? ""
             model.connections[index].kind = kind
             model.connections[index].description = trimmed.isEmpty ? nil : trimmed
+            if let tags = request.tags {
+                model.connections[index].tags = tags
+            }
             return .updated
         }
     }

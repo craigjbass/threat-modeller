@@ -177,22 +177,44 @@ struct TagFilterTests {
         #expect(drawn.zones.map(\.id) == ["app"])
     }
 
-    /// A tag on the zone itself draws the zone, even while it holds no
-    /// component the picked tag keeps.
-    @Test func pickingATagOnlyAZoneHoldsDrawsTheZoneAndNoComponent() {
+    /// A tag on the zone itself names a whole part of the system, so it draws
+    /// the zone and every component inside it, and the flows between them.
+    @Test func pickingATagOnlyAZoneHoldsDrawsTheZoneAndTheComponentsInIt() {
         let inAZone = ViewThreatModelResponse(
             name: "Payments",
-            components: [component("api", tags: [], zoneId: "app")],
-            connections: [],
-            zones: [zone("app", tags: ["restricted"])]
+            components: [
+                component("api", tags: [], zoneId: "app"),
+                component("db", tags: [], zoneId: "app"),
+                component("cdn", tags: [], zoneId: "edge")
+            ],
+            connections: [flow("api", "db"), flow("cdn", "api")],
+            zones: [zone("app", tags: ["restricted"]), zone("edge", tags: [])]
         )
         var filter = TagFilter()
         filter.pick("restricted")
 
         let drawn = filter.narrow(inAZone)
 
-        #expect(drawn.components.isEmpty)
+        #expect(drawn.components.map(\.id) == ["api", "db"])
         #expect(drawn.zones.map(\.id) == ["app"])
+        #expect(drawn.connections.map(\.id) == ["api->db"])
+    }
+
+    /// A component outside every zone is not drawn by a zone tag.
+    @Test func aZoneTagDrawsNoComponentOutsideThatZone() {
+        let inAZone = ViewThreatModelResponse(
+            name: "Payments",
+            components: [
+                component("api", tags: [], zoneId: "app"),
+                component("loose", tags: [], zoneId: nil)
+            ],
+            connections: [],
+            zones: [zone("app", tags: ["restricted"])]
+        )
+        var filter = TagFilter()
+        filter.pick("restricted")
+
+        #expect(filter.narrow(inAZone).components.map(\.id) == ["api"])
     }
 
     // MARK: the neighbours stepper
