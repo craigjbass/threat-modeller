@@ -51,17 +51,22 @@ struct ReportExporterTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let session = session()
 
-        for kind in ReportExporter.Kind.allCases {
+        // The PDF export loads the report page through WebKit, and the
+        // runner runs no WebKit content process. Every other kind writes
+        // its file there.
+        let kinds = ReportExporter.Kind.allCases.filter { WebKitInTests.runs || $0 != .pdf }
+        for kind in kinds {
             await exporter(session, writing: directory).export(kind)
         }
 
+        var wanted = [
+            "Untitled.d2", "Untitled.dot", "Untitled.hcl", "Untitled.html", "Untitled.json",
+            "Untitled.md", "Untitled.mmd", "Untitled.otm.json", "Untitled.pdf", "Untitled.png"
+        ]
+        if WebKitInTests.runs == false { wanted.removeAll { $0 == "Untitled.pdf" } }
+
         let written = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
-        #expect(
-            written == [
-                "Untitled.d2", "Untitled.dot", "Untitled.hcl", "Untitled.html", "Untitled.json",
-                "Untitled.md", "Untitled.mmd", "Untitled.otm.json", "Untitled.pdf", "Untitled.png"
-            ]
-        )
+        #expect(written == wanted)
         #expect(session.errorMessage == nil)
     }
 
