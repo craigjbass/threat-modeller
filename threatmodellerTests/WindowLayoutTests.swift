@@ -128,6 +128,45 @@ struct WindowLayoutTests {
         }
     }
 
+    /// #146: the checkbox toggle draws no trailing inset of its own, so the
+    /// gap before the pointer picker needs a real view between them, not
+    /// the toolbar's own item spacing, which a control with no bezel does
+    /// not reserve any room against.
+    @Test func theAutoSyncToggleHasAGapBeforeThePointerPicker() async throws {
+        let window = laidOut(ProjectWindow(session: await aDrawnProject()))
+        let toolbar = try #require(window.toolbar)
+
+        var settingsItemView: NSView?
+        for item in toolbar.items {
+            guard let view = item.view else { continue }
+            var popUps: [NSRect] = []
+            popUpButtons(in: view, into: &popUps)
+            var checkboxes: [NSRect] = []
+            checkboxButtons(in: view, into: &checkboxes)
+            if popUps.isEmpty == false, checkboxes.isEmpty == false {
+                settingsItemView = view
+            }
+        }
+        let itemView = try #require(
+            settingsItemView,
+            "no toolbar item holds both the Auto Sync toggle and the Pointer picker"
+        )
+
+        var popUps: [NSRect] = []
+        popUpButtons(in: itemView, into: &popUps)
+        let picker = try #require(popUps.first, "no pointer picker in the settings item")
+
+        var leaves: [NSRect] = []
+        leafViews(in: itemView, into: &leaves)
+        let toggleTrailingEdge = try #require(
+            leaves.filter { $0.maxX <= picker.minX + 0.5 }.map(\.maxX).max(),
+            "no toggle content sits before the picker"
+        )
+
+        let gap = picker.minX - toggleTrailingEdge
+        #expect(gap >= 8, "the gap between the toggle and the picker is \(gap) points")
+    }
+
     /// The threats stage draws the diagram on the left and the threat list on
     /// the right, each reaching its own edge of the window, and the two never
     /// overlap.
@@ -406,6 +445,26 @@ struct WindowLayoutTests {
             found.append(view.convert(view.bounds, to: nil))
         }
         for child in view.subviews { popUpButtons(in: child, into: &found) }
+    }
+
+    /// Every plain button under this one, in window coordinates. The Auto
+    /// Sync toggle draws as a plain `NSButton`, never as the `NSPopUpButton`
+    /// the pointer picker draws as, so this tells the two apart.
+    private func checkboxButtons(in view: NSView, into found: inout [NSRect]) {
+        if let button = view as? NSButton, (button is NSPopUpButton) == false {
+            found.append(button.convert(button.bounds, to: nil))
+        }
+        for child in view.subviews { checkboxButtons(in: child, into: &found) }
+    }
+
+    /// Every view under this one with nothing under it, in window
+    /// coordinates. SwiftUI draws a control's own text beside the control,
+    /// so the control's own frame is not always the widest part of it.
+    private func leafViews(in view: NSView, into found: inout [NSRect]) {
+        if view.subviews.isEmpty {
+            found.append(view.convert(view.bounds, to: nil))
+        }
+        for child in view.subviews { leafViews(in: child, into: &found) }
     }
 
     /// The panel fits every column width the split allows.

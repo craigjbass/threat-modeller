@@ -286,6 +286,63 @@ struct ViewRenderTests {
         expectDrawn(ProjectWindow(session: session), "the project window after the example")
     }
 
+    /// #146: the checkbox toggle draws no trailing inset of its own, so
+    /// the settings row needs a real gap between the toggle and the
+    /// picker, wider than the sum of each control's own drawn width. This
+    /// draws the toggle alone, the picker alone, and the row of both, and
+    /// states a column of background pixels sits between them in the row.
+    @Test func drawsAGapBetweenTheAutoSyncToggleAndThePointerPicker() async throws {
+        let window = ProjectWindow(session: await aDrawnProject())
+        let marker = Color(red: 1, green: 0, blue: 1)
+
+        func isMarker(_ image: NSBitmapImageRep, _ x: Int, _ y: Int) -> Bool {
+            guard let colour = image.colorAt(x: x, y: y) else { return false }
+            return colour.redComponent > 0.9 && colour.greenComponent < 0.1 && colour.blueComponent > 0.9
+        }
+
+        func drawnBounds(of view: some View) throws -> (first: Int, last: Int, image: NSBitmapImageRep) {
+            let image = try #require(
+                draw(
+                    view.padding(20).frame(width: 320, height: 100).background(marker),
+                    width: 320,
+                    height: 100
+                )
+            )
+            let drawn = (0..<image.pixelsWide).filter { x in
+                (0..<image.pixelsHigh).contains { isMarker(image, x, $0) == false }
+            }
+            let first = try #require(drawn.first, "drew nothing")
+            let last = try #require(drawn.last, "drew nothing")
+            return (first, last, image)
+        }
+
+        let toggle = try drawnBounds(of: window.autoSyncToggle)
+        let picker = try drawnBounds(of: window.pointerModePicker)
+        let row = try drawnBounds(of: window.settingsRow)
+
+        let toggleWidth = toggle.last - toggle.first + 1
+        let pickerWidth = picker.last - picker.first + 1
+        let rowWidth = row.last - row.first + 1
+
+        #expect(
+            rowWidth >= toggleWidth + pickerWidth + 8,
+            "the row is \(rowWidth) wide, the toggle \(toggleWidth) and the picker \(pickerWidth)"
+        )
+
+        // A column of background pixels sits between where the toggle's own
+        // width ends and where the picker's own width starts, inside the row.
+        let searchStart = row.first + toggleWidth
+        let searchEnd = row.last - pickerWidth
+        guard searchStart <= searchEnd else {
+            Issue.record("the row leaves no room to look for a gap between the toggle and the picker")
+            return
+        }
+        let gapColumn = (searchStart...searchEnd).first { x in
+            (0..<row.image.pixelsHigh).allSatisfy { y in isMarker(row.image, x, y) }
+        }
+        #expect(gapColumn != nil, "no background column sits between the toggle and the picker")
+    }
+
     // MARK: the context menus
 
     /// Each of the four menus, drawn. A `contextMenu` cannot be opened by a

@@ -424,11 +424,26 @@ struct ProjectWindow: View {
     /// here rather than on the floating panel.
     @ToolbarContentBuilder
     private var settingItems: some ToolbarContent {
-        ToolbarItem { autoSyncToggle }
-        ToolbarItem { pointerModePicker }
+        ToolbarItem { settingsRow }
     }
 
-    private var autoSyncToggle: some View {
+    /// The two settings drawn in one row, so the gap between them is one
+    /// view's own spacing and not the toolbar's item spacing.
+    ///
+    /// The checkbox toggle draws no trailing inset of its own, so two
+    /// separate `ToolbarItem`s left the gap to the toolbar's own spacing
+    /// between items, which is not guaranteed for a control with no bezel.
+    /// One `ToolbarItem` holding both controls in an `HStack` uses
+    /// SwiftUI's own default spacing between two views instead, which is
+    /// the same on every macOS version this application supports.
+    var settingsRow: some View {
+        HStack {
+            autoSyncToggle
+            pointerModePicker
+        }
+    }
+
+    var autoSyncToggle: some View {
         Toggle("Auto Sync", isOn: autoSync)
             .toggleStyle(.checkbox)
             .help(
@@ -440,7 +455,7 @@ struct ProjectWindow: View {
     }
 
     /// Which pointing device drives both canvases.
-    private var pointerModePicker: some View {
+    var pointerModePicker: some View {
         Picker("Pointer", selection: pointerMode) {
             ForEach(PointerMode.allCases) { mode in
                 Text(mode.name).tag(mode)
