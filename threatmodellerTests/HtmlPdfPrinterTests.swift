@@ -18,12 +18,34 @@ enum WebKitInTests {
     }
 }
 
+/// Says whether a test may carry a short time limit on a main actor wait.
+///
+/// The GitHub runner holds the main actor for more than a minute when one
+/// test waits on a system service, and every other main actor test waits
+/// behind it. A one-minute limit then fails a test that waits correctly.
+/// The runner sets `THREATMODELLER_SKIP_HANG_GUARD` to `1` and runs no
+/// such test. A developer machine sets no such value and runs the hang
+/// guard.
+enum HangGuardInTests {
+    static var runs: Bool {
+        ProcessInfo.processInfo.environment["THREATMODELLER_SKIP_HANG_GUARD"] == nil
+    }
+}
+
 /// The page a person exports and the page the PDF prints are one page.
 ///
 /// No test here loads a page, and no test here builds a `WKWebView`. Each
 /// test reports the load outcome through the `LoadWatcher` entry points,
 /// which run on the main actor and return at once. The two tests that load
 /// a page sit in `HtmlPdfPrinterWebKitTests`, which the runner skips.
+///
+/// No test here carries a time limit. `LoadWatcher` and its callers run on
+/// the main actor, because `WKNavigationDelegate` reports a load on the
+/// main thread, so a test here cannot leave the main actor. Anything that
+/// holds the main actor for a minute therefore fails a one-minute limit on
+/// a test that waits correctly. Run 35200535887 held it for more than
+/// seventy-five seconds and failed all five. A continuation that is never
+/// resumed is caught by `LoadWatcherHangGuardTests` instead.
 @MainActor
 struct HtmlPdfPrinterTests {
     /// A navigation error with no meaning beyond its identity.
@@ -31,14 +53,13 @@ struct HtmlPdfPrinterTests {
 
     /// A navigation error that arrives while `waitForLoad()` waits must
     /// resume the continuation, not just record the fault. A
-    /// `resume(throwing:)` left out would leave the caller waiting forever;
-    /// the time limit fails the test instead of hanging the suite.
+    /// `resume(throwing:)` left out would leave the caller waiting forever.
+    /// `LoadWatcherHangGuardTests` states that fault within a minute.
     ///
     /// The `onWaiting` hook runs the moment `waitForLoad()` stores the
     /// continuation, so the report lands while the caller waits with no
     /// queue hop and no wait on the clock.
-    @Test(.timeLimit(.minutes(1)))
-    func throwsWhenNavigationFailsBeforeItCommitsWhileTheCallerWaits() async {
+    @Test func throwsWhenNavigationFailsBeforeItCommitsWhileTheCallerWaits() async {
         let watcher = LoadWatcher()
         watcher.onWaiting = { [weak watcher] in watcher?.loadFailed(Boom()) }
 
@@ -52,8 +73,7 @@ struct HtmlPdfPrinterTests {
 
     /// The load can end before anything calls `waitForLoad()`. The watcher
     /// keeps the fault and throws it at once when the wait begins.
-    @Test(.timeLimit(.minutes(1)))
-    func throwsWhenNavigationFailedBeforeTheCallerWaits() async {
+    @Test func throwsWhenNavigationFailedBeforeTheCallerWaits() async {
         let watcher = LoadWatcher()
         watcher.loadFailed(Boom())
 
@@ -68,8 +88,7 @@ struct HtmlPdfPrinterTests {
     /// The content process can die mid-load with no `Error` of its own. The
     /// watcher resumes the waiting continuation instead of leaving the
     /// caller waiting forever.
-    @Test(.timeLimit(.minutes(1)))
-    func throwsWhenTheContentProcessDiesWhileTheCallerWaits() async {
+    @Test func throwsWhenTheContentProcessDiesWhileTheCallerWaits() async {
         let watcher = LoadWatcher()
         watcher.onWaiting = { [weak watcher] in watcher?.contentProcessDied() }
 
@@ -83,8 +102,7 @@ struct HtmlPdfPrinterTests {
 
     /// The content process can die before anything calls `waitForLoad()`.
     /// The watcher keeps that fault and throws it at once.
-    @Test(.timeLimit(.minutes(1)))
-    func throwsWhenTheContentProcessDiedBeforeTheCallerWaits() async {
+    @Test func throwsWhenTheContentProcessDiedBeforeTheCallerWaits() async {
         let watcher = LoadWatcher()
         watcher.contentProcessDied()
 
@@ -97,8 +115,7 @@ struct HtmlPdfPrinterTests {
     }
 
     /// A load that finished before the wait returns at once.
-    @Test(.timeLimit(.minutes(1)))
-    func returnsWhenTheLoadFinishedBeforeTheCallerWaits() async throws {
+    @Test func returnsWhenTheLoadFinishedBeforeTheCallerWaits() async throws {
         let watcher = LoadWatcher()
         watcher.loadFinished()
 
@@ -153,6 +170,44 @@ struct HtmlPdfPrinterWebKitTests {
             let fault = error as NSError
             #expect(fault.domain == NSURLErrorDomain)
             #expect(fault.code == NSURLErrorFileDoesNotExist)
+        }
+    }
+}
+
+
+/// The one hang guard.
+///
+/// `LoadWatcher.end(with:)` must resume the waiting continuation. A
+/// `resume` left out leaves `waitForLoad()` waiting for ever. Every other
+/// test of the watcher carries no time limit, so that fault would hold the
+/// whole run until the test process is killed. This test carries a
+/// one-minute limit and states the fault within a minute on a developer
+/// machine.
+///
+/// A held main actor fails this test for the same reason it failed the
+/// five watcher tests on run 35200535887, so the runner does not run it.
+/// `HangGuardInTests` says how the runner turns it off.
+@Suite(.enabled(if: HangGuardInTests.runs))
+@MainActor
+struct LoadWatcherHangGuardTests {
+    /// A navigation error with no meaning beyond its identity.
+    private struct Boom: Error {}
+
+    /// A report that arrives while the caller waits resumes the caller.
+    /// The `onWaiting` hook runs the moment `waitForLoad()` stores the
+    /// continuation, so the report lands while the caller waits with no
+    /// queue hop and no wait on the clock. The caller returns at once, or
+    /// the time limit fails this test.
+    @Test(.timeLimit(.minutes(1)))
+    func aReportWhileTheCallerWaitsResumesTheCaller() async {
+        let watcher = LoadWatcher()
+        watcher.onWaiting = { [weak watcher] in watcher?.loadFailed(Boom()) }
+
+        do {
+            try await watcher.waitForLoad()
+            Issue.record("did not throw")
+        } catch {
+            #expect(error is Boom)
         }
     }
 }

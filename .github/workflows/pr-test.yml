@@ -56,6 +56,23 @@ jobs:
         run: swift test
 
       - name: Test the application
+        env:
+          # The runner's sandbox refuses the first connection to a WebKit
+          # content process, so a page load costs tens of seconds and holds
+          # the main actor. That wait failed the HtmlPdfPrinterTests watcher
+          # tests on runs 35172118320 and 35200535887. This value turns off
+          # HtmlPdfPrinterWebKitTests, the only suite that loads a page. A
+          # developer machine sets no such value and runs it.
+          THREATMODELLER_SKIP_WEBKIT: "1"
+          # The runner holds the main actor for more than a minute when the
+          # suite is loaded, so it runs no test that carries a short time
+          # limit on a main actor wait. A developer machine runs the hang
+          # guard.
+          THREATMODELLER_SKIP_HANG_GUARD: "1"
+          # xcodebuild forwards a TEST_RUNNER_ prefixed value to the test
+          # process with the prefix removed.
+          TEST_RUNNER_THREATMODELLER_SKIP_WEBKIT: "1"
+          TEST_RUNNER_THREATMODELLER_SKIP_HANG_GUARD: "1"
         run: |
           # The runner holds no Mac Development certificate, and automatic
           # signing asks for one. The tests do not need a real identity, so
