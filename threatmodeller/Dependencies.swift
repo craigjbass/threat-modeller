@@ -659,6 +659,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveAttackTree(projects: projects, sources: attackTreeSources)
     }
 
+    func takeAttackTreeCatalogue() -> TakeAttackTreeCatalogueUseCase {
+        TakeAttackTreeCatalogue(projects: projects, sources: attackTreeSources)
+    }
+
     func moveTechnologyToLibrary() -> MoveTechnologyToLibraryUseCase {
         MoveTechnologyToLibrary(models: models, projects: projects, libraries: librarySources)
     }

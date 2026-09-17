@@ -132,6 +132,7 @@ public protocol UseCaseFactory: Sendable {
     func listAttackTreeSources() -> ListAttackTreeSourcesUseCase
     func writeAttackTree() -> WriteAttackTreeUseCase
     func removeAttackTree() -> RemoveAttackTreeUseCase
+    func takeAttackTreeCatalogue() -> TakeAttackTreeCatalogueUseCase
     func synchroniseAttack() -> SynchroniseAttackUseCase
     func verifyAttack() -> VerifyAttackUseCase
     func viewAttackData() -> ViewAttackDataUseCase

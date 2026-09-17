@@ -23,9 +23,10 @@ public struct ListAttackTreeSourcesRequest: Equatable, Sendable {
 }
 
 public enum ListAttackTreeSourcesResponse: Equatable, Sendable {
-    /// The trees the file states, and the path it was read from. A system
-    /// with no file yet states no tree and no fault.
-    case listed(trees: [SourceAttackTree], path: String)
+    /// The trees the file states, the path it was read from, and the
+    /// catalogue tag the file states, or nil for a file that names none. A
+    /// system with no file yet states no tree, no tag and no fault.
+    case listed(trees: [SourceAttackTree], path: String, catalogueTag: String?)
     case noSuchSystem
     case cannotRead(reason: String)
 }
@@ -47,7 +48,7 @@ public struct ListAttackTreeSources: ListAttackTreeSourcesUseCase {
             sources: sources
         ) {
         case .read(let source, let path):
-            return .listed(trees: source.trees, path: path)
+            return .listed(trees: source.trees, path: path, catalogueTag: source.catalogueTag)
         case .noSuchSystem:
             return .noSuchSystem
         case .cannotRead(let reason):
@@ -157,6 +158,96 @@ public struct WriteAttackTree: WriteAttackTreeUseCase {
             return .cannotWrite(reason: String(describing: error))
         }
         return .written(path: path, trees: trees.count)
+    }
+}
+
+public protocol TakeAttackTreeCatalogueUseCase {
+    func execute(_ request: TakeAttackTreeCatalogueRequest) -> TakeAttackTreeCatalogueResponse
+}
+
+public struct TakeAttackTreeCatalogueRequest: Equatable, Sendable {
+    public let root: String
+    /// The system's own file name, which names the file to write.
+    public let systemName: String
+    /// The name the system states for itself, which the file's header names
+    /// when the file does not exist yet.
+    public let systemDisplayName: String?
+    /// The catalogue tag to write.
+    public let tag: String
+
+    public init(
+        root: String,
+        systemName: String,
+        systemDisplayName: String? = nil,
+        tag: String
+    ) {
+        self.root = root
+        self.systemName = systemName
+        self.systemDisplayName = systemDisplayName
+        self.tag = tag
+    }
+}
+
+public enum TakeAttackTreeCatalogueResponse: Equatable, Sendable {
+    case written(path: String)
+    case noSuchSystem
+    case cannotWrite(reason: String)
+
+    public func describe(into message: inout String?) {
+        switch self {
+        case .written:
+            message = nil
+        case .noSuchSystem:
+            message = "This project no longer holds that system."
+        case .cannotWrite(let reason):
+            message = "The catalogue tag could not be written: \(reason)"
+        }
+    }
+}
+
+/// Takes the catalogue in use into the `.attacktree` file: the tag the file
+/// states becomes the tag the application reads its catalogue from. The
+/// tree stage offers this the way the architecture stage offers it for the
+/// `.arch` file. Every tree the file states is written back unchanged.
+public struct TakeAttackTreeCatalogue: TakeAttackTreeCatalogueUseCase {
+    private let projects: ProjectSourceGateway
+    private let sources: AttackTreeSourceGateway
+
+    public init(projects: ProjectSourceGateway, sources: AttackTreeSourceGateway) {
+        self.projects = projects
+        self.sources = sources
+    }
+
+    public func execute(_ request: TakeAttackTreeCatalogueRequest) -> TakeAttackTreeCatalogueResponse {
+        let held: AttackTreeSource
+        let path: String
+        switch AttackTreeFile.read(
+            root: request.root,
+            systemName: request.systemName,
+            named: request.systemDisplayName,
+            projects: projects,
+            sources: sources
+        ) {
+        case .read(let source, let at):
+            held = source
+            path = at
+        case .noSuchSystem:
+            return .noSuchSystem
+        case .cannotRead(let reason):
+            return .cannotWrite(reason: reason)
+        }
+
+        let written = AttackTreeSource(
+            systemName: held.systemName,
+            catalogueTag: request.tag,
+            trees: held.trees
+        )
+        do {
+            try projects.write(sources.write(written), to: path)
+        } catch {
+            return .cannotWrite(reason: String(describing: error))
+        }
+        return .written(path: path)
     }
 }
 

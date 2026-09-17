@@ -82,12 +82,62 @@ struct AttackTreeEditorTests {
         let response = app.listAttackTreeSources()
             .execute(ListAttackTreeSourcesRequest(root: "/work", systemName: "payments"))
 
-        guard case .listed(let trees, let path) = response else {
+        guard case .listed(let trees, let path, _) = response else {
             Issue.record("the file did not read: \(response)")
             return
         }
         #expect(trees.map(\.id) == ["read-every-record"])
         #expect(path == "/work/threatmodel/payments.attacktree")
+    }
+
+    /// The file's own `catalogue` tag reads back, so the window can offer
+    /// the same 'take the catalogue in use' control the architecture stage
+    /// offers for the `.arch` file.
+    @Test func listsTheCatalogueTagTheFileStates() {
+        aProject()
+        app.project.put(
+            """
+            attack_trees for "Payments" {
+              catalogue = "v0.0.1"
+
+              tree "read-every-record" {
+                raises_risk_by = 40
+
+                goal "misconfiguration" on component "db"
+
+                any_of {
+                  step "credential-theft" on component "api"
+                }
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.attacktree"
+        )
+
+        let response = app.listAttackTreeSources()
+            .execute(ListAttackTreeSourcesRequest(root: "/work", systemName: "payments"))
+
+        guard case .listed(_, _, let catalogueTag) = response else {
+            Issue.record("the file did not read: \(response)")
+            return
+        }
+        #expect(catalogueTag == "v0.0.1")
+    }
+
+    /// A file that names no tag states none: naming one is the person's to
+    /// do.
+    @Test func aFileThatStatesNoTagListsNoCatalogueTag() {
+        aProject(holdingATree: true)
+
+        let response = app.listAttackTreeSources()
+            .execute(ListAttackTreeSourcesRequest(root: "/work", systemName: "payments"))
+
+        guard case .listed(_, _, let catalogueTag) = response else {
+            Issue.record("the file did not read: \(response)")
+            return
+        }
+        #expect(catalogueTag == nil)
     }
 
     /// A system with no file yet states no tree, so writing the first tree
@@ -98,7 +148,7 @@ struct AttackTreeEditorTests {
         let response = app.listAttackTreeSources()
             .execute(ListAttackTreeSourcesRequest(root: "/work", systemName: "payments"))
 
-        guard case .listed(let trees, _) = response else {
+        guard case .listed(let trees, _, _) = response else {
             Issue.record("the file did not read: \(response)")
             return
         }
@@ -259,6 +309,61 @@ struct AttackTreeEditorTests {
             Issue.record("the file was written over: \(response)")
             return
         }
+    }
+
+    // MARK: taking the catalogue in use
+
+    /// Taking the catalogue in use writes the new tag and keeps every tree.
+    @Test func takesTheCatalogueInUseAndKeepsEveryTree() throws {
+        aProject(holdingATree: true)
+        app.project.put(
+            """
+            attack_trees for "Payments" {
+              catalogue = "v0.0.1"
+
+              tree "read-every-record" {
+                raises_risk_by = 40
+
+                goal "misconfiguration" on component "db"
+
+                any_of {
+                  step "credential-theft" on component "api"
+                }
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.attacktree"
+        )
+
+        let response = app.takeAttackTreeCatalogue()
+            .execute(
+                TakeAttackTreeCatalogueRequest(
+                    root: "/work",
+                    systemName: "payments",
+                    systemDisplayName: "Payments",
+                    tag: "v0.0.0"
+                )
+            )
+
+        guard case .written(let path) = response else {
+            Issue.record("the tag was not written: \(response)")
+            return
+        }
+        let written = try #require(app.project.text(at: path))
+        #expect(written.contains("catalogue = \"v0.0.0\""))
+        #expect(written.contains("v0.0.1") == false)
+        #expect(written.contains("tree \"read-every-record\" {"))
+    }
+
+    @Test func takingTheCatalogueOnASystemThatDoesNotExistSaysSo() {
+        aProject()
+
+        #expect(
+            app.takeAttackTreeCatalogue().execute(
+                TakeAttackTreeCatalogueRequest(root: "/work", systemName: "ledger", tag: "v0.0.0")
+            ) == .noSuchSystem
+        )
     }
 
     // MARK: deleting one

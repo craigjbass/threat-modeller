@@ -449,10 +449,56 @@ final class ProjectSession {
     /// file.
     var attackTreeSources: [SourceAttackTree] {
         guard let root, let chosenSystem else { return [] }
-        guard case .listed(let trees, _) = useCases.listAttackTreeSources().execute(
+        guard case .listed(let trees, _, _) = useCases.listAttackTreeSources().execute(
             ListAttackTreeSourcesRequest(root: root, systemName: chosenSystem)
         ) else { return [] }
         return trees
+    }
+
+    /// What the system's `.attacktree` file states about the catalogue
+    /// against the catalogue in use, or nil while the two agree or the file
+    /// states no tag. A file that states no tag has never named one, and
+    /// naming one is the person's to do, the way the `.arch` file's own
+    /// notice states it.
+    var attackTreeCatalogueDrift: CatalogueDrift? {
+        guard let root, let chosenSystem else { return nil }
+        guard case .listed(_, _, let statedTag?) = useCases.listAttackTreeSources().execute(
+            ListAttackTreeSourcesRequest(root: root, systemName: chosenSystem)
+        ) else { return nil }
+        let inUse = useCases.viewCatalogueVersion().execute(ViewCatalogueVersionRequest()).tag
+        guard statedTag != inUse else { return nil }
+        return CatalogueDrift(
+            systemName: chosenSystem,
+            fileName: "\(chosenSystem).attacktree",
+            stated: statedTag,
+            inUse: inUse
+        )
+    }
+
+    /// Takes the catalogue in use into the `.attacktree` file, the way
+    /// `takeTheCatalogueInUse()` takes it into the `.arch` file.
+    func takeAttackTreeCatalogueInUse() {
+        let tag = useCases.viewCatalogueVersion().execute(ViewCatalogueVersionRequest()).tag
+        inFlight = Task { [weak self] in await self?.writeAttackTreeCatalogue(tag) }
+    }
+
+    /// Writes the catalogue tag into the `.attacktree` file and reads the
+    /// project again, so the notice clears once the file agrees.
+    private func writeAttackTreeCatalogue(_ tag: String) async {
+        guard let root, let chosenSystem else { return }
+
+        useCases.takeAttackTreeCatalogue()
+            .execute(
+                TakeAttackTreeCatalogueRequest(
+                    root: root,
+                    systemName: chosenSystem,
+                    systemDisplayName: model?.canvas.name,
+                    tag: tag
+                )
+            )
+            .describe(into: &errorMessage)
+
+        await reloadFromDisk()
     }
 
     /// Writes one tree and reads the project again, so the score beside the

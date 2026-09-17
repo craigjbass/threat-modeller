@@ -197,6 +197,87 @@ struct AttackTreeEditorFlowTests {
         #expect(session.attackTreeSources.map(\.id) == ["one"])
     }
 
+    // MARK: the catalogue tag
+
+    /// The sidebar states the drift the `.attacktree` file's own `catalogue`
+    /// tag names against the tag in use, the way the architecture stage
+    /// states it for the `.arch` file.
+    @Test func statesTheDriftTheFileNamesAgainstTheTagInUse() async throws {
+        let (session, useCases) = await aProject()
+        useCases.project.put(
+            """
+            attack_trees for "Payments" {
+              catalogue = "v0.0.1"
+            }
+
+            """,
+            at: "/work/threatmodel/payments.attacktree"
+        )
+        await session.reloadFromDisk()
+
+        let drift = try #require(session.attackTreeCatalogueDrift)
+        #expect(drift.stated == "v0.0.1")
+        #expect(drift.inUse == "v0.0.0")
+        #expect(drift.fileName == "payments.attacktree")
+    }
+
+    @Test func statesNoDriftWhenTheFileNamesNoTag() async throws {
+        let (session, useCases) = await aProject()
+        useCases.project.put(
+            """
+            attack_trees for "Payments" {
+            }
+
+            """,
+            at: "/work/threatmodel/payments.attacktree"
+        )
+        await session.reloadFromDisk()
+
+        #expect(session.attackTreeCatalogueDrift == nil)
+    }
+
+    /// Taking the catalogue in use writes it through the one writer, and the
+    /// file reads back with the new tag and every tree it held.
+    @Test func takingTheCatalogueInUseWritesItThroughTheOneWriter() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        let goal = try #require(model.threats.first)
+        let draft = TreeDraft(
+            id: "one",
+            name: "One",
+            description: "",
+            raisesRiskBy: 0,
+            goalKey: goal.threatKey,
+            steps: [TreeDraft.Step(key: goal.threatKey, note: nil)]
+        )
+        await session.writeAttackTree(try #require(draft.source()))
+        useCases.project.put(
+            try #require(useCases.project.text(at: "/work/threatmodel/payments.attacktree"))
+                .replacingOccurrences(
+                    of: "attack_trees for \"Payments\" {",
+                    with: "attack_trees for \"Payments\" {\n  catalogue = \"v0.0.1\"\n"
+                ),
+            at: "/work/threatmodel/payments.attacktree"
+        )
+        await session.reloadFromDisk()
+        #expect(session.attackTreeCatalogueDrift != nil)
+
+        session.takeAttackTreeCatalogueInUse()
+        await session.settle()
+
+        let written = try #require(
+            useCases.project.text(at: "/work/threatmodel/payments.attacktree")
+        )
+        #expect(written.contains("catalogue = \"v0.0.0\""))
+        #expect(written.contains("v0.0.1") == false)
+        #expect(written.contains("tree \"one\" {"))
+        #expect(session.attackTreeCatalogueDrift == nil)
+
+        // The bytes the stage wrote are the bytes the one writer writes.
+        let source = HclAttackTreeSource().read(written).source
+        #expect(source?.catalogueTag == "v0.0.0")
+    }
+
     // MARK: the canvas
 
     /// A tree drawn as a graph writes through the same use case, the model

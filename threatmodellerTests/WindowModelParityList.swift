@@ -260,7 +260,7 @@ extension WindowModelParityTests {
         ])) { first, _ in first }
 
         all.merge(rows("attacktree", "attack_trees for", [
-            ("catalogue", .gap(169)),
+            ("catalogue", .writes("take-attack-tree-catalogue-in-use")),
             ("tree", nested("tree"))
         ])) { first, _ in first }
         all.merge(rows("attacktree", "tree", [

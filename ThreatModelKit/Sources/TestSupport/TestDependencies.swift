@@ -679,6 +679,10 @@ public final class TestDependencies: UseCaseFactory {
         RemoveAttackTree(projects: projects, sources: attackTreeSources)
     }
 
+    public func takeAttackTreeCatalogue() -> TakeAttackTreeCatalogueUseCase {
+        TakeAttackTreeCatalogue(projects: projects, sources: attackTreeSources)
+    }
+
     public func moveTechnologyToLibrary() -> MoveTechnologyToLibraryUseCase {
         MoveTechnologyToLibrary(models: models, projects: project, libraries: librarySources)
     }

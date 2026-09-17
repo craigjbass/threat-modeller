@@ -66,6 +66,8 @@ struct TreeSidebar: View {
             .padding(.horizontal, 12)
             .padding(.top, 10)
 
+            catalogueDriftNotice
+
             if trees.isEmpty {
                 Text("This system states no tree.")
                     .font(.caption)
@@ -89,6 +91,29 @@ struct TreeSidebar: View {
                 .accessibilityIdentifier("attack-tree-\(tree.id)")
             }
             .frame(minHeight: 120)
+        }
+    }
+
+    /// What the `.attacktree` file states about the catalogue against what
+    /// is in use, and the control that takes the tag in use. The same
+    /// notice the architecture stage offers for the `.arch` file, for the
+    /// tree file's own tag.
+    @ViewBuilder
+    private var catalogueDriftNotice: some View {
+        if let drift = project.attackTreeCatalogueDrift {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(drift.says)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Take \(drift.inUse)") { project.takeAttackTreeCatalogueInUse() }
+                    .font(.caption)
+                    .controlSize(.small)
+                    .accessibilityIdentifier("take-attack-tree-catalogue-in-use")
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 6)
+            .accessibilityIdentifier("attack-tree-catalogue-drift-notice")
         }
     }
 
