@@ -409,7 +409,7 @@ extension WindowModelParityTests {
         ])) { first, _ in first }
         all.merge(rows("lib", "mitigation", [
             ("name", readOnly("the pathway mitigations panel names every mitigation")),
-            ("description", .gap(173)),
+            ("description", readOnly("the pathway row draws the description under the mitigation's name")),
             ("mitigates", readOnly("the threat card lists what a mitigation took off the score")),
             ("provided_by", readOnly("the pathway row names what would provide the mitigation")),
             ("reduces_risk_by", readOnly("the pathway row states the percentage the library gives")),
