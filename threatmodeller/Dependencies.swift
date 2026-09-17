@@ -284,6 +284,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetRiskTolerance(models: models)
     }
 
+    func setRequiresEvidenceAbove() -> SetRequiresEvidenceAboveUseCase {
+        SetRequiresEvidenceAbove(models: models)
+    }
+
     func setLocalThreatActor() -> SetLocalThreatActorUseCase {
         SetLocalThreatActor(models: models)
     }

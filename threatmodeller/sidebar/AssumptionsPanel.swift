@@ -55,6 +55,9 @@ struct AssumptionsPanel: View {
                 Divider()
                 riskTolerance
 
+                Divider()
+                requiresEvidenceAbove
+
                 if session.canvas.mitigations.isEmpty == false {
                     Divider()
                     Text("What one component lowers on another")
@@ -98,6 +101,38 @@ struct AssumptionsPanel: View {
         Binding(
             get: { session.canvas.riskTolerance },
             set: { session.setRiskTolerance($0) }
+        )
+    }
+
+    /// The tier a picker shows for "no tier needs evidence".
+    private static let noEvidenceTier = ""
+
+    /// The risk level at and above which an implemented control must state
+    /// evidence. A system that states none asks for no evidence at any tier.
+    private var requiresEvidenceAbove: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Requires evidence above")
+                .font(.subheadline.weight(.semibold))
+            Text("The tier at and above which an implemented control must state evidence.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Picker("Requires evidence above", selection: requiresEvidenceAboveBinding) {
+                Text("None").tag(Self.noEvidenceTier)
+                ForEach(RiskLevel.allCases, id: \.rawValue) { level in
+                    Text(level.label).tag(level.rawValue)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("requires-evidence-above")
+        }
+    }
+
+    private var requiresEvidenceAboveBinding: Binding<String> {
+        Binding(
+            get: { session.canvas.requiresEvidenceAbove },
+            set: { session.setRequiresEvidenceAbove($0) }
         )
     }
 

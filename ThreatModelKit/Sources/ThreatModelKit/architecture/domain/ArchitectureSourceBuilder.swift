@@ -153,6 +153,9 @@ public enum ArchitectureSourceBuilder {
                 diagrams: model.diagrams.map {
                     SourceDiagram(label: $0.label, kind: $0.kind, text: $0.text)
                 },
+                // Straight through: a model with no tier writes no line, and
+                // a file that stated one round trips it.
+                requiresEvidenceAbove: model.requiresEvidenceAbove?.rawValue,
                 owner: model.owner.isEmpty ? nil : model.owner,
                 // The adversaries this system states. A model that faces
                 // nobody writes no line, and a file that stated a list round

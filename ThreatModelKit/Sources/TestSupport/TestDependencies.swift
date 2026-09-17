@@ -287,6 +287,10 @@ public final class TestDependencies: UseCaseFactory {
         SetRiskTolerance(models: models)
     }
 
+    public func setRequiresEvidenceAbove() -> SetRequiresEvidenceAboveUseCase {
+        SetRequiresEvidenceAbove(models: models)
+    }
+
     public func setLocalThreatActor() -> SetLocalThreatActorUseCase {
         SetLocalThreatActor(models: models)
     }

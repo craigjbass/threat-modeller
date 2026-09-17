@@ -53,7 +53,7 @@ extension WindowModelParityTests {
             ("flow", nested("flow")),
             ("mitigates", nested("mitigates")),
             ("risk_tolerance", .writes("risk-tolerance")),
-            ("requires_evidence_above", .gap(160)),
+            ("requires_evidence_above", .writes("requires-evidence-above")),
             ("assumption", nested("assumption")),
             ("use_case", nested("use_case")),
             ("exclusion", nested("exclusion")),

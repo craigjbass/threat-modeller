@@ -1449,6 +1449,18 @@ final class ThreatModelSession {
         refresh()
     }
 
+    // MARK: the tier at and above which an implemented control needs evidence
+
+    /// States the level: `low`, `medium`, `high` or `critical`, or empty to
+    /// state that no tier needs evidence. The value
+    /// `canvas.requiresEvidenceAbove` reads changes on the same refresh.
+    func setRequiresEvidenceAbove(_ level: String) {
+        useCases.setRequiresEvidenceAbove()
+            .execute(SetRequiresEvidenceAboveRequest(level: level))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
     // MARK: what the system takes on trust
 
     /// Writes down a fact the team accepts without proof, or changes the one

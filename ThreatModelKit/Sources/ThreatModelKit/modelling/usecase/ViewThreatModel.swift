@@ -523,6 +523,9 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     /// states, or `low` when the file states none. The same value
     /// `threatmodeller check` reports for this system.
     public let riskTolerance: String
+    /// The risk level at and above which an implemented control must state
+    /// evidence: what the file states, or empty when the file states none.
+    public let requiresEvidenceAbove: String
     /// Whether there is anything to take back or put in again, so a menu item
     /// can dim itself from the same read that draws the canvas.
     public let canUndo: Bool
@@ -546,6 +549,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         systemFacts: ViewedSystemFacts = ViewedSystemFacts(),
         mitigations: [ViewedMitigation] = [],
         riskTolerance: String = RiskLevel.low.rawValue,
+        requiresEvidenceAbove: String = "",
         canUndo: Bool = false,
         canRedo: Bool = false,
         undoLabel: String? = nil,
@@ -561,6 +565,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         self.systemFacts = systemFacts
         self.mitigations = mitigations
         self.riskTolerance = riskTolerance
+        self.requiresEvidenceAbove = requiresEvidenceAbove
         self.components = components
         self.connections = connections
         self.zones = zones
@@ -654,6 +659,7 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                 )
             },
             riskTolerance: model.effectiveRiskTolerance.rawValue,
+            requiresEvidenceAbove: model.requiresEvidenceAbove?.rawValue ?? "",
             canUndo: models.canUndo,
             canRedo: models.canRedo,
             undoLabel: models.undoLabel,
