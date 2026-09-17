@@ -296,7 +296,7 @@ struct AttackTreeParserTests {
               }
             }
             """,
-            "a tree holds name, description, raises_risk_by, goal, all_of, any_of, then and step, not \"owner\""
+            "a tree holds name, description, raises_risk_by, closed_by, goal, all_of, any_of, then and step, not \"owner\""
         ),
     ])
     func refusesTheFault(text: String, message: String) {
@@ -309,5 +309,54 @@ struct AttackTreeParserTests {
           tree "t" { step "s" on component "c" }
         }
         """).source == nil)
+    }
+    // MARK: the controls that are sufficient to close the whole route
+
+    @Test func readsTheControlsThatCloseTheWholeRoute() throws {
+        let read = read("""
+        attack_trees for "P" {
+          tree "t" {
+            closed_by = ["Segment the network", "Alert on the route"]
+
+            goal "g" on component "c"
+
+            step "s" on component "c"
+          }
+        }
+        """)
+
+        let tree = try #require(read.source?.trees.first)
+        #expect(read.diagnostics.isEmpty)
+        #expect(tree.closedBy == ["Segment the network", "Alert on the route"])
+    }
+
+    @Test func aTreeThatNamesNoSufficientControlReadsAnEmptyList() throws {
+        let read = read("""
+        attack_trees for "P" {
+          tree "t" {
+            goal "g" on component "c"
+
+            step "s" on component "c"
+          }
+        }
+        """)
+
+        #expect(try #require(read.source?.trees.first).closedBy == [])
+    }
+
+    @Test func refusesAClosedByThatIsNotAList() {
+        let faults = errors("""
+        attack_trees for "P" {
+          tree "t" {
+            closed_by = "Segment the network"
+
+            goal "g" on component "c"
+
+            step "s" on component "c"
+          }
+        }
+        """)
+
+        #expect(faults.map(\.message) == ["expected ["])
     }
 }

@@ -41,6 +41,9 @@ struct AttackTreeWriter {
         if tree.raisesRiskBy != 0 {
             attributes.append(("raises_risk_by", String(tree.raisesRiskBy)))
         }
+        if tree.closedBy.isEmpty == false {
+            attributes.append(("closed_by", "[" + tree.closedBy.map(quoted).joined(separator: ", ") + "]"))
+        }
         if attributes.isEmpty == false {
             body += aligned(attributes)
             body.append("")

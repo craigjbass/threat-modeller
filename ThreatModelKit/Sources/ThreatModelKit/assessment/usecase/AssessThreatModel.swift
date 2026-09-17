@@ -230,6 +230,18 @@ public enum AssessedThreatSource: Hashable, Sendable {
     }
 }
 
+/// One tree that names a threat as its goal and is closed as a whole by a
+/// sufficient control. The threat card states it.
+public struct AssessedTreeClosure: Hashable, Sendable {
+    public let treeName: String
+    public let control: String
+
+    public init(treeName: String, control: String) {
+        self.treeName = treeName
+        self.control = control
+    }
+}
+
 public struct AssessedThreat: Hashable, Sendable {
     public let threatId: String
     public let name: String
@@ -313,6 +325,10 @@ public struct AssessedThreat: Hashable, Sendable {
     /// What the controls file says should be done about this threat. Empty
     /// when it holds no `recommendation` block for it.
     public let recommendations: [AssessedRecommendation]
+    /// Every tree that names this threat as its goal and is closed as a
+    /// whole by a sufficient control, in file order. Empty for every other
+    /// threat.
+    public let closedByTrees: [AssessedTreeClosure]
 
     public init(
         threatId: String,
@@ -353,7 +369,8 @@ public struct AssessedThreat: Hashable, Sendable {
         scoreIfAssumptionsHold: Int? = nil,
         assumedByComponentLabels: [String] = [],
         severityDecision: AssessedSeverityDecision? = nil,
-        recommendations: [AssessedRecommendation] = []
+        recommendations: [AssessedRecommendation] = [],
+        closedByTrees: [AssessedTreeClosure] = []
     ) {
         self.threatId = threatId
         self.name = name
@@ -394,6 +411,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.assumedByComponentLabels = assumedByComponentLabels
         self.severityDecision = severityDecision
         self.recommendations = recommendations
+        self.closedByTrees = closedByTrees
     }
 }
 
@@ -445,7 +463,11 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         let resolvedByStages = cache?.resolved(models, catalogue)
             ?? ThreatResolver(model: model, catalogue: catalogue).resolve()
-        let bound = AttackTreeBinding.bind(trees: model.attackTrees, to: resolvedByStages)
+        let bound = AttackTreeBinding.bind(
+            trees: model.attackTrees,
+            to: resolvedByStages,
+            context: AttackTreeContext(model: model, catalogue: catalogue)
+        )
         let staged = AttackTreeScoring.apply(trees: bound, to: resolvedByStages)
         let resolved = staged.threats
         let nameOf: (ComponentId) -> String = { id in
@@ -550,7 +572,14 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                         )
                     ]?.map {
                         AssessedRecommendation(text: $0.text, note: $0.note, sources: $0.sources)
-                    } ?? []
+                    } ?? [],
+                    closedByTrees: staged.trees
+                        .filter {
+                            $0.goal == ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
+                        }
+                        .compactMap { tree in
+                            tree.closedBy.map { AssessedTreeClosure(treeName: tree.name, control: $0) }
+                        }
                 )
             },
             severities: taxonomy.severities.map {

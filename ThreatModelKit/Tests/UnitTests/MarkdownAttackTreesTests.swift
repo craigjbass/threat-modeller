@@ -26,7 +26,9 @@ struct MarkdownAttackTreesTests {
     private func tree(
         steps: [BoundStep] = [],
         isOpen: Bool = true,
-        isStale: Bool = false
+        isStale: Bool = false,
+        sufficientControls: [BoundSufficientControl] = [],
+        closedBy: String? = nil
     ) -> BoundAttackTree {
         BoundAttackTree(
             id: "read-every-customer-record",
@@ -41,7 +43,9 @@ struct MarkdownAttackTreesTests {
             isOpen: isOpen,
             isStale: isStale,
             scoreBefore: 5,
-            score: 7
+            score: 7,
+            sufficientControls: sufficientControls,
+            closedBy: closedBy
         )
     }
 
@@ -183,5 +187,50 @@ struct MarkdownAttackTreesTests {
         let first = try #require(text.range(of: "### Worse"))
         let second = try #require(text.range(of: "### Read every customer record"))
         #expect(first.lowerBound < second.lowerBound)
+    }
+    // MARK: the controls that are sufficient to close the whole route
+
+    @Test func namesTheSufficientControlThatClosedTheTreeInTheHeading() {
+        let lines = MarkdownAttackTrees.lines(
+            [tree(
+                steps: [step("Credential Theft", .open)],
+                isOpen: false,
+                sufficientControls: [
+                    BoundSufficientControl(description: "Segment the network", state: .closes)
+                ],
+                closedBy: "Segment the network"
+            )],
+            routes: 1
+        )
+
+        #expect(lines.contains("### Read every customer record \u{2014} closed by Segment the network"))
+    }
+
+    @Test func listsEachSufficientControlWithItsState() {
+        let lines = MarkdownAttackTrees.lines(
+            [tree(sufficientControls: [
+                BoundSufficientControl(description: "Segment the network", state: .closes),
+                BoundSufficientControl(description: "Alert on the route", state: .open),
+                BoundSufficientControl(description: "Rotate the keys", state: .unevidenced),
+                BoundSufficientControl(description: "Segmnet the network", state: .unknown),
+            ], closedBy: "Segment the network")],
+            routes: 1
+        )
+
+        let text = lines.joined(separator: "\n")
+        #expect(text.contains("""
+        Sufficient controls:
+
+        - Segment the network: closes the tree
+        - Alert on the route: not implemented
+        - Rotate the keys: implemented with no evidence
+        - Segmnet the network: not a control the catalogue or the libraries hold
+        """))
+    }
+
+    @Test func listsNoSufficientControlsForATreeThatNamesNone() {
+        let lines = MarkdownAttackTrees.lines([tree()], routes: 1)
+
+        #expect(lines.contains("Sufficient controls:") == false)
     }
 }

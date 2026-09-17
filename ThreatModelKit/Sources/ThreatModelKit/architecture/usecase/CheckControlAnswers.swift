@@ -189,7 +189,14 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
         // longer there.
         let staleTrees = source.trees
             .filter(\.isStale)
-            .map { StaleTree(treeId: $0.treeId, stepCount: $0.steps.count).described }
+            .flatMap { tree in
+                StaleTree(
+                    treeId: tree.treeId,
+                    stepCount: tree.steps.count,
+                    unknownControls: tree.sufficient.filter { $0.state == "unknown" }.map(\.description)
+                )
+                .describe(stepsBind: tree.steps.allSatisfy { $0.state != "unbound" })
+            }
 
         // An accepted risk with no owner and no review date is not a
         // decision, so the same run that says what has no answer says what has

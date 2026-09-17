@@ -77,6 +77,49 @@ struct ModellingAnAttackTreeTests {
         #expect(bound.score == goal.riskScore)
     }
 
+    /// A sufficient control that is implemented closes the tree, and the
+    /// goal's assessed threat says so, for the threat card.
+    @Test func namesTheClosingTreeAndControlOnTheGoalsThreat() throws {
+        let catalogue = CatalogueFixture.catalogue()
+        let api = Component(
+            id: ComponentId("api"),
+            technologyId: TechnologyId("aws-ec2"),
+            position: Point(x: 0, y: 0),
+            sensitivity: .confidential
+        )
+        let control = "Enforce IMDSv2 to block SSRF-based credential theft"
+        let tree = SourceAttackTree(
+            id: "credential-route",
+            name: "The credential route",
+            raisesRiskBy: 50,
+            closedBy: [control],
+            goal: SourceTreeTarget(threatId: "misconfiguration", sourceKind: "component", sourceId: "api"),
+            root: .step(SourceTreeStep(
+                target: SourceTreeTarget(threatId: "credential-theft", sourceKind: "component", sourceId: "api")
+            ))
+        )
+        var model = ThreatModel(components: [api], attackTrees: [tree])
+        model.controlStatuses[
+            ControlIdentity.componentControl(
+                componentId: api.id,
+                threatId: ThreatId("credential-theft"),
+                description: control,
+                isTechnologySpecific: true
+            )
+        ] = .implemented
+
+        let response = AssessThreatModel(
+            models: InMemoryThreatModelGateway(model),
+            catalogue: catalogue
+        ).execute(AssessThreatModelRequest())
+
+        let goal = try #require(response.threats.first { $0.threatId == "misconfiguration" })
+        #expect(goal.closedByTrees == [AssessedTreeClosure(treeName: "The credential route", control: control)])
+        let step = try #require(response.threats.first { $0.threatId == "credential-theft" })
+        #expect(step.closedByTrees.isEmpty)
+        #expect(try #require(response.attackTrees.first).closedBy == control)
+    }
+
     // The report names the tree on the threat it raised.
 
     private let twoTier = """

@@ -166,4 +166,146 @@ struct AttackTreeBindingTests {
 
         #expect(try #require(bound.first).chainFactor == 0.25)
     }
+    // MARK: the controls that are sufficient to close the whole route
+
+    private func closed(
+        by controls: [String],
+        answers: [(threat: String, status: ControlStatus)],
+        known: Set<String>? = nil,
+        proofs: [ControlKey: ControlProof] = [:],
+        evidenceDemandedAbove: RiskLevel? = nil
+    ) throws -> BoundAttackTree {
+        let tree = SourceAttackTree(
+            id: "t",
+            raisesRiskBy: 40,
+            closedBy: controls,
+            goal: target("g", "db"),
+            root: step("a", "api")
+        )
+        var threats = [resolved("g", "db"), resolved("a", "api")]
+        threats += answers.enumerated().map { index, answer in
+            ResolvedThreatFixture.make(
+                threatId: answer.threat, componentId: "n\(index)", score: 4,
+                statuses: [answer.status], compensating: [], likelihood: .commodity,
+                descriptions: ["Segment the network"]
+            )
+        }
+        return try #require(AttackTreeBinding.bind(
+            trees: [tree],
+            to: threats,
+            known: known,
+            proofs: proofs,
+            evidenceDemandedAbove: evidenceDemandedAbove
+        ).first)
+    }
+
+    @Test func closesTheWholeTreeWhenEveryAnswerForTheControlIsImplemented() throws {
+        let bound = try closed(
+            by: ["Segment the network"],
+            answers: [("x", .implemented), ("y", .implemented)]
+        )
+
+        #expect(bound.closedBy == "Segment the network")
+        #expect(bound.isOpen == false)
+        #expect(bound.chainFactor == 0)
+        #expect(bound.sufficientControls.map(\.state) == [.closes])
+    }
+
+    @Test func leavesTheTreeOpenWhenOneAnswerForTheControlIsNotImplemented() throws {
+        let bound = try closed(
+            by: ["Segment the network"],
+            answers: [("x", .implemented), ("y", .notImplemented)]
+        )
+
+        #expect(bound.closedBy == nil)
+        #expect(bound.isOpen)
+        #expect(bound.sufficientControls.map(\.state) == [.open])
+    }
+
+    @Test func setsANotApplicableAnswerAside() throws {
+        let bound = try closed(
+            by: ["Segment the network"],
+            answers: [("x", .implemented), ("y", .notApplicable)]
+        )
+
+        #expect(bound.closedBy == "Segment the network")
+    }
+
+    @Test func leavesTheTreeOpenWhenEveryAnswerIsNotApplicable() throws {
+        let bound = try closed(by: ["Segment the network"], answers: [("x", .notApplicable)])
+
+        #expect(bound.closedBy == nil)
+        #expect(bound.sufficientControls.map(\.state) == [.open])
+    }
+
+    @Test func leavesTheTreeOpenWhenNothingAnswersTheControl() throws {
+        let bound = try closed(by: ["Segment the network"], answers: [], known: ["Segment the network"])
+
+        #expect(bound.isStale == false)
+        #expect(bound.closedBy == nil)
+        #expect(bound.sufficientControls.map(\.state) == [.open])
+    }
+
+    @Test func namesTheFirstControlThatClosesTheTree() throws {
+        let bound = try closed(
+            by: ["Alert on the route", "Segment the network"],
+            answers: [("x", .implemented)],
+            known: ["Alert on the route", "Segment the network"]
+        )
+
+        #expect(bound.closedBy == "Segment the network")
+        #expect(bound.sufficientControls.map(\.state) == [.open, .closes])
+    }
+
+    /// The goal scores 8, which is high. A demand at high with no tier on
+    /// the answer leaves the tree open.
+    @Test func leavesTheTreeOpenWhenTheDemandedEvidenceIsMissing() throws {
+        let bound = try closed(
+            by: ["Segment the network"],
+            answers: [("x", .implemented)],
+            evidenceDemandedAbove: .high
+        )
+
+        #expect(bound.closedBy == nil)
+        #expect(bound.sufficientControls.map(\.state) == [.unevidenced])
+    }
+
+    @Test func closesTheTreeWhenTheDemandedEvidenceIsStated() throws {
+        let bound = try closed(
+            by: ["Segment the network"],
+            answers: [("x", .implemented)],
+            proofs: [ControlKey("x-0"): ControlProof(evidence: .tested)],
+            evidenceDemandedAbove: .high
+        )
+
+        #expect(bound.closedBy == "Segment the network")
+    }
+
+    @Test func closesTheTreeWithNoEvidenceBelowTheDemand() throws {
+        let bound = try closed(
+            by: ["Segment the network"],
+            answers: [("x", .implemented)],
+            evidenceDemandedAbove: .critical
+        )
+
+        #expect(bound.closedBy == "Segment the network")
+    }
+
+    @Test func makesTheTreeStaleWhenNoCatalogueOrLibraryControlHasTheDescription() throws {
+        let bound = try closed(by: ["Segmnet the network"], answers: [("x", .implemented)])
+
+        #expect(bound.isStale)
+        #expect(bound.closedBy == nil)
+        #expect(bound.sufficientControls.map(\.state) == [.unknown])
+        #expect(bound.chainFactor == 0)
+    }
+
+    @Test func readsADescriptionTheWayTheControlsIdentityDoes() throws {
+        let bound = try closed(
+            by: ["Segment  the network "],
+            answers: [("x", .implemented)]
+        )
+
+        #expect(bound.closedBy == "Segment  the network ")
+    }
 }

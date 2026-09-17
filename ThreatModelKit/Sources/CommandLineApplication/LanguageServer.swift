@@ -333,7 +333,7 @@ public final class LanguageServer: @unchecked Sendable {
         case (.attackTree, "attack_trees"):
             ["catalogue", "tree"]
         case (.attackTree, "tree"):
-            ["name", "description", "raises_risk_by", "goal", "all_of", "any_of", "then", "step"]
+            ["name", "description", "raises_risk_by", "closed_by", "goal", "all_of", "any_of", "then", "step"]
         case (.attackTree, "all_of"), (.attackTree, "any_of"), (.attackTree, "then"):
             ["step", "all_of", "any_of", "then"]
         case (.attackTree, "step"):

@@ -332,6 +332,51 @@ grep -q '^The chain, in order:' "$work/chain/threatmodel/payments.md"
 grep -q '^3\. ' "$work/chain/threatmodel/payments.md"
 echo "the chain reached the controls file and the report in order"
 
+step "a sufficient control closes the whole route"
+# Every control of the compiled file is implemented by now, so the first one
+# is sufficient for the route; a control nothing holds fails the check.
+sufficient=$(grep -m1 '^    control "' "$work/chain/threatmodel/payments.controls" | sed 's/^    control "\(.*\)" {$/\1/')
+write_closed_tree() {
+cat > "$work/chain/threatmodel/payments.attacktree" <<TREE
+attack_trees for "Payments" {
+  tree "obtain-the-records" {
+    name           = "Obtain the records"
+    raises_risk_by = 40
+    closed_by      = ["$1"]
+
+    goal "data-exfiltration" on component "db"
+
+    then {
+      step "ssrf-attack" on component "api"
+      step "credential-theft" on component "api"
+      step "unauthorized-access" on component "db"
+    }
+  }
+}
+TREE
+}
+write_closed_tree "$sufficient"
+cp "$work/chain/threatmodel/payments.attacktree" "$work/chain-closed.attacktree"
+tm format "$work/chain"
+diff "$work/chain-closed.attacktree" "$work/chain/threatmodel/payments.attacktree"
+tm compile "$work/chain"
+grep -qF "closed_by      = \"$sufficient\"" "$work/chain/threatmodel/payments.controls"
+grep -q 'state = "closes"' "$work/chain/threatmodel/payments.controls"
+grep -q 'chain          = 0' "$work/chain/threatmodel/payments.controls"
+tm check "$work/chain"
+tm report "$work/chain"
+grep -qF "closed by $sufficient" "$work/chain/threatmodel/payments.md"
+write_closed_tree "No such control"
+tm compile "$work/chain"
+grep -q 'stale tree "obtain-the-records" {' "$work/chain/threatmodel/payments.controls"
+grep -q 'state = "unknown"' "$work/chain/threatmodel/payments.controls"
+expect_code 1 check "$work/chain"
+set +e
+unknown=$(tm check "$work/chain" 2>&1)
+set -e
+echo "$unknown" | grep -qF 'is closed by "No such control", which the catalogue and the libraries do not hold'
+echo "the sufficient control closed the route and the unknown one failed the check"
+
 step "cve sync fetches the feeds from a directory and writes the lock file"
 # The three feeds, in the shape the services answer, as files: no network.
 feeds="$work/feeds"

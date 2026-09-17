@@ -160,6 +160,50 @@ struct CheckToleranceTests {
         #expect(staleTrees.isEmpty)
     }
 
+    /// A sufficient control no catalogue or library control states is a
+    /// claim about a thing that does not exist, so the check fails.
+    @Test func failsWhileASufficientControlIsUnknown() {
+        let response = check(trees: """
+        attack_trees for "P" {
+          tree "t" {
+            closed_by = ["Rotate credentails regularly"]
+
+            goal "misconfiguration" on component "db"
+            step "credential-theft" on component "api"
+          }
+        }
+        """)
+
+        guard case .checked(_, _, let staleTrees, _, _, _) = response else {
+            Issue.record("the check refused: \(response)")
+            return
+        }
+        #expect(staleTrees == [
+            "the tree \"t\" is closed by \"Rotate credentails regularly\", "
+                + "which the catalogue and the libraries do not hold"
+        ])
+        #expect(response.isClean == false)
+    }
+
+    @Test func passesForASufficientControlTheCatalogueHolds() {
+        let response = check(trees: """
+        attack_trees for "P" {
+          tree "t" {
+            closed_by = ["Rotate credentials regularly"]
+
+            goal "misconfiguration" on component "db"
+            step "credential-theft" on component "api"
+          }
+        }
+        """)
+
+        guard case .checked(_, _, let staleTrees, _, _, _) = response else {
+            Issue.record("the check refused: \(response)")
+            return
+        }
+        #expect(staleTrees.isEmpty)
+    }
+
     @Test func passesForASystemWithNoTreeFile() {
         guard case .checked(_, _, let staleTrees, _, _, _) = check(trees: nil) else {
             Issue.record("the check refused")

@@ -210,4 +210,68 @@ struct AttackTreeScoreTests {
 
         #expect(result.threats.first { $0.threat.id.value == "g" }?.score.value == 5)
     }
+    // MARK: a control that is sufficient to close the whole route
+
+    /// Every step open, one sufficient control implemented on a threat no
+    /// step names: the tree is closed as a whole and gives no boost.
+    private func sufficient(_ status: ControlStatus) -> (threats: [ResolvedThreat], trees: [BoundAttackTree]) {
+        let tree = SourceAttackTree(
+            id: "t",
+            raisesRiskBy: 40,
+            closedBy: ["Segment the network"],
+            goal: target("g", "db"),
+            root: .all([
+                .step(SourceTreeStep(target: target("a", "api"))),
+                .step(SourceTreeStep(target: target("b", "api"))),
+            ])
+        )
+        let resolved = [
+            ResolvedThreatFixture.make(
+                threatId: "g", componentId: "db", score: 5,
+                statuses: [.notImplemented], compensating: [], likelihood: .commodity
+            ),
+            ResolvedThreatFixture.make(
+                threatId: "a", componentId: "api", score: 4,
+                statuses: [.notImplemented], compensating: [], likelihood: .commodity
+            ),
+            ResolvedThreatFixture.make(
+                threatId: "b", componentId: "api", score: 4,
+                statuses: [.notImplemented], compensating: [], likelihood: .commodity
+            ),
+            ResolvedThreatFixture.make(
+                threatId: "lateral-movement", componentId: "net", score: 4,
+                statuses: [status], compensating: [], likelihood: .commodity,
+                descriptions: ["Segment the network"]
+            ),
+        ]
+        let bound = AttackTreeBinding.bind(trees: [tree], to: resolved)
+        return AttackTreeScoring.apply(trees: bound, to: resolved)
+    }
+
+    @Test func givesNoBoostWhenASufficientControlIsImplemented() {
+        let result = sufficient(.implemented)
+
+        #expect(goalScore(result) == 5)
+        #expect(result.trees[0].isOpen == false)
+        #expect(result.trees[0].chainFactor == 0)
+        #expect(result.trees[0].closedBy == "Segment the network")
+        #expect(result.trees[0].steps.map(\.state) == [.open, .open])
+    }
+
+    @Test func givesTheBoostWhenTheSufficientControlIsNotImplemented() {
+        let result = sufficient(.notImplemented)
+
+        #expect(goalScore(result) == 7)
+        #expect(result.trees[0].isOpen)
+        #expect(result.trees[0].closedBy == nil)
+        #expect(result.trees[0].sufficientControls.map(\.state) == [.open])
+    }
+
+    @Test(arguments: [ControlStatus.notApplicable, ControlStatus.accepted])
+    func givesTheBoostWhenTheSufficientControlClosesNothing(status: ControlStatus) {
+        let result = sufficient(status)
+
+        #expect(goalScore(result) == 7)
+        #expect(result.trees[0].closedBy == nil)
+    }
 }

@@ -19,6 +19,7 @@ public enum MarkdownAttackTrees {
             }
             lines.append("Goal: \(tree.goalName) on \(tree.goalSourceName).")
             lines.append("")
+            lines += sufficientControls(of: tree)
             lines.append("| Step | Raised on | State | Closed by |")
             lines.append("| --- | --- | --- | --- |")
             for step in tree.steps {
@@ -49,6 +50,9 @@ public enum MarkdownAttackTrees {
     private static func heading(_ tree: BoundAttackTree) -> String {
         guard tree.isStale == false else {
             return "### \(tree.name) \u{2014} no longer binds"
+        }
+        if let closedBy = tree.closedBy {
+            return "### \(tree.name) \u{2014} closed by \(closedBy)"
         }
         guard tree.isOpen else {
             return "### \(tree.name) \u{2014} every route is closed"
@@ -86,6 +90,29 @@ public enum MarkdownAttackTrees {
             lines.append("")
         }
         return lines
+    }
+
+    /// The controls the file names as each sufficient to close the whole
+    /// route, one per line with what each is doing. Nothing for a tree that
+    /// names none.
+    private static func sufficientControls(of tree: BoundAttackTree) -> [String] {
+        guard tree.sufficientControls.isEmpty == false else { return [] }
+        var lines = ["Sufficient controls:", ""]
+        for control in tree.sufficientControls {
+            lines.append("- \(control.description): \(said(control.state))")
+        }
+        lines.append("")
+        return lines
+    }
+
+    /// What each state of a sufficient control reads as in the report.
+    public static func said(_ state: SufficientControlState) -> String {
+        switch state {
+        case .closes: "closes the tree"
+        case .open: "not implemented"
+        case .unevidenced: "implemented with no evidence"
+        case .unknown: "not a control the catalogue or the libraries hold"
+        }
     }
 
     private static func count(_ number: Int, _ word: String) -> String {

@@ -99,6 +99,8 @@ struct ControlsParser {
         var raisesRiskBy = 0
         var score = 0
         var scoreBefore = 0
+        var closedBy: String?
+        var sufficient: [SourceSufficientAnswer] = []
         var steps: [SourceTreeStepAnswer] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -108,12 +110,15 @@ struct ControlsParser {
             case "raises_risk_by": raisesRiskBy = parseNumberAttribute() ?? 0
             case "score": score = parseNumberAttribute() ?? 0
             case "score_before": scoreBefore = parseNumberAttribute() ?? 0
+            case "closed_by": closedBy = parseTextAttribute()
+            case "sufficient":
+                if let control = parseSufficient() { sufficient.append(control) }
             case "step":
                 if let step = parseTreeStep() { steps.append(step) }
             default:
                 record(
-                    "a tree holds goal, chain, raises_risk_by, score, score_before and step, "
-                        + "not \"\(current.text)\""
+                    "a tree holds goal, chain, raises_risk_by, score, score_before, closed_by, "
+                        + "sufficient and step, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -128,8 +133,30 @@ struct ControlsParser {
             score: score,
             scoreBefore: scoreBefore,
             steps: steps,
-            isStale: isStale
+            isStale: isStale,
+            closedBy: closedBy,
+            sufficient: sufficient
         )
+    }
+
+    /// A `sufficient` block: one control the tree names as sufficient to
+    /// close the whole route, and what the compiler found out about it.
+    private mutating func parseSufficient() -> SourceSufficientAnswer? {
+        advance()
+        guard let description = expect(.string, "the control's description") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var state = "open"
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "state": state = parseTextAttribute() ?? "open"
+            default:
+                record("a sufficient control holds state, not \"\(current.text)\"")
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+        return SourceSufficientAnswer(description: description.text, state: state)
     }
 
     private mutating func parseTreeStep() -> SourceTreeStepAnswer? {

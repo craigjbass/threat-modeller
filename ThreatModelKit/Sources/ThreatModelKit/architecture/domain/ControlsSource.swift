@@ -183,9 +183,15 @@ public struct SourceTreeAnswer: Equatable, Sendable {
     public let score: Int
     public let scoreBefore: Int
     public let steps: [SourceTreeStepAnswer]
-    /// True when a step or the goal no longer binds. A person deletes a stale
-    /// tree, or restores what the tree names.
+    /// True when a step or the goal no longer binds, or a sufficient control
+    /// is unknown. A person deletes a stale tree, or restores what the tree
+    /// names.
     public let isStale: Bool
+    /// The sufficient control that closed the tree as a whole, or nil.
+    public let closedBy: String?
+    /// Each control the `.attacktree` file names as sufficient, with what
+    /// the compiler found out about it.
+    public let sufficient: [SourceSufficientAnswer]
 
     public init(
         treeId: String,
@@ -195,7 +201,9 @@ public struct SourceTreeAnswer: Equatable, Sendable {
         score: Int = 0,
         scoreBefore: Int = 0,
         steps: [SourceTreeStepAnswer] = [],
-        isStale: Bool = false
+        isStale: Bool = false,
+        closedBy: String? = nil,
+        sufficient: [SourceSufficientAnswer] = []
     ) {
         self.treeId = treeId
         self.goalKey = goalKey
@@ -205,6 +213,20 @@ public struct SourceTreeAnswer: Equatable, Sendable {
         self.scoreBefore = scoreBefore
         self.steps = steps
         self.isStale = isStale
+        self.closedBy = closedBy
+        self.sufficient = sufficient
+    }
+}
+
+/// One control a tree names as sufficient, as the compiler wrote it.
+public struct SourceSufficientAnswer: Equatable, Sendable {
+    public let description: String
+    /// `closes`, `open`, `unevidenced` or `unknown`.
+    public let state: String
+
+    public init(description: String, state: String) {
+        self.description = description
+        self.state = state
     }
 }
 

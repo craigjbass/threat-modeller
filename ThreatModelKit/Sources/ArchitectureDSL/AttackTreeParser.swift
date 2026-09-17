@@ -65,6 +65,7 @@ struct AttackTreeParser {
         var name: String?
         var description: String?
         var raisesRiskBy = 0
+        var closedBy: [String] = []
         var goals: [SourceTreeTarget] = []
         var roots: [SourceTreeNode] = []
 
@@ -81,6 +82,8 @@ struct AttackTreeParser {
                         record("raises_risk_by is \(value); it runs from 0 to 100", at: token)
                     }
                 }
+            case "closed_by":
+                closedBy = parseListAttribute()
             case "goal":
                 if let goal = parseGoal() { goals.append(goal) }
             case "all_of", "any_of", "then":
@@ -89,8 +92,8 @@ struct AttackTreeParser {
                 if let step = parseStep() { roots.append(.step(step)) }
             default:
                 record(
-                    "a tree holds name, description, raises_risk_by, goal, all_of, any_of, then "
-                        + "and step, not \"\(current.text)\""
+                    "a tree holds name, description, raises_risk_by, closed_by, goal, all_of, "
+                        + "any_of, then and step, not \"\(current.text)\""
                 )
                 skipAttribute()
             }
@@ -119,6 +122,7 @@ struct AttackTreeParser {
             name: name,
             description: description,
             raisesRiskBy: raisesRiskBy,
+            closedBy: closedBy,
             goal: goals[0],
             root: roots[0]
         )
@@ -261,6 +265,30 @@ struct AttackTreeParser {
         advance()
         guard expect(.equals, "=") != nil else { return nil }
         return expect(.string, "a text in quotation marks")?.text
+    }
+
+    /// `name = ["a", "b"]`, the shape the controls language reads for
+    /// `sources` and `impacts`.
+    private mutating func parseListAttribute() -> [String] {
+        advance()
+        guard expect(.equals, "=") != nil else { return [] }
+        guard current.kind == .leftBracket else {
+            record("expected [")
+            // The value that is not a list is skipped, so the next entry
+            // reads on its own.
+            advance()
+            return []
+        }
+        advance()
+
+        var values: [String] = []
+        while current.kind != .rightBracket && current.kind != .endOfFile {
+            if current.kind == .comma { advance(); continue }
+            guard let token = expect(.string, "a text in quotation marks") else { break }
+            values.append(token.text)
+        }
+        _ = expect(.rightBracket, "]")
+        return values
     }
 
     private mutating func parseNumberAttribute() -> Int? {

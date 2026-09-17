@@ -56,14 +56,31 @@ public struct StaleTree: Equatable, Sendable {
     /// How many steps the tree holds, so a person sees what they lose by
     /// deleting it.
     public let stepCount: Int
+    /// The sufficient controls no catalogue or library control states.
+    public let unknownControls: [String]
 
-    public init(treeId: String, stepCount: Int) {
+    public init(treeId: String, stepCount: Int, unknownControls: [String] = []) {
         self.treeId = treeId
         self.stepCount = stepCount
+        self.unknownControls = unknownControls
     }
 
     public var described: String {
         "the tree \"\(treeId)\" is written but no longer binds"
+    }
+
+    /// One line per fault: the binding line when a step or the goal no
+    /// longer binds, and one line per unknown sufficient control.
+    public func describe(stepsBind: Bool) -> [String] {
+        var lines: [String] = []
+        if stepsBind == false || unknownControls.isEmpty { lines.append(described) }
+        for control in unknownControls {
+            lines.append(
+                "the tree \"\(treeId)\" is closed by \"\(control)\", "
+                    + "which the catalogue and the libraries do not hold"
+            )
+        }
+        return lines
     }
 }
 

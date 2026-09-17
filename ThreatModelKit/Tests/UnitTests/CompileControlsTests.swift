@@ -434,6 +434,69 @@ struct CompileControlsTests {
         #expect(read.source?.trees.first?.steps.map(\.position) == [1, 2, 3])
     }
 
+    /// A sufficient control that is implemented closes the tree as a whole:
+    /// the stanza names it, states each named control, and the chain is 0.
+    @Test func writesTheSufficientControlThatClosedTheTree() throws {
+        let response = compile(
+            architecture: twoTier,
+            controls: """
+            controls for "P" {
+              threat "credential-theft" on component "api" {
+                control "Enforce IMDSv2 to block SSRF-based credential theft" { status = "implemented" }
+              }
+            }
+            """,
+            trees: """
+            attack_trees for "P" {
+              tree "t" {
+                raises_risk_by = 40
+                closed_by      = ["Enforce IMDSv2 to block SSRF-based credential theft", "Apply rate limits"]
+
+                goal "misconfiguration" on component "db"
+                step "credential-theft" on component "api"
+              }
+            }
+            """
+        )
+
+        guard case .compiled(let text, _, _, _, let staleTrees, _, _) = response else {
+            Issue.record("the compile refused: \(response)")
+            return
+        }
+        #expect(text.contains("closed_by      = \"Enforce IMDSv2 to block SSRF-based credential theft\""))
+        #expect(text.contains("chain          = 0"))
+        #expect(text.contains(
+            "sufficient \"Enforce IMDSv2 to block SSRF-based credential theft\" {\n      state = \"closes\"\n    }"
+        ))
+        #expect(text.contains("sufficient \"Apply rate limits\" {\n      state = \"open\"\n    }"))
+        #expect(staleTrees == 0)
+
+        let read = try #require(HclControlsSource().read(text).source?.trees.first)
+        #expect(read.closedBy == "Enforce IMDSv2 to block SSRF-based credential theft")
+        #expect(read.sufficient.map(\.state) == ["closes", "open"])
+    }
+
+    @Test func movesATreeIntoStaleWhenASufficientControlIsUnknown() {
+        let response = compile(architecture: twoTier, trees: """
+        attack_trees for "P" {
+          tree "t" {
+            closed_by = ["Rotate credentails regularly"]
+
+            goal "misconfiguration" on component "db"
+            step "credential-theft" on component "api"
+          }
+        }
+        """)
+
+        guard case .compiled(let text, _, _, _, let staleTrees, _, _) = response else {
+            Issue.record("the compile refused: \(response)")
+            return
+        }
+        #expect(text.contains("stale tree \"t\" {"))
+        #expect(text.contains("sufficient \"Rotate credentails regularly\" {\n      state = \"unknown\"\n    }"))
+        #expect(staleTrees == 1)
+    }
+
     @Test func movesATreeIntoStaleWhenAStepNoLongerBinds() {
         let response = compile(architecture: twoTier, trees: """
         attack_trees for "P" {

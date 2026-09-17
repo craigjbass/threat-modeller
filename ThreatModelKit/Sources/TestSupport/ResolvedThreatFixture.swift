@@ -10,7 +10,9 @@ public enum ResolvedThreatFixture {
         statuses: [ControlStatus],
         compensating: [CompensatingControl],
         likelihood: Likelihood,
-        scoreIfAssumptionsHold: Int? = nil
+        scoreIfAssumptionsHold: Int? = nil,
+        /// One description per status, or `control <index>` for each.
+        descriptions: [String]? = nil
     ) -> ResolvedThreat {
         let threat = Threat(
             id: ThreatId(threatId),
@@ -22,7 +24,7 @@ public enum ResolvedThreatFixture {
         )
         let controls = statuses.enumerated().map { index, status in
             ResolvedControl(
-                description: "control \(index)",
+                description: descriptions?[index] ?? "control \(index)",
                 isTechnologySpecific: false,
                 key: ControlKey("\(threatId)-\(index)"),
                 isImplemented: status == .implemented,

@@ -105,4 +105,43 @@ struct AttackTreeWriterTests {
 
         """)
     }
+    /// The controls that close the whole route write after `raises_risk_by`,
+    /// in the aligned run, and read back byte for byte.
+    @Test func writesTheSufficientControlsInTheAlignedRun() throws {
+        let closed = """
+        attack_trees for "P" {
+          tree "t" {
+            name           = "T"
+            raises_risk_by = 40
+            closed_by      = ["Segment the network", "Alert on the route"]
+
+            goal "g" on component "c"
+
+            step "s" on component "c"
+          }
+        }
+
+        """
+        let read = try #require(gateway.read(closed).source)
+
+        #expect(gateway.write(read) == closed)
+    }
+
+    @Test func writesNoClosedByForATreeThatNamesNone() {
+        let source = AttackTreeSource(
+            systemName: "P",
+            trees: [
+                SourceAttackTree(
+                    id: "t",
+                    closedBy: [],
+                    goal: SourceTreeTarget(threatId: "g", sourceKind: "component", sourceId: "c"),
+                    root: .step(SourceTreeStep(target: SourceTreeTarget(
+                        threatId: "s", sourceKind: "component", sourceId: "c"
+                    )))
+                ),
+            ]
+        )
+
+        #expect(gateway.write(source).contains("closed_by") == false)
+    }
 }

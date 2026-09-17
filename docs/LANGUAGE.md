@@ -1576,6 +1576,27 @@ tree "obtain-the-customer-records" {
     position = 2
   }
 }
+
+tree "read-a-backup" {
+  goal           = "backup-exposure@component:db"
+  chain          = 0
+  raises_risk_by = 40
+  score          = 5
+  score_before   = 5
+  closed_by      = "Segment the network between the application tier and the data tier"
+
+  sufficient "Segment the network between the application tier and the data tier" {
+    state = "closes"
+  }
+
+  sufficient "Alert on the route as a whole" {
+    state = "open"
+  }
+
+  step "excessive-permissions@component:secrets" {
+    state = "open"
+  }
+}
 ```
 
 | Attribute | Meaning |
@@ -1588,9 +1609,18 @@ tree "obtain-the-customer-records" {
 | `step.state` | `open` or `closed` |
 | `step.by` | the control description that closed the step, when one did |
 | `step.position` | the step's place in its `then` chain, counted from 1; absent outside a chain |
+| `closed_by` | the sufficient control that closed the tree as a whole; absent while none does |
+| `sufficient.state` | what each control the `.attacktree` file names in `closed_by` is doing: `closes`, `open`, `unevidenced` or `unknown` |
 
-A live `tree` stanza never holds `unbound`, because one unbound step moves the
-whole tree into `stale tree`:
+A `sufficient` block is written for every control the tree's `closed_by`
+list names, in that order. Section 7.5 states the four states. A stale tree
+keeps its `sufficient` blocks, the way it keeps its steps, so
+`threatmodeller check` can name a control the catalogue and the libraries do
+not hold.
+
+A live `tree` stanza never holds `unbound` or `unknown`, because one unbound
+step, or one sufficient control the catalogue and the libraries do not hold,
+moves the whole tree into `stale tree`:
 
 ```hcl
 stale tree "read-every-customer-record" {
@@ -1602,7 +1632,10 @@ stale tree "read-every-customer-record" {
 
 A stale tree states no number: nothing recomputed them, and a number nobody can
 trust is worse than no number. `threatmodeller check` exits 1 while one
-remains, and prints `the tree "<id>" is written but no longer binds`.
+remains, and prints `the tree "<id>" is written but no longer binds`, or, for
+a sufficient control in state `unknown`, `the tree "<id>" is closed by
+"<control>", which the catalogue and the libraries do not hold`. A tree with
+both prints both.
 
 A tree the `.attacktree` file no longer states writes no stanza at all, because
 a person owns that file and deleting a tree there loses nothing.
@@ -2285,6 +2318,7 @@ TreeBlock = "tree" String "{" { TreeEntry } "}" ;
 TreeEntry = "name"           "=" String
           | "description"    "=" String
           | "raises_risk_by" "=" Number
+          | "closed_by"      "=" "[" [ String { "," String } ] "]"
           | GoalStatement
           | NodeBlock
           | StepBlock ;
@@ -2313,11 +2347,20 @@ first link is any node. Every later link is a `step`; section 7.4 states why.
 | `tree` | the tree id | `name` | string | the label |
 | | | `description` | string | none |
 | | | `raises_risk_by` | number, 0 to 100 | `0` |
+| | | `closed_by` | a list of control descriptions | empty |
 | `goal` | the threat id, then the source | | | **required** |
 | `step` | the threat id, then the source | `note` | string | none |
 
 `raises_risk_by = 0` is a tree that narrates and scores nothing. The report
 prints it, `check` gates on it, and no number moves.
+
+`closed_by` names the controls that are each sufficient to close the whole
+route: a control that breaks the chain at one link, or one that is on no
+step's threat, such as a network segmentation between two links. A control is
+named by its description, which is its identity in the `.controls` file
+(section 5.6). Section 7.5 states when a named control closes the tree. The
+writer writes `closed_by` after `raises_risk_by` and writes nothing for an
+empty list.
 
 A tree body holds exactly one root, which is one `all_of`, one `any_of`, one
 `then` or one `step`.
@@ -2351,6 +2394,7 @@ attack_trees for "Two-Tier Web Application" {
 
   tree "obtain-the-customer-records" {
     raises_risk_by = 40
+    closed_by      = ["Segment the network between the application tier and the data tier"]
 
     goal "data-exfiltration" on component "db"
 
@@ -2416,9 +2460,32 @@ does not apply, or the team lives with it, and an attacker still walks the
 step. A `likelihood` finding closes no step either; it lowers the step's
 factor.
 
-One step that does not bind, or a goal that does not bind, makes the whole tree
-**stale**. A stale tree moves no score, the compile writes it as a
-`stale tree` stanza, and `threatmodeller check` exits 1 while one remains.
+**A sufficient control closes the whole route.** A tree whose `closed_by`
+list names a control that is **implemented** is closed as a whole: the tree
+gives no boost, its steps keep their own states, and the compiled stanza and
+the report name the control. The `.controls` file may answer one description
+on more than one threat. The tree reads every answer for that description,
+sets the `not_applicable` answers aside, and the control is implemented when
+at least one answer remains and every answer that remains is `implemented`.
+A control in place on one element and not on another is not in place.
+
+Where `requires_evidence_above` in the `.arch` file or
+`implemented_requires_evidence_above` in the policy file demands evidence at
+the goal's level before its controls, an implemented answer that states no
+evidence tier is `unevidenced` and closes nothing. The lower of the two
+levels is the one in force.
+
+| State | Meaning |
+| --- | --- |
+| `closes` | implemented, with evidence where the policy demands it; the tree is closed as a whole |
+| `open` | not implemented, `accepted`, every answer `not_applicable`, or nothing answers it |
+| `unevidenced` | implemented, evidence demanded at the goal's level, and no tier stated |
+| `unknown` | no catalogue or library control has this description |
+
+One step that does not bind, or a goal that does not bind, or a sufficient
+control in state `unknown`, makes the whole tree **stale**. A stale tree
+moves no score, the compile writes it as a `stale tree` stanza, and
+`threatmodeller check` exits 1 while one remains.
 
 A step naming a component the `.arch` file does not declare is not a parser
 fault: the parser reads one file and the architecture is another, the way
@@ -2442,7 +2509,8 @@ Errors, which stop the read and produce no source:
 | a source kind that is not `component`, `zone` or `flow` | `a step is raised by a component, a zone or a flow, not "<word>"` |
 | a `goal` or `step` with no `on` | `a step says what raises it: on component, on zone or on flow` |
 | `raises_risk_by` outside 0 to 100 | `raises_risk_by is <n>; it runs from 0 to 100` |
-| an entry the grammar does not hold | `a tree holds name, description, raises_risk_by, goal, all_of, any_of, then and step, not "<word>"` |
+| a `closed_by` that is not a list | `expected [` |
+| an entry the grammar does not hold | `a tree holds name, description, raises_risk_by, closed_by, goal, all_of, any_of, then and step, not "<word>"` |
 
 ## 8. The governance language
 
@@ -2814,9 +2882,10 @@ entry" or "an unknown attribute".
 | controls | `control` | `a control holds status, note, evidence, reference and verified_on, not "<word>"` |
 | controls | `compensating` | `a compensating control holds reduces_risk_by, rationale, sources, evidence, reference and verified_on, not "<word>"` |
 | controls | `recommendation` | `a recommendation holds note and sources, not "<word>"` |
-| controls | `tree` | `a tree holds goal, chain, raises_risk_by, score, score_before and step, not "<word>"` |
-| controls | `step` (in a `tree`) | `a step holds state and by, not "<word>"` |
-| attack tree | `tree` | `a tree holds name, description, raises_risk_by, goal, all_of, any_of and step, not "<word>"` |
+| controls | `tree` | `a tree holds goal, chain, raises_risk_by, score, score_before, closed_by, sufficient and step, not "<word>"` |
+| controls | `step` (in a `tree`) | `a step holds state, by and position, not "<word>"` |
+| controls | `sufficient` (in a `tree`) | `a sufficient control holds state, not "<word>"` |
+| attack tree | `tree` | `a tree holds name, description, raises_risk_by, closed_by, goal, all_of, any_of, then and step, not "<word>"` |
 | policy | `policy` | `a policy holds max_open_at_level, accepted_requires_owner, accepted_requires_review_by, implemented_requires_evidence_above, restricted_data_stays_out_of_public_zones, assumptions_require_owner, system_requires_owner, not "<word>"` |
 | governance | `governance for` | `a governance file holds threat, action, stale threat and stale action, not "<word>"` |
 | governance | `threat` | `a governed threat holds accepted, work, stale accepted and stale work, not "<word>"` |
@@ -3194,6 +3263,7 @@ TreeBlock = "tree" String "{" { TreeEntry } "}" ;
 TreeEntry = "name"           "=" String
           | "description"    "=" String
           | "raises_risk_by" "=" Number
+          | "closed_by"      "=" "[" [ String { "," String } ] "]"
           | GoalStatement
           | NodeBlock
           | StepBlock ;

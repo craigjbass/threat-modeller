@@ -11,22 +11,47 @@ public enum AttackTreeBinding {
         let factor: Double
     }
 
+    /// `known` is every control description the catalogue and the libraries
+    /// hold; nil reads the descriptions the resolved threats offer. A
+    /// description is compared by its fingerprint, the identity the
+    /// `.controls` file already uses. `proofs` and `evidenceDemandedAbove` are what the sufficient
+    /// control rule reads for evidence.
     public static func bind(
         trees: [SourceAttackTree],
-        to resolved: [ResolvedThreat]
+        to resolved: [ResolvedThreat],
+        known: Set<String>? = nil,
+        proofs: [ControlKey: ControlProof] = [:],
+        evidenceDemandedAbove: RiskLevel? = nil
     ) -> [BoundAttackTree] {
         var byKey: [ThreatKey: ResolvedThreat] = [:]
         for threat in resolved {
             byKey[ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)] = threat
         }
+        let knownDescriptions = known.map(Array.init) ?? resolved.flatMap(\.controls).map(\.description)
+        let knownControls = Set(knownDescriptions.map { ControlIdentity.fingerprint(of: $0) })
 
         return trees.map { tree in
             var chains = 0
             let steps = links(of: tree.root, in: byKey, chain: nil, counting: &chains)
             let goal = byKey[tree.goal.key]
-            let isStale = goal == nil || steps.contains { $0.state == .unbound }
+            let sufficient = tree.closedBy.map { description in
+                sufficientControl(
+                    description,
+                    goal: goal,
+                    in: resolved,
+                    known: knownControls,
+                    proofs: proofs,
+                    evidenceDemandedAbove: evidenceDemandedAbove
+                )
+            }
+            let isStale = goal == nil
+                || steps.contains { $0.state == .unbound }
+                || sufficient.contains { $0.state == .unknown }
+            let closedBy = isStale ? nil : sufficient.first { $0.state == .closes }?.description
 
-            let root = isStale
+            // A sufficient control that closes the tree closes it as a whole:
+            // the steps keep their own states, and the root gives nothing.
+            let root = isStale || closedBy != nil
                 ? NodeState(isOpen: false, factor: 0)
                 : state(of: tree.root, in: byKey)
 
@@ -45,9 +70,49 @@ public enum AttackTreeBinding {
                 isOpen: root.isOpen,
                 isStale: isStale,
                 scoreBefore: scoreBefore,
-                score: scoreBefore
+                score: scoreBefore,
+                sufficientControls: sufficient,
+                closedBy: closedBy
             )
         }
+    }
+
+    /// One control the tree names as sufficient, read against every answer
+    /// the model holds for that description.
+    ///
+    /// The control is implemented for the tree when at least one answer
+    /// remains after the `not_applicable` answers are set aside, and every
+    /// answer that remains is `implemented`: a control in place on one
+    /// element and not on another is not in place. The evidence demand is
+    /// judged at the goal's level before its controls, because the goal is
+    /// what the tree closes.
+    private static func sufficientControl(
+        _ description: String,
+        goal: ResolvedThreat?,
+        in resolved: [ResolvedThreat],
+        known: Set<String>,
+        proofs: [ControlKey: ControlProof],
+        evidenceDemandedAbove: RiskLevel?
+    ) -> BoundSufficientControl {
+        let fingerprint = ControlIdentity.fingerprint(of: description)
+        guard known.contains(fingerprint) else {
+            return BoundSufficientControl(description: description, state: .unknown)
+        }
+
+        let answers = resolved
+            .flatMap(\.controls)
+            .filter { ControlIdentity.fingerprint(of: $0.description) == fingerprint }
+            .filter { $0.status != .notApplicable }
+        guard answers.isEmpty == false, answers.allSatisfy({ $0.status == .implemented }) else {
+            return BoundSufficientControl(description: description, state: .open)
+        }
+
+        if let level = evidenceDemandedAbove, let goal,
+           RiskScore(value: goal.scoreBeforeControls).level.rank >= level.rank,
+           answers.contains(where: { proofs[$0.key]?.evidence == nil }) {
+            return BoundSufficientControl(description: description, state: .unevidenced)
+        }
+        return BoundSufficientControl(description: description, state: .closes)
     }
 
     /// Every step of a node in file order, each one told which chain it is

@@ -51,13 +51,22 @@ struct ControlsWriter {
         // A stale tree states no number: nothing recomputed them, and a number
         // nobody can trust is worse than no number.
         if tree.isStale == false {
-            body += aligned([
+            var attributes = [
                 ("goal", quoted(tree.goalKey)),
                 ("chain", String(tree.chain)),
                 ("raises_risk_by", String(tree.raisesRiskBy)),
                 ("score", String(tree.score)),
                 ("score_before", String(tree.scoreBefore))
-            ])
+            ]
+            if let closedBy = tree.closedBy { attributes.append(("closed_by", quoted(closedBy))) }
+            body += aligned(attributes)
+            body.append("")
+        }
+
+        for control in tree.sufficient {
+            body.append("sufficient \(quoted(control.description)) {")
+            body += indent(aligned([("state", quoted(control.state))]))
+            body.append("}")
             body.append("")
         }
 

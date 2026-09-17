@@ -154,7 +154,11 @@ public struct CompileControls: CompileControlsUseCase {
         // Stage 8 runs over the whole resolved set, because whether a step is
         // open depends on another threat's answers.
         let resolvedByStages = ThreatResolver(model: model, catalogue: catalogue).resolve()
-        let bound = AttackTreeBinding.bind(trees: model.attackTrees, to: resolvedByStages)
+        let bound = AttackTreeBinding.bind(
+            trees: model.attackTrees,
+            to: resolvedByStages,
+            context: AttackTreeContext(model: model, catalogue: catalogue)
+        )
         let staged = AttackTreeScoring.apply(trees: bound, to: resolvedByStages)
         let resolved = staged.threats
 
@@ -259,7 +263,11 @@ public struct CompileControls: CompileControlsUseCase {
                         position: step.position
                     )
                 },
-                isStale: tree.isStale
+                isStale: tree.isStale,
+                closedBy: tree.closedBy,
+                sufficient: tree.sufficientControls.map {
+                    SourceSufficientAnswer(description: $0.description, state: $0.state.rawValue)
+                }
             )
         }
 

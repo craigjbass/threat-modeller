@@ -19,6 +19,10 @@ public struct SourceAttackTree: Equatable, Sendable {
     /// The percentage this tree adds to its goal when every step is open.
     /// Zero is a tree that narrates and moves no score.
     public let raisesRiskBy: Int
+    /// The descriptions of the controls that are each sufficient to close
+    /// the whole route, in the order the file states them. Empty when the
+    /// tree closes step by step alone.
+    public let closedBy: [String]
     public let goal: SourceTreeTarget
     public let root: SourceTreeNode
 
@@ -27,6 +31,7 @@ public struct SourceAttackTree: Equatable, Sendable {
         name: String? = nil,
         description: String? = nil,
         raisesRiskBy: Int = 0,
+        closedBy: [String] = [],
         goal: SourceTreeTarget,
         root: SourceTreeNode
     ) {
@@ -34,6 +39,7 @@ public struct SourceAttackTree: Equatable, Sendable {
         self.name = name
         self.description = description
         self.raisesRiskBy = raisesRiskBy
+        self.closedBy = closedBy
         self.goal = goal
         self.root = root
     }

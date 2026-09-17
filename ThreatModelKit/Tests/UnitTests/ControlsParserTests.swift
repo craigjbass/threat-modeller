@@ -263,6 +263,64 @@ struct ControlsParserTests {
         #expect(gateway.write(source) == text)
     }
 
+    /// The compiler names the sufficient control that closed the tree and
+    /// the state of each one the file names, and the file reads back byte
+    /// for byte.
+    @Test func readsAndWritesTheSufficientControlsOfATreeStanza() throws {
+        let text = """
+        controls for "P" {
+          tree "t" {
+            goal           = "g@component:db"
+            chain          = 0
+            raises_risk_by = 40
+            score          = 5
+            score_before   = 5
+            closed_by      = "Segment the network"
+
+            sufficient "Segment the network" {
+              state = "closes"
+            }
+
+            sufficient "Alert on the route" {
+              state = "open"
+            }
+
+            step "a@component:api" {
+              state = "open"
+            }
+          }
+        }
+
+        """
+
+        let source = try #require(gateway.read(text).source)
+        let tree = try #require(source.trees.first)
+        #expect(tree.closedBy == "Segment the network")
+        #expect(tree.sufficient.map(\.description) == ["Segment the network", "Alert on the route"])
+        #expect(tree.sufficient.map(\.state) == ["closes", "open"])
+        #expect(gateway.write(source) == text)
+    }
+
+    @Test func readsAStaleTreeWithAnUnknownSufficientControl() throws {
+        let read = gateway.read("""
+        controls for "P" {
+          stale tree "t" {
+            sufficient "Segmnet the network" {
+              state = "unknown"
+            }
+
+            step "a@component:api" {
+              state = "open"
+            }
+          }
+        }
+        """)
+
+        let tree = try #require(read.source?.trees.first)
+        #expect(tree.isStale)
+        #expect(tree.sufficient.map(\.state) == ["unknown"])
+    }
+
     @Test func writesALiveTreeBeforeAStaleOne() throws {
         let source = ControlsSource(
             systemName: "P",
@@ -290,8 +348,8 @@ struct ControlsParserTests {
 
         #expect(
             read.diagnostics.map(\.message) == [
-                "a tree holds goal, chain, raises_risk_by, score, score_before and step, "
-                    + "not \"colour\""
+                "a tree holds goal, chain, raises_risk_by, score, score_before, closed_by, "
+                    + "sufficient and step, not \"colour\""
             ]
         )
     }

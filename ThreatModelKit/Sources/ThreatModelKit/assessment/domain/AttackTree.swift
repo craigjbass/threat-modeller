@@ -51,6 +51,34 @@ public struct BoundStep: Equatable, Sendable {
     }
 }
 
+/// What one control a tree names as sufficient is doing today.
+public enum SufficientControlState: String, Equatable, Sendable {
+    /// Implemented, with evidence where the policy demands it. The tree is
+    /// closed as a whole.
+    case closes
+    /// Not implemented, or nothing answers it.
+    case open
+    /// Implemented, the policy demands evidence at the goal's level, and no
+    /// answer states a tier.
+    case unevidenced
+    /// No catalogue or library control has this description. The tree is
+    /// stale while one remains.
+    case unknown
+}
+
+/// One control a tree names as sufficient to close the whole route, read
+/// against the answers the model holds for it.
+public struct BoundSufficientControl: Equatable, Sendable {
+    /// The description as the `.attacktree` file states it.
+    public let description: String
+    public let state: SufficientControlState
+
+    public init(description: String, state: SufficientControlState) {
+        self.description = description
+        self.state = state
+    }
+}
+
 /// One tree a person wrote, matched against the resolved model and scored.
 public struct BoundAttackTree: Equatable, Sendable {
     public let id: String
@@ -71,6 +99,12 @@ public struct BoundAttackTree: Equatable, Sendable {
     public let isStale: Bool
     public let scoreBefore: Int
     public let score: Int
+    /// The controls the file names as each sufficient to close the whole
+    /// route, in file order.
+    public let sufficientControls: [BoundSufficientControl]
+    /// The first sufficient control that closes the tree, or nil while none
+    /// does.
+    public let closedBy: String?
 
     public init(
         id: String,
@@ -85,7 +119,9 @@ public struct BoundAttackTree: Equatable, Sendable {
         isOpen: Bool,
         isStale: Bool,
         scoreBefore: Int,
-        score: Int
+        score: Int,
+        sufficientControls: [BoundSufficientControl] = [],
+        closedBy: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -100,6 +136,8 @@ public struct BoundAttackTree: Equatable, Sendable {
         self.isStale = isStale
         self.scoreBefore = scoreBefore
         self.score = score
+        self.sufficientControls = sufficientControls
+        self.closedBy = closedBy
     }
 
     /// The chain factor as a whole percentage, which is what the controls file
@@ -123,7 +161,9 @@ public extension BoundAttackTree {
             isOpen: isOpen,
             isStale: isStale,
             scoreBefore: scoreBefore,
-            score: score
+            score: score,
+            sufficientControls: sufficientControls,
+            closedBy: closedBy
         )
     }
 }
