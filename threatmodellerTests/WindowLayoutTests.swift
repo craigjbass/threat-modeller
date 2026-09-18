@@ -836,4 +836,157 @@ struct WindowLayoutTests {
         hosting.layoutSubtreeIfNeeded()
         return window
     }
+
+    // MARK: - What answers a click, column by column (#177)
+
+    /// The columns of the stage, back to front.
+    ///
+    /// `arrangedSubviews` is the order the split lays them out in, and
+    /// `subviews` is the order it draws them in. Hit testing follows the
+    /// drawing order, so this reads the drawing order.
+    private func stageColumns(in content: NSView) -> [NSView] {
+        guard let split = columns(in: content) else { return [content] }
+        return split.arrangedSubviews.sorted { left, right in
+            let order = split.subviews
+            return (order.firstIndex(of: left) ?? 0) < (order.firstIndex(of: right) ?? 0)
+        }
+    }
+
+    /// A grid of points inside a rectangle, clear of its edges.
+    private func gridPoints(in frame: NSRect) -> [NSPoint] {
+        let margin = 14.0
+        let inner = frame.insetBy(dx: margin, dy: margin)
+        guard inner.width > 0, inner.height > 0 else { return [] }
+        let steps = 4
+        return (0..<steps).flatMap { column in
+            (0..<steps).map { row in
+                NSPoint(
+                    x: inner.minX + inner.width * (Double(column) + 0.5) / Double(steps),
+                    y: inner.minY + inner.height * (Double(row) + 0.5) / Double(steps)
+                )
+            }
+        }
+    }
+
+    /// Every click that lands in a column is answered by a view in that
+    /// column, on every stage.
+    ///
+    /// A layout measurement says where a column is. It does not say what
+    /// takes the click that lands on it. #177: every column kept its frame
+    /// and the palette took no click, no double click, no drag, no context
+    /// menu and no focus. A view drawn over the whole window with hit
+    /// testing on answers every point here, so this test fails on it.
+    @Test(arguments: WorkStage.allCases)
+    func everyColumnAnswersTheClicksThatLandInIt(stage: WorkStage) async throws {
+        let project = await aFlowProject()
+        let model = try #require(project.model)
+        let window = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: CanvasState(),
+                stage: .constant(stage)
+            ),
+            width: 1400,
+            height: 900
+        )
+        let content = try #require(window.contentView)
+        let regions = stageColumns(in: content)
+        #expect(regions.isEmpty == false, "the \(stage.label) stage drew no column")
+
+        var answered: Set<ObjectIdentifier> = []
+        for (index, region) in regions.enumerated() {
+            let over = Array(regions[(index + 1)...])
+            for point in gridPoints(in: region.convert(region.bounds, to: nil)) {
+                // A column drawn over this one owns the point, and answering
+                // it is what that column is for.
+                guard over.allSatisfy({ $0.convert($0.bounds, to: nil).contains(point) == false })
+                else { continue }
+
+                let answer = content.hitTest(point)
+                #expect(
+                    answer != nil,
+                    "on \(stage.label) nothing answers the click at \(point)"
+                )
+                guard let answer else { continue }
+                answered.insert(ObjectIdentifier(answer))
+                #expect(
+                    isInside(answer, region),
+                    "on \(stage.label) the click at \(point) in column \(index) answered \(viewChain(from: answer))"
+                )
+            }
+        }
+
+        #expect(
+            answered.count > 1,
+            "on \(stage.label) one view answers every click, which is a view over the columns"
+        )
+    }
+
+    /// The five places a person clicks on the Architecture stage, and which
+    /// column answers each.
+    ///
+    /// The palette row and the search field are the two #177 reported dead.
+    @Test func eachControlOnTheArchitectureStageAnswersItsOwnClicks() async throws {
+        let project = await aFlowProject()
+        let model = try #require(project.model)
+        let window = laidOut(
+            ProjectColumns(
+                project: project,
+                session: model,
+                canvas: CanvasState(),
+                stage: .constant(.architecture)
+            ),
+            width: 1400,
+            height: 900
+        )
+        let content = try #require(window.contentView)
+        let split = try #require(columns(in: content))
+        let palette = try #require(split.arrangedSubviews.first)
+        let canvasColumn = split.arrangedSubviews[1]
+        let sidebar = try #require(split.arrangedSubviews.last)
+
+        let list = try #require(firstView(of: NSTableView.self, in: palette))
+        let row = list.convert(list.rect(ofRow: 1), to: nil)
+        let search = try #require(
+            views(of: NSTextField.self, in: palette).first { $0 is NSSearchField },
+            "the palette drew no search field"
+        )
+        let panel = try #require(
+            views(of: NSPopUpButton.self, in: canvasColumn).min { $0.frame.minY < $1.frame.minY },
+            "the canvas column drew no workflow panel control"
+        )
+        let sidebarField = try #require(
+            views(of: NSTextField.self, in: sidebar).first,
+            "the right sidebar drew no field"
+        )
+        let paletteEdge = palette.convert(palette.bounds, to: nil).maxX
+        let canvasFrame = canvasColumn.convert(canvasColumn.bounds, to: nil)
+
+        let probes: [(String, NSPoint, NSView)] = [
+            ("a palette row", NSPoint(x: row.midX, y: row.midY), palette),
+            ("the search field", centre(of: search), palette),
+            (
+                "the canvas",
+                NSPoint(x: (paletteEdge + canvasFrame.maxX) / 2, y: canvasFrame.midY),
+                canvasColumn
+            ),
+            ("the workflow panel", centre(of: panel), canvasColumn),
+            ("the right sidebar field", centre(of: sidebarField), sidebar)
+        ]
+
+        for (name, point, column) in probes {
+            let answer = content.hitTest(point)
+            #expect(
+                answer.map { isInside($0, column) } == true,
+                "\(name) at \(point) answered \(viewChain(from: answer))"
+            )
+        }
+    }
+
+    /// The middle of a view, in window coordinates.
+    private func centre(of view: NSView) -> NSPoint {
+        let frame = view.convert(view.bounds, to: nil)
+        return NSPoint(x: frame.midX, y: frame.midY)
+    }
 }

@@ -121,6 +121,11 @@ struct ProjectWindow: View {
                         session.dismissTerraformImportResult()
                     }
                 )
+            } else {
+                NothingToShowSheet(
+                    says: "The Terraform import result has gone.",
+                    dismiss: { isShowingTerraformImport = false }
+                )
             }
         }
         .sheet(isPresented: $isShowingHistory) {
@@ -129,6 +134,11 @@ struct ProjectWindow: View {
             if let history = session.history {
                 HistorySheet(
                     session: history,
+                    dismiss: { isShowingHistory = false }
+                )
+            } else {
+                NothingToShowSheet(
+                    says: "This window has no history to read. Open a project first.",
                     dismiss: { isShowingHistory = false }
                 )
             }
@@ -140,6 +150,11 @@ struct ProjectWindow: View {
                     session: model,
                     dismiss: { session.systemSheet = nil }
                 )
+            } else {
+                NothingToShowSheet(
+                    says: "No system is drawn, so there is no \(kind.title) to read.",
+                    dismiss: { session.systemSheet = nil }
+                )
             }
         }
         .sheet(isPresented: $isShowingPlannedWork) {
@@ -147,6 +162,11 @@ struct ProjectWindow: View {
                 PlannedWorkSheet(
                     project: session,
                     threats: model.threats,
+                    dismiss: { isShowingPlannedWork = false }
+                )
+            } else {
+                NothingToShowSheet(
+                    says: "No system is drawn, so there is no planned work to read.",
                     dismiss: { isShowingPlannedWork = false }
                 )
             }
@@ -162,6 +182,11 @@ struct ProjectWindow: View {
                         onChange: { session.reload() },
                         fetcher: session.useCases.fetcher
                     ),
+                    dismiss: { isShowingLibraries = false }
+                )
+            } else {
+                NothingToShowSheet(
+                    says: "No project is open, so there are no libraries to read.",
                     dismiss: { isShowingLibraries = false }
                 )
             }
@@ -265,6 +290,9 @@ struct ProjectWindow: View {
                 Button("History", systemImage: "chart.line.uptrend.xyaxis") {
                     isShowingHistory = true
                 }
+                // The neighbours carry the same guard. Without it this
+                // control opened a sheet with no history in it.
+                .disabled(session.history == nil)
                 .accessibilityIdentifier("show-history")
             }
 
