@@ -989,4 +989,73 @@ struct WindowLayoutTests {
         let frame = view.convert(view.bounds, to: nil)
         return NSPoint(x: frame.midX, y: frame.midY)
     }
+
+    // MARK: the canvas toolbar's word rule
+
+    @Test func theCanvasToolbarShowsWordsAtAndAboveItsWordsWidth() {
+        #expect(CanvasView.toolbarShowsWords(inColumnOfWidth: CanvasView.toolbarWordsWidth))
+        #expect(CanvasView.toolbarShowsWords(inColumnOfWidth: CanvasView.toolbarWordsWidth + 200))
+    }
+
+    @Test func theCanvasToolbarHidesWordsBelowItsWordsWidthAndAtTheNarrowestDiagramColumn() {
+        #expect(CanvasView.toolbarShowsWords(inColumnOfWidth: CanvasView.toolbarWordsWidth - 1) == false)
+        #expect(CanvasView.toolbarShowsWords(inColumnOfWidth: ProjectColumns.minimumDiagramWidth) == false)
+    }
+
+    @Test func theCanvasToolbarShowsWordsAtAWidthOfNought() {
+        #expect(CanvasView.toolbarShowsWords(inColumnOfWidth: 0))
+    }
+
+    @Test func theNarrowestDiagramColumnIsBelowTheCanvasToolbarWordsWidth() {
+        #expect(ProjectColumns.minimumDiagramWidth < CanvasView.toolbarWordsWidth)
+    }
+
+    /// One toolbar-style control, built the same way `canvasToolbar` builds
+    /// one: a `Button` with a `Label`, the `ControlWords` modifier, and the
+    /// bordered button style.
+    private struct AToolbarControl: View {
+        let showsWords: Bool
+        var body: some View {
+            Button {} label: {
+                Label("Draw zone", systemImage: "rectangle.dashed")
+            }
+            .modifier(ControlWords(showsWords: showsWords))
+            .buttonStyle(.bordered)
+        }
+    }
+
+    /// `ControlWords` only ever calls `labelStyle`. macOS keeps a `Label`'s
+    /// title as the accessibility label under every `LabelStyle`, so the
+    /// words-off control reads the same to a screen reader as the words-on
+    /// control reads. This states the two halves that make that true: the
+    /// modifier draws a narrower control with the words off, and it sets no
+    /// accessibility label of its own for either case, so neither can read
+    /// something other than the control's own title.
+    @Test func theControlWordsModifierDrawsANarrowerControlWithWordsOffAndSetsNoLabelOfItsOwn() throws {
+        let withWords = NSHostingView(rootView: AToolbarControl(showsWords: true)).fittingSize.width
+        let withoutWords = NSHostingView(rootView: AToolbarControl(showsWords: false)).fittingSize.width
+
+        #expect(
+            withoutWords < withWords,
+            "words off measured \(withoutWords), words on measured \(withWords)"
+        )
+
+        let source = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("threatmodeller/canvas/CanvasView.swift"),
+            encoding: .utf8
+        )
+        let modifierRange = try #require(
+            source.range(of: "struct ControlWords"),
+            "CanvasView.swift no longer declares ControlWords"
+        )
+        let body = source[modifierRange.lowerBound...]
+
+        #expect(
+            body.contains(".accessibilityLabel(") == false,
+            "ControlWords sets its own accessibility label, so words on and off could read differently"
+        )
+    }
 }

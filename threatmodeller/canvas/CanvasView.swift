@@ -165,7 +165,7 @@ struct CanvasView: View {
 
                 flowLabelField
 
-                emptyCanvasHint
+                emptyCanvasHint(inSize: geometry.size)
 
                 // The toolbar is measured against the column's own width,
                 // which this reader states. The ZStack around it is as wide as
@@ -370,10 +370,12 @@ struct CanvasView: View {
         }
     }
 
-    /// What a canvas with nothing on it says. It names the three gestures,
-    /// because nothing else on screen does.
+    /// The drawing layer beside it sizes itself in thousands of points, so a
+    /// `maxWidth: .infinity` frame here centres on that size and never on
+    /// the column the person actually sees. This measures against the
+    /// column's own size instead, the way `canvasToolbar` does.
     @ViewBuilder
-    private var emptyCanvasHint: some View {
+    private func emptyCanvasHint(inSize size: CGSize) -> some View {
         if session.canvas.components.isEmpty && session.canvas.zones.isEmpty {
             VStack(spacing: 6) {
                 Text("Drag a technology here to start.")
@@ -385,20 +387,13 @@ struct CanvasView: View {
             }
             .multilineTextAlignment(.center)
             .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(width: size.width, height: size.height)
             .allowsHitTesting(false)
             .accessibilityIdentifier("canvas-gestures-hint")
         }
     }
 
     /// The controls that float at the top of the diagram.
-    ///
-    /// The column they float over is as narrow as
-    /// `ProjectColumns.minimumDiagramWidth`, and the person changes that width
-    /// with the divider of the threats stage. The row with every word shown
-    /// needs more room than the narrowest column has, so a column that cannot
-    /// hold the words gets the icons alone. Without that the row ran past the
-    /// column's trailing edge and drew over the threat sidebar.
     private func canvasToolbar(inColumnOfWidth width: CGFloat) -> some View {
         toolbarRow(showsWords: Self.toolbarShowsWords(inColumnOfWidth: width))
             // Collapsing the palette column puts the canvas at the window's
@@ -407,15 +402,8 @@ struct CanvasView: View {
             .padding(CanvasView.windowEdgeMargin)
     }
 
-    /// The width the row needs with every word shown: the two margins, the
-    /// Draw zone control, the three zoom controls, the two dividers, the gaps
-    /// and the tag filter menu.
     static let toolbarWordsWidth: CGFloat = 520
 
-    /// True while the column is wide enough for the words.
-    ///
-    /// A column of nought is a column not measured yet. The words are the
-    /// state the person reads first, so an unmeasured column shows them.
     static func toolbarShowsWords(inColumnOfWidth width: CGFloat) -> Bool {
         width <= 0 || width >= toolbarWordsWidth
     }
@@ -622,9 +610,6 @@ nonisolated enum CanvasPointer {
 }
 
 /// Shows or hides the words on the controls that carry an icon too.
-///
-/// A narrow column takes the icons alone. The words stay in the accessibility
-/// label of each control, so a screen reader reads the same name either way.
 struct ControlWords: ViewModifier {
     let showsWords: Bool
 
