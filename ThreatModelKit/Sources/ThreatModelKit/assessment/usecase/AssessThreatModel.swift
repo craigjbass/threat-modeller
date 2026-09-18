@@ -155,10 +155,6 @@ public struct AssessedControl: Hashable, Sendable {
     }
 }
 
-/// What raised a threat.
-///
-/// Milestone 3 adds a `zone` case. Every call site handles the cases
-/// exhaustively, so a new case is a compile error rather than a silent gap.
 /// One CVE the component a threat is raised on carries, as the threat card
 /// reads it.
 public struct AssessedVulnerability: Hashable, Sendable {
@@ -209,6 +205,7 @@ public struct AssessedVulnerability: Hashable, Sendable {
     }
 }
 
+/// What raised a threat.
 public enum AssessedThreatSource: Hashable, Sendable {
     case component(id: String, name: String, providerId: String)
     case connection(id: String, sourceName: String, targetName: String)
@@ -240,8 +237,6 @@ public enum AssessedThreatSource: Hashable, Sendable {
     }
 }
 
-/// One tree that names a threat as its goal and is closed as a whole by a
-/// sufficient control. The threat card states it.
 /// One tree a threat is on, and what part the threat plays in it.
 ///
 /// The design
@@ -396,7 +391,7 @@ public struct AssessedThreat: Hashable, Sendable {
     public let recommendations: [AssessedRecommendation]
     /// Every tree that names this threat as its goal and is closed as a
     /// whole by a sufficient control, in file order. Empty for every other
-    /// threat.
+    /// threat. The threat card states it.
     public let closedByTrees: [AssessedTreeClosure]
     /// Every tree that names this threat as its goal or as a step, in file
     /// order. Empty for a threat no tree names.
@@ -496,12 +491,6 @@ public struct AssessedThreat: Hashable, Sendable {
     }
 }
 
-/// Resolves every threat the model raises, and scores each one.
-///
-/// Component threats come from the component's technology. Connection threats
-/// come from the catalogue and belong to the link, not to either end. Zone
-/// threats and the zone multiplier arrive in Milestone 3; every score here is
-/// the base score.
 /// Lists every threat the model raises, as plain values.
 public struct AssessThreatModel: AssessThreatModelUseCase {
     /// The CVEs of the component a threat is raised on, ranked. A threat on a
