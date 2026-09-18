@@ -283,6 +283,34 @@ struct SplitSystemTests {
 
         #expect(HclArchitectureSource().writePart(again) == once)
     }
+
+    /// A component states the zone another file declares, instead of nesting
+    /// inside a zone block its own file does not hold.
+    @Test func aComponentWhoseZoneIsInAnotherFileIsWrittenAsATopLevelBlockStatingTheZone() throws {
+        let ledgerStatingTheZone = """
+        component "api" {
+          technology = "aws-ec2"
+          zone       = "edge"
+        }
+        """
+        let read = merged([
+            SourcePart(file: "arch/edge.arch", text: edge),
+            SourcePart(file: "arch/ledger.arch", text: ledgerStatingTheZone),
+            SourcePart(file: "arch/payments.arch", text: header)
+        ])
+        let source = try #require(read.source)
+
+        let written = ArchitectureSourceSplit.parts(
+            of: source,
+            origins: read.origins,
+            headerFile: nil,
+            sources: HclArchitectureSource()
+        )
+
+        let ledgerPart = try #require(written.first { $0.file == "arch/ledger.arch" })
+        #expect(ledgerPart.text.hasPrefix("component \"api\" {"))
+        #expect(ledgerPart.text.contains("zone       = \"edge\""))
+    }
 }
 
 /// Writing a split system back to the files it came from.
@@ -447,6 +475,59 @@ struct SaveSplitSystemTests {
         )
         #expect(edgeFile.contains("component \"waf\"") == false)
         #expect(ledgerFile.contains("component \"waf\""))
+    }
+
+    // MARK: a part file emptied of its last block
+
+    @Test func deletingEveryComponentInAPartFileWritesItWithNoBlock() throws {
+        let app = aSplitProject()
+        _ = app.removeComponents().execute(RemoveComponentsRequest(componentIds: ["waf"]))
+
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+
+        let edgeFile = try #require(
+            app.project.text(at: "/work/threatmodel/payments/arch/edge.arch")
+        )
+        #expect(edgeFile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    @Test func theEmptiedPartFileStillExistsAfterTheSave() throws {
+        let app = aSplitProject()
+        _ = app.removeComponents().execute(RemoveComponentsRequest(componentIds: ["waf"]))
+
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+
+        #expect(app.project.exists(path: "/work/threatmodel/payments/arch/edge.arch"))
+    }
+
+    @Test func theHeaderKeepsTheSystemBlockWhenAPartEmpties() throws {
+        let app = aSplitProject()
+        _ = app.removeComponents().execute(RemoveComponentsRequest(componentIds: ["waf"]))
+
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+
+        let headerFile = try #require(
+            app.project.text(at: "/work/threatmodel/payments/arch/payments.arch")
+        )
+        #expect(headerFile.hasPrefix("system \"Payments\" {"))
+    }
+
+    @Test func theEmptiedPartReadsBackWithNoDiagnostic() throws {
+        let app = aSplitProject()
+        _ = app.removeComponents().execute(RemoveComponentsRequest(componentIds: ["waf"]))
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+
+        let parts = [
+            "/work/threatmodel/payments/arch/payments.arch",
+            "/work/threatmodel/payments/arch/edge.arch",
+            "/work/threatmodel/payments/arch/ledger.arch"
+        ].map { path in
+            SourcePart(file: path, text: app.project.text(at: path) ?? "")
+        }
+        let read = HclArchitectureSource().read(parts, named: "payments")
+
+        #expect(read.hasErrors == false)
+        #expect(read.diagnostics.contains { $0.file == "/work/threatmodel/payments/arch/edge.arch" } == false)
     }
 }
 

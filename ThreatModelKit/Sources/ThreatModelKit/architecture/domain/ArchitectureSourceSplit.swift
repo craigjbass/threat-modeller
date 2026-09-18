@@ -1,11 +1,4 @@
 /// Writes one source back into the files its blocks came from.
-///
-/// A save reads the files as they are on disk, takes the origins from that
-/// read, and writes each file again. A block nobody has seen before — one a
-/// person added in the application — goes into the header file.
-///
-/// A part file that loses its last block is written empty rather than deleted:
-/// a person who cut every block out of a file still owns that file.
 public enum ArchitectureSourceSplit {
     public static func parts(
         of source: ArchitectureSource,
@@ -21,9 +14,6 @@ public enum ArchitectureSourceSplit {
 
         var written: [SourcePart] = []
         for path in files.sorted() {
-            // A zone nests the components that sit in its own file. A
-            // component whose block is in another file stays there, as a
-            // top-level block that states the zone with `zone = "<id>"`.
             let zones = source.zones
                 .filter { file(of: .zone($0.id)) == path }
                 .map { zone in
