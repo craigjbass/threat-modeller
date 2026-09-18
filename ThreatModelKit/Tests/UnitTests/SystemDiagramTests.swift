@@ -1,4 +1,4 @@
-import ArchitectureDSL
+@testable import ArchitectureDSL
 import FileGateways
 import Testing
 import ThreatModelKit
@@ -156,6 +156,43 @@ struct SystemDiagramTests {
         let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
 
         #expect(markdown.contains("## Diagrams") == false)
+    }
+
+    @Test func aWrittenSourceHoldsNoVerbatimMark() throws {
+        let source = try #require(architecture.read(payments).source)
+
+        let written = architecture.write(source)
+
+        #expect(written.contains(ArchitectureWriter.verbatimMark) == false)
+    }
+
+    @Test func aWrittenPartHoldsNoVerbatimMark() throws {
+        let source = try #require(architecture.read(payments).source)
+
+        let written = architecture.writePart(source)
+
+        #expect(written.contains(ArchitectureWriter.verbatimMark) == false)
+    }
+
+    @Test func aDiagramBodyStartingWithASpaceKeepsTheSpaceAndWritesNoMark() throws {
+        let text = """
+        system "Payments" {
+          diagram "The login sequence" {
+            kind = "mermaid"
+            text = <<EOT
+          indented body
+        EOT
+          }
+        }
+
+        """
+        let source = try #require(architecture.read(text).source)
+
+        #expect(source.diagrams[0].text.hasPrefix("  indented body"))
+
+        let written = architecture.write(source)
+
+        #expect(written.contains(ArchitectureWriter.verbatimMark) == false)
     }
 
     @Test func aSavedModelKeepsTheDiagrams() throws {

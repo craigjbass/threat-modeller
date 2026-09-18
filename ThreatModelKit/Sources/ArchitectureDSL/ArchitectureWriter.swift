@@ -214,8 +214,6 @@ struct ArchitectureWriter {
             body.append("")
         }
 
-        // A heredoc body is written where it stands, with no indent added:
-        // the picture reads back byte for byte.
         for diagram in source.diagrams {
             body.append("diagram \(quoted(diagram.label)) {")
             body.append("  kind = \(quoted(diagram.kind))")
@@ -430,15 +428,11 @@ struct ArchitectureWriter {
 
     private func indent(_ lines: [String]) -> [String] {
         lines.map { line in
-            // A heredoc line stands where the team wrote it. Indenting it
-            // would change the picture the file holds.
             if line.hasPrefix(Self.verbatimMark) { return line }
             return line.isEmpty ? "" : "  " + line
         }
     }
 
-    /// Marks a line no indent may touch. It is taken off before the file is
-    /// written, so nothing reaches the disk holding it.
     static let verbatimMark = "\u{0}"
 
     /// A list of texts, the way every list attribute writes.
