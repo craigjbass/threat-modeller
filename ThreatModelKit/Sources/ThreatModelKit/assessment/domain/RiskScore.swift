@@ -26,8 +26,8 @@ public enum RiskLevel: String, CaseIterable, Equatable, Hashable, Sendable {
 
 /// Severity rank multiplied by data sensitivity rank, giving 1–16.
 ///
-/// Later milestones fold in the zone multiplier and pathway reduction; the
-/// thresholds below stay as they are.
+/// The zone multiplier and the pathway reduction run in later stages of
+/// `ThreatResolver`.
 public struct RiskScore: Equatable, Sendable {
     public let value: Int
 

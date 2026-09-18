@@ -1,7 +1,6 @@
 import Foundation
 
-/// The aggregate a threat model is assessed from. Overrides and implemented
-/// controls join it in later milestones.
+/// The aggregate a threat model is assessed from.
 public struct ThreatModel: Equatable, Sendable {
     public var name: String
     public var components: [Component]
@@ -18,8 +17,8 @@ public struct ThreatModel: Equatable, Sendable {
     /// What compensates a threat the catalogue's own controls do not answer.
     /// Spec section 5: the one thing in a controls file that moves a score.
     public var compensatingControls: [ThreatKey: [CompensatingControl]]
-    /// One component answering a named threat on another. Task 9 reads these;
-    /// until then the resolver carries them without acting on them.
+    /// One component answering a named threat on another. `ComponentMitigations`
+    /// reads these edges.
     public var mitigatesEdges: [MitigatesEdge]
     /// What a person says should be done about a threat, keyed the way a
     /// compensating control is.
@@ -59,8 +58,7 @@ public struct ThreatModel: Equatable, Sendable {
 
     /// Every control the user has recorded as in place.
     ///
-    /// Derived from the statuses, and written by setting them, so everything
-    /// that read this before Milestone 10B still reads it.
+    /// Derived from `controlStatuses`, and written by setting them.
     public var implementedControls: Set<ControlKey> {
         get { Set(controlStatuses.filter { $0.value.isRecorded }.keys) }
         set {

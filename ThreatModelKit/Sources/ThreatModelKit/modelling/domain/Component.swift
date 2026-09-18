@@ -65,7 +65,7 @@ public struct Component: Equatable, Sendable {
     public var sensitivity: DataSensitivity
     public var customName: String?
     /// When true the component raises no threats and suppresses threats on
-    /// anything attached to it. Honoured from Milestone 2 onwards.
+    /// anything attached to it.
     public var threatsDisabled: Bool
     public var runsAs: PrivilegeLevel
     public var assets: [Asset]
