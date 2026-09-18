@@ -231,6 +231,7 @@ final class ProjectSession {
         isAutoSyncOn = defaults.bool(forKey: Self.autoSyncKey)
         pointerMode = PointerMode(rawValue: defaults.string(forKey: Self.pointerModeKey) ?? "")
             ?? PointerMode.standard
+        pointerModeBox.mode = pointerMode
         if defaults.object(forKey: Self.paletteShowingKey) == nil {
             defaults.set(true, forKey: Self.paletteShowingKey)
         }
@@ -261,8 +262,17 @@ final class ProjectSession {
     /// on Trackpad, and the toolbar and the View menu change it. The choice
     /// outlives the run.
     var pointerMode: PointerMode = .trackpad {
-        didSet { defaults.set(pointerMode.rawValue, forKey: Self.pointerModeKey) }
+        didSet {
+            defaults.set(pointerMode.rawValue, forKey: Self.pointerModeKey)
+            pointerModeBox.mode = pointerMode
+        }
     }
+
+    /// The same mode as `pointerMode`, held by reference. `CanvasView` and
+    /// `TreeCanvas` install their scroll monitor once and keep it running;
+    /// the monitor reads this box at event time, so a change made after the
+    /// canvas appeared still reaches the next wheel.
+    let pointerModeBox = PointerModeBox()
 
     var hasErrors: Bool {
         diagnostics.contains { $0.severity == .error }

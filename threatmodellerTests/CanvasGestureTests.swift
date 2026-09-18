@@ -648,6 +648,39 @@ struct CanvasGestureTests {
         #expect(canvas.transform.zoom == 1)
     }
 
+    /// `CanvasView`'s monitor is installed once and keeps running; the
+    /// closure it calls reads `PointerModeBox.mode` at event time, not the
+    /// mode the box held when the closure was made. A change to the box
+    /// after it is made must still reach the next wheel.
+    @Test func aWheelReadsThePointerModeABoxHoldsAfterItChanges() {
+        let (_, canvas, gestures) = drawn()
+        let pointerMode = PointerModeBox(.trackpad)
+
+        pointerMode.mode = .mouse
+        gestures.wheel(
+            by: CGSize(width: 0, height: 20),
+            at: CGPoint(x: 300, y: 200),
+            isShiftDown: false,
+            mode: pointerMode.mode
+        )
+
+        #expect(canvas.transform.zoom > 1)
+        let panAfterTheZoom = canvas.transform.pan
+
+        pointerMode.mode = .trackpad
+        gestures.wheel(
+            by: CGSize(width: 0, height: 20),
+            at: CGPoint(x: 300, y: 200),
+            isShiftDown: false,
+            mode: pointerMode.mode
+        )
+
+        #expect(
+            canvas.transform.pan
+                == CGSize(width: panAfterTheZoom.width, height: panAfterTheZoom.height + 20)
+        )
+    }
+
     /// A middle-button drag pans, in either mode.
     @Test func aMiddleButtonDragPansTheDiagram() {
         let (_, canvas, gestures) = drawn()

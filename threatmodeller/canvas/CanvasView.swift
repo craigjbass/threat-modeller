@@ -14,9 +14,13 @@ struct CanvasView: View {
 
     let session: ThreatModelSession
     let canvas: CanvasState
-    /// Which pointing device the person drives the canvas with. A preview and
-    /// a drawing test take the mode a new person starts in.
-    var pointerMode: PointerMode = .standard
+    /// Which pointing device the person drives the canvas with, held by
+    /// reference so the scroll monitor reads a later change. A preview and a
+    /// drawing test take the mode a new person starts in.
+    var pointerMode: PointerModeBox = PointerModeBox()
+    /// What installs and removes the scroll monitor. A test's fake counts
+    /// how many are active.
+    var eventMonitors: any LocalEventMonitoring = AppKitEventMonitoring()
 
     /// True while the pointer is over this canvas, so a scroll anywhere else
     /// in the application moves nothing here.
@@ -54,13 +58,13 @@ struct CanvasView: View {
 
     private func startReadingScrollEvents() {
         guard scrollMonitor == nil else { return }
-        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+        scrollMonitor = eventMonitors.addLocalMonitor(matching: .scrollWheel) { event in
             guard isPointerOver else { return event }
             gestures.wheel(
                 by: CGSize(width: event.scrollingDeltaX, height: event.scrollingDeltaY),
                 at: pointerViewPoint,
                 isShiftDown: event.modifierFlags.contains(.shift),
-                mode: pointerMode
+                mode: pointerMode.mode
             )
             return nil
         }
@@ -105,7 +109,7 @@ struct CanvasView: View {
     static let spaceKey: UInt16 = 49
 
     private func stopReadingScrollEvents() {
-        if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
+        if let scrollMonitor { eventMonitors.removeMonitor(scrollMonitor) }
         scrollMonitor = nil
         if let middleButtonMonitor { NSEvent.removeMonitor(middleButtonMonitor) }
         middleButtonMonitor = nil

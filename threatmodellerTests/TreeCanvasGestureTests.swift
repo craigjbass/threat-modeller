@@ -146,6 +146,39 @@ struct TreeCanvasGestureTests {
         #expect(canvas.transform.zoom == 1)
     }
 
+    /// `TreeCanvas`'s monitor is installed once and keeps running; the
+    /// closure it calls reads `PointerModeBox.mode` at event time, not the
+    /// mode the box held when the closure was made. A change to the box
+    /// after it is made must still reach the next wheel.
+    @Test func aWheelReadsThePointerModeABoxHoldsAfterItChanges() {
+        let (_, canvas, gestures, _, _) = drawn()
+        let pointerMode = PointerModeBox(.trackpad)
+
+        pointerMode.mode = .mouse
+        gestures.wheel(
+            by: CGSize(width: 0, height: 20),
+            at: CGPoint(x: 260, y: 140),
+            isShiftDown: false,
+            mode: pointerMode.mode
+        )
+
+        #expect(canvas.transform.zoom > 1)
+        let panAfterTheZoom = canvas.transform.pan
+
+        pointerMode.mode = .trackpad
+        gestures.wheel(
+            by: CGSize(width: 0, height: 20),
+            at: CGPoint(x: 260, y: 140),
+            isShiftDown: false,
+            mode: pointerMode.mode
+        )
+
+        #expect(
+            canvas.transform.pan
+                == CGSize(width: panAfterTheZoom.width, height: panAfterTheZoom.height + 20)
+        )
+    }
+
     @Test func aMiddleButtonDragPansTheTreeCanvas() {
         let (_, canvas, gestures, _, _) = drawn()
 
