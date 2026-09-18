@@ -52,6 +52,22 @@ struct ReportMethodologyTests {
         #expect(methodology.zoneReductions.map(\.count) == [30])
     }
 
+    @Test func riskLevelDeclaresCasesInAscendingRankOrder() {
+        #expect(RiskLevel.allCases.map(\.rank) == RiskLevel.allCases.map(\.rank).sorted())
+    }
+
+    @Test func ordersTheThresholdsByRankWhateverOrderTheLevelsArriveIn() {
+        let methodology = ReportMethodology.build(
+            zones: [],
+            tolerance: .low,
+            levels: RiskLevel.allCases.reversed()
+        )
+
+        #expect(
+            methodology.levelThresholds.map(\.label) == ["Low", "Medium", "High", "Critical"]
+        )
+    }
+
     @Test func theReportCarriesIt() {
         let app = TestDependencies()
         _ = app.addComponent().execute(

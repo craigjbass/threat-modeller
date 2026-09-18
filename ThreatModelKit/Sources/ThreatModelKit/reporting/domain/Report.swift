@@ -489,7 +489,11 @@ public struct ReportMethodology: Equatable, Sendable {
     /// Reads the thresholds out of `RiskScore.level` rather than repeating
     /// them. A second copy would disagree with the scoring the day a
     /// threshold moves.
-    public static func build(zones: [ReportZone], tolerance: RiskLevel) -> ReportMethodology {
+    public static func build(
+        zones: [ReportZone],
+        tolerance: RiskLevel,
+        levels: [RiskLevel] = RiskLevel.allCases
+    ) -> ReportMethodology {
         var lowestByLevel: [RiskLevel: Int] = [:]
         var highestByLevel: [RiskLevel: Int] = [:]
         for score in 1...highestScore {
@@ -499,10 +503,7 @@ public struct ReportMethodology: Equatable, Sendable {
         }
 
         return ReportMethodology(
-            levelThresholds: RiskLevel.allCases
-                // A no-op today, because the cases already declare in rank
-                // order. Keep it: it is what stops the table reordering the
-                // day a case is declared out of rank order.
+            levelThresholds: levels
                 .sorted { $0.rank < $1.rank }
                 .compactMap { level in
                     guard let lowest = lowestByLevel[level],
