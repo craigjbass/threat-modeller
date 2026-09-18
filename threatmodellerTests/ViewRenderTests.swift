@@ -97,7 +97,8 @@ struct ViewRenderTests {
     private func aViewedComponent(
         shapeId: String,
         statusId: String = "live",
-        isUser: Bool = false
+        isUser: Bool = false,
+        threatsDisabled: Bool = false
     ) -> ViewedComponent {
         ViewedComponent(
             id: "c1",
@@ -109,7 +110,7 @@ struct ViewRenderTests {
             x: 0,
             y: 0,
             sensitivityId: "confidential",
-            threatsDisabled: false,
+            threatsDisabled: threatsDisabled,
             isUnknownTechnology: false,
             zoneId: nil,
             runsAsId: "user",
@@ -128,10 +129,16 @@ struct ViewRenderTests {
         zoneName: String? = nil,
         statusId: String = "live",
         isUser: Bool = false,
-        classificationColour: Color? = nil
+        classificationColour: Color? = nil,
+        threatsDisabled: Bool = false
     ) -> ComponentNodeView {
         ComponentNodeView(
-            component: aViewedComponent(shapeId: shapeId, statusId: statusId, isUser: isUser),
+            component: aViewedComponent(
+                shapeId: shapeId,
+                statusId: statusId,
+                isUser: isUser,
+                threatsDisabled: threatsDisabled
+            ),
             risk: risk,
             isSelected: false,
             onSelect: { _ in },
@@ -1245,6 +1252,75 @@ struct ViewRenderTests {
         )
 
         #expect(unstated == live)
+    }
+
+    /// A component out of scope draws a different picture from the same
+    /// component in scope.
+    @Test func drawsAComponentOutOfScopeDifferentlyFromOneInScope() async throws {
+        let inScope = try #require(
+            pixels(of: aNode(shapeId: "process", risk: nil), width: 200, height: 180)
+        )
+        let outOfScope = try #require(
+            pixels(
+                of: aNode(shapeId: "process", risk: nil, threatsDisabled: true),
+                width: 200,
+                height: 180
+            )
+        )
+
+        #expect(inScope != outOfScope)
+    }
+
+    /// A component out of scope and proposed draws the same picture as a
+    /// component out of scope alone: out of scope wins over proposed.
+    @Test func drawsAComponentOutOfScopeAndProposedTheSameAsOutOfScopeAloneBecauseOutOfScopeWins() async throws {
+        let outOfScopeAlone = try #require(
+            pixels(
+                of: aNode(shapeId: "process", risk: nil, statusId: "live", threatsDisabled: true),
+                width: 200,
+                height: 180
+            )
+        )
+        let outOfScopeAndProposed = try #require(
+            pixels(
+                of: aNode(shapeId: "process", risk: nil, statusId: "proposed", threatsDisabled: true),
+                width: 200,
+                height: 180
+            )
+        )
+
+        #expect(outOfScopeAlone == outOfScopeAndProposed)
+    }
+
+    /// A component out of scope and carrying an open count draws the same
+    /// picture as the same component with no risk: out of scope shows no
+    /// count.
+    @Test func drawsAComponentOutOfScopeWithAnOpenCountTheSameAsOneWithNoRisk() async throws {
+        let withNoRisk = try #require(
+            pixels(
+                of: aNode(shapeId: "process", risk: nil, threatsDisabled: true),
+                width: 200,
+                height: 180
+            )
+        )
+        let withAnOpenCount = try #require(
+            pixels(
+                of: aNode(
+                    shapeId: "process",
+                    risk: ElementRisk(
+                        sourceId: "component:c1",
+                        openCount: 3,
+                        totalCount: 4,
+                        highestLevelId: "high"
+                    ),
+                    threatsDisabled: true
+                ),
+                width: 200,
+                height: 180
+            )
+        )
+
+        #expect(withNoRisk == withAnOpenCount)
     }
 
     // MARK: the mark for a user

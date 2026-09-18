@@ -68,10 +68,6 @@ struct ComponentNodeView: View {
         return RiskPalette.colour(forLevelId: levelId)
     }
 
-    /// The outline dash. A component out of scope breaks 6 on and 4 off. A
-    /// proposed component breaks 3 on and 3 off, so a reader tells the two
-    /// broken outlines apart. Out of scope wins, because a component that
-    /// raises nothing is what a reader must see first.
     private var outlineStyle: StrokeStyle {
         StrokeStyle(
             lineWidth: isSelected ? 2.5 : 1.5,
@@ -79,7 +75,6 @@ struct ComponentNodeView: View {
         )
     }
 
-    /// A component out of scope raises nothing, so it never shows a count.
     private var openCount: Int { isOutOfScope ? 0 : (risk?.openCount ?? 0) }
 
     var body: some View {
@@ -221,7 +216,7 @@ struct ComponentNodeView: View {
                     .background(Capsule().fill((classificationColour ?? Color.secondary).opacity(0.15)))
                     .accessibilityIdentifier("node-sensitivity-\(component.id)")
             }
-            if isProposed {
+            if isProposed && !isOutOfScope {
                 Text(ComponentStatus.proposed.label)
                     .font(.caption2)
                     .lineLimit(1)
