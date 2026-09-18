@@ -70,6 +70,45 @@ struct HistoryTests {
         #expect(models.current().implementedControls.isEmpty)
     }
 
+    @Test func takesBackHistoryLimitChangesThenAnswersNil() {
+        for x in 0..<InMemoryThreatModelGateway.historyLimit {
+            addComponent(x: Double(x))
+        }
+
+        for _ in 0..<InMemoryThreatModelGateway.historyLimit {
+            #expect(models.undo() == ChangeLabel.addComponent)
+        }
+
+        #expect(models.undo() == nil)
+    }
+
+    @Test func reachesTheModelAfterTheFirstChangeWhenOneMoreChangeThanTheLimitIsMade() {
+        let startingModel = models.current()
+
+        addComponent(x: 0)
+        let modelAfterFirstChange = models.current()
+
+        for x in 1..<(InMemoryThreatModelGateway.historyLimit + 1) {
+            addComponent(x: Double(x))
+        }
+
+        for _ in 0..<InMemoryThreatModelGateway.historyLimit {
+            #expect(models.undo() == ChangeLabel.addComponent)
+        }
+
+        #expect(models.current() == modelAfterFirstChange)
+        #expect(models.current() != startingModel)
+        #expect(models.undo() == nil)
+    }
+
+    @Test func countsEveryChangeInRevisionEvenTheOnesTheHistoryDropped() {
+        for x in 0..<(InMemoryThreatModelGateway.historyLimit + 1) {
+            addComponent(x: Double(x))
+        }
+
+        #expect(models.revision == InMemoryThreatModelGateway.historyLimit + 1)
+    }
+
     @Test func neverCountsARefusedChangeAsAStep() {
         addComponent()
 

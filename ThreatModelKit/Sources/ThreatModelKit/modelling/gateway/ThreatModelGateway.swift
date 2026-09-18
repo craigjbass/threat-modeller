@@ -128,8 +128,7 @@ public enum ChangeLabel {
 /// stated rather than inferred, because the lock is what makes it safe and the
 /// compiler cannot see that.
 public final class InMemoryThreatModelGateway: ThreatModelGateway, @unchecked Sendable {
-    /// How far back the user can go. Deep enough that nobody reaches it in a
-    /// session, shallow enough that a long session does not grow without end.
+    /// How far back the user can go.
     public static let historyLimit = 100
 
     /// One step of the history: the model before a change, and what the
