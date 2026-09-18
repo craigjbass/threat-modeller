@@ -49,8 +49,7 @@ public enum MarkdownRiskOverTime {
         return lines
     }
 
-    /// The day a commit was made, written `YYYY-MM-DD` in UTC, so two runs on
-    /// two machines write the same rows.
+    /// The day a commit was made.
     public static func day(_ date: Date) -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt

@@ -126,6 +126,35 @@ struct MarkdownRiskOverTimeTests {
 
         #expect(text.contains("| did not parse |"))
     }
+
+    @Test func aCommitAt2330UTCWritesTheDayBeforeMidnightOnEveryMachine() {
+        let date = ISO8601DateFormatter().date(from: "2026-09-17T23:30:00Z")!
+        #expect(MarkdownRiskOverTime.day(date) == "2026-09-17")
+    }
+
+    @Test func aCommitAt0030UTCWritesTheDayAfterMidnightOnEveryMachine() {
+        let date = ISO8601DateFormatter().date(from: "2026-09-18T00:30:00Z")!
+        #expect(MarkdownRiskOverTime.day(date) == "2026-09-18")
+    }
+
+    @Test func theWhatChangedHeadingAndTheRiskOverTimeRowWriteTheSameDayForOneCommit() {
+        let commit = SourceCommit(
+            hash: "aaaaaaa1111",
+            author: "Craig",
+            date: ISO8601DateFormatter().date(from: "2026-09-17T23:30:00Z")!
+        )
+        let riskOverTimeText = MarkdownRiskOverTime.lines([
+            RiskHistoryRow(commit: commit, numbers: RiskHistoryNumbers(totalScore: 12)),
+            row("b", 1, total: 8)
+        ]).joined(separator: "\n")
+        let whatChangedText = MarkdownWhatChanged.lines(
+            RiskChange(raised: ["dos-attack on api"]),
+            since: commit
+        ).joined(separator: "\n")
+
+        #expect(riskOverTimeText.contains("| 2026-09-17 | aaaaaaa"))
+        #expect(whatChangedText.contains("Since aaaaaaa on 2026-09-17."))
+    }
 }
 
 @Suite("The what changed section of the report")
