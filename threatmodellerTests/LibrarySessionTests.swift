@@ -177,16 +177,14 @@ struct LibraryFetchCancelTests {
 
     @Test func cancelStopsAFetchThatIsWaiting() async throws {
         let (session, useCases) = aProject()
-        // A backstop, not a delay: the fetch answers as soon as Cancel
-        // arrives. It is long because a loaded machine can hold the main
-        // actor for seconds, and a fetch that runs out of wait answers with
-        // the files.
-        useCases.libraryFetcher.waits = 120
+        // The fetcher blocks the fetch, so the cancel always arrives while
+        // the fetch waits, not by a race against a clock.
+        useCases.libraryFetcher.blockNextFetch()
 
         let fetch = Task { await session.add(repository: "/elements", tag: "v1.0.0") }
-        // The window redraws while the fetch waits, so the session answers.
-        while session.isWorking == false { await Task.yield() }
+        await useCases.libraryFetcher.waitUntilFetchIsWaiting()
         session.cancel()
+        useCases.libraryFetcher.release()
         await fetch.value
 
         #expect(useCases.libraryFetcher.cancels == 1)
@@ -196,15 +194,14 @@ struct LibraryFetchCancelTests {
 
     @Test func aCancelledFetchWritesNoLibraryAndNoLockEntry() async throws {
         let (session, useCases) = aProject()
-        // A backstop, not a delay: the fetch answers as soon as Cancel
-        // arrives. It is long because a loaded machine can hold the main
-        // actor for seconds, and a fetch that runs out of wait answers with
-        // the files.
-        useCases.libraryFetcher.waits = 120
+        // The fetcher blocks the fetch, so the cancel always arrives while
+        // the fetch waits, not by a race against a clock.
+        useCases.libraryFetcher.blockNextFetch()
 
         let fetch = Task { await session.add(repository: "/elements", tag: "v1.0.0") }
-        while session.isWorking == false { await Task.yield() }
+        await useCases.libraryFetcher.waitUntilFetchIsWaiting()
         session.cancel()
+        useCases.libraryFetcher.release()
         await fetch.value
 
         #expect(useCases.project.text(at: "/work/threatmodel/library/acme.lib") == nil)
@@ -225,6 +222,21 @@ struct LibraryFetchCancelTests {
 
         await session.add(repository: "/elements", tag: "v1.0.0")
 
+        #expect(session.errorMessage == nil)
+        #expect(useCases.project.text(at: "/work/threatmodel/library/acme.lib") != nil)
+    }
+
+    @Test func releasingBeforeTheCancelLetsTheFetchFinish() async throws {
+        let (session, useCases) = aProject()
+        useCases.libraryFetcher.blockNextFetch()
+
+        let fetch = Task { await session.add(repository: "/elements", tag: "v1.0.0") }
+        await useCases.libraryFetcher.waitUntilFetchIsWaiting()
+        useCases.libraryFetcher.release()
+        await fetch.value
+        session.cancel()
+
+        #expect(useCases.libraryFetcher.cancels == 0)
         #expect(session.errorMessage == nil)
         #expect(useCases.project.text(at: "/work/threatmodel/library/acme.lib") != nil)
     }

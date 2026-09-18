@@ -35,32 +35,50 @@ public final class FakeLibraryFetcher: LibraryFetching, @unchecked Sendable {
         tagsByRepository[repository] = tags
     }
 
-    /// How long a fetch waits for a Cancel before it answers. Zero means it
-    /// answers at once.
+    /// Arms the fetcher so the next `fetch` waits at a gate until `release()`
+    /// is called.
     ///
-    /// It is a backstop, not a delay a test measures: the fetch answers the
-    /// moment `cancel()` arrives, and the number only stops a fetch nobody
-    /// cancels from waiting for ever. Set it well above anything a loaded
-    /// machine takes to reach the Cancel, because a fetch that runs out of
-    /// wait answers with the files and the test then sees no cancellation.
+    /// This orders a cancel against a fetch by a signal, not by a clock: the
+    /// fetch always waits until the test releases it, on every machine, so a
+    /// test that cancels before it releases always cancels a fetch that is
+    /// still waiting.
+    public func blockNextFetch() {
+        lock.lock()
+        gateValue = DispatchSemaphore(value: 0)
+        fetchIsWaitingValue = false
+        lock.unlock()
+    }
+
+    /// Waits until the fetch `blockNextFetch` armed reaches the gate.
     ///
-    /// A test writes it on one thread and `fetch` reads it on another, so the
-    /// lock carries it across. Reading it without the lock let a fetch see
-    /// zero, answer at once, and finish before Cancel arrived.
-    public var waits: TimeInterval {
-        get {
+    /// A test awaits this before it cancels or releases, so the test never
+    /// races the background thread that runs `fetch`.
+    public func waitUntilFetchIsWaiting() async {
+        await withCheckedContinuation { continuation in
             lock.lock()
-            defer { lock.unlock() }
-            return waitsValue
-        }
-        set {
-            lock.lock()
-            waitsValue = newValue
+            if fetchIsWaitingValue {
+                lock.unlock()
+                continuation.resume()
+                return
+            }
+            waitingContinuation = continuation
             lock.unlock()
         }
     }
 
-    private var waitsValue: TimeInterval = 0
+    /// Lets the fetch waiting at the gate continue.
+    public func release() {
+        lock.lock()
+        let gate = gateValue
+        gateValue = nil
+        fetchIsWaitingValue = false
+        lock.unlock()
+        gate?.signal()
+    }
+
+    private var gateValue: DispatchSemaphore?
+    private var fetchIsWaitingValue = false
+    private var waitingContinuation: CheckedContinuation<Void, Never>?
 
     /// Stops a fetch that is waiting. The waiting fetch then throws.
     public func cancel() {
@@ -84,17 +102,19 @@ public final class FakeLibraryFetcher: LibraryFetching, @unchecked Sendable {
     public func fetch(repository: String, tag: String) throws -> [String: String] {
         if repository.hasPrefix("-") { throw LibraryFetchFault.badRepository(repository) }
 
-        let waitsFor = waits
-        if waitsFor > 0 {
-            let until = Date().addingTimeInterval(waitsFor)
-            while Date() < until {
-                lock.lock()
-                let stopped = isCancelled
-                lock.unlock()
-                if stopped { throw LibraryFetchFault.cancelled }
-                Thread.sleep(forTimeInterval: 0.005)
-            }
+        lock.lock()
+        let gate = gateValue
+        if gate != nil {
+            fetchIsWaitingValue = true
+            let continuation = waitingContinuation
+            waitingContinuation = nil
+            lock.unlock()
+            continuation?.resume()
+        } else {
+            lock.unlock()
         }
+        gate?.wait()
+
         lock.lock()
         if isCancelled {
             isCancelled = false
