@@ -2,24 +2,18 @@ import Foundation
 import Observation
 import ThreatModelKit
 
-/// Reads the project's git history, at a person's request.
-///
-/// Reading compiles the model once per sampled commit, so nothing reads it
-/// when a window opens. The sheet asks, and this says what it found.
+/// Reads the project's git history, for the History sheet to show.
 @MainActor
 @Observable
 final class HistorySession {
     private let useCases: UseCaseFactory
     private let root: String
 
-    /// Everything the last read found, so the Report stage draws the same
-    /// rows the sheet lists and compares against the same commit.
     private(set) var found = RiskHistory()
     var rows: [RiskHistoryRow] { found.rows }
     var truncated: Bool { found.truncated }
     private(set) var isReading = false
     private(set) var message: String?
-    /// How many commits the next read samples.
     var commits = ReadRiskHistory.defaultCommits
 
     init(useCases: UseCaseFactory, root: String) {
@@ -55,7 +49,6 @@ final class HistorySession {
         }
     }
 
-    /// The rows oldest first, which is how the graph reads time.
     var oldestFirst: [RiskHistoryRow] {
         rows.reversed()
     }
