@@ -115,3 +115,54 @@ struct LexerTests {
         #expect(scan("").tokens.map(\.kind) == [.endOfFile])
     }
 }
+
+@Suite("A heredoc")
+struct HeredocTests {
+    private func scan(_ text: String) -> (tokens: [Token], faults: [Diagnostic]) {
+        Lexer(text).scan()
+    }
+
+    @Test func anIndentedClosingTagClosesThereAndTheBodyHoldsEveryLineAboveIt() {
+        let scanned = scan("<<EOT\nfirst\nsecond\n  EOT")
+
+        #expect(scanned.tokens[0].kind == .string)
+        #expect(scanned.tokens[0].text == "first\nsecond\n")
+        #expect(scanned.faults.isEmpty)
+    }
+
+    @Test func charactersAfterTheTagOnItsLineStartTheBodyOnTheNextLineAndAreNotInIt() {
+        let scanned = scan("<<EOT trailing text\nbody line\nEOT")
+
+        #expect(scanned.tokens[0].kind == .string)
+        #expect(scanned.tokens[0].text == "body line\n")
+    }
+}
+
+@Suite("A number")
+struct NumberTests {
+    private func scan(_ text: String) -> (tokens: [Token], faults: [Diagnostic]) {
+        Lexer(text).scan()
+    }
+
+    @Test func aDecimalReadsAsOneNumberToken() {
+        let scanned = scan("1.5")
+
+        #expect(scanned.tokens.map(\.kind) == [.number, .endOfFile])
+        #expect(scanned.tokens[0].text == "1.5")
+    }
+
+    @Test func aFullStopWithNoDigitAfterItReadsTheDigitsAloneAsANumber() {
+        let scanned = scan("1.")
+
+        #expect(scanned.tokens[0].kind == .number)
+        #expect(scanned.tokens[0].text == "1")
+        #expect(scanned.faults.count == 1)
+    }
+
+    @Test func aNegativeNumberReadsAsOneToken() {
+        let scanned = scan("-30")
+
+        #expect(scanned.tokens.map(\.kind) == [.number, .endOfFile])
+        #expect(scanned.tokens[0].text == "-30")
+    }
+}

@@ -111,9 +111,6 @@ public struct Lexer {
                 continue
             }
 
-            // A heredoc: `<<TAG`, then every line up to a line holding the
-            // tag alone. The body is kept byte for byte, so a diagram written
-            // in it reads back the way a person wrote it.
             if character == "<" && peek(index + 1) == "<" {
                 advance(2)
                 var tag = ""
@@ -135,8 +132,6 @@ public struct Lexer {
                     )
                     continue
                 }
-                // Everything up to the end of the line the tag is on belongs
-                // to the tag line, not to the body.
                 while index < characters.count && characters[index] != "\n" { advance() }
                 if index < characters.count { advance() }
 
@@ -204,8 +199,6 @@ public struct Lexer {
                     value.append(characters[index])
                     advance()
                 }
-                // A decimal: digits, one full stop, digits. A full stop with
-                // no digit after it is not part of the number.
                 if index < characters.count, characters[index] == ".",
                    peek(index + 1)?.isNumber ?? false {
                     value.append(".")
@@ -302,7 +295,6 @@ public struct Lexer {
 }
 
 private extension String {
-    /// A heredoc closes on a line holding the tag alone, whatever indents it.
     func trimmedForHeredoc() -> String {
         var characters = Array(self)
         while characters.first?.isWhitespace == true { characters.removeFirst() }
