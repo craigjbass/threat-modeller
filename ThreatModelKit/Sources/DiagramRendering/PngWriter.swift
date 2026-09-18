@@ -34,7 +34,6 @@ public enum PngWriter {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
 
-        // The diagram measures down the page; a bitmap measures up it.
         context.translateBy(x: 0, y: Double(height))
         context.scaleBy(x: scale, y: -scale)
         context.translateBy(x: -drawing.origin.x, y: -drawing.origin.y)
@@ -156,8 +155,6 @@ public enum PngWriter {
         case .trailing: x = point.x - width
         }
 
-        // The bitmap is flipped, so the text is flipped back to read the right
-        // way up.
         context.saveGState()
         context.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
         context.textPosition = CGPoint(x: x, y: point.y)
