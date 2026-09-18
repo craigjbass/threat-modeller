@@ -8,10 +8,7 @@ public protocol AttackDataGateway: Sendable {
     /// The text of one file in the data directory, or nil when it is not
     /// there.
     func read(fileName: String) -> String?
-    /// Writes one file into the data directory. A write that fails throws.
-    ///
-    /// The gateway writes to a temporary name and moves the file into place,
-    /// so a half-written file never becomes the data.
+    /// Writes one file into the data directory.
     func write(_ text: String, fileName: String) throws
     /// When one file was last written, or nil when it is not there. The
     /// About window states it beside what the machine holds.

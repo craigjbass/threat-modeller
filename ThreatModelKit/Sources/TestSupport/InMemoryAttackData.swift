@@ -24,6 +24,13 @@ public final class InMemoryAttackData: AttackDataGateway, @unchecked Sendable {
         return readsValue
     }
 
+    /// The name of every file this fake holds right now.
+    public var fileNames: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return Array(filesByName.keys)
+    }
+
     public func put(_ text: String, fileName: String) {
         lock.lock()
         defer { lock.unlock() }

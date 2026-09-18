@@ -2,9 +2,6 @@ import Foundation
 import ThreatModelKit
 
 /// The ATT&CK data directory on this machine.
-///
-/// A write goes to a temporary name and is moved into place, so a synchronise
-/// that fails part way never leaves half a file where the data should be.
 public struct FileSystemAttackData: AttackDataGateway {
     public let directory: String
 
