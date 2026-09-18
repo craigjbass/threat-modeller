@@ -22,9 +22,17 @@ public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @un
     /// than cloned, because a clone over HTTPS asks for a username.
     private let downloader: AttackDownloading
 
-    public init(timeout: TimeInterval = 60, downloader: AttackDownloading = CurlDownloader()) {
+    /// The `PATH` `git` is looked for on.
+    private let path: String
+
+    public init(
+        timeout: TimeInterval = 60,
+        downloader: AttackDownloading = CurlDownloader(),
+        path: String = ShellPath.value
+    ) {
         self.timeout = timeout
         self.downloader = downloader
+        self.path = path
     }
 
     /// Stops the `git` in flight. A fetch that is not running stops nothing.
@@ -143,24 +151,6 @@ public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @un
             }
     }
 
-    /// Whether the timer killed the child, read after the wait.
-    private final class Killed: @unchecked Sendable {
-        private let lock = NSLock()
-        private var killed = false
-
-        func set() {
-            lock.lock()
-            defer { lock.unlock() }
-            killed = true
-        }
-
-        var value: Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            return killed
-        }
-    }
-
     /// A repository is user input, so a value that reads as a flag is refused
     /// rather than passed to `git`.
     private func refuseAFlag(_ repository: String) throws {
@@ -168,24 +158,13 @@ public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @un
     }
 
     private func run(_ arguments: [String]) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git"] + arguments
-
-        var environment = ShellPath.environment
+        var environment = ShellPath.environment(path: path, of: ProcessInfo.processInfo.environment)
         // A repository the user cannot read fails and says so, rather than
         // waiting for a password nobody can type.
         environment["GIT_TERMINAL_PROMPT"] = "0"
-        process.environment = environment
-
-        let output = Pipe()
-        let errors = Pipe()
-        process.standardOutput = output
-        process.standardError = errors
 
         lock.lock()
         wasCancelled = false
-        running = process
         lock.unlock()
         defer {
             lock.lock()
@@ -193,38 +172,34 @@ public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @un
             lock.unlock()
         }
 
+        let answer: ChildProcessAnswer
         do {
-            try process.run()
+            answer = try ChildProcess.run(
+                "/usr/bin/env",
+                ["git"] + arguments,
+                environment: environment,
+                timeout: timeout,
+                beforeItStarts: { child in
+                    self.lock.lock()
+                    self.running = child
+                    self.lock.unlock()
+                }
+            )
         } catch {
             throw LibraryFetchFault.gitIsNotInstalled
         }
-
-        // A timer kills the child, so a fetch that never answers does not stop
-        // the caller. `wasKilled` is what tells the two apart afterwards.
-        let wasKilled = Killed()
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak process] in
-            guard let process, process.isRunning else { return }
-            wasKilled.set()
-            process.terminate()
-        }
-
-        // The pipes are read before the wait, because a command that writes
-        // more than one pipe buffer would otherwise never finish.
-        let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        let failure = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
 
         lock.lock()
         let stoppedByAPerson = wasCancelled
         lock.unlock()
         if stoppedByAPerson { throw LibraryFetchFault.cancelled }
-        if wasKilled.value { throw LibraryFetchFault.timedOut }
+        if answer.timerKilledIt { throw LibraryFetchFault.timedOut }
 
-        guard process.terminationStatus == 0 else {
+        guard answer.exitCode == 0 else {
             throw LibraryFetchFault.cannotRead(
-                reason: failure.trimmingCharacters(in: .whitespacesAndNewlines)
+                reason: answer.errors.trimmingCharacters(in: .whitespacesAndNewlines)
             )
         }
-        return text
+        return answer.output
     }
 }

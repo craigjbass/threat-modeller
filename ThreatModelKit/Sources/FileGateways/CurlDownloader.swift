@@ -8,29 +8,15 @@ import ThreatModelKit
 /// already runs `git`, which the library verbs need, so this asks for nothing
 /// new. macOS runs the same child, so there is one path rather than two.
 public struct CurlDownloader: AttackDownloading {
-    /// Whether the timer killed the child, read after the wait.
-    private final class KilledByTheTimer: @unchecked Sendable {
-        private let lock = NSLock()
-        private var killed = false
-
-        func set() {
-            lock.lock()
-            defer { lock.unlock() }
-            killed = true
-        }
-
-        var value: Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            return killed
-        }
-    }
-
     /// How long the download may take before it is killed.
     private let timeout: TimeInterval
 
-    public init(timeout: TimeInterval = 600) {
+    /// The `PATH` `curl` is looked for on.
+    private let path: String
+
+    public init(timeout: TimeInterval = 600, path: String = ShellPath.value) {
         self.timeout = timeout
+        self.path = path
     }
 
     public func download(from address: String) throws -> Data {
@@ -42,40 +28,27 @@ public struct CurlDownloader: AttackDownloading {
             .appendingPathComponent("threatmodeller-attack-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: into) }
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = [
-            "curl", "--fail", "--silent", "--show-error", "--location",
-            "--output", into.path, "--", address
-        ]
-        process.environment = ShellPath.environment
-
-        let errors = Pipe()
-        process.standardError = errors
-        process.standardOutput = Pipe()
-
+        let answer: ChildProcessAnswer
         do {
-            try process.run()
+            answer = try ChildProcess.run(
+                "/usr/bin/env",
+                [
+                    "curl", "--fail", "--silent", "--show-error", "--location",
+                    "--output", into.path, "--", address
+                ],
+                environment: ShellPath.environment(path: path, of: ProcessInfo.processInfo.environment),
+                timeout: timeout
+            )
         } catch {
             throw AttackDownloadFault.curlIsNotInstalled
         }
 
-        let killed = KilledByTheTimer()
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak process] in
-            guard let process, process.isRunning else { return }
-            killed.set()
-            process.terminate()
-        }
-
-        let failure = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
-
-        if killed.value { throw AttackDownloadFault.timedOut }
-        guard process.terminationStatus == 0 else {
+        if answer.timerKilledIt { throw AttackDownloadFault.timedOut }
+        guard answer.exitCode == 0 else {
             throw AttackDownloadFault.cannotRead(
-                reason: failure.isEmpty
-                    ? "curl exited with code \(process.terminationStatus)"
-                    : failure.trimmingCharacters(in: .whitespacesAndNewlines)
+                reason: answer.errors.isEmpty
+                    ? "curl exited with code \(answer.exitCode)"
+                    : answer.errors.trimmingCharacters(in: .whitespacesAndNewlines)
             )
         }
         guard let data = try? Data(contentsOf: into) else {

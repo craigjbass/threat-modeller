@@ -49,35 +49,19 @@ public enum ShellPath {
 
     /// What the shell printed, or nil when it is not there or was killed.
     private static func ask(_ shell: String, timeout: TimeInterval) -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: shell)
         // `-i` runs `~/.zshrc`, the file most people set PATH in; `-l` runs
         // `~/.zprofile`; `-c` runs the one command and exits.
         // `${PATH}` with braces: `$PATH` followed by the marker would read as
         // one longer variable name.
-        process.arguments = ["-ilc", "echo \"\(marker)${PATH}\(marker)\""]
-        // An interactive shell with no terminal must not wait for one.
-        process.standardInput = FileHandle.nullDevice
-        let output = Pipe()
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
-
-        do {
-            try process.run()
-        } catch {
-            return nil
-        }
-
-        let killed = KilledByTheTimer()
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak process] in
-            guard let process, process.isRunning else { return }
-            killed.set()
-            process.terminate()
-        }
-
-        let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
-        return killed.value ? nil : text
+        let answer = try? ChildProcess.run(
+            shell,
+            ["-ilc", "echo \"\(marker)${PATH}\(marker)\""],
+            environment: ProcessInfo.processInfo.environment,
+            timeout: timeout,
+            readsNoInput: true
+        )
+        guard let answer, answer.timerKilledIt == false else { return nil }
+        return answer.output
     }
 
     private static func between(_ marker: String, in text: String) -> String? {
@@ -85,23 +69,5 @@ public enum ShellPath {
               let end = text.range(of: marker, range: start.upperBound..<text.endIndex)
         else { return nil }
         return String(text[start.upperBound..<end.lowerBound])
-    }
-
-    /// Whether the timer killed the child, read after the wait.
-    private final class KilledByTheTimer: @unchecked Sendable {
-        private let lock = NSLock()
-        private var killed = false
-
-        func set() {
-            lock.lock()
-            defer { lock.unlock() }
-            killed = true
-        }
-
-        var value: Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            return killed
-        }
     }
 }

@@ -10,24 +10,6 @@ import ThreatModelKit
 /// is `vulnx search --json --limit 50 <product> [<version>]`, and the records
 /// are read from the JSON it prints, one object per line or one array.
 public struct VulnxLookup: VulnerabilityLookup {
-    /// Whether the timer killed the child, read after the wait.
-    private final class KilledByTheTimer: @unchecked Sendable {
-        private let lock = NSLock()
-        private var killed = false
-
-        func set() {
-            lock.lock()
-            defer { lock.unlock() }
-            killed = true
-        }
-
-        var value: Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            return killed
-        }
-    }
-
     private let timeout: TimeInterval
     /// The `PATH` the tool is looked for on.
     private let path: String
@@ -45,44 +27,29 @@ public struct VulnxLookup: VulnerabilityLookup {
             throw VulnerabilityLookupFault.cannotRead(reason: "\(word) reads as a flag")
         }
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["vulnx", "search", "--json", "--limit", String(Self.limit)] + query.words
-        process.environment = ShellPath.environment(path: path, of: ProcessInfo.processInfo.environment)
-
-        let output = Pipe()
-        let errors = Pipe()
-        process.standardOutput = output
-        process.standardError = errors
-
+        let answer: ChildProcessAnswer
         do {
-            try process.run()
+            answer = try ChildProcess.run(
+                "/usr/bin/env",
+                ["vulnx", "search", "--json", "--limit", String(Self.limit)] + query.words,
+                environment: ShellPath.environment(path: path, of: ProcessInfo.processInfo.environment),
+                timeout: timeout
+            )
         } catch {
             throw VulnerabilityLookupFault.toolIsNotInstalled
         }
 
-        let killed = KilledByTheTimer()
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak process] in
-            guard let process, process.isRunning else { return }
-            killed.set()
-            process.terminate()
-        }
-
-        let text = output.fileHandleForReading.readDataToEndOfFile()
-        let failure = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
-
-        if killed.value { throw VulnerabilityLookupFault.timedOut }
+        if answer.timerKilledIt { throw VulnerabilityLookupFault.timedOut }
         // `env` exits 127 when the tool is not on PATH.
-        if process.terminationStatus == 127 { throw VulnerabilityLookupFault.toolIsNotInstalled }
-        guard process.terminationStatus == 0 else {
+        if answer.exitCode == 127 { throw VulnerabilityLookupFault.toolIsNotInstalled }
+        guard answer.exitCode == 0 else {
             throw VulnerabilityLookupFault.cannotRead(
-                reason: failure.isEmpty
-                    ? "vulnx exited with code \(process.terminationStatus)"
-                    : failure.trimmingCharacters(in: .whitespacesAndNewlines)
+                reason: answer.errors.isEmpty
+                    ? "vulnx exited with code \(answer.exitCode)"
+                    : answer.errors.trimmingCharacters(in: .whitespacesAndNewlines)
             )
         }
-        return Self.records(from: text)
+        return Self.records(from: Data(answer.output.utf8))
     }
 
     /// The records in what the tool printed: one JSON object per line, or
