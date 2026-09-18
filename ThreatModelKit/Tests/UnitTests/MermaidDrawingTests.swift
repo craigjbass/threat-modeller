@@ -16,6 +16,15 @@ struct MermaidDrawingTests {
         }
     }
 
+    /// Where the drawing places the text of `label`, or nil when it draws no
+    /// such text.
+    private func position(of label: String, in drawing: DiagramDrawing) -> Point? {
+        for shape in drawing.shapes {
+            if case .text(let text, let at, _, _, _, _) = shape, text == label { return at }
+        }
+        return nil
+    }
+
     // MARK: what the reader reads
 
     @Test func readsTheNodesAndTheEdgesOfAFlowchart() throws {
@@ -94,6 +103,88 @@ struct MermaidDrawingTests {
         #expect(graph.groups.map(\.title) == ["Private network"])
         #expect(graph.groups.first?.nodeIds == ["api", "store"])
         #expect(graph.nodes.map(\.id) == ["api", "store", "user"])
+    }
+
+    /// A later mention with a label wins over an earlier bare identifier, and
+    /// the order of the two lines does not change the answer.
+    @Test func aLaterLabelWinsOverAnEarlierBareIdentifier() throws {
+        let bareFirst = try #require(
+            MermaidDrawing.graph(of: "flowchart TD\n api --> store\n api[API] --> queue")
+        )
+        let labelFirst = try #require(
+            MermaidDrawing.graph(of: "flowchart TD\n api[API] --> store\n api --> queue")
+        )
+
+        #expect(bareFirst.nodes.first(where: { $0.id == "api" })?.label == "API")
+        #expect(labelFirst.nodes.first(where: { $0.id == "api" })?.label == "API")
+    }
+
+    /// A subgraph with no `end` line still groups every node it holds.
+    @Test func anUnclosedSubgraphStillGroupsWhatItHolds() throws {
+        let graph = try #require(
+            MermaidDrawing.graph(
+                of: """
+                flowchart TD
+                  subgraph vpc [Private network]
+                    api[API]
+                    store[Store]
+                """
+            )
+        )
+
+        #expect(graph.groups.map(\.title) == ["Private network"])
+        #expect(graph.groups.first?.nodeIds == ["api", "store"])
+    }
+
+    /// A quoted subgraph title reads the same title as an unquoted one.
+    @Test func aQuotedSubgraphTitleReadsTheSameAsAnUnquotedOne() throws {
+        let quoted = try #require(
+            MermaidDrawing.graph(
+                of: """
+                flowchart TD
+                  subgraph vpc ["Private network"]
+                    api[API]
+                  end
+                """
+            )
+        )
+        let unquoted = try #require(
+            MermaidDrawing.graph(
+                of: """
+                flowchart TD
+                  subgraph vpc [Private network]
+                    api[API]
+                  end
+                """
+            )
+        )
+
+        #expect(quoted.groups.map(\.title) == ["Private network"])
+        #expect(quoted.groups.map(\.title) == unquoted.groups.map(\.title))
+    }
+
+    /// `BT` draws the ranks `TD` draws in the other direction, and `RL` draws
+    /// the ranks `LR` draws in the other direction: the first node of the
+    /// text sits at the far end.
+    @Test func btAndRlDrawTheRanksTheOtherWayRound() throws {
+        let down = try #require(MermaidDrawing.drawing(of: "flowchart TD\n a --> b --> c"))
+        let up = try #require(MermaidDrawing.drawing(of: "flowchart BT\n a --> b --> c"))
+        let right = try #require(MermaidDrawing.drawing(of: "flowchart LR\n a --> b --> c"))
+        let left = try #require(MermaidDrawing.drawing(of: "flowchart RL\n a --> b --> c"))
+
+        let downA = try #require(position(of: "a", in: down))
+        let downC = try #require(position(of: "c", in: down))
+        let upA = try #require(position(of: "a", in: up))
+        let upC = try #require(position(of: "c", in: up))
+        #expect(downA.y < downC.y)
+        #expect(upA.y > upC.y)
+
+        let rightA = try #require(position(of: "a", in: right))
+        let rightC = try #require(position(of: "c", in: right))
+        let leftA = try #require(position(of: "a", in: left))
+        let leftC = try #require(position(of: "c", in: left))
+        #expect(rightA.x < rightC.x)
+        #expect(leftA.x > leftC.x)
     }
 
     /// A comment, a style and a click say nothing about the picture.

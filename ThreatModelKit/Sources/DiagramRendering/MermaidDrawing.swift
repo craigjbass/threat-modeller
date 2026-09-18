@@ -101,8 +101,6 @@ public enum MermaidDrawing {
 
         func hold(_ node: Node) {
             if let at = byId[node.id] {
-                // A later mention with a label wins over a bare identifier,
-                // which is how mermaid reads the same node named twice.
                 if nodes[at].label == nodes[at].id, node.label != node.id {
                     nodes[at] = node
                 }
@@ -144,7 +142,6 @@ public enum MermaidDrawing {
             }
         }
 
-        // A subgraph nobody closed still groups what it holds.
         for open in openGroups.reversed() {
             groups.append(Group(title: open.title, nodeIds: open.nodeIds))
         }
@@ -206,7 +203,6 @@ public enum MermaidDrawing {
     static func subgraphTitle(of statement: String) -> String {
         let rest = statement.dropFirst("subgraph".count).trimmingCharacters(in: .whitespaces)
         guard rest.isEmpty == false else { return "" }
-        // `subgraph id [Title]` and `subgraph id ["Title"]` both name a title.
         if let open = rest.firstIndex(where: { $0 == "[" || $0 == "(" }),
            let close = rest.lastIndex(where: { $0 == "]" || $0 == ")" }),
            open < close {
@@ -462,7 +458,6 @@ extension MermaidDrawing {
             maxY = max(maxY, rect.maxY)
         }
 
-        // `BT` and `RL` run the other way, which is the same layout flipped.
         if graph.direction == .up || graph.direction == .left {
             places = places.mapValues { rect in
                 graph.direction == .up
