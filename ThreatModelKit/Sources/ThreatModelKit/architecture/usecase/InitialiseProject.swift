@@ -93,7 +93,7 @@ public struct InitialiseProject: InitialiseProjectUseCase {
         case .empty(let systemName):
             let name = systemName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard name.isEmpty == false else { return .needsASystemName }
-            let slug = ProjectConvention.fileName(forSystemNamed: name)
+            let slug = ProjectConvention.stem(forSystemNamed: name)
             guard slug.isEmpty == false else { return .needsASystemName }
 
             model = ThreatModel(name: name)

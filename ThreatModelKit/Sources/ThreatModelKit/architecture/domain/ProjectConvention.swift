@@ -106,13 +106,7 @@ public enum ProjectConvention {
             .map { path(directory, $0) }
     }
 
-    /// The file stem a system with this name is written under.
-    ///
-    /// A project lists its systems by file name, so a name the user types has
-    /// to become one file name and always the same one. Letters and digits
-    /// stay, lower case; everything else becomes a single hyphen, and a
-    /// hyphen never starts or ends the stem.
-    public static func fileName(forSystemNamed name: String) -> String {
+    public static func stem(forSystemNamed name: String) -> String {
         var stem = ""
         var pendingHyphen = false
 
@@ -175,9 +169,7 @@ public enum ProjectConvention {
         return (root: root, systemName: (file.deletingPathExtension as NSString).lastPathComponent)
     }
 
-    /// The directory a project keeps its systems in. `ProjectSourceGateway`
-    /// states the same name; this copy is here because the rule that reads a
-    /// path cannot reach a gateway.
+    /// The directory a project keeps its systems in.
     public static let conventionDirectoryName = "threatmodel"
 
     public static func path(_ directory: String, _ fileName: String) -> String {

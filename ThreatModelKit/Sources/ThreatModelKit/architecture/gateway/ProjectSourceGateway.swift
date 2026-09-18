@@ -1,9 +1,6 @@
 import Foundation
 
 /// Finds a project's files, and reads and writes them.
-///
-/// The convention lives here, in one place, so the application and the
-/// executable cannot disagree about where a file is.
 public protocol ProjectSourceGateway: Sendable {
     /// The directory this application looks in first.
     static var conventionDirectory: String { get }
@@ -20,5 +17,5 @@ public protocol ProjectSourceGateway: Sendable {
 }
 
 public extension ProjectSourceGateway {
-    static var conventionDirectory: String { "threatmodel" }
+    static var conventionDirectory: String { ProjectConvention.conventionDirectoryName }
 }

@@ -1,4 +1,5 @@
 import Testing
+import TestSupport
 import ThreatModelKit
 
 @Suite("The rule that pairs a file with its project")
@@ -6,14 +7,18 @@ struct ProjectConventionTests {
     // MARK: naming a file for a system
 
     @Test func lowercasesANameAndJoinsItsWordsWithOneHyphen() {
-        #expect(ProjectConvention.fileName(forSystemNamed: "Payments") == "payments")
-        #expect(ProjectConvention.fileName(forSystemNamed: "Card Payments") == "card-payments")
-        #expect(ProjectConvention.fileName(forSystemNamed: "  Card   Payments  ") == "card-payments")
+        #expect(ProjectConvention.stem(forSystemNamed: "Payments") == "payments")
+        #expect(ProjectConvention.stem(forSystemNamed: "Card Payments") == "card-payments")
+        #expect(ProjectConvention.stem(forSystemNamed: "  Card   Payments  ") == "card-payments")
     }
 
     @Test func dropsEverythingThatIsNotALetterOrADigit() {
-        #expect(ProjectConvention.fileName(forSystemNamed: "Acme's Payments (v2)") == "acme-s-payments-v2")
-        #expect(ProjectConvention.fileName(forSystemNamed: "!!!") == "")
+        #expect(ProjectConvention.stem(forSystemNamed: "Acme's Payments (v2)") == "acme-s-payments-v2")
+        #expect(ProjectConvention.stem(forSystemNamed: "!!!") == "")
+    }
+
+    @Test func statesTheConventionDirectoryNameForEveryGateway() {
+        #expect(InMemoryProject.conventionDirectory == ProjectConvention.conventionDirectoryName)
     }
 
     // MARK: opening a file the user double-clicked

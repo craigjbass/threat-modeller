@@ -9,7 +9,7 @@ public func verifyProjectSourceGatewayContract(
     make: () -> ProjectSourceGateway
 ) {
     let gateway = make()
-    let inside = ProjectConvention.path(root, "threatmodel")
+    let inside = ProjectConvention.path(root, ProjectConvention.conventionDirectoryName)
 
     // A root holding nothing is a project with no systems, not a fault.
     put("", ProjectConvention.path(root, ".keep"))
