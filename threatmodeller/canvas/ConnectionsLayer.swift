@@ -88,13 +88,10 @@ struct ConnectionsLayer: View {
                 )
             }
 
-            // The chips go on last, so a link drawn later never covers one.
             for run in geometry.runs {
                 writeGuards(of: run, in: &context)
             }
 
-            // The labels go last, over everything, because a label a link
-            // crosses is unreadable.
             for callout in geometry.callouts {
                 guard let connection = connections.first(where: { $0.id == callout.connectionId })
                 else { continue }
@@ -107,7 +104,7 @@ struct ConnectionsLayer: View {
                     in: &context,
                     colour: .accentColor,
                     width: 2.5,
-                    dashed: true
+                    strokeKind: .dashed
                 )
             }
         }
@@ -169,7 +166,6 @@ struct ConnectionsLayer: View {
     }
 
     private func colour(of connection: ViewedConnection) -> Color {
-        // A use link raises no threat, so it carries no risk colour.
         if connection.isUse || isOutOfScope(connection) { return .secondary }
         if selectedConnectionIds.contains(connection.id) { return .accentColor }
         guard let levelId = risk(of: connection)?.highestLevelId else { return .secondary }
@@ -180,6 +176,11 @@ struct ConnectionsLayer: View {
     /// what fits on the line. The panel shows the whole of it.
     func labelForTesting(_ connection: ViewedConnection) -> String {
         FlowGeometry.label(of: connection)
+    }
+
+    /// The colour a link draws.
+    func colourForTesting(_ connection: ViewedConnection) -> Color {
+        colour(of: connection)
     }
 
     private func draw(
@@ -195,8 +196,7 @@ struct ConnectionsLayer: View {
             in: &context,
             colour: colour,
             width: selected ? 2.5 : 1.5,
-            dashed: isOutOfScope(connection),
-            dotted: connection.isUse
+            strokeKind: strokeKind(of: connection)
         )
 
         let head = path.arrowhead()
@@ -311,27 +311,48 @@ struct ConnectionsLayer: View {
         }
     }
 
-    /// The name band of every zone. Nothing is drawn over one.
-    private var bandRects: [Rect] {
+    /// The name band of every zone.
+    var bandRects: [Rect] {
         zones.map {
             Rect(x: $0.x, y: $0.y, width: $0.width, height: Double(ZoneBox.headerHeight))
         }
     }
 
-    /// A dotted stroke is a use link, the path a person takes to a client;
-    /// a dashed one is a flow out of scope.
+    /// Which stroke a flow's path draws.
+    enum StrokeKind: Equatable {
+        /// A use link.
+        case dotted
+        /// A flow out of scope.
+        case dashed
+        /// A flow in scope.
+        case plain
+    }
+
+    /// The stroke a connection's path draws.
+    func strokeKind(of connection: ViewedConnection) -> StrokeKind {
+        if connection.isUse { return .dotted }
+        if isOutOfScope(connection) { return .dashed }
+        return .plain
+    }
+
     private func stroke(
         _ path: ConnectionPath,
         in context: inout GraphicsContext,
         colour: Color,
         width: CGFloat,
-        dashed: Bool,
-        dotted: Bool = false
+        strokeKind: StrokeKind
     ) {
+        let dash: [CGFloat]
+        switch strokeKind {
+        case .dotted: dash = [2, 4]
+        case .dashed: dash = [6, 4]
+        case .plain: dash = []
+        }
+
         context.stroke(
             path.drawnPath,
             with: .color(colour),
-            style: StrokeStyle(lineWidth: width, dash: dotted ? [2, 4] : dashed ? [6, 4] : [])
+            style: StrokeStyle(lineWidth: width, dash: dash)
         )
     }
 }
