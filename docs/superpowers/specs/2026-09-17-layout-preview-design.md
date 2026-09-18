@@ -168,9 +168,12 @@ nodes and their routed flows is the most expensive thing the preview does,
 and the canvas draws nothing else while the load runs, so sixteen a second
 leaves the column answering.
 
-A longer interval holds the sixty-component sample at the four frames #147
-drew. A shorter interval gains nothing: the candidate rate is the ceiling on
-both samples, and on the larger sample it already is the rate.
+A longer interval draws fewer frames on the sixty-component sample, where
+the interval sets the rate. A shorter interval draws more there, up to one
+frame for each candidate, and draws no more on the larger sample, where the
+candidate rate already sets the rate. Sixteen frames a second fills the
+two-second gaps the larger sample holds, and asks the window for no redraw
+the person cannot read.
 
 ### The search never waits
 
