@@ -96,14 +96,8 @@ public struct SourceTreeTarget: Equatable, Sendable {
         self.sourceId = sourceId
     }
 
-    /// The key the resolver mints for the same threat. The file says `flow`
-    /// and the resolver says `connection`; `SourceThreatAnswer` holds the one
-    /// rule that maps them.
     public var key: ThreatKey {
-        ThreatKey(
-            threatId: threatId,
-            sourceId: "\(SourceThreatAnswer.resolverKind(sourceKind)):\(sourceId)"
-        )
+        SourceThreatAnswer.key(threatId: threatId, sourceKind: sourceKind, sourceId: sourceId)
     }
 }
 

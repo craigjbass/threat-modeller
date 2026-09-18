@@ -81,10 +81,17 @@ public struct SourceThreatAnswer: Equatable, Sendable {
         self.isStale = isStale
     }
 
-    /// The source id the resolver mints. The file says `flow`, and the
-    /// resolver says `connection`; this is the one place that maps them.
     public var key: ThreatKey {
-        ThreatKey(threatId: threatId, sourceId: "\(Self.resolverKind(sourceKind)):\(sourceId)")
+        Self.key(threatId: threatId, sourceKind: sourceKind, sourceId: sourceId)
+    }
+
+    /// The one key every language block on one source answers.
+    ///
+    /// Section 5.10 of the language guide states the rule: a file writes
+    /// `flow` and the key writes `connection`, so a controls answer, a
+    /// governance block and an attack tree goal on one flow answer one key.
+    public static func key(threatId: String, sourceKind: String, sourceId: String) -> ThreatKey {
+        ThreatKey(threatId: threatId, sourceId: "\(resolverKind(sourceKind)):\(sourceId)")
     }
 
     /// The word the resolver uses for what a file calls `sourceKind`.

@@ -358,11 +358,10 @@ enum GovernanceStanza {
         change: (SourceGovernedThreat) -> SourceGovernedThreat
     ) -> [SourceGovernedThreat] {
         var changed = threats
-        // The block keeps the file's word, and the key takes the resolver's
-        // word, the way section 5.10 states it.
-        let key = ThreatKey(
+        let key = SourceThreatAnswer.key(
             threatId: threatId,
-            sourceId: "\(SourceThreatAnswer.resolverKind(sourceKind)):\(sourceId)"
+            sourceKind: sourceKind,
+            sourceId: sourceId
         )
         if let already = changed.firstIndex(where: { $0.key == key }) {
             changed[already] = change(changed[already])

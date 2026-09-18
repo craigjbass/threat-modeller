@@ -33,6 +33,28 @@ struct ControlsSourceTests {
         #expect(answer.key.value == "credential-theft@component:api")
     }
 
+    @Test func answersOneKeyForAControlsAnswerAGovernanceBlockAndATreeGoalOnOneFlow() {
+        let answer = SourceThreatAnswer(
+            threatId: "tampering",
+            sourceKind: "flow",
+            sourceId: "api-to-store"
+        )
+        let governed = SourceGovernedThreat(
+            threatId: "tampering",
+            sourceKind: "flow",
+            sourceId: "api-to-store"
+        )
+        let goal = SourceTreeTarget(
+            threatId: "tampering",
+            sourceKind: "flow",
+            sourceId: "api-to-store"
+        )
+
+        #expect(answer.key.value == "tampering@connection:api-to-store")
+        #expect(governed.key == answer.key)
+        #expect(goal.key == answer.key)
+    }
+
     @Test func knowsAnAnsweredThreatFromAnUnansweredOne() {
         let unanswered = SourceThreatAnswer(
             threatId: "t", sourceKind: "component", sourceId: "a",
