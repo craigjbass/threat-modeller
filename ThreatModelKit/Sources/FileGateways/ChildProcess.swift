@@ -37,11 +37,13 @@ public enum ChildProcess {
         try process.run()
 
         let killed = KilledByTheTimer()
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak process] in
-            guard let process, process.isRunning else { return }
+        let ended = DispatchSemaphore(value: 0)
+        let timer = Thread {
+            guard ended.wait(timeout: .now() + timeout) == .timedOut else { return }
             killed.set()
             process.terminate()
         }
+        timer.start()
 
         let errorBytes = Bytes()
         let readTheErrors = DispatchSemaphore(value: 0)
@@ -53,6 +55,7 @@ public enum ChildProcess {
         let outputBytes = output.fileHandleForReading.readDataToEndOfFile()
         readTheErrors.wait()
         process.waitUntilExit()
+        ended.signal()
 
         return ChildProcessAnswer(
             output: String(decoding: outputBytes, as: UTF8.self),
