@@ -34,8 +34,8 @@ struct CanvasGestures: CanvasZooming {
     }
 
     /// The flows as the canvas draws them, so a click lands where the picture
-    /// says it should.
-    private var flows: FlowGeometry {
+    /// says it should. Internal so a test reads what a click hits.
+    var flows: FlowGeometry {
         FlowGeometry.of(
             connections: drawn.connections,
             boxes: boxes,
@@ -408,6 +408,13 @@ struct CanvasGestures: CanvasZooming {
         guard let technologyId = technologyIds.first else { return false }
         let point = canvas.transform.modelPoint(location)
         let before = session.canvas.components.count
+        // A drop on a user adds the technology beside the user and holds
+        // it: the palette gesture of the user-through-a-client design.
+        if let underId = CanvasHitTest.component(under: point, components: session.canvas.components),
+           session.canvas.components.contains(where: { $0.id == underId && $0.isUser }) {
+            session.addClient(technologyId: technologyId, to: underId)
+            return session.canvas.components.count > before
+        }
         session.add(
             technologyId: technologyId,
             x: point.x - Component.size.width / 2,

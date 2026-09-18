@@ -25,6 +25,9 @@ struct ComponentNodeView: View {
     /// is the component's centre inside the zone below its header, which is
     /// invisible without this badge.
     let zoneName: String?
+    /// The names of the clients a user holds, for the hover. Empty for a
+    /// technology component.
+    var clientNames: [String] = []
     /// The colour the project's classification scheme states for this
     /// component's sensitivity, or nil to paint the chip in the quiet grey
     /// default.
@@ -87,7 +90,7 @@ struct ComponentNodeView: View {
         .opacity(isOutOfScope ? 0.45 : 1)
         .frame(width: ComponentBox.slotSize.width)
         .contentShape(Rectangle())
-        .help(HoverText.node(component, zoneName: zoneName, risk: risk))
+        .help(HoverText.node(component, zoneName: zoneName, risk: risk, clientNames: clientNames))
         .onHover { isHovering = $0 }
         // Without an explicit element SwiftUI reports the node's texts
         // separately, and the identifier lands on each of them instead of the

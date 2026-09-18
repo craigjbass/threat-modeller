@@ -14,6 +14,9 @@ struct TreeElement: Identifiable, Equatable {
     /// `docs/superpowers/specs/2026-09-16-tree-connectable-elements-design.md`
     /// states the rule; this element is among them.
     var neighbours: Set<String> = []
+    /// The names of the users that hold this element as a client, in model
+    /// order. Empty for every element no user holds.
+    var heldBy: [String] = []
 
     var id: String { payload }
     /// What a drag from the list carries.
@@ -51,7 +54,10 @@ struct TreeElement: Identifiable, Equatable {
                 threats: raised("component", $0.id)
             )
         }
-        rows += connections.map {
+        // A use link is no row: the tree language names components, flows
+        // and zones, and the link from a user to a client is none of those.
+        // It still joins the two for the adjacency below.
+        rows += connections.filter { $0.isUse == false }.map {
             TreeElement(
                 kind: "flow", sourceId: $0.id,
                 name: "\(componentName($0.sourceComponentId)) \u{2192} "
@@ -63,9 +69,14 @@ struct TreeElement: Identifiable, Equatable {
             TreeElement(kind: "zone", sourceId: $0.id, name: $0.name, threats: raised("zone", $0.id))
         }
         let reach = neighbours(components: components, connections: connections, zones: zones)
+        let holders = Dictionary(
+            connections.filter(\.isUse).map { ($0.targetComponentId, [componentName($0.sourceComponentId)]) },
+            uniquingKeysWith: +
+        )
         return rows.map { row in
             var row = row
             row.neighbours = reach[row.payload] ?? [row.payload]
+            if row.kind == "component" { row.heldBy = holders[row.sourceId] ?? [] }
             return row
         }
     }
@@ -106,9 +117,15 @@ struct TreeElement: Identifiable, Equatable {
             reach["zone:\(zone.id)", default: []].insert("zone:\(zone.id)")
         }
         for flow in connections {
-            let payload = "flow:\(flow.id)"
             let source = "component:\(flow.sourceComponentId)"
             let target = "component:\(flow.targetComponentId)"
+            // A use link joins the user and the client and is no element
+            // of its own: a route runs as the user, through the client.
+            if flow.isUse {
+                link(source, target)
+                continue
+            }
+            let payload = "flow:\(flow.id)"
             reach[payload, default: []].insert(payload)
             link(payload, source)
             link(payload, target)

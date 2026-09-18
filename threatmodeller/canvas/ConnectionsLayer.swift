@@ -169,7 +169,8 @@ struct ConnectionsLayer: View {
     }
 
     private func colour(of connection: ViewedConnection) -> Color {
-        if isOutOfScope(connection) { return .secondary }
+        // A use link raises no threat, so it carries no risk colour.
+        if connection.isUse || isOutOfScope(connection) { return .secondary }
         if selectedConnectionIds.contains(connection.id) { return .accentColor }
         guard let levelId = risk(of: connection)?.highestLevelId else { return .secondary }
         return RiskPalette.colour(forLevelId: levelId)
@@ -194,7 +195,8 @@ struct ConnectionsLayer: View {
             in: &context,
             colour: colour,
             width: selected ? 2.5 : 1.5,
-            dashed: isOutOfScope(connection)
+            dashed: isOutOfScope(connection),
+            dotted: connection.isUse
         )
 
         let head = path.arrowhead()
@@ -316,17 +318,20 @@ struct ConnectionsLayer: View {
         }
     }
 
+    /// A dotted stroke is a use link, the path a person takes to a client;
+    /// a dashed one is a flow out of scope.
     private func stroke(
         _ path: ConnectionPath,
         in context: inout GraphicsContext,
         colour: Color,
         width: CGFloat,
-        dashed: Bool
+        dashed: Bool,
+        dotted: Bool = false
     ) {
         context.stroke(
             path.drawnPath,
             with: .color(colour),
-            style: StrokeStyle(lineWidth: width, dash: dashed ? [6, 4] : [])
+            style: StrokeStyle(lineWidth: width, dash: dotted ? [2, 4] : dashed ? [6, 4] : [])
         )
     }
 }

@@ -30,6 +30,9 @@ nonisolated struct FlowGeometry {
     let chipRects: [Rect]
     /// Where each flow's label sits.
     let callouts: [Callout]
+    /// The use links: the link from a user to a client it holds. Drawn,
+    /// never hit, never labelled, never marked at a boundary.
+    let useLinkIds: Set<String>
 
     static func of(
         connections: [ViewedConnection],
@@ -87,6 +90,7 @@ nonisolated struct FlowGeometry {
 
         for connection in connections {
             guard let curve = curves[connection.id] else { continue }
+            guard connection.isUse == false else { continue }
             toLabel.append((connection.id, label(of: connection), curve))
 
             guard isOutOfScope(connection, outOfScopeComponentIds) == false else { continue }
@@ -125,7 +129,8 @@ nonisolated struct FlowGeometry {
                 boundaryChips: chipRects,
                 flows: Array(samples.values),
                 flowsById: samples
-            )
+            ),
+            useLinkIds: Set(connections.filter(\.isUse).map(\.id))
         )
     }
 
@@ -148,7 +153,7 @@ nonisolated struct FlowGeometry {
             return callout.connectionId
         }
         return order.last { id in
-            guard let curve = curves[id] else { return false }
+            guard useLinkIds.contains(id) == false, let curve = curves[id] else { return false }
             return ConnectionPath(curve).distance(to: modelPoint) <= reach
         }
     }

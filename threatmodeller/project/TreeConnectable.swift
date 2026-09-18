@@ -62,6 +62,17 @@ enum TreeConnectable {
         rank(elements, from: anchor(editor: editor, canvas: canvas))
     }
 
+    /// The caption above the rows: what the anchor reaches, naming the users
+    /// that hold the anchor as a client, or nil with no anchor.
+    static func caption(anchor: String?, elements: [TreeElement]) -> String? {
+        guard let anchor else { return nil }
+        guard let element = elements.first(where: { $0.payload == anchor }) else {
+            return "Marked: what an attacker at \(anchor) reaches."
+        }
+        let holders = element.heldBy.isEmpty ? "" : ", as " + element.heldBy.joined(separator: " and ")
+        return "Marked: what an attacker at \(element.name) reaches\(holders)."
+    }
+
     /// The element the one selected node is on, as a payload, or nil.
     @MainActor
     static func anchor(editor: TreeEditor, canvas: TreeCanvasState) -> String? {

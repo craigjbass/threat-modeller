@@ -326,6 +326,7 @@ struct CanvasView: View {
                     onAnchorDragChanged: { gestures.anchorDragChanged(component.id, $0) },
                     onAnchorDragEnded: { gestures.anchorDragEnded(component.id, $0) },
                     zoneName: drawn.zones.first { $0.id == component.zoneId }?.name,
+                    clientNames: session.clientNames(of: component.id),
                     classificationColour: classificationColours[component.sensitivityId],
                     isEditingName: canvas.isEditingName(.component(component.id)),
                     onStartEditingName: { canvas.startEditingName(.component(component.id)) },

@@ -14,20 +14,30 @@ nonisolated enum HoverText {
     static func node(
         _ component: ViewedComponent,
         zoneName: String?,
-        risk: ElementRisk?
+        risk: ElementRisk?,
+        clientNames: [String] = []
     ) -> String {
-        var lines = [component.isUser ? userLine(component) : component.technologyId]
+        var lines = [
+            component.isUser ? userLine(component, clientNames: clientNames) : component.technologyId
+        ]
         lines.append(zoneName.map { "In \($0)" } ?? "In no zone")
         lines.append(openCount(risk))
         return lines.joined(separator: "\n")
     }
 
-    /// What a user is: a user, the role when one is stated, and the actor
-    /// when the user is one.
-    private static func userLine(_ component: ViewedComponent) -> String {
+    /// What a user is: a user, the role when one is stated, the actor when
+    /// the user is one, and the clients the user holds.
+    private static func userLine(_ component: ViewedComponent, clientNames: [String]) -> String {
         var text = component.role.isEmpty ? "User" : "User, \(component.role)"
         if let actorId = component.threatActorId {
             text += ", the threat actor \(actorId)"
+        }
+        switch clientNames.count {
+        case 0: break
+        case 1: text += ", through \(clientNames[0])"
+        default:
+            text += ", through " + clientNames.dropLast().joined(separator: ", ")
+                + " and \(clientNames[clientNames.count - 1])"
         }
         return text
     }

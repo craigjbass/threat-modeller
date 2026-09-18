@@ -125,10 +125,12 @@ struct TreeSidebar: View {
         TreeConnectable.sidebarRows(editor: editor, canvas: canvas, elements: elements)
     }
 
-    /// The name of the element the selected node is on, or nil.
-    private var anchorName: String? {
-        guard let anchor = TreeConnectable.anchor(editor: editor, canvas: canvas) else { return nil }
-        return elements.first { $0.payload == anchor }?.name ?? anchor
+    /// What the caption says about the selected node's element, or nil.
+    private var anchorCaption: String? {
+        TreeConnectable.caption(
+            anchor: TreeConnectable.anchor(editor: editor, canvas: canvas),
+            elements: elements
+        )
     }
 
     private var elementList: some View {
@@ -139,10 +141,7 @@ struct TreeSidebar: View {
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
-            Text(
-                anchorName.map { "Marked: what an attacker at \($0) reaches." }
-                    ?? "Drag one onto the canvas. A junction joins steps."
-            )
+            Text(anchorCaption ?? "Drag one onto the canvas. A junction joins steps.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

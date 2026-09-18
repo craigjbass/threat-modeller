@@ -36,9 +36,36 @@ struct TreeConnectableTests {
 
     """
 
-    private func aProject() async -> (ProjectSession, TestDependencies) {
+    /// Alice holds a browser that reaches the api.
+    private let clients = """
+    system "Shop" {
+      technology "web" {
+        name     = "Web Browser"
+        category = "client"
+      }
+
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      component "browser" {
+        technology = "web"
+      }
+
+      user "alice" {
+        name = "Alice"
+        uses = ["browser"]
+      }
+
+      flow browser -> api
+    }
+
+    """
+
+    private func aProject(_ text: String? = nil) async -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
-        useCases.project.put(shop, at: "/work/threatmodel/shop.arch")
+        useCases.project.put(text ?? shop, at: "/work/threatmodel/shop.arch")
         let session = ProjectSession(
             useCases: useCases,
             watcher: FakeProjectWatcher(),
@@ -100,6 +127,28 @@ struct TreeConnectableTests {
     }
 
     // MARK: what an element reaches
+
+    /// A user reaches the clients it holds, and a client reaches the users
+    /// that hold it, so a route "as Alice, through the browser, to the api"
+    /// is three connectable steps. A use link is no row of its own.
+    @Test func aUserReachesItsClientAndTheClientReachesItsHolder() async throws {
+        let (project, _) = await aProject(clients)
+        let elements = try elements(of: project)
+
+        #expect(elements.contains { $0.kind == "flow" && $0.sourceId.hasPrefix("use:") } == false)
+        let alice = try element("component:alice", in: elements)
+        #expect(alice.neighbours == ["component:alice", "component:browser"])
+        let browser = try element("component:browser", in: elements)
+        #expect(browser.neighbours.isSuperset(of: ["component:alice", "component:api", "flow:browser->api"]))
+        #expect(browser.heldBy == ["Alice"])
+        #expect(alice.heldBy == [])
+
+        #expect(TreeConnectable.caption(anchor: "component:browser", elements: elements)
+            == "Marked: what an attacker at Web Browser reaches, as Alice.")
+        #expect(TreeConnectable.caption(anchor: "component:api", elements: elements)
+            == "Marked: what an attacker at EC2 reaches.")
+        #expect(TreeConnectable.caption(anchor: nil, elements: elements) == nil)
+    }
 
     @Test func aComponentReachesItselfTheComponentsItFlowsToAndItsFlows() async throws {
         let (project, _) = await aProject()

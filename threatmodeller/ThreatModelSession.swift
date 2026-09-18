@@ -126,6 +126,11 @@ final class ThreatModelSession {
     /// the drop tells a user from a technology by the word alone.
     static let userDropId = "palette:user"
 
+    /// The catalogue category of a client: a browser, a mobile app, a
+    /// desktop app, an API client. A flow dragged from a user to one writes
+    /// `uses`.
+    static let clientCategoryId = "client"
+
     func add(technologyId: String, x: Double, y: Double) {
         // The palette's User row drops through the same path a technology
         // row drops through, and adds a user rather than a component.
@@ -181,6 +186,37 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// How far to the right of a user a client dropped on the user is put.
+    static let clientGap = 48.0
+
+    /// The palette gesture of the user-through-a-client design: a technology
+    /// dropped on a user is added to the right of the user and held by the
+    /// user, with no form. The palette's User row dropped on a user adds a
+    /// user beside it and holds nothing, because a user holds no user.
+    func addClient(technologyId: String, to userId: String) {
+        guard let user = canvas.components.first(where: { $0.id == userId && $0.isUser }) else {
+            return
+        }
+        let before = Set(canvas.components.map(\.id))
+        add(
+            technologyId: technologyId,
+            x: user.x + Component.size.width + Self.clientGap,
+            y: user.y
+        )
+        guard technologyId != Self.userDropId,
+              let added = canvas.components.first(where: { before.contains($0.id) == false })
+        else { return }
+        setUserProperties(
+            componentId: userId,
+            name: user.customName,
+            role: user.role,
+            accessId: user.runsAsId,
+            uses: user.uses + [added.id],
+            reaches: user.reaches,
+            threatActorId: user.threatActorId
+        )
+    }
+
     /// The names of the clients a user holds, in model order.
     func clientNames(of userId: String) -> [String] {
         guard let user = canvas.components.first(where: { $0.id == userId }) else { return [] }
@@ -188,6 +224,24 @@ final class ThreatModelSession {
     }
 
     func connect(sourceComponentId: String, targetComponentId: String) {
+        // The second gesture of the user-through-a-client design: a flow
+        // dragged from a user to a client writes `uses` and no flow. A drag
+        // from a user to any other component writes a flow, as it did.
+        if let user = canvas.components.first(where: { $0.id == sourceComponentId && $0.isUser }),
+           let target = canvas.components.first(where: { $0.id == targetComponentId }),
+           target.isUser == false, target.categoryId == Self.clientCategoryId {
+            guard user.uses.contains(targetComponentId) == false else { return }
+            setUserProperties(
+                componentId: user.id,
+                name: user.customName,
+                role: user.role,
+                accessId: user.runsAsId,
+                uses: user.uses + [targetComponentId],
+                reaches: user.reaches,
+                threatActorId: user.threatActorId
+            )
+            return
+        }
         let response = useCases.connectComponents().execute(
             ConnectComponentsRequest(
                 sourceComponentId: sourceComponentId,

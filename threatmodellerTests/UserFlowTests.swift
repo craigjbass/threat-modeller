@@ -228,6 +228,61 @@ struct UserFlowTests {
 
     // MARK: a user through a client
 
+    /// One user, two clients, three targets: every node is drawn once, the
+    /// links run user to client and client to target, and no link runs
+    /// user to target.
+    @Test func theCanvasDrawsTheUserItsClientsAndTheFlowsOnwardOnce() async throws {
+        let (session, _) = await aProject(clients)
+        let model = try #require(session.model)
+
+        let drawn = model.canvas
+        #expect(drawn.components.map(\.id).sorted() == ["alice", "api", "browser", "console", "mobile"])
+        #expect(drawn.components.filter { $0.id == "alice" }.count == 1)
+        #expect(drawn.components.filter { $0.id == "browser" }.count == 1)
+        #expect(drawn.components.filter { $0.id == "mobile" }.count == 1)
+
+        let links = drawn.connections.map { "\($0.sourceComponentId)->\($0.targetComponentId)" }
+        #expect(links.sorted() == [
+            "alice->browser", "alice->mobile", "browser->api", "browser->console", "mobile->api"
+        ])
+        #expect(links.contains("alice->api") == false)
+        #expect(links.contains("alice->console") == false)
+        let uses = drawn.connections.filter(\.isUse)
+        #expect(uses.map(\.id) == ["use:alice:browser", "use:alice:mobile"])
+        #expect(model.threats.contains { $0.source.id.hasPrefix("connection:use:") } == false)
+    }
+
+    /// A use link is drawn and not selected: a click on it hits nothing, so
+    /// the flow panel never opens on it and the delete key never asks the
+    /// model to remove it.
+    @Test func aUseLinkIsDrawnAndNotSelected() async throws {
+        let (session, _) = await aProject(clients)
+        let model = try #require(session.model)
+        let canvas = CanvasState()
+        let gestures = CanvasGestures(session: model, canvas: canvas)
+
+        let geometry = gestures.flows
+        #expect(geometry.curves["use:alice:browser"] != nil)
+        #expect(geometry.curves["browser->api"] != nil)
+        let curve = try #require(geometry.curves["use:alice:browser"])
+        let middle = curve.point(at: 0.5)
+        let hit = geometry.connection(under: CGPoint(x: middle.x, y: middle.y), within: 1)
+        #expect(hit != "use:alice:browser")
+        #expect(geometry.callouts.contains { $0.connectionId == "use:alice:browser" } == false)
+    }
+
+    @Test func theHoverNamesTheClientsAUserHolds() async throws {
+        let (session, _) = await aProject(clients)
+        let model = try #require(session.model)
+
+        let alice = try user(of: model)
+
+        let said = HoverText.node(
+            alice, zoneName: nil, risk: nil, clientNames: model.clientNames(of: alice.id)
+        )
+        #expect(said.hasPrefix("User, Operator, through Web Browser and Mobile App"))
+    }
+
     @Test func thePanelWritesTheClientsIntoTheFile() async throws {
         let (session, useCases) = await aProject(clients)
         let model = try #require(session.model)
@@ -245,6 +300,56 @@ struct UserFlowTests {
         #expect(written.contains("uses = [\"mobile\"]"))
         #expect(written.contains("flow alice") == false)
         #expect(model.canvas.connections.filter(\.isUse).map(\.id) == ["use:alice:mobile"])
+    }
+
+    /// The palette gesture: a technology dropped on a user is added beside
+    /// the user and held by the user, with no form.
+    @Test func aTechnologyDroppedOnAUserIsAddedBesideItAndHeld() async throws {
+        let (session, useCases) = await aProject(insider)
+        let model = try #require(session.model)
+        let canvas = CanvasState()
+        let gestures = CanvasGestures(session: model, canvas: canvas)
+        let alice = try user(of: model)
+        let centre = CGPoint(
+            x: alice.x + Component.size.width / 2,
+            y: alice.y + Component.size.height / 2
+        )
+
+        #expect(gestures.drop(["aws-ec2"], at: canvas.transform.viewPoint(centre)))
+        await session.save()
+
+        let added = try #require(model.canvas.components.first { $0.isUser == false && $0.id != "api" })
+        #expect(added.x == alice.x + Component.size.width + ThreatModelSession.clientGap)
+        #expect(added.y == alice.y)
+        #expect(try user(of: model).uses == [added.id])
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("uses         = [\"\(added.id)\"]"))
+    }
+
+    /// The second gesture: a flow dragged from a user to a client writes
+    /// `uses` and no flow. A flow dragged from a user to any other
+    /// component writes a flow, as it did.
+    @Test func aFlowDraggedFromAUserToAClientWritesUsesAndNoFlow() async throws {
+        let (session, useCases) = await aProject(clients)
+        let model = try #require(session.model)
+        UserPanel(session: model, user: try user(of: model)).uses("browser").wrappedValue = false
+        #expect(try user(of: model).uses == ["mobile"])
+
+        model.connect(sourceComponentId: "alice", targetComponentId: "browser")
+        model.connect(sourceComponentId: "alice", targetComponentId: "api")
+        await session.save()
+
+        #expect(try user(of: model).uses == ["mobile", "browser"])
+        let flows = model.canvas.connections.filter { $0.isUse == false }
+            .map { "\($0.sourceComponentId)->\($0.targetComponentId)" }
+        #expect(flows.contains("alice->browser") == false)
+        #expect(flows.contains("alice->api"))
+        #expect(model.canvas.connections.filter(\.isUse).map(\.id) == ["use:alice:mobile", "use:alice:browser"])
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("uses = [\"browser\", \"mobile\"]"))
+        #expect(written.contains("flow alice -> api"))
+        #expect(written.contains("flow alice -> browser") == false)
     }
 
     @Test func thePanelRefusesNothingTheParserTakes() async throws {
