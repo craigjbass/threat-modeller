@@ -76,13 +76,12 @@ struct MitigatesSheet: View {
                     TextField("Why, or what it costs", text: $actionNote, axis: .vertical)
                         .lineLimit(1 ... 3)
                         .accessibilityIdentifier("mitigates-action-note")
-                    // A blocker names an assumption the system declares. A
-                    // file whose blocker names no assumption loses the whole
-                    // action, so the picker offers only what is declared.
                     Picker("Held up by", selection: $blockedBy) {
-                        Text("nothing").tag("")
-                        ForEach(session.canvas.assumptions, id: \.label) { assumption in
-                            Text(assumption.label).tag(assumption.label)
+                        ForEach(
+                            Self.blockedByChoices(declaring: session.canvas.assumptions),
+                            id: \.tag
+                        ) { choice in
+                            Text(choice.word).tag(choice.tag)
                         }
                     }
                     .accessibilityIdentifier("mitigates-action-blocked-by")
@@ -144,7 +143,50 @@ struct MitigatesSheet: View {
         )
     }
 
-    private func readWhatIsThere() {
+    /// One choice the "Held up by" picker offers: no assumption, or one the
+    /// model declares.
+    enum BlockedByChoice: Equatable {
+        case nothing
+        case declared(String)
+
+        /// The word the picker prints for this choice.
+        var word: String {
+            switch self {
+            case .nothing: return "nothing"
+            case .declared(let label): return label
+            }
+        }
+
+        /// The value the picker's selection binds to.
+        var tag: String {
+            switch self {
+            case .nothing: return ""
+            case .declared(let label): return label
+            }
+        }
+    }
+
+    /// The picker's choices: `nothing`, then every assumption the model
+    /// declares, and no other word.
+    static func blockedByChoices(declaring assumptions: [ViewedAssumption]) -> [BlockedByChoice] {
+        [.nothing] + assumptions.map { .declared($0.label) }
+    }
+
+    /// The picker's opening choice for one edge's blocker: the blocker when
+    /// the model still declares it, or `nothing` when the model no longer
+    /// declares it.
+    static func openingBlockedBy(
+        actionBlockedBy: String?,
+        declaring assumptions: [ViewedAssumption]
+    ) -> BlockedByChoice {
+        guard let actionBlockedBy,
+              assumptions.contains(where: { $0.label == actionBlockedBy }) else {
+            return .nothing
+        }
+        return .declared(actionBlockedBy)
+    }
+
+    func readWhatIsThere() {
         guard let existing else { return }
         chosen = Set(existing.threatIds)
         percent = Double(existing.reducesRiskBy)
@@ -152,16 +194,14 @@ struct MitigatesSheet: View {
         actionLabel = existing.actionLabel ?? ""
         actionText = existing.actionText ?? ""
         actionNote = existing.actionNote ?? ""
-        // An assumption the system no longer declares leaves the picker on
-        // "nothing", because the file would lose the action anyway.
-        let declared = session.canvas.assumptions.map(\.label)
-        blockedBy = declared.contains(existing.actionBlockedBy ?? "")
-            ? (existing.actionBlockedBy ?? "")
-            : ""
+        blockedBy = Self.openingBlockedBy(
+            actionBlockedBy: existing.actionBlockedBy,
+            declaring: session.canvas.assumptions
+        ).tag
         actionSources = existing.actionSources.joined(separator: "\n")
     }
 
-    private func write() {
+    func write() {
         let label = actionLabel.trimmingCharacters(in: .whitespaces)
         session.setMitigatesEdge(
             from: protector.id,
