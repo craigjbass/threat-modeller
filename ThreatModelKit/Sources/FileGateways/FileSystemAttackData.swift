@@ -1,5 +1,10 @@
 import Foundation
 import ThreatModelKit
+#if canImport(Glibc)
+import Glibc
+#elseif canImport(Darwin)
+import Darwin
+#endif
 
 /// The ATT&CK data directory on this machine.
 public struct FileSystemAttackData: AttackDataGateway {
@@ -28,6 +33,8 @@ public struct FileSystemAttackData: AttackDataGateway {
         let wanted = URL(fileURLWithPath: "\(directory)/\(fileName)")
         let temporary = URL(fileURLWithPath: "\(directory)/.\(fileName).writing")
         try text.write(to: temporary, atomically: true, encoding: .utf8)
-        _ = try FileManager.default.replaceItemAt(wanted, withItemAt: temporary)
+        guard rename(temporary.path, wanted.path) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
     }
 }
