@@ -192,6 +192,30 @@ A reload from disk builds a new session and drops the kept pairs. An Undo of
 a merge after a reload puts the model back and leaves the files, the way an
 Undo after a severity decision does today.
 
+### The file work queue
+
+The restore and Auto Sync's save write the same two files. `ProjectSession`
+holds one queue for every piece of work that writes a project file, and the
+queue runs one piece at a time in the order the window asked for. Auto Sync's
+save, a save from the menu and a merge's file restore all join it.
+
+`ThreatModelSession.onFileWork` is how the restore joins the queue.
+`ProjectSession` sets it on the model it draws. A model that belongs to no
+project sets nothing, and the restore writes at once.
+
+`ProjectSession.save()` returns when the piece it queued has run, and it runs
+after every piece queued before it. That is the signal a caller waits on:
+after `save()` returns, the bytes the window meant to write are in the files.
+`ProjectSession.mostFileWorkAtOnce` counts the most pieces that ran at the
+same time, and the rule is one.
+
+Two pieces at once is the fault this rule stops. Auto Sync's wait ends half a
+second after a change, so its save starts while the person presses Redo. That
+save reads the controls file, the Redo writes the merged bytes into the same
+file, and the save then writes what it read. The bytes that stay are the
+bytes of whichever finished last, so the controls file held the merged
+answers and the answers of the merged-away component as stale stanzas.
+
 ### Where the code sits
 
 | File | What it holds |
@@ -202,3 +226,4 @@ Undo after a severity decision does today.
 | `threatmodeller/canvas/MergeSheet.swift` | the sheet |
 | `threatmodeller/canvas/ElementMenu.swift` | the `Merge…` row |
 | `threatmodeller/ThreatModelSession.swift` | `mergeComponents`, the kept file pairs, the Undo and Redo hooks |
+| `threatmodeller/project/ProjectSession.swift` | the file work queue the save and the restore run in |

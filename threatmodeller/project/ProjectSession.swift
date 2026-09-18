@@ -1090,9 +1090,11 @@ final class ProjectSession {
     /// wait for it. A test is the only caller that does.
     private var inFlight: Task<Void, Never>?
 
-    /// Waits for the load in flight, if there is one.
+    /// Waits for the load in flight, if there is one, and for the file work
+    /// the window queued.
     func settle() async {
         await inFlight?.value
+        await fileWork?.value
     }
 
     /// Opens a project from somewhere that cannot wait for it: a menu item, a
@@ -1188,6 +1190,11 @@ final class ProjectSession {
             // A MITRE id field with no matrix on this machine offers the
             // synchronise action, and the one synchronise path is here.
             drawn.onSynchroniseAttack = { [weak self] in await self?.synchroniseAttack() }
+            // A merge's Undo and Redo write bytes into the same files the
+            // save writes, so both join the one file work queue.
+            drawn.onFileWork = { [weak self] work in
+                self?.queueFileWork { work() }
+            }
             // Set last, so building the session does not count as a change.
             drawn.onChange = { [weak self] in self?.modelDidChange() }
             readPolicyRules()
@@ -1384,15 +1391,55 @@ final class ProjectSession {
         model.reread()
     }
 
+    // MARK: the file work queue
+
+    /// The file work the window asked for, the piece asked for last.
+    ///
+    /// Auto Sync's save, a save from the menu and a merge's file restore all
+    /// join this queue, and the queue runs one piece at a time in the order
+    /// the window asked for. Two pieces at once let a save read a file a
+    /// restore was still writing, and the bytes that stayed were the bytes of
+    /// whichever piece finished last.
+    private var fileWork: Task<Void, Never>?
+
+    /// The most pieces of file work that ran at the same time. The rule is
+    /// one. A test reads this to hold the rule.
+    private(set) var mostFileWorkAtOnce = 0
+    private var fileWorkRunning = 0
+
+    /// Puts one piece of file work at the end of the queue and answers the
+    /// task that runs it, so a caller can wait for the bytes to land.
+    @discardableResult
+    private func queueFileWork(_ work: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
+        let earlier = fileWork
+        let queued = Task { @MainActor [weak self] in
+            await earlier?.value
+            guard let self else { return }
+            self.fileWorkRunning += 1
+            self.mostFileWorkAtOnce = max(self.mostFileWorkAtOnce, self.fileWorkRunning)
+            await work()
+            self.fileWorkRunning -= 1
+        }
+        fileWork = queued
+        return queued
+    }
+
     /// Writes the drawn system back to the file it came from, and merges the
     /// answers on screen into its controls file.
     /// Writes from somewhere that cannot wait for it: the menu, or the timer
     /// that writes after an edit.
     func saveNow() {
-        inFlight = Task { await save() }
+        inFlight = queueFileWork { [weak self] in await self?.writeTheFiles() }
     }
 
+    /// Writes the files and answers, and returns when the bytes have landed.
+    /// It waits for every piece of file work the window asked for before it,
+    /// so a caller that returns from here reads the bytes the window meant.
     func save() async {
+        await queueFileWork { [weak self] in await self?.writeTheFiles() }.value
+    }
+
+    private func writeTheFiles() async {
         guard let root, let chosenSystem else { return }
 
         // Writing merges the answers on screen into the controls file, and

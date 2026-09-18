@@ -62,16 +62,26 @@ struct MergeFlowTests {
     private let controlsPath = "/work/threatmodel/payments.controls"
 
     private func aProject() async -> (ProjectSession, TestDependencies) {
+        let (session, useCases, _) = await aProject(coalescer: TimerCoalescer())
+        return (session, useCases)
+    }
+
+    /// A project whose Auto Sync wait the test ends by hand, so the test
+    /// states when Auto Sync's save starts.
+    private func aProject(
+        coalescer: ChangeCoalescing
+    ) async -> (ProjectSession, TestDependencies, ChangeCoalescing) {
         let useCases = TestDependencies()
         useCases.project.put(payments, at: archPath)
         useCases.project.put(answered, at: controlsPath)
         let session = ProjectSession(
             useCases: useCases,
             watcher: FakeProjectWatcher(),
-            defaults: aTestDefaults()
+            defaults: aTestDefaults(),
+            coalescer: coalescer
         )
         await session.open(root: "/work")
-        return (session, useCases)
+        return (session, useCases, coalescer)
     }
 
     private func draft(_ model: ThreatModelSession, _ ids: [String]) -> MergeDraft {
@@ -315,6 +325,35 @@ struct MergeFlowTests {
 
         #expect(model.canvas.components.map(\.id) == ["api", "ledger", "cdn"])
         #expect(useCases.project.text(at: controlsPath) == controlsMerged)
+        #expect(session.mostFileWorkAtOnce == 1)
+    }
+
+    /// Auto Sync's save and a Redo's file restore write the same two files.
+    /// They run one at a time, in the order the window asked for, so the
+    /// bytes the Redo wrote are the bytes the next save reads.
+    @Test func aRedoWritesTheFilesAfterTheSaveAutoSyncStarted() async throws {
+        let (session, useCases, coalescer) = await aProject(coalescer: FakeCoalescer())
+        let driven = try #require(coalescer as? FakeCoalescer)
+        let model = try #require(session.model)
+
+        _ = mergeApi2IntoApi(model)
+        await session.save()
+        let controlsMerged = useCases.project.text(at: controlsPath)
+        model.undo()
+        await session.save()
+        let controlsUndone = useCases.project.text(at: controlsPath)
+
+        // Auto Sync's wait ends: its save of the undone model starts here.
+        driven.fire()
+        // The Redo writes the merged bytes back while that save is in hand.
+        model.redo()
+        await session.save()
+        await session.settle()
+
+        #expect(controlsUndone != controlsMerged)
+        #expect(model.canvas.components.map(\.id) == ["api", "ledger", "cdn"])
+        #expect(useCases.project.text(at: controlsPath) == controlsMerged)
+        #expect(session.mostFileWorkAtOnce == 1)
     }
 
     // MARK: the sheet

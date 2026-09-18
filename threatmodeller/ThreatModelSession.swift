@@ -668,14 +668,34 @@ final class ThreatModelSession {
         return dropped
     }
 
+    /// What runs a piece of work that writes the project's files. The project
+    /// session sets it, and it runs the work after the file work the window
+    /// already asked for. A model that belongs to no project sets nothing and
+    /// the work runs at once.
+    var onFileWork: ((@escaping @MainActor () -> Void) -> Void)?
+
+    /// Puts the bytes of a snapshot back.
+    ///
+    /// The restore writes the same files the project's save writes, so it
+    /// goes through the project's file work queue. A restore that ran beside
+    /// a save let the save read a file the restore was still writing, and the
+    /// bytes that stayed were the bytes of whichever finished last.
     private func restore(_ snapshots: [FileSnapshot]) {
-        switch useCases.restoreFileSnapshots().execute(
-            RestoreFileSnapshotsRequest(snapshots: snapshots)
-        ) {
-        case .restored:
-            break
-        case .cannotWrite(let reason):
-            errorMessage = "The files could not be put back: \(reason)"
+        let write: @MainActor () -> Void = { [weak self] in
+            guard let self else { return }
+            switch self.useCases.restoreFileSnapshots().execute(
+                RestoreFileSnapshotsRequest(snapshots: snapshots)
+            ) {
+            case .restored:
+                break
+            case .cannotWrite(let reason):
+                self.errorMessage = "The files could not be put back: \(reason)"
+            }
+        }
+        if let onFileWork {
+            onFileWork(write)
+        } else {
+            write()
         }
     }
 
