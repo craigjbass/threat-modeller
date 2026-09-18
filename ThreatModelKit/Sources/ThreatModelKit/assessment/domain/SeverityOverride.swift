@@ -2,10 +2,10 @@ import Foundation
 
 /// Identifies a severity the user has overridden. Spec section 5.3.
 ///
-/// A component threat is keyed by the **component**, so an override set on one
-/// EC2 node stays on that node and leaves every other EC2 node alone. A link
-/// override applies to every link and a zone override to every zone, because
-/// the spec consolidates those two.
+/// A component threat is keyed by its component, so an override on one node
+/// leaves every other node of the same technology alone. A link override
+/// applies to every link and a zone override to every zone, because the
+/// spec consolidates those two.
 ///
 /// Every key carries the kind it belongs to as its first segment, so a
 /// technology, a component or a zone named `connection` cannot write a key

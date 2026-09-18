@@ -77,9 +77,9 @@ public struct ResolvedThreat: Equatable, Sendable {
     public let controls: [ResolvedControl]
     public let context: String?
     public let isTlsMitigated: Bool
-    /// The key an override for this threat is recorded under. Spec section 5.3
-    /// keys a component threat by its component, so an override on one node
-    /// leaves every other node of the same technology alone.
+    /// The key an override for this threat is recorded under. A component
+    /// threat is keyed by its component, so an override on one node leaves
+    /// every other node of the same technology alone.
     public let overrideKey: SeverityOverrideKey
     /// The severity id the user overrode this threat to, or nil. When set,
     /// `severity` is that severity rather than the threat's own.

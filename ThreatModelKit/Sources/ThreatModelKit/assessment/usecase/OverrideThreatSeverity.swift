@@ -21,10 +21,10 @@ public enum OverrideThreatSeverityResponse: Equatable, Sendable {
 
 /// Records the severity the user judges a threat to carry on their system.
 ///
-/// WARNING: spec section 5.3 keys a component threat by its technology, so one
-/// override applies to every component of that technology, and a link or zone
-/// override applies to every link or every zone. The key comes from the
-/// response, so this use case simply records what it is given.
+/// A component threat is keyed by its component. One override applies only
+/// to that component, and leaves every other component of the same
+/// technology alone. See `SeverityOverride` for the four key shapes. The key
+/// comes from the response, so this use case simply records what it is given.
 public struct OverrideThreatSeverity: OverrideThreatSeverityUseCase {
     private let models: ThreatModelGateway
     private let catalogue: TechnologyCatalogue
