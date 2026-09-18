@@ -28,6 +28,7 @@ coordinates through `CanvasPicture`.
 | `LayoutSubject` | `components: [ViewedComponent]`, `connections: [ViewedConnection]`, `zones: [ViewedZone]` |
 | `LayoutProgress.describe(_:)` | the search's caller states the subject |
 | `LayoutProgress.subject` | what a listener reads |
+| `LayoutProgress.reportInterval` | how much search time passes between two reports |
 
 A subject holds every field `CanvasPicture` draws: the name, the shape, the
 provider, the category, the sensitivity, the zone and the flows. The layout
@@ -75,6 +76,13 @@ sampler.
 
 The rule is a fixed interval: the preview redraws at most once every
 `LayoutPreviewSampler.redrawInterval`, and the last report is always drawn.
+The interval is `LayoutProgress.reportInterval`, the rate the search reports
+at, so the window draws every report and drops none.
+
+A report the window has not drawn yet is replaced, not queued. `receive(_:)`
+writes the newest report over the one before it, and asks for a redraw only
+when the interval has passed. The redraw reads the newest report when it
+runs.
 
 `receive(_:)` runs on the search's own thread. It takes a lock, writes the
 newest report, reads two times, and returns. It never draws and never waits
@@ -91,41 +99,86 @@ than a value carried on the notification. Two redraws enqueued in either
 order then both read the newest report, so the final plan cannot be
 overtaken by an earlier one.
 
+### The two report triggers
+
+**Decided 18 September 2026. Issue #249.**
+
+The search reports the best plan on two triggers:
+
+| Trigger | When |
+| --- | --- |
+| an improvement | a candidate beats the best plan so far |
+| the clock | `LayoutProgress.reportInterval` of search time has passed since the last report |
+
+The first trigger alone leaves a large model still. The search spends most of
+its time scoring candidates that improve nothing, so seconds pass with no
+report and the preview holds one frame.
+
+A report carries the best plan, never the candidate that caused the report,
+so two reports in a row never show a worse picture than the one before.
+
+The search reads its clock once for each candidate, after the candidate is
+scored, and only while somebody listens. Scoring a candidate is the whole
+cost of the search, so one clock read beside it is nothing, and a search with
+no listener reads no clock at all.
+
+A candidate that takes longer to score than the interval sets the rate
+instead of the interval. So the preview draws at the interval or at the
+candidate rate, whichever is slower.
+
 ### The number
 
-`LayoutPreviewSampler.redrawInterval` is 0.1 seconds.
+`LayoutProgress.reportInterval` is 0.0625 seconds, one sixteenth of a
+second. `LayoutPreviewSampler.redrawInterval` reads it, so the rate the
+search reports at is the rate the preview draws at, and the window draws
+every report the search makes.
 
-The measurement is `LayOutModel` over a sixty-component sample: six zones of
-ten components, a chain of flows inside each zone and one flow between
-neighbouring zones.
+The number is a whole binary fraction, so a clock that steps by the interval
+lands on the interval and the rate does not drift by a rounding error. 0.05
+and 0.1 both fall a little short of themselves once a clock has added them
+up a few times.
 
-| Build | Search | Reports | Span | Gaps |
-| --- | --- | --- | --- | --- |
-| optimised (`swift test -c release`) | 0.585 s | 5 | 0.359 s | 0.015, 0.015, 0.166, 0.164 |
-| debug (`swift test`) | 46.6 s | 5 | 28.6 s | 1.18 to 13.19 |
+The measurement is `LayOutModel` over two samples, in an optimised build
+(`swift test -c release`):
 
-The shipped application runs an optimised build. There the five reports
-arrive at 0, 0.015, 0.029, 0.195 and 0.359 seconds. A 0.1 second interval
-draws the first, the fourth and the fifth: three redraws of the sixty
-component picture in 0.359 seconds, and the last plan is one of the three.
-The two reports 15 milliseconds apart are the burst the rule drops, and the
-plan they carry is superseded 14 milliseconds later.
+| Sample | Search | Reports | Improved plans | Frames before | Frames after |
+| --- | --- | --- | --- | --- | --- |
+| sixty components, six zones of ten | 0.60 s | 12 | 5 | 4 | 9 |
+| two hundred components, twenty zones of ten | 8.8 s | 39 | 6 | 7 | 40 |
 
-0.1 seconds caps the window at ten redraws a second. A redraw of sixty nodes
-and their routed flows is the most expensive thing the preview does, and ten
-a second leaves the column answering while the search runs.
+"Frames before" is the improving reports sampled at the old 0.1 second
+interval, plus the last. "Frames after" is every report sampled at 0.0625
+seconds, plus the last. Both counts come from one run, because the improving
+reports are the subset of the reports whose plan beats the plan before, and
+the clock trigger adds under one per cent to the search.
 
-A shorter interval gains nothing on this sample: the search itself reports
-only five times, and three of the five already reach the screen. A longer
-interval would drop the fourth report, which is the one that shows the
-picture settling.
+On the two-hundred-component sample the six improved plans arrive at 0.17,
+0.34, 0.50, 2.81, 5.40 and 5.71 seconds. Two gaps of over two seconds hold
+one frame each. The clock trigger fills both: the search scores a candidate
+every 170 to 310 milliseconds, which is slower than the interval, so the
+preview redraws on every candidate and draws 40 frames.
+
+On the sixty-component sample a candidate takes about 8 milliseconds, which
+is faster than the interval, so the interval sets the rate: the reports
+arrive 63 to 76 milliseconds apart and the preview draws 9 frames in 0.57
+seconds.
+
+0.0625 seconds caps the window at sixteen redraws a second. A redraw of sixty
+nodes and their routed flows is the most expensive thing the preview does,
+and the canvas draws nothing else while the load runs, so sixteen a second
+leaves the column answering.
+
+A longer interval holds the sixty-component sample at the four frames #147
+drew. A shorter interval gains nothing: the candidate rate is the ceiling on
+both samples, and on the larger sample it already is the rate.
 
 ### The search never waits
 
-The same measurement states the margin. The search with a listener attached
-takes 0.5844 seconds; the search with no listener takes 0.5850 seconds. The
-difference is under one per cent, because `receive(_:)` is a lock and two
-comparisons.
+The same measurement states the margin. On the sixty-component sample the
+search with a listener attached takes 0.6015 seconds; the search with no
+listener takes 0.6048 seconds. The difference is under one per cent, because
+a report is one clock read on the search's side, and `receive(_:)` is a lock
+and two comparisons on the window's side.
 
 `LayoutPreviewTimingTests` states the margin as twenty-five per cent of the
 search with no listener. The measured difference is under one per cent, and

@@ -19,13 +19,9 @@ import ThreatModelKit
 /// `docs/superpowers/specs/2026-09-17-layout-preview-design.md` states the
 /// interval and the measurement behind it.
 nonisolated final class LayoutPreviewSampler: @unchecked Sendable {
-    /// How often the preview redraws, at most.
-    ///
-    /// On the sixty-component sample the search reports five plans in 0.359
-    /// seconds, at 0, 0.015, 0.029, 0.195 and 0.359 seconds. This interval
-    /// draws the first, the fourth and the fifth, and caps the window at ten
-    /// redraws a second.
-    static let redrawInterval: TimeInterval = 0.1
+    /// How often the preview redraws, at most. It is the rate the search
+    /// reports at, so the preview draws every report the search makes.
+    static let redrawInterval: TimeInterval = LayoutProgress.reportInterval
 
     private let lock = NSLock()
     private var newest: LayOutModelResponse?

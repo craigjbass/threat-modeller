@@ -5,9 +5,11 @@ import ThreatModelKit
 
 /// The preview must not slow the search down.
 ///
-/// The window's sampler stores each report and returns; it never draws on the
-/// search's thread and never waits for the window. This states the margin on
-/// the sixty-component sample the design measured.
+/// The search reports on every improvement and on its own clock. A report is
+/// one clock read on the search's side, and the window's sampler stores the
+/// report and returns: it never draws on the search's thread and never waits
+/// for the window. This states the margin on the sixty-component sample the
+/// design measured.
 /// `docs/superpowers/specs/2026-09-17-layout-preview-design.md`.
 @Suite("The layout search with a preview attached")
 struct LayoutPreviewTimingTests {

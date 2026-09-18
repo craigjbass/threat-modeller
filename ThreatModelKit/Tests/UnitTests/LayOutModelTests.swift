@@ -408,9 +408,9 @@ struct ZoneOrderTests {
     // MARK: saying how the search is going
 
     /// A large model takes long enough that a person wants to see it working.
-    /// The search reports every plan that beats the best so far, so what it
-    /// reports is a picture that visibly improves and never goes backwards.
-    @Test func reportsEveryLayoutThatBeatsTheBestSoFar() {
+    /// The search reports the best plan so far, so what it reports is a
+    /// picture that never goes backwards, and the last report is the answer.
+    @Test func reportsTheBestPlanSoFarAndEndsOnTheAnswer() {
         let progress = LayoutProgress()
         let heard = HeardLayouts()
         progress.listen { heard.add($0) }
@@ -422,9 +422,8 @@ struct ZoneOrderTests {
         let seen = heard.all()
         #expect(seen.isEmpty == false)
         #expect(seen.last?.fitness.score == response.fitness.score)
-        // Each report is better than the one before it.
         for (earlier, later) in zip(seen, seen.dropFirst()) {
-            #expect(later.fitness.score < earlier.fitness.score)
+            #expect(later.fitness.score <= earlier.fitness.score)
         }
     }
 

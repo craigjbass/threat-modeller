@@ -133,10 +133,12 @@ final class ProjectSession {
     /// `LayoutPreviewSampler.redrawInterval`, and the redraw reads the newest
     /// report here on the main actor.
     @discardableResult
-    func watchTheLayout() -> LayoutPreviewSampler {
+    func watchTheLayout(
+        now: @escaping @Sendable () -> TimeInterval = { Date().timeIntervalSinceReferenceDate }
+    ) -> LayoutPreviewSampler {
         formingDiagram = nil
         formingSubject = nil
-        let sampler = LayoutPreviewSampler(redraw: { [weak self] in
+        let sampler = LayoutPreviewSampler(now: now, redraw: { [weak self] in
             Task { @MainActor in self?.drawTheLayoutSoFar() }
         })
         previewSampler = sampler

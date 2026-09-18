@@ -169,31 +169,53 @@ struct LayoutPreviewTests {
 
     // MARK: the sampling
 
-    /// Fifty reports in ten milliseconds redraw the window once, because the
-    /// interval is a hundred milliseconds. The last report is drawn whatever
-    /// the interval says, so the preview ends on the final plan.
-    @Test func fiftyReportsInTenMillisecondsDrawTheSampledCountAndTheLast() {
+    /// The search reports on its own clock, and the window draws every report
+    /// it makes, plus the last one whatever the interval says.
+    @Test func reportsAtTheClockRateRedrawTheWindowAtTheIntervalAndOnceMoreForTheLast() {
         let (session, useCases) = aProject()
         _ = useCases.importArchitecture().execute(ImportArchitectureRequest(text: payments))
         let subject = aSubject(from: useCases)
         useCases.layoutProgress?.describe(subject)
 
-        let sampler = session.watchTheLayout()
-        let started = Date()
+        let clock = FakeClock()
+        let sampler = session.watchTheLayout(now: { clock.reading() })
+        for step in 0 ..< 10 {
+            useCases.layoutProgress?.report(aLayout(over: subject, shiftedBy: Double(step)))
+            clock.advance(by: LayoutProgress.reportInterval)
+        }
+        let atTheClockRate = sampler.redrawCount
+        session.stopWatchingTheLayout()
+
+        #expect(atTheClockRate == 10)
+        #expect(sampler.redrawCount == 11)
+        #expect(sampler.latest?.components.first?.x == subject.components[0].x + 9)
+    }
+
+    /// A report the window has not drawn yet is replaced, not queued: fifty
+    /// reports inside one interval ask for one redraw, and that redraw draws
+    /// the fiftieth.
+    @Test func reportsInsideOneIntervalAreReplacedAndNotQueued() {
+        let (session, useCases) = aProject()
+        _ = useCases.importArchitecture().execute(ImportArchitectureRequest(text: payments))
+        let subject = aSubject(from: useCases)
+        useCases.layoutProgress?.describe(subject)
+
+        let clock = FakeClock()
+        let sampler = session.watchTheLayout(now: { clock.reading() })
         for step in 0 ..< 50 {
             useCases.layoutProgress?.report(aLayout(over: subject, shiftedBy: Double(step)))
         }
-        let took = Date().timeIntervalSince(started)
         let sampled = sampler.redrawCount
         session.stopWatchingTheLayout()
 
-        // The fifty reports are fed inside one interval, which is what the
-        // rule is about. A machine slow enough to pass an interval here would
-        // make the count below say nothing.
-        #expect(took < LayoutPreviewSampler.redrawInterval)
         #expect(sampled == 1)
         #expect(sampler.redrawCount == 2)
         #expect(sampler.latest?.components.first?.x == subject.components[0].x + 49)
+    }
+
+    /// The search's interval and the preview's interval are one number.
+    @Test func theSamplerDrawsAtTheRateTheSearchReportsAt() {
+        #expect(LayoutPreviewSampler.redrawInterval == LayoutProgress.reportInterval)
     }
 
     /// The interval is the rule, and the clock the sampler reads is its own,
