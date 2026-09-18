@@ -29,10 +29,9 @@ public enum SetRequiresEvidenceAboveResponse: Equatable, Sendable {
 /// evidence.
 ///
 /// `threatmodeller check` reads this from the `.arch` file's
-/// `requires_evidence_above`. A system that states none asks for no evidence
-/// at any tier, and the policy's own `implemented_requires_evidence_above`
-/// still applies where it is lower. The window writes the same attribute
-/// here, so the value it shows and the value the verb reports never disagree.
+/// `requires_evidence_above`. `AttackTreeContext` combines it with the
+/// policy file's own demand. The window writes the same attribute here, so
+/// the value it shows and the value the verb reports never disagree.
 public struct SetRequiresEvidenceAbove: SetRequiresEvidenceAboveUseCase {
     private let models: ThreatModelGateway
 

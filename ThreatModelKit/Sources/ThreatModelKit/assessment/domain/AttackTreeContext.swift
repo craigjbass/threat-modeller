@@ -10,9 +10,6 @@ public struct AttackTreeContext: Sendable {
     /// every technology mitigation the catalogue and the `.lib` files state.
     public let knownControls: Set<String>
     public let proofs: [ControlKey: ControlProof]
-    /// The lower of `requires_evidence_above` in the `.arch` file and
-    /// `implemented_requires_evidence_above` in the policy file, or nil when
-    /// neither is in force.
     public let evidenceDemandedAbove: RiskLevel?
 
     public init(model: ThreatModel, catalogue: TechnologyCatalogue) {
@@ -27,11 +24,13 @@ public struct AttackTreeContext: Sendable {
         }
         knownControls = known
         proofs = model.controlProofs
-        evidenceDemandedAbove = Self.lower(model.requiresEvidenceAbove, model.policy?.implementedRequiresEvidenceAbove)
+        evidenceDemandedAbove = Self.moreDemandingOfArchAndPolicy(
+            model.requiresEvidenceAbove,
+            model.policy?.implementedRequiresEvidenceAbove
+        )
     }
 
-    /// The more demanding of two levels: the lower rank, or the one in force.
-    private static func lower(_ left: RiskLevel?, _ right: RiskLevel?) -> RiskLevel? {
+    private static func moreDemandingOfArchAndPolicy(_ left: RiskLevel?, _ right: RiskLevel?) -> RiskLevel? {
         switch (left, right) {
         case (nil, nil): nil
         case (let level?, nil), (nil, let level?): level
