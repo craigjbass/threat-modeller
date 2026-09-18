@@ -72,7 +72,18 @@ struct ReportStagePicturesTests {
     // MARK: the data-flow diagram
 
     /// The picture the stage draws under the title is the picture the image
-    /// export writes, pixel for pixel.
+    /// export writes, within a small tolerance on each pixel.
+    ///
+    /// The stage and the export each run their own `ImageRenderer` pass over
+    /// the same model value and the same area, at the same scale, so the two
+    /// pictures hold the same components in the same place with the same
+    /// colours. Two separate anti-aliased renders of the same shape are not
+    /// bound to round every edge pixel to the same 8-bit value; issue #182
+    /// measured a one-run-in-several difference of 1 unit on 16 of 500,480
+    /// pixels, all on a mitigation arc's anti-aliased edge, with the model,
+    /// the size and every other pixel unchanged. `pixelsMatch` allows that
+    /// rounding and still fails on a real difference in content, position or
+    /// colour, which moves many pixels by far more than the tolerance.
     @Test func drawsTheDataFlowPictureTheImageExportWrites() async throws {
         let (project, _) = await aProject()
         let model = try #require(project.model)
@@ -80,7 +91,70 @@ struct ReportStagePicturesTests {
         let exported = try #require(await ReportExporter(session: model).data(for: .image))
         let onTheStage = try #require(ReportDataFlowPicture(session: model).pixels())
 
-        #expect(onTheStage == exported.data)
+        #expect(pixelsMatch(onTheStage, exported.data))
+    }
+
+    /// True when every pixel of the two PNGs matches within `tolerance` on
+    /// every channel. Nil from either argument, or a size mismatch between
+    /// the two, is never a match.
+    private func pixelsMatch(_ first: Data, _ second: Data, tolerance: Int = 4) -> Bool {
+        guard let a = NSBitmapImageRep(data: first), let b = NSBitmapImageRep(data: second) else {
+            return false
+        }
+        guard a.pixelsWide == b.pixelsWide,
+            a.pixelsHigh == b.pixelsHigh,
+            a.bytesPerRow == b.bytesPerRow,
+            let bytesA = a.bitmapData,
+            let bytesB = b.bitmapData
+        else { return false }
+
+        let count = a.bytesPerRow * a.pixelsHigh
+        for offset in 0..<count {
+            if abs(Int(bytesA[offset]) - Int(bytesB[offset])) > tolerance { return false }
+        }
+        return true
+    }
+
+    /// A one-unit rounding difference on every channel is still a match, and
+    /// a colour the tolerance cannot cover is still a fault.
+    @Test func pixelsMatchAllowsRoundingButNotAColourFault() {
+        let red = solidPng(width: 2, height: 2, red: 200, green: 40, blue: 40)
+        let redRoundedByOne = solidPng(width: 2, height: 2, red: 199, green: 41, blue: 39)
+        let blue = solidPng(width: 2, height: 2, red: 40, green: 40, blue: 200)
+
+        #expect(pixelsMatch(red, redRoundedByOne))
+        #expect(pixelsMatch(red, blue) == false)
+    }
+
+    /// A flat PNG of one colour, the size the caller states.
+    private func solidPng(width: Int, height: Int, red: UInt8, green: UInt8, blue: UInt8) -> Data {
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.lockFocus()
+        NSColor(
+            red: Double(red) / 255,
+            green: Double(green) / 255,
+            blue: Double(blue) / 255,
+            alpha: 1
+        ).setFill()
+        NSRect(x: 0, y: 0, width: width, height: height).fill()
+        image.unlockFocus()
+        let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: width,
+            pixelsHigh: height,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        )!
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        image.draw(at: .zero, from: .zero, operation: .copy, fraction: 1)
+        NSGraphicsContext.restoreGraphicsState()
+        return bitmap.representation(using: .png, properties: [:])!
     }
 
     /// The title's section holds the picture, which is where the page puts it.
