@@ -164,6 +164,59 @@ grep -q '^### Users' "$work/users/threatmodel/payments.md"
 grep -q 'Alice (Operator, Administrator): reaches EC2' "$work/users/threatmodel/payments.md"
 grep -q 'Disgruntled operator' "$work/users/threatmodel/payments.md"
 
+step "a user through a client formats byte for byte and reaches the report"
+# Issue #178. Alice holds a browser and a mobile app; the browser reaches
+# the api and the console, the mobile app reaches the api.
+mkdir -p "$work/clients/threatmodel"
+cat > "$work/clients/threatmodel/payments.arch" <<'ARCH'
+system "Payments" {
+  component "api" {
+    technology = "aws-ec2"
+    name       = "API"
+    data       = "confidential"
+  }
+
+  component "console" {
+    technology = "aws-ec2"
+    name       = "Admin console"
+    data       = "confidential"
+  }
+
+  component "browser" {
+    technology = "actor-browser"
+  }
+
+  component "mobile" {
+    technology = "actor-mobile"
+  }
+
+  user "alice" {
+    name = "Alice"
+    role = "Operator"
+    uses = ["browser", "mobile"]
+  }
+
+  flow browser -> api
+  flow browser -> console
+  flow mobile -> api
+}
+ARCH
+cp "$work/clients/threatmodel/payments.arch" "$work/clients-first.arch"
+tm format "$work/clients"
+diff "$work/clients-first.arch" "$work/clients/threatmodel/payments.arch"
+tm compile "$work/clients"
+replace '"not_implemented"' '"implemented"' "$work/clients/threatmodel/payments.controls"
+tm check "$work/clients"
+tm report "$work/clients"
+grep -q 'Alice (Operator, User): through Web Browser reaches API and Admin console; through Mobile App reaches API' \
+    "$work/clients/threatmodel/payments.md"
+
+step "check refuses a user holding a client nothing declares"
+mkdir -p "$work/ghost-client/threatmodel"
+printf 'system "Payments" {\n  user "alice" {\n    uses = ["ghost"]\n  }\n}\n' \
+    > "$work/ghost-client/threatmodel/payments.arch"
+expect_code 2 check "$work/ghost-client"
+
 step "check refuses a user naming a threat actor nothing declares"
 mkdir -p "$work/ghost-actor/threatmodel"
 printf 'system "Payments" {\n  user "alice" {\n    threat_actor = "ghost"\n  }\n}\n' \

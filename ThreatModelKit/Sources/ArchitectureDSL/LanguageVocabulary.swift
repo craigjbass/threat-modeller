@@ -139,7 +139,7 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                 language: "arch",
                 name: "user",
                 phrase: "a user holds",
-                attributes: ["name", "role", "access", "reaches", "threat_actor"]
+                attributes: ["name", "role", "access", "uses", "reaches", "threat_actor"]
             )
         case .archAttribute:
             LanguageBlock(

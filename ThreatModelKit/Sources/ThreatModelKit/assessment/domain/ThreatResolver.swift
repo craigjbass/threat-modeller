@@ -231,12 +231,16 @@ public struct ThreatResolver {
     /// The actors this system faces, resolved once. Spec section 4.5: the
     /// model's own actors answer first and the catalogue's answer second.
     private let facedActors: [ThreatActor]
+    /// Where each faced actor performs. An actor a user with clients names
+    /// performs on the user's path and not beyond.
+    private let reach: ActorReach
 
     public init(model: ThreatModel, catalogue: TechnologyCatalogue) {
         self.model = model
         self.catalogue = catalogue
         lookup = TechnologyLookup(model: model, catalogue: catalogue)
         facedActors = ThreatActorLookup(model: model, catalogue: catalogue).faced()
+        reach = ActorReach(model: model)
     }
 
     public func resolve() -> [ResolvedThreat] {
@@ -531,7 +535,10 @@ public struct ThreatResolver {
     private func likelihooded(_ threat: ResolvedThreat) -> ResolvedThreat {
         let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
         let finding = model.likelihoodFindings[key]
-        let performers = ActorLikelihood.performers(of: threat.threat, among: facedActors)
+        // The user-through-a-client design, section 5: an actor a user
+        // names performs where the user reaches.
+        let actors = reach.performing(facedActors, on: threat.source.id)
+        let performers = ActorLikelihood.performers(of: threat.threat, among: actors)
         // Spec section 4.3: a finding in the controls file is the strongest
         // claim, a known exploited CVE on the component comes next, the
         // faced actors after that, and the catalogue's own tier stands when
@@ -540,7 +547,7 @@ public struct ThreatResolver {
         // claims names the reason.
         let source: LikelihoodSource = finding.map(LikelihoodSource.finding)
             ?? vulnerabilityClaim(on: threat.source)
-            ?? ActorLikelihood.likelihood(of: threat.threat, faced: facedActors)
+            ?? ActorLikelihood.likelihood(of: threat.threat, faced: actors)
         let likelihood = source.likelihood
         let reduced = Likelihood.apply(to: threat.score.value, likelihood: likelihood)
         let reducedTarget = Likelihood.apply(to: threat.scoreIfAssumptionsHold, likelihood: likelihood)

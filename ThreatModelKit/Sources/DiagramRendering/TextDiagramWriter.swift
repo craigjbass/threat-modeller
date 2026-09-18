@@ -63,7 +63,7 @@ public enum TextDiagramWriter {
         for connection in model.connections {
             lines.append(
                 "  \(identifier(connection.sourceComponentId))"
-                    + " -->|\(mermaidText(kindLabel(connection.kindId)))|"
+                    + " -->|\(mermaidText(edgeLabel(connection)))|"
                     + " \(identifier(connection.targetComponentId))"
             )
         }
@@ -124,7 +124,7 @@ public enum TextDiagramWriter {
             lines.append(
                 "  \(identifier(connection.sourceComponentId))"
                     + " -> \(identifier(connection.targetComponentId))"
-                    + " [label=\(dotText(kindLabel(connection.kindId)))];"
+                    + " [label=\(dotText(edgeLabel(connection)))];"
             )
         }
 
@@ -191,7 +191,7 @@ public enum TextDiagramWriter {
             lines.append(
                 "\(address(connection.sourceComponentId))"
                     + " -> \(address(connection.targetComponentId))"
-                    + ": \(d2Text(kindLabel(connection.kindId)))"
+                    + ": \(d2Text(edgeLabel(connection)))"
             )
         }
 
@@ -241,7 +241,8 @@ public enum TextDiagramWriter {
     }
 
     /// The word a reader sees on an arrow.
-    private static func kindLabel(_ kindId: String) -> String {
-        FlowKind(rawValue: kindId)?.label ?? kindId
+    /// What an edge is labelled: `uses` for a use link, else the flow kind.
+    private static func edgeLabel(_ connection: ViewedConnection) -> String {
+        connection.isUse ? "uses" : (FlowKind(rawValue: connection.kindId)?.label ?? connection.kindId)
     }
 }

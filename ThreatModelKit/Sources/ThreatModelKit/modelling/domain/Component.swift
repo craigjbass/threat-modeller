@@ -25,13 +25,23 @@ public enum ComponentStatus: String, CaseIterable, Equatable, Sendable {
 public struct UserFacts: Equatable, Sendable {
     /// What the person does with the system. Empty when the file states none.
     public var role: String
+    /// The component ids of the clients the user holds, in model order. The
+    /// user reaches the system through them; the user-through-a-client
+    /// design states the rule.
+    public var uses: [String]
     /// The component ids the user reaches, in file order.
     public var reaches: [String]
     /// The threat actor this user is, or nil. A user that names one is faced.
     public var threatActorId: String?
 
-    public init(role: String = "", reaches: [String] = [], threatActorId: String? = nil) {
+    public init(
+        role: String = "",
+        uses: [String] = [],
+        reaches: [String] = [],
+        threatActorId: String? = nil
+    ) {
         self.role = role
+        self.uses = uses
         self.reaches = reaches
         self.threatActorId = threatActorId
     }

@@ -535,6 +535,8 @@ enum ComponentMerge {
         for index in model.components.indices where model.components[index].user != nil {
             let reaches = model.components[index].user?.reaches ?? []
             model.components[index].user?.reaches = union([], reaches.map { end(ComponentId($0)).value })
+            let uses = model.components[index].user?.uses ?? []
+            model.components[index].user?.uses = union([], uses.map { end(ComponentId($0)).value })
         }
 
         // The answers.

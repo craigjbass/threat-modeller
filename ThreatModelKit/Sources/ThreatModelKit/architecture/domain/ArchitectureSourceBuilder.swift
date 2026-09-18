@@ -18,6 +18,7 @@ public enum ArchitectureSourceBuilder {
                             name: component.customName,
                             role: facts.role,
                             access: component.runsAs.rawValue,
+                            uses: facts.uses,
                             reaches: facts.reaches,
                             threatActorId: facts.threatActorId
                         )

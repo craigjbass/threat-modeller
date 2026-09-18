@@ -291,6 +291,7 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     statesOwnSensitivity: false,
                     user: UserFacts(
                         role: user.role,
+                        uses: user.uses,
                         reaches: user.reaches,
                         threatActorId: user.threatActorId
                     )

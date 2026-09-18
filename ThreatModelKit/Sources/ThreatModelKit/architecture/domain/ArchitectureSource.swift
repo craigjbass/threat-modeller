@@ -167,6 +167,8 @@ public struct SourceUser: Equatable, Sendable {
     /// The privilege the user holds on what the user reaches, with the words
     /// `runs_as` takes.
     public let access: String
+    /// The component ids of the clients the user holds, in file order.
+    public let uses: [String]
     /// The component ids the user reaches, in file order.
     public let reaches: [String]
     /// The threat actor this user is, or nil.
@@ -177,6 +179,7 @@ public struct SourceUser: Equatable, Sendable {
         name: String? = nil,
         role: String = "",
         access: String = "user",
+        uses: [String] = [],
         reaches: [String] = [],
         threatActorId: String? = nil
     ) {
@@ -184,6 +187,7 @@ public struct SourceUser: Equatable, Sendable {
         self.name = name
         self.role = role
         self.access = access
+        self.uses = uses
         self.reaches = reaches
         self.threatActorId = threatActorId
     }

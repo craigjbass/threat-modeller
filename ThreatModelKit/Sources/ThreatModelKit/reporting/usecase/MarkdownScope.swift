@@ -48,16 +48,24 @@ public enum MarkdownScope {
     }
 
     /// One user on one line: the name, the role and the access in brackets,
-    /// what the user reaches, and the actor the user is.
+    /// what the user reaches, each client the user holds with what it
+    /// reaches, and the actor the user is. A user that reaches nothing and
+    /// holds nothing reads `reaches nothing`.
     public static func line(for user: ReportUser) -> String {
         let facts = user.role.isEmpty
             ? user.accessLabel
             : "\(user.role), \(user.accessLabel)"
-        var text = "\(user.name) (\(facts)): reaches \(joined(user.reaches))"
-        if let actor = user.threatActorName {
-            text += "; is the threat actor \(actor)"
+        var clauses: [String] = []
+        if user.reaches.isEmpty == false || user.clients.isEmpty {
+            clauses.append("reaches \(joined(user.reaches))")
         }
-        return text
+        for client in user.clients {
+            clauses.append("through \(client.name) reaches \(joined(client.reaches))")
+        }
+        if let actor = user.threatActorName {
+            clauses.append("is the threat actor \(actor)")
+        }
+        return "\(user.name) (\(facts)): " + clauses.joined(separator: "; ")
     }
 
     /// `nothing`, `A`, `A and B`, or `A, B and C`.

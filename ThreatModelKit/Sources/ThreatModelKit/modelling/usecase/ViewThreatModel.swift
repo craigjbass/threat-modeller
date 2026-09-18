@@ -66,6 +66,9 @@ public struct ViewedComponent: Equatable, Sendable {
     /// What the user does with the system. Empty for a technology component
     /// and for a user that states no role.
     public let role: String
+    /// The component ids of the clients the user holds, in model order.
+    /// Empty for a technology component.
+    public let uses: [String]
     /// The component ids the user reaches, in model order. Empty for a
     /// technology component.
     public let reaches: [String]
@@ -102,6 +105,7 @@ public struct ViewedComponent: Equatable, Sendable {
         statusId: String = ComponentStatus.default.rawValue,
         isUser: Bool = false,
         role: String = "",
+        uses: [String] = [],
         reaches: [String] = [],
         threatActorId: String? = nil,
         version: String = "",
@@ -113,6 +117,7 @@ public struct ViewedComponent: Equatable, Sendable {
         self.cves = cves
         self.isUser = isUser
         self.role = role
+        self.uses = uses
         self.reaches = reaches
         self.threatActorId = threatActorId
         self.statusId = statusId
@@ -164,6 +169,7 @@ public struct ViewedComponent: Equatable, Sendable {
             statusId: statusId,
             isUser: isUser,
             role: role,
+            uses: uses,
             reaches: reaches,
             threatActorId: threatActorId,
             version: version,
@@ -186,6 +192,17 @@ public struct ViewedConnection: Equatable, Sendable {
     /// The words a team files this flow under, in model order. The canvas tag
     /// filter reads them; no score does.
     public let tags: [String]
+    /// True for a use link: the link from a user to a client the user holds,
+    /// derived from the user's `uses`. It is not a flow: the model holds no
+    /// connection for it, the file writes no `flow` statement, it raises no
+    /// threat and the canvas does not select it. The user-through-a-client
+    /// design states it.
+    public let isUse: Bool
+
+    /// The id a use link carries: `use:<user>:<client>`.
+    public static func useLinkId(user: String, client: String) -> String {
+        "use:\(user):\(client)"
+    }
 
     public init(
         id: String,
@@ -194,10 +211,12 @@ public struct ViewedConnection: Equatable, Sendable {
         kindId: String = FlowKind.default.rawValue,
         description: String? = nil,
         carries: [String] = [],
-        tags: [String] = []
+        tags: [String] = [],
+        isUse: Bool = false
     ) {
         self.tags = tags
         self.carries = carries
+        self.isUse = isUse
         self.id = id
         self.sourceComponentId = sourceComponentId
         self.targetComponentId = targetComponentId

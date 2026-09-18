@@ -55,11 +55,13 @@ public struct RemoveComponents: RemoveComponentsUseCase {
 
             model.components.removeAll { doomed.contains($0.id) }
             model.connections.removeAll { connection in doomed.contains(where: connection.touches) }
-            // A user reaches what is on the diagram. A reach naming a removed
-            // component would be a fault the next open refuses.
+            // A user reaches and holds what is on the diagram. A reach or a
+            // client naming a removed component would be a fault the next
+            // open refuses.
             let removedIds = Set(doomed.map(\.value))
             for index in model.components.indices where model.components[index].user != nil {
                 model.components[index].user?.reaches.removeAll { removedIds.contains($0) }
+                model.components[index].user?.uses.removeAll { removedIds.contains($0) }
             }
 
             // Spec section 5.3: removing a component prunes every key scoped to

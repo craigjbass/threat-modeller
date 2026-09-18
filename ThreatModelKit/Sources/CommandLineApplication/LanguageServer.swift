@@ -308,7 +308,7 @@ public final class LanguageServer: @unchecked Sendable {
             ["technology", "name", "zone", "data", "status", "version", "cves", "holds",
              "provided_by", "source", "threats", "runs_as", "shape", "tags"]
         case (.architecture, "user"):
-            ["name", "role", "access", "reaches", "threat_actor"]
+            ["name", "role", "access", "uses", "reaches", "threat_actor"]
         case (.architecture, "zone"):
             ["kind", "network", "name", "reduces_risk", "reduces_risk_by", "boundary",
              "description", "source", "tags"]

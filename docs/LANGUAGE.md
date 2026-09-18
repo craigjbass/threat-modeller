@@ -120,7 +120,7 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `boundary`, `reduces_risk`, `reduces_risk_by`, `component`, `data`, `runs_as`,
 `shape`, `asset`, `holds`, `carries`, `tags`, `status`, `version`, `cves`,
 `classification`, `third_party`,
-`user`, `role`, `access`, `reaches`,
+`user`, `role`, `access`, `uses`, `reaches`,
 `provided_by`, `paying_customer`, `uptime`, `uptime_notes`, `kind`, `link`,
 `diagram`, `text`, `flow`, `mitigates`,
 `status`, `recommendation`, `note`,
@@ -444,6 +444,7 @@ UserBlock = "user" String "{" { UserEntry } "}" ;
 UserEntry = "name"         "=" String
           | "role"         "=" String
           | "access"       "=" String
+          | "uses"         "=" StringList
           | "reaches"      "=" StringList
           | "threat_actor" "=" String ;
 
@@ -1061,7 +1062,8 @@ user "alice" {
   name         = "Alice"
   role         = "Operator"
   access       = "admin"
-  reaches      = ["api", "ledger"]
+  uses         = ["browser"]
+  reaches      = ["ledger"]
   threat_actor = "insider"
 }
 ```
@@ -1077,6 +1079,7 @@ zone.
 | `name` | string | the label | what the canvas and the report call the user |
 | `role` | string | empty | what the person does with the system |
 | `access` | string | `user` | the privilege the user holds: `user`, `admin`, `root`, `system` or `kernel`, the words `runs_as` takes |
+| `uses` | list of strings | empty | the component ids of the clients the user holds |
 | `reaches` | list of strings | empty | the component ids the user reaches |
 | `threat_actor` | string | none | the id of a threat actor this user is |
 
@@ -1091,6 +1094,29 @@ nothing converts a component into a user.
 component at another privilege is a privilege crossing. A value outside the
 five is the error `access is "<value>"; this application holds "admin",
 "kernel", "root", "system", "user"`.
+
+`uses` states the clients the user reaches the system through: a browser, a
+mobile app, a terminal. Any component the system declares may be a client;
+the language checks no category. The canvas draws a use link from the user
+to each client, dotted, and the client's own flows carry the rest, so a
+user that holds a browser that reaches the api is drawn user to browser to
+api and never user to api. A use link is not a flow: the file writes no
+`flow` statement for it, and it raises no threat. The writer writes the
+entries in the order the system declares the clients, so two files that
+state the same set write the same bytes. An entry naming a component this
+file does not declare, or naming a user, is the error `the user "<id>" uses
+"<component>", which this file does not declare`; in a split system the
+merge states `which this system does not declare`.
+
+When the user names a threat actor and states `uses`, the actor performs
+threats on the user's path and not beyond: on each client, on each flow
+that leaves a client, on the component that flow ends at, on each component
+`reaches` names, and on each flow that leaves the user itself. A user with no
+`uses` states no reach, and its actor performs everywhere, as section 6.3
+states. An actor `faces` lists performs everywhere whatever a user states.
+The report's Scope section states each user with each client and what it
+reaches: `Alice (Operator, Administrator): through Web Browser reaches API
+and Admin console`.
 
 `reaches` states which components the user has access to. It draws no flow
 and changes no score; the report states it. An entry naming a component this
@@ -1297,6 +1323,7 @@ Errors, which stop the import and produce no model:
 | a user identifier declared twice | `the user "<id>" is declared twice` |
 | a user identifier that is a component identifier | `"<id>" is declared as a component and as a user` |
 | a user reaching an undeclared component | `the user "<id>" reaches "<component>", which this file does not declare` |
+| a user holding an undeclared client, or a user | `the user "<id>" uses "<component>", which this file does not declare` |
 | a user naming a threat actor nothing declares | `the user "<id>" names the threat actor "<actor>", which no threat_actor block declares` |
 
 The last of those is raised by `ImportArchitecture`, not by the parser,
@@ -2848,7 +2875,7 @@ entry" or "an unknown attribute".
 | Language | Block | Message |
 | --- | --- | --- |
 | architecture | `system` | `a system holds catalogue, owner, description, authors, links, repositories, created, reviewed, version, attribute, technology, zone, component, user, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, use_case, exclusion, asset, third_party, diagram, faces and threat_actor, not "<word>"` |
-| architecture | `user` | `a user holds name, role, access, reaches and threat_actor, not "<word>"` |
+| architecture | `user` | `a user holds name, role, access, uses, reaches and threat_actor, not "<word>"` |
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |
@@ -3105,6 +3132,7 @@ UserBlock = "user" String "{" { UserEntry } "}" ;
 UserEntry = "name"         "=" String
           | "role"         "=" String
           | "access"       "=" String
+          | "uses"         "=" StringList
           | "reaches"      "=" StringList
           | "threat_actor" "=" String ;
 

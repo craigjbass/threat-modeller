@@ -251,6 +251,7 @@ struct ArchitectureParser {
         var name: String?
         var role = ""
         var access = SourceUser.defaultAccess
+        var uses: [String] = []
         var reaches: [String] = []
         var threatActorId: String?
 
@@ -262,6 +263,7 @@ struct ArchitectureParser {
                 let token = current
                 access = parseTextAttribute() ?? access
                 expectVocabulary(access, Self.privilegeLevels, field: "access", at: token)
+            case "uses": uses = parseListAttribute()
             case "reaches": reaches = parseListAttribute()
             case "threat_actor": threatActorId = parseTextAttribute()
             default:
@@ -276,6 +278,7 @@ struct ArchitectureParser {
             name: name,
             role: role,
             access: access,
+            uses: uses,
             reaches: reaches,
             threatActorId: threatActorId
         )
@@ -1321,9 +1324,16 @@ struct ArchitectureParser {
         }
         checkUserIds(source.users, against: componentIds)
 
-        // A whole file declares every component a user reaches. A part file
-        // leaves that to the merge.
+        // A whole file declares every component a user reaches and every
+        // client a user holds. A part file leaves that to the merge. A user
+        // is not a component, so a user holding a user is refused here too.
         for user in source.users {
+            for client in user.uses where componentIds.contains(client) == false {
+                record(
+                    "the user \"\(user.id)\" uses \"\(client)\", which this file does not declare",
+                    at: tokens[0]
+                )
+            }
             for reached in user.reaches where componentIds.contains(reached) == false {
                 record(
                     "the user \"\(user.id)\" reaches \"\(reached)\", which this file does not declare",

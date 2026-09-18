@@ -163,11 +163,13 @@ enum SelectionPlacement {
                 runsAs: component.runsAs,
                 assets: component.assets,
                 shape: component.shape,
-                // A pasted user keeps the reaches that name a pasted
-                // component, under their fresh ids, and drops the rest.
+                // A pasted user keeps the reaches and the clients that name
+                // a pasted component, under their fresh ids, and drops the
+                // rest.
                 user: component.user.map { facts in
                     UserFacts(
                         role: facts.role,
+                        uses: facts.uses.compactMap { componentIds[ComponentId($0)]?.value },
                         reaches: facts.reaches.compactMap { componentIds[ComponentId($0)]?.value },
                         threatActorId: facts.threatActorId
                     )

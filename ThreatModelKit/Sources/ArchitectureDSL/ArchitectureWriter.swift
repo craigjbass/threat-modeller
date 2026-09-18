@@ -255,6 +255,15 @@ struct ArchitectureWriter {
 
         // A user sits in no zone, so every user block is a top-level block.
         // An attribute holding its default writes no line.
+        //
+        // The clients a user holds are written in the order the system
+        // declares them, so two files that state the same set write the
+        // same bytes. A client declared in another part file follows, in
+        // the order stated.
+        let declarationOrder = Dictionary(
+            source.everyComponent.enumerated().map { ($0.element.id, $0.offset) },
+            uniquingKeysWith: { first, _ in first }
+        )
         for user in source.users {
             body.append("user \(quoted(user.id)) {")
             var attributes: [(String, String)] = []
@@ -262,6 +271,15 @@ struct ArchitectureWriter {
             if user.role.isEmpty == false { attributes.append(("role", quoted(user.role))) }
             if user.access != SourceUser.defaultAccess {
                 attributes.append(("access", quoted(user.access)))
+            }
+            if user.uses.isEmpty == false {
+                let rank: (String) -> Int = { declarationOrder[$0] ?? Int.max }
+                let declared = user.uses.enumerated().sorted { one, other in
+                    let first = rank(one.element)
+                    let second = rank(other.element)
+                    return first == second ? one.offset < other.offset : first < second
+                }
+                attributes.append(("uses", list(declared.map { $0.element })))
             }
             if user.reaches.isEmpty == false { attributes.append(("reaches", list(user.reaches))) }
             if let actorId = user.threatActorId {

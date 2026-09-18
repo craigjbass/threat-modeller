@@ -14,8 +14,9 @@ public struct LayOutModelRequest: Equatable, Sendable {
 
     public init(source: ArchitectureSource, shapes: [String: String] = [:]) {
         // A user sits in no zone and draws as an actor, so the layout reads
-        // it as one more loose component. The layout holds no other rule
-        // for a user.
+        // it as one more loose component, joined to each client it holds
+        // by a flow nothing writes, so the user is placed beside its
+        // clients. The layout holds no other rule for a user.
         self.source = source.users.isEmpty
             ? source
             : ArchitectureSource(
@@ -31,7 +32,9 @@ public struct LayOutModelRequest: Equatable, Sendable {
                         shape: DiagramShape.actor.rawValue
                     )
                 },
-                flows: source.flows,
+                flows: source.flows + source.users.flatMap { user in
+                    user.uses.map { SourceFlow(sourceId: user.id, targetId: $0, kind: "human") }
+                },
                 mitigates: source.mitigates
             )
         self.shapes = shapes

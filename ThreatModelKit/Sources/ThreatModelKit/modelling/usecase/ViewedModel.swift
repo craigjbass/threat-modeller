@@ -45,6 +45,7 @@ public enum ViewedModel {
                 statusId: component.status.rawValue,
                 isUser: component.isUser,
                 role: component.user?.role ?? "",
+                uses: component.user?.uses ?? [],
                 reaches: component.user?.reaches ?? [],
                 threatActorId: component.user?.threatActorId,
                 version: component.version,
@@ -59,8 +60,11 @@ public enum ViewedModel {
         }
     }
 
+    /// The model's flows, then one use link per user and client pair, in
+    /// model order. The picture draws the path a person takes: the user,
+    /// the client, then the client's own flows onward.
     public static func connections(of model: ThreatModel) -> [ViewedConnection] {
-        model.connections.map {
+        let flows = model.connections.map {
             ViewedConnection(
                 id: $0.id.value,
                 sourceComponentId: $0.source.value,
@@ -71,6 +75,18 @@ public enum ViewedModel {
                 tags: $0.tags
             )
         }
+        let uses = model.components.flatMap { user in
+            (user.user?.uses ?? []).map { client in
+                ViewedConnection(
+                    id: ViewedConnection.useLinkId(user: user.id.value, client: client),
+                    sourceComponentId: user.id.value,
+                    targetComponentId: client,
+                    kindId: FlowKind.human.rawValue,
+                    isUse: true
+                )
+            }
+        }
+        return flows + uses
     }
 
     public static func zones(of model: ThreatModel) -> [ViewedZone] {

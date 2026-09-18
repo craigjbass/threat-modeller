@@ -181,6 +181,12 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// The names of the clients a user holds, in model order.
+    func clientNames(of userId: String) -> [String] {
+        guard let user = canvas.components.first(where: { $0.id == userId }) else { return [] }
+        return user.uses.compactMap { id in canvas.components.first { $0.id == id }?.name }
+    }
+
     func connect(sourceComponentId: String, targetComponentId: String) {
         let response = useCases.connectComponents().execute(
             ConnectComponentsRequest(
@@ -1296,12 +1302,13 @@ final class ThreatModelSession {
     /// Writes what the node panel shows. One call for the name, the
     /// sensitivity, the shape and whether the node raises threats at all.
     /// Writes what the user panel shows: the name, the role, the access, the
-    /// reaches and the threat actor the user is.
+    /// clients the user holds, the reaches and the threat actor the user is.
     func setUserProperties(
         componentId: String,
         name: String?,
         role: String,
         accessId: String,
+        uses: [String],
         reaches: [String],
         threatActorId: String?
     ) {
@@ -1311,6 +1318,7 @@ final class ThreatModelSession {
                 name: name,
                 role: role,
                 access: accessId,
+                uses: uses,
                 reaches: reaches,
                 threatActorId: threatActorId
             )

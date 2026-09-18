@@ -939,6 +939,9 @@ public struct ReportUser: Equatable, Sendable {
     public let accessLabel: String
     /// The names of the components the user reaches, in model order.
     public let reaches: [String]
+    /// The clients the user holds, in model order, each with what it
+    /// reaches.
+    public let clients: [ReportClient]
     /// The name of the threat actor this user is, or nil.
     public let threatActorName: String?
 
@@ -947,13 +950,27 @@ public struct ReportUser: Equatable, Sendable {
         role: String = "",
         accessLabel: String,
         reaches: [String] = [],
+        clients: [ReportClient] = [],
         threatActorName: String? = nil
     ) {
         self.name = name
         self.role = role
         self.accessLabel = accessLabel
         self.reaches = reaches
+        self.clients = clients
         self.threatActorName = threatActorName
+    }
+}
+
+/// One client a user holds, in report form: the client's name and the names
+/// of the components its flows reach, in model order.
+public struct ReportClient: Equatable, Sendable {
+    public let name: String
+    public let reaches: [String]
+
+    public init(name: String, reaches: [String] = []) {
+        self.name = name
+        self.reaches = reaches
     }
 }
 

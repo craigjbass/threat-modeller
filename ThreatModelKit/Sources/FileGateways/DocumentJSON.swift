@@ -205,6 +205,8 @@ struct ComponentJSON: Codable {
 
 struct UserJSON: Codable {
     let role: String
+    /// Absent in a file written before the user-through-a-client design.
+    let uses: [String]?
     let reaches: [String]
     let threatActorId: String?
 }

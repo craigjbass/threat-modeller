@@ -349,6 +349,7 @@ struct LanguageServerTests {
 
         #expect(labels.contains("role"))
         #expect(labels.contains("access"))
+        #expect(labels.contains("uses"))
         #expect(labels.contains("reaches"))
         #expect(labels.contains("threat_actor"))
     }

@@ -47,6 +47,55 @@ struct UserFlowTests {
 
     """
 
+    /// Alice holds a browser and a mobile app. The browser reaches the api
+    /// and the console; the mobile app reaches the api. The design in
+    /// `docs/superpowers/specs/2026-09-18-user-through-a-client-design.md`
+    /// states what the canvas draws for it.
+    private let clients = """
+    system "Payments" {
+      technology "web" {
+        name     = "Web Browser"
+        category = "client"
+      }
+
+      technology "app" {
+        name     = "Mobile App"
+        category = "client"
+      }
+
+      component "api" {
+        technology = "aws-ec2"
+        name       = "API"
+        data       = "confidential"
+      }
+
+      component "console" {
+        technology = "aws-ec2"
+        name       = "Admin console"
+        data       = "confidential"
+      }
+
+      component "browser" {
+        technology = "web"
+      }
+
+      component "mobile" {
+        technology = "app"
+      }
+
+      user "alice" {
+        name = "Alice"
+        role = "Operator"
+        uses = ["browser", "mobile"]
+      }
+
+      flow browser -> api
+      flow browser -> console
+      flow mobile -> api
+    }
+
+    """
+
     private func aProject(_ text: String? = nil) async -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
         useCases.project.put(text ?? payments, at: "/work/threatmodel/payments.arch")
@@ -145,6 +194,7 @@ struct UserFlowTests {
             name: "Alice",
             role: "",
             accessId: "user",
+            uses: [],
             reaches: [],
             threatActorId: nil
         )
@@ -174,6 +224,27 @@ struct UserFlowTests {
         #expect(panel.reachable.map(\.id) == ["api"])
         #expect(panel.actorChoices.map(\.id).contains("insider"))
         #expect(panel.threatActor.wrappedValue == "insider")
+    }
+
+    // MARK: a user through a client
+
+    @Test func thePanelWritesTheClientsIntoTheFile() async throws {
+        let (session, useCases) = await aProject(clients)
+        let model = try #require(session.model)
+
+        var panel = UserPanel(session: model, user: try user(of: model))
+        #expect(panel.usesLabel == "Uses 2 components")
+        #expect(panel.uses("browser").wrappedValue)
+        panel.uses("browser").wrappedValue = false
+        panel = UserPanel(session: model, user: try user(of: model))
+        #expect(panel.usesLabel == "Uses Mobile App")
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("uses = [\"mobile\"]"))
+        #expect(written.contains("flow alice") == false)
+        #expect(model.canvas.connections.filter(\.isUse).map(\.id) == ["use:alice:mobile"])
     }
 
     @Test func thePanelRefusesNothingTheParserTakes() async throws {

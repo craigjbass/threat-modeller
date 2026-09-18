@@ -194,8 +194,10 @@ extension DiagramBuilder {
                 )
             }
 
+            // A use link is dotted: it is the path a person takes to a
+            // client, not a flow that raises threats.
             return [
-                .path(steps, DiagramStyle(stroke: colour, width: width)),
+                .path(steps, DiagramStyle(stroke: colour, width: width, dash: connection.isUse ? [2, 4] : [])),
                 .path(arrowhead(of: curve), DiagramStyle(fill: colour))
             ]
         }

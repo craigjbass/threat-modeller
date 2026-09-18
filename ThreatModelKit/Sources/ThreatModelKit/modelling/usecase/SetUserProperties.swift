@@ -11,6 +11,8 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
     public let role: String
     /// The privilege the user holds: user, admin, root, system or kernel.
     public let access: String
+    /// The component ids of the clients the user holds.
+    public let uses: [String]
     /// The component ids the user reaches.
     public let reaches: [String]
     /// The threat actor this user is, or nil.
@@ -21,6 +23,7 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
         name: String?,
         role: String,
         access: String,
+        uses: [String] = [],
         reaches: [String],
         threatActorId: String?
     ) {
@@ -28,6 +31,7 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
         self.name = name
         self.role = role
         self.access = access
+        self.uses = uses
         self.reaches = reaches
         self.threatActorId = threatActorId
     }
@@ -37,7 +41,8 @@ public enum SetUserPropertiesResponse: Equatable, Sendable {
     case updated
     case unknownUser
     case unknownAccessLevel
-    /// A reach names no component of this model, or names a user.
+    /// A reach or a client names no component of this model, or names a
+    /// user.
     case unknownComponent(String)
     /// The threat actor names nothing this project holds.
     case unknownActor(String)
@@ -82,6 +87,11 @@ public struct SetUserProperties: SetUserPropertiesUseCase {
         for reached in reaches where reachable.contains(reached) == false {
             return .unknownComponent(reached)
         }
+        var held: Set<String> = []
+        let uses = request.uses.filter { held.insert($0).inserted }
+        for client in uses where reachable.contains(client) == false {
+            return .unknownComponent(client)
+        }
         if let actorId, actorId.isEmpty == false {
             let lookup = ThreatActorLookup(model: model, catalogue: catalogue)
             guard lookup.findById(ThreatActorId(actorId)) != nil else {
@@ -97,6 +107,7 @@ public struct SetUserProperties: SetUserPropertiesUseCase {
             model.components[index].runsAs = access
             model.components[index].user = UserFacts(
                 role: role,
+                uses: uses,
                 reaches: reaches,
                 threatActorId: (actorId?.isEmpty ?? true) ? nil : actorId
             )

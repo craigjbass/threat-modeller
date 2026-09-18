@@ -67,6 +67,7 @@ extension WindowModelParityTests {
             ("name", .writes("user-name")),
             ("role", .writes("user-role")),
             ("access", .writes("user-access")),
+            ("uses", .writes("user-uses")),
             ("reaches", .writes("user-reaches")),
             ("threat_actor", .writes("user-threat-actor"))
         ])) { first, _ in first }

@@ -1,0 +1,55 @@
+system "Payments" {
+  threat_actor "insider" {
+    name       = "Disgruntled operator"
+    capability = "targeted"
+    intent     = "sabotage"
+    performs   = ["credential-theft"]
+  }
+
+  zone "app" {
+    kind    = "private"
+    network = "vpc"
+
+    component "api" {
+      technology = "aws-ec2"
+      data       = "confidential"
+    }
+
+    component "console" {
+      technology = "aws-ec2"
+      data       = "confidential"
+    }
+
+    component "ledger" {
+      technology = "aws-rds"
+      data       = "restricted"
+    }
+  }
+
+  component "browser" {
+    technology = "actor-browser"
+  }
+
+  component "mobile" {
+    technology = "actor-mobile"
+  }
+
+  user "alice" {
+    name         = "Alice"
+    role         = "Operator"
+    access       = "admin"
+    uses         = ["browser", "mobile"]
+    threat_actor = "insider"
+  }
+
+  user "bob" {
+    name    = "Bob"
+    role    = "Customer"
+    uses    = ["browser"]
+    reaches = ["ledger"]
+  }
+
+  flow browser -> api
+  flow browser -> console
+  flow mobile -> api
+}

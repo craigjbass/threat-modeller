@@ -49,8 +49,21 @@ struct UserPanel: View {
             .accessibilityIdentifier("user-access")
         }
 
-        // The components the user reaches are a multiple choice: none,
-        // one or many, and the menu states which.
+        // The clients the user holds and the components the user reaches
+        // are each a multiple choice: none, one or many, and the menu
+        // states which.
+        if reachable.isEmpty == false {
+            SelectionField("Uses") {
+                Menu {
+                    ForEach(reachable, id: \.id) { component in
+                        Toggle(component.name, isOn: uses(component.id))
+                    }
+                } label: {
+                    Text(usesLabel)
+                }
+                .accessibilityIdentifier("user-uses")
+            }
+        }
         if reachable.isEmpty == false {
             SelectionField("Reaches") {
                 Menu {
@@ -78,7 +91,14 @@ struct UserPanel: View {
         session.canvas.components.filter { $0.isUser == false }
     }
 
-    /// What the menu reads when it is closed.
+    /// What the Uses menu reads when it is closed.
+    var usesLabel: String {
+        guard user.uses.isEmpty == false else { return "Uses nothing" }
+        let names = user.uses.compactMap { id in reachable.first { $0.id == id }?.name }
+        return names.count == 1 ? "Uses \(names[0])" : "Uses \(names.count) components"
+    }
+
+    /// What the Reaches menu reads when it is closed.
     var reachesLabel: String {
         guard user.reaches.isEmpty == false else { return "Reaches nothing" }
         let names = user.reaches.compactMap { id in reachable.first { $0.id == id }?.name }
@@ -89,6 +109,22 @@ struct UserPanel: View {
     var actorChoices: [(id: String, label: String)] {
         [(id: Self.noActor, label: "Not a threat actor")]
             + session.threatActorsInUse.map { (id: $0.id, label: $0.name) }
+    }
+
+    /// Whether the user holds this client. Setting it writes `uses`.
+    func uses(_ componentId: String) -> Binding<Bool> {
+        Binding(
+            get: { user.uses.contains(componentId) },
+            set: { wanted in
+                var held = user.uses
+                if wanted {
+                    if held.contains(componentId) == false { held.append(componentId) }
+                } else {
+                    held.removeAll { $0 == componentId }
+                }
+                write(uses: held)
+            }
+        )
     }
 
     private func reaches(_ componentId: String) -> Binding<Bool> {
@@ -112,6 +148,7 @@ struct UserPanel: View {
         name newName: String? = nil,
         role newRole: String? = nil,
         access newAccess: String? = nil,
+        uses newUses: [String]? = nil,
         reaches newReaches: [String]? = nil,
         threatActorId newActor: String?? = nil
     ) {
@@ -120,6 +157,7 @@ struct UserPanel: View {
             name: newName ?? user.customName,
             role: newRole ?? user.role,
             accessId: newAccess ?? user.runsAsId,
+            uses: newUses ?? user.uses,
             reaches: newReaches ?? user.reaches,
             threatActorId: newActor ?? user.threatActorId
         )

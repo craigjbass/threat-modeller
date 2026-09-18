@@ -507,8 +507,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         )
     }
 
-    /// The humans who use the system, with what they reach by name and the
-    /// actor each one is.
+    /// The humans who use the system, with what they reach by name, the
+    /// clients they hold with what those reach, and the actor each one is.
     static func users(
         of model: ThreatModel,
         nameOf: (ComponentId) -> String,
@@ -521,6 +521,14 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 role: facts.role,
                 accessLabel: component.runsAs.label,
                 reaches: facts.reaches.map { nameOf(ComponentId($0)) },
+                clients: facts.uses.map { client in
+                    ReportClient(
+                        name: nameOf(ComponentId(client)),
+                        reaches: model.connections
+                            .filter { $0.source.value == client }
+                            .map { nameOf($0.target) }
+                    )
+                },
                 threatActorName: facts.threatActorId.flatMap {
                     actors.findById(ThreatActorId($0))?.name
                 }
