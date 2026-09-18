@@ -595,9 +595,7 @@ struct ArchitectureParser {
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
             case "name": name = parseTextAttribute()
-            // A classification word belongs to the project's scheme, and a
-            // library states that scheme, which the parser has never read.
-            // `ImportArchitecture` says what the scheme does not hold.
+            // See the doc comment on `expectVocabulary`.
             case "classification": classification = parseTextAttribute() ?? classification
             case "description": description = parseTextAttribute() ?? description
             case "owner": owner = parseTextAttribute()
@@ -955,15 +953,9 @@ struct ArchitectureParser {
             case "source":
                 source = parseTextAttribute()
             case "data":
-                let token = current
+                // See the doc comment on `expectVocabulary`.
                 data = parseTextAttribute() ?? data
                 declaredData = data
-                // A classification word belongs to the project's scheme, and
-                // a library states that scheme, which the parser has never
-                // read. `ImportArchitecture` says what the scheme does not
-                // hold, the way `LoadLibraries` says what the taxonomy does
-                // not hold.
-                _ = data
             case "threats": raisesThreats = parseBooleanAttribute() ?? true
             case "runs_as":
                 let token = current
@@ -1048,14 +1040,8 @@ struct ArchitectureParser {
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
             case "data":
-                let token = current
+                // See the doc comment on `expectVocabulary`.
                 data = parseTextAttribute() ?? data
-                // A classification word belongs to the project's scheme, and
-                // a library states that scheme, which the parser has never
-                // read. `ImportArchitecture` says what the scheme does not
-                // hold, the way `LoadLibraries` says what the taxonomy does
-                // not hold.
-                _ = data
             default:
                 record(LanguageBlockId.archComponentAsset.unknownAttribute(current.text))
                 skipAttribute()
@@ -1426,6 +1412,11 @@ struct ArchitectureParser {
         return token
     }
 
+    /// A classification word belongs to the project's scheme. This parser
+    /// does not check a `classification` or a `data` value against the
+    /// library. `ImportArchitecture` flags a scheme word missing from the
+    /// library, and `LoadLibraries` flags a taxonomy word missing from the
+    /// library.
     private mutating func expectVocabulary(
         _ value: String,
         _ allowed: Set<String>,
