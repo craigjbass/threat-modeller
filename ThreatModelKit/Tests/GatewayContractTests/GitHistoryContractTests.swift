@@ -41,6 +41,29 @@ struct GitHistoryContractTests {
             path: "threatmodel/payments.arch",
             unheldPath: "threatmodel/nothing.arch"
         )
+
+        let path = repository + "/threatmodel/payments.arch"
+        try "system \"Payments\" {\n}\n# a third change\n".write(toFile: path, atomically: true, encoding: .utf8)
+        _ = try run(["add", "."], in: repository)
+        _ = try run(
+            ["commit", "--quiet", "-m", "the third commit\nholds a newline in its subject"],
+            in: repository
+        )
+
+        try verifyGitHistoryKeepsAMultilineSubjectWhole(
+            GitHistory(),
+            root: repository,
+            path: "threatmodel/payments.arch",
+            newestSubject: "the third commit holds a newline in its subject",
+            olderSubject: "the second"
+        )
+
+        _ = try run(["config", "core.pager", "sleep 60"], in: repository)
+        try verifyGitHistoryIgnoresAWaitingPager(
+            GitHistory(timeout: 5),
+            root: repository,
+            path: "threatmodel/payments.arch"
+        )
     }
 
     /// Reading the history changes neither the working tree nor the index.

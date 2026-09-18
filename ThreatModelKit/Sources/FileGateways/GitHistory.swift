@@ -27,8 +27,6 @@ public struct GitHistory: GitHistoryGateway {
     public func commits(root: String, touching paths: [String], limit: Int) throws -> [SourceCommit] {
         guard limit > 0 else { return [] }
 
-        // A record separator no commit subject holds, so a subject with a
-        // newline in it cannot break the parse.
         let separator = "\u{1F}"
         var arguments = [
             "-C", root,
@@ -106,7 +104,6 @@ public struct GitHistory: GitHistoryGateway {
 
         var environment = ShellPath.environment
         environment["GIT_TERMINAL_PROMPT"] = "0"
-        // A pager would wait for a key nobody can press.
         environment["GIT_PAGER"] = "cat"
         process.environment = environment
 

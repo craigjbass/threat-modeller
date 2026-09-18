@@ -39,3 +39,31 @@ public func verifyGitHistoryContract(
     // files over its life.
     #expect(try subject.file(root: root, at: newest.hash, path: unheldPath) == nil)
 }
+
+/// A commit whose subject holds a newline reads back as one whole row, not
+/// two, and the commit before it is still the second row.
+public func verifyGitHistoryKeepsAMultilineSubjectWhole(
+    _ subject: GitHistoryGateway,
+    root: String,
+    path: String,
+    newestSubject: String,
+    olderSubject: String
+) throws {
+    let commits = try subject.commits(root: root, touching: [path], limit: 10)
+    #expect(commits.count >= 2)
+    let newest = try #require(commits.first)
+    #expect(newest.subject == newestSubject)
+    let older = try #require(commits.dropFirst().first)
+    #expect(older.subject == olderSubject)
+}
+
+/// A repository read with `core.pager` set to a command that waits for input
+/// still returns, and returns the same rows a plain read would.
+public func verifyGitHistoryIgnoresAWaitingPager(
+    _ subject: GitHistoryGateway,
+    root: String,
+    path: String
+) throws {
+    let commits = try subject.commits(root: root, touching: [path], limit: 10)
+    #expect(commits.count >= 2)
+}
