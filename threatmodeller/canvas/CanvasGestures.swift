@@ -116,15 +116,11 @@ struct CanvasGestures: CanvasZooming {
         )
     }
 
-    /// Where a flow's label sits, so the field opens on the flow rather than
-    /// at the pointer.
     func calloutRect(of connectionId: String) -> CGRect? {
         let geometry = flows
         if let callout = geometry.callouts.first(where: { $0.connectionId == connectionId }) {
             return CGRect(callout.rect)
         }
-        // A flow with no label yet has no callout, so the field opens at the
-        // middle of the curve.
         guard let curve = geometry.curves[connectionId] else { return nil }
         let middle = curve.point(at: 0.5)
         return CGRect(x: middle.x - 90, y: middle.y - 12, width: 180, height: 24)
@@ -425,16 +421,11 @@ struct CanvasGestures: CanvasZooming {
 
     // MARK: commands
 
-    /// Spec section 9: an arrow moves the selection 10 points, and shift-arrow
-    /// moves it 1. The small step is for lining things up; the large one is for
-    /// getting somewhere.
     static let nudgeStep = 10.0
     static let fineNudgeStep = 1.0
 
     // MARK: names edited in place
 
-    /// Writes a node's new name, as one change. An empty name clears the
-    /// custom name, which puts the technology's own name back.
     func renameComponent(_ componentId: String, to name: String) {
         canvas.stopEditingName()
         guard let component = session.canvas.components.first(where: { $0.id == componentId }) else {
@@ -478,11 +469,15 @@ struct CanvasGestures: CanvasZooming {
     }
 
     func nudge(dx: Double, dy: Double) {
-        let moves = session.canvas.components
+        let componentMoves = session.canvas.components
             .filter { canvas.isSelected(componentId: $0.id) }
             .map { ComponentMove(componentId: $0.id, x: $0.x + dx, y: $0.y + dy) }
-        guard moves.isEmpty == false else { return }
-        session.move(moves)
+        let zoneMoves = session.canvas.zones
+            .filter { canvas.isSelected(zoneId: $0.id) }
+            .map { ZoneMove(zoneId: $0.id, x: $0.x + dx, y: $0.y + dy) }
+        guard componentMoves.isEmpty == false || zoneMoves.isEmpty == false else { return }
+        if componentMoves.isEmpty == false { session.move(componentMoves) }
+        if zoneMoves.isEmpty == false { session.moveZones(zoneMoves) }
     }
 
     func deleteSelection() {

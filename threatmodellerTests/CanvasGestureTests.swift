@@ -811,6 +811,118 @@ struct CanvasGestureTests {
             )
         }
     }
+
+    // MARK: the arrow key nudge
+
+    @Test func anArrowKeyMovesEverySelectedComponentTenPoints() {
+        let (session, canvas, gestures, api, db) = twoNodes()
+        canvas.select(componentId: api, addingToSelection: false)
+        canvas.select(componentId: db, addingToSelection: true)
+
+        gestures.nudge(dx: CanvasGestures.nudgeStep, dy: 0)
+
+        let moved = Dictionary(uniqueKeysWithValues: session.canvas.components.map { ($0.id, $0) })
+        #expect(moved[api]?.x == 10)
+        #expect(moved[db]?.x == 410)
+    }
+
+    @Test func aShiftArrowMovesTheSelectionOnePoint() {
+        let (session, canvas, gestures, api, _) = twoNodes()
+        canvas.select(componentId: api, addingToSelection: false)
+
+        gestures.nudge(dx: CanvasGestures.fineNudgeStep, dy: 0)
+
+        #expect(session.canvas.components.first { $0.id == api }?.x == 1)
+    }
+
+    @Test func nudgeWithNothingSelectedWritesNothing() {
+        let (session, _, gestures, _, _) = twoNodes()
+        let revision = session.revision
+
+        gestures.nudge(dx: CanvasGestures.nudgeStep, dy: 0)
+
+        #expect(session.revision == revision)
+    }
+
+    @Test func oneArrowPressIsOneUndo() {
+        let (session, canvas, gestures, api, db) = twoNodes()
+        canvas.select(componentId: api, addingToSelection: false)
+        canvas.select(componentId: db, addingToSelection: true)
+
+        gestures.nudge(dx: CanvasGestures.nudgeStep, dy: 0)
+        session.undo()
+
+        let moved = Dictionary(uniqueKeysWithValues: session.canvas.components.map { ($0.id, $0) })
+        #expect(moved[api]?.x == 0)
+        #expect(moved[db]?.x == 400)
+    }
+
+    /// The comment at `CanvasGestures.swift:428` named the selection, and the
+    /// code at line 480 moved only the components in it. A selected zone
+    /// moves under an arrow key, the same as a selected component.
+    @Test func anArrowKeyMovesASelectedZone() throws {
+        let (session, canvas, gestures) = drawn()
+        let zoneId = try #require(session.addZone(x: 0, y: 0, width: 400, height: 300))
+        canvas.select(zoneId: zoneId, addingToSelection: false)
+
+        gestures.nudge(dx: CanvasGestures.nudgeStep, dy: 0)
+
+        let zone = try #require(session.canvas.zones.first)
+        #expect(zone.x == 10)
+    }
+
+    // MARK: renaming a node in place
+
+    @Test func anEmptyNamePutsTheTechnologysOwnNameBack() throws {
+        let (session, _, gestures, api, _) = twoNodes()
+        let technologyName = try #require(session.canvas.components.first { $0.id == api }).name
+
+        gestures.renameComponent(api, to: "Web tier")
+        gestures.renameComponent(api, to: "")
+
+        let renamed = try #require(session.canvas.components.first { $0.id == api })
+        #expect(renamed.name == technologyName)
+        #expect(renamed.customName == nil)
+    }
+
+    // MARK: the flow label rectangle
+
+    @Test func calloutRectGivesTheLabelsOwnRectangleForALabelledFlow() throws {
+        let (session, _, gestures, api, db) = twoNodes()
+        session.connect(sourceComponentId: api, targetComponentId: db)
+        let flowId = try #require(session.canvas.connections.first?.id)
+        session.labelConnection(connectionId: flowId, label: "the card number")
+
+        let callout = try #require(gestures.flows.callouts.first { $0.connectionId == flowId })
+        let rect = try #require(gestures.calloutRect(of: flowId))
+
+        #expect(rect == CGRect(callout.rect))
+    }
+
+    /// A use link, the path from a user to a client it holds, draws a curve
+    /// but carries no label: `FlowGeometry` never puts one in a callout.
+    @Test func calloutRectCentresOnTheCurveMiddleForAUseLinkWithNoLabel() throws {
+        let (session, _, gestures) = drawn()
+        session.addUser(x: 0, y: 0)
+        let userId = try #require(session.canvas.components.first { $0.isUser }).id
+        session.addClient(technologyId: "aws-ec2", to: userId)
+        let clientId = try #require(session.canvas.components.first { $0.id != userId }).id
+        let flowId = ViewedConnection.useLinkId(user: userId, client: clientId)
+
+        #expect(gestures.flows.callouts.contains { $0.connectionId == flowId } == false)
+        let curve = try #require(gestures.flows.curves[flowId])
+        let middle = curve.point(at: 0.5)
+
+        let rect = try #require(gestures.calloutRect(of: flowId))
+
+        #expect(rect == CGRect(x: middle.x - 90, y: middle.y - 12, width: 180, height: 24))
+    }
+
+    @Test func calloutRectGivesNilForAConnectionIdTheBuildPlacesNoCurveFor() {
+        let (_, _, gestures) = drawn()
+
+        #expect(gestures.calloutRect(of: "no-such-connection") == nil)
+    }
 }
 
 /// The zoom commands the View menu runs.
