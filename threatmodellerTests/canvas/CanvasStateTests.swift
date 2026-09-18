@@ -1,5 +1,6 @@
 import CoreGraphics
 import Testing
+import ThreatModelKit
 @testable import threatmodeller
 
 @MainActor
@@ -182,6 +183,35 @@ struct CanvasStateTests {
         #expect(canvas.tagFilter.neighbourDepth == 2)
     }
 
+    /// A hidden element that stayed selected would still show its panel and
+    /// still move under an arrow key, so picking a tag drops the selection.
+    @Test func pickingATagDropsTheSelectionSoAHiddenElementShowsNoPanel() {
+        let canvas = CanvasState()
+        canvas.select(componentId: "x", addingToSelection: false)
+
+        canvas.pick(tag: "payments")
+
+        #expect(canvas.hasSelection == false)
+    }
+
+    @Test func changingTheNeighbourDepthLeavesTheSelectionAsItWas() {
+        let canvas = CanvasState()
+        canvas.select(componentId: "x", addingToSelection: false)
+
+        canvas.setNeighbourDepth(2)
+
+        #expect(canvas.selectedComponentIds == ["x"])
+    }
+
+    @Test func clearingTheTagFilterLeavesTheSelectionAsItWas() {
+        let canvas = CanvasState()
+        canvas.select(componentId: "x", addingToSelection: false)
+
+        canvas.clearTagFilter()
+
+        #expect(canvas.selectedComponentIds == ["x"])
+    }
+
     // MARK: Focus
 
     @Test func focusSetsTheFocusedComponentAndClearsTheSelection() {
@@ -213,5 +243,77 @@ struct CanvasStateTests {
         canvas.clearTagFilter()
 
         #expect(canvas.focusedComponentId == nil)
+    }
+
+    // MARK: drawn(in:) writes no observed state
+
+    /// A SwiftUI view body reads `drawn(in:)`, so it must write no property
+    /// of `CanvasState`: writing observed state from a view body is a state
+    /// change during a view update.
+    @Test func twoCallsToDrawnWriteNoObservedStateOfCanvasState() {
+        let canvas = CanvasState()
+        let model = ViewThreatModelResponse(name: "Payments", components: [], connections: [], zones: [])
+
+        _ = canvas.drawn(in: model)
+        let positionsAfterFirstCall = canvas.narrowedComponentPositions
+        let zonesAfterFirstCall = canvas.narrowedZoneRects
+        let transformAfterFirstCall = canvas.transform
+
+        _ = canvas.drawn(in: model)
+
+        #expect(canvas.narrowedComponentPositions == positionsAfterFirstCall)
+        #expect(canvas.narrowedZoneRects == zonesAfterFirstCall)
+        #expect(canvas.transform == transformAfterFirstCall)
+    }
+
+    @Test func aLayoutRunOverAnEmptyDrawnSetKeepsTheNarrowedCoordinates() {
+        let canvas = CanvasState()
+        let component = ViewedComponent(
+            id: "c1",
+            technologyId: "aws-ec2",
+            name: "c1",
+            customName: nil,
+            providerId: "aws",
+            categoryId: "compute",
+            x: 0,
+            y: 0,
+            sensitivityId: "internal",
+            threatsDisabled: false,
+            isUnknownTechnology: false,
+            zoneId: nil,
+            tags: ["payments"]
+        )
+        let model = ViewThreatModelResponse(name: "Payments", components: [component], connections: [], zones: [])
+        let layouts = FakeNarrowedDiagramLayouts(
+            model: model,
+            response: .laidOut(components: [LaidOutComponent(id: "c1", x: 5, y: 5)], zones: [])
+        )
+        canvas.layouts = layouts
+
+        canvas.pick(tag: "payments")
+        let positionsAfterALaidOutRun = canvas.narrowedComponentPositions
+        #expect(positionsAfterALaidOutRun.isEmpty == false)
+
+        layouts.response = .nothingToLayOut
+        canvas.setNeighbourDepth(2)
+
+        #expect(canvas.narrowedComponentPositions == positionsAfterALaidOutRun)
+    }
+}
+
+/// A fake `layouts` the tests set on `CanvasState`, so a test can choose what
+/// a layout run returns without a real layout use case.
+@MainActor
+private final class FakeNarrowedDiagramLayouts: NarrowedDiagramLayouts {
+    let model: ViewThreatModelResponse
+    var response: LayOutSubsetResponse
+
+    init(model: ViewThreatModelResponse, response: LayOutSubsetResponse) {
+        self.model = model
+        self.response = response
+    }
+
+    func layOutSubset(componentIds: [String], zoneIds: [String]) -> LayOutSubsetResponse {
+        response
     }
 }

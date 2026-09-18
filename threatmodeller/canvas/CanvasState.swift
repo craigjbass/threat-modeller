@@ -231,9 +231,6 @@ final class CanvasState: CanvasViewport {
     }
 
     /// Picks a tag the canvas draws, or drops it when it is picked already.
-    ///
-    /// The selection goes with it: a hidden element that stayed selected would
-    /// still show its panel and still move under an arrow key.
     func pick(tag: String) {
         tagFilter.pick(tag)
         clearSelection()
@@ -296,11 +293,8 @@ final class CanvasState: CanvasViewport {
         return tagFilter.narrow(model)
     }
 
-    /// Lays the drawn set out on its own, and fits the result.
-    ///
-    /// Warning: call this from a narrowing verb, never from `drawn(in:)`. A
-    /// SwiftUI view body reads `drawn(in:)`, and writing observed state from a
-    /// view body is a state change during a view update.
+    /// Lays the drawn set out on its own, and fits the result. Call this from
+    /// a narrowing verb, never from `drawn(in:)`.
     ///
     /// With nothing narrowed the canvas draws the model's own coordinates and
     /// fits the whole diagram, which is what Zoom to Fit does.
@@ -323,8 +317,6 @@ final class CanvasState: CanvasViewport {
             componentIds: set.components.map(\.id),
             zoneIds: set.zones.map(\.id)
         )
-        // Nothing to lay out keeps the coordinates the canvas is already
-        // drawing, so the picture never goes blank.
         guard case .laidOut(let components, let zones) = laidOut else { return }
 
         narrowedComponentPositions = Dictionary(
