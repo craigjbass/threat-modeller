@@ -40,8 +40,8 @@ public enum ListOutdatedLibrariesResponse: Equatable, Sendable {
 /// It reaches a server, so it is the one listing a person asks for rather than
 /// one a window runs on its own.
 ///
-/// Tags are compared as text, not as versions, so `v10` sorts before `v9`. The
-/// carry-forward note records that.
+/// Tags compare as versions, so `v10` sorts after `v9`. A pre-release is
+/// offered only to a project already running one.
 public struct ListOutdatedLibraries: ListOutdatedLibrariesUseCase {
     private let projects: ProjectSourceGateway
     private let fetcher: LibraryFetching
@@ -69,8 +69,6 @@ public struct ListOutdatedLibraries: ListOutdatedLibrariesUseCase {
 
         let libraries = lock.libraries.map { entry -> OutdatedLibrary in
             do {
-                // One tag, compared as a version. A pre-release is offered
-                // only to a project already running one.
                 let newest = try fetcher.newestTag(
                     repository: entry.repository,
                     wantsPreRelease: TagVersion(entry.tag)?.isPreRelease ?? false

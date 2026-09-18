@@ -1,9 +1,5 @@
 /// A version tag, compared as numbers rather than as text.
 ///
-/// `v10` is newer than `v9`, which sorting text gets wrong. A tag reads as
-/// `v?<number>(.<number>)*` with an optional `-<pre-release>` after it, so
-/// `v1.2.3` and `2.0` are versions and `latest` is not.
-///
 /// WARNING: a pre-release is never the newest on its own. A team running
 /// `v1.2.0` is not told to move to `v1.3.0-rc.1`; a team already running a
 /// pre-release is told about a newer pre-release of the same kind.

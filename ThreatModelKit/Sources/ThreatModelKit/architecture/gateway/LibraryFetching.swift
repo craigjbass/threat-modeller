@@ -43,9 +43,6 @@ public protocol LibraryFetching: Sendable {
     /// presses Cancel calls this, and the fetch in flight fails with
     /// `cancelled`.
     func cancel()
-    /// The newest tag the repository holds, by version, or nil when it holds
-    /// no version tag.
-    ///
     /// A caller that wants one tag asks for one tag: a repository with
     /// thousands of tags then does the work in the gateway, which can ask
     /// `git` to sort, rather than handing every tag back to be sorted here.
