@@ -28,9 +28,16 @@ struct ImportTerraformTests {
         _ stateName: String,
         into architectureText: String? = nil
     ) throws -> (text: String, added: [String], removed: [String], unmapped: [(type: String, count: Int)]) {
+        try importedText(Self.state(stateName), into: architectureText)
+    }
+
+    private func importedText(
+        _ stateText: String,
+        into architectureText: String? = nil
+    ) -> (text: String, added: [String], removed: [String], unmapped: [(type: String, count: Int)]) {
         let response = importing().execute(
             ImportTerraformRequest(
-                stateText: try Self.state(stateName),
+                stateText: stateText,
                 architectureText: architectureText,
                 systemName: "Payments"
             )
@@ -41,6 +48,77 @@ struct ImportTerraformTests {
             return ("", [], [], [])
         }
         return (text, added, removed, unmapped)
+    }
+
+    /// A small `terraform show -json` document, under `values.root_module`
+    /// or `planned_values.root_module`, holding a zone, two components and
+    /// an ingress rule that states a flow between them.
+    private static func terraformDocument(topLevelKey: String) -> String {
+        """
+        {
+          "\(topLevelKey)": {
+            "root_module": {
+              "resources": [
+                {
+                  "address": "aws_vpc.main",
+                  "mode": "managed",
+                  "type": "aws_vpc",
+                  "name": "main",
+                  "values": { "id": "vpc-01", "name": "main" }
+                },
+                {
+                  "address": "aws_subnet.app",
+                  "mode": "managed",
+                  "type": "aws_subnet",
+                  "name": "app",
+                  "values": {
+                    "id": "subnet-app",
+                    "vpc_id": "vpc-01",
+                    "map_public_ip_on_launch": true,
+                    "name": "app"
+                  }
+                },
+                {
+                  "address": "aws_instance.api",
+                  "mode": "managed",
+                  "type": "aws_instance",
+                  "name": "api",
+                  "values": {
+                    "id": "i-01",
+                    "subnet_id": "subnet-app",
+                    "vpc_security_group_ids": ["sg-api"],
+                    "name": "api"
+                  }
+                },
+                {
+                  "address": "aws_db_instance.ledger",
+                  "mode": "managed",
+                  "type": "aws_db_instance",
+                  "name": "ledger",
+                  "values": {
+                    "id": "db-01",
+                    "subnet_id": "subnet-app",
+                    "vpc_security_group_ids": ["sg-db"],
+                    "name": "ledger"
+                  }
+                },
+                {
+                  "address": "aws_security_group_rule.db_from_api",
+                  "mode": "managed",
+                  "type": "aws_security_group_rule",
+                  "name": "db_from_api",
+                  "values": {
+                    "id": "sgr-01",
+                    "type": "ingress",
+                    "security_group_id": "sg-db",
+                    "source_security_group_id": "sg-api"
+                  }
+                }
+              ]
+            }
+          }
+        }
+        """
     }
 
     // MARK: AWS
@@ -205,6 +283,55 @@ struct ImportTerraformTests {
         let second = try imported("terraform-aws-state.json", into: answered)
 
         #expect(second.text.contains("data       = \"restricted\""))
+    }
+
+    // MARK: a plan file
+
+    /// A plan file states `planned_values.root_module`, not
+    /// `values.root_module`, and imports the same components, zones and
+    /// flows a state file with the same resources imports.
+    @Test func aPlanFileImportsTheSameElementsAsAStateFile() {
+        let fromAPlan = importedText(Self.terraformDocument(topLevelKey: "planned_values"))
+        let fromAState = importedText(Self.terraformDocument(topLevelKey: "values"))
+
+        #expect(fromAPlan.text == fromAState.text)
+        #expect(fromAPlan.text.contains("zone \"aws-vpc-main\" {"))
+        #expect(fromAPlan.text.contains("component \"aws-instance-api\" {"))
+        #expect(fromAPlan.text.contains("component \"aws-db-instance-ledger\" {"))
+    }
+
+    /// A document holding both keys reads `values`, not `planned_values`:
+    /// `TerraformState.read` tries `values` first.
+    @Test func aDocumentHoldingBothKeysReadsValues() {
+        let bothKeys = """
+        {
+          "values": { "root_module": { "resources": [
+            { "address": "aws_vpc.from_values", "mode": "managed", "type": "aws_vpc",
+              "name": "from_values", "values": { "id": "v1", "name": "from-values" } }
+          ] } },
+          "planned_values": { "root_module": { "resources": [
+            { "address": "aws_vpc.from_planned", "mode": "managed", "type": "aws_vpc",
+              "name": "from_planned", "values": { "id": "v2", "name": "from-planned" } }
+          ] } }
+        }
+        """
+        let written = importedText(bothKeys).text
+
+        #expect(written.contains("zone \"aws-vpc-from-values\" {"))
+        #expect(written.contains("zone \"aws-vpc-from-planned\" {") == false)
+    }
+
+    /// A document holding neither key reads as no resources, and
+    /// `ImportTerraform` answers `.nothingToImport`.
+    @Test func aDocumentHoldingNeitherKeyReadsAsNoResources() {
+        let neitherKey = "{\"format_version\": \"1.0\"}"
+
+        #expect(TerraformState.read(neitherKey)?.resources.isEmpty == true)
+
+        let response = importing().execute(
+            ImportTerraformRequest(stateText: neitherKey, systemName: "Payments")
+        )
+        #expect(response == .nothingToImport(unmapped: []))
     }
 
     // MARK: what it refuses

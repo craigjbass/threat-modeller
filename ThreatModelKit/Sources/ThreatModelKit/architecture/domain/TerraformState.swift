@@ -1,10 +1,6 @@
 import Foundation
 
 /// What a Terraform state says, as this application reads it.
-///
-/// `terraform show -json` writes `values.root_module`, which holds
-/// `resources` and `child_modules`. A module's resources are read the way the
-/// root module's are, so a system split across modules imports whole.
 public struct TerraformState: Equatable, Sendable {
     /// One resource of the state.
     public struct Resource: Equatable, Sendable {
@@ -43,14 +39,12 @@ public struct TerraformState: Equatable, Sendable {
         self.resources = resources
     }
 
-    /// Reads the JSON `terraform show -json` writes. A file this cannot read
-    /// is nil, and the caller says so.
+    /// Reads the JSON `terraform show -json` writes.
     public static func read(_ text: String) -> TerraformState? {
         guard let data = text.data(using: .utf8),
               let top = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
-        // A plan file states `planned_values`; a state file states `values`.
         let values = (top["values"] ?? top["planned_values"]) as? [String: Any]
         guard let root = values?["root_module"] as? [String: Any] else {
             return TerraformState(resources: [])
