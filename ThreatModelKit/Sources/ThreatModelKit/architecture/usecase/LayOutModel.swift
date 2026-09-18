@@ -479,12 +479,13 @@ public struct LayOutModel: LayOutModelUseCase {
     /// How easy the flows are to follow: how far they turn past comfortable,
     /// how many pairs cross, and how often one runs behind a node.
     ///
-    /// Two flows that share an end are not counted as crossing: they meet at a
-    /// node, which a reader reads as one picture rather than two lines.
+    /// `onSample` runs once for each flow whose curve is sampled. A caller
+    /// passes nothing in production; a test passes a counter.
     static func readability(
         of placed: LayOutModelResponse,
         in request: LayOutModelRequest,
-        curves: [String: FlowCurve]
+        curves: [String: FlowCurve],
+        onSample: (() -> Void)? = nil
     ) -> (tightness: Double, crossings: Int, shared: Int, behindNodes: Int) {
         let footprints = footprints(of: placed, in: request)
         var tightness = 0.0
@@ -505,10 +506,6 @@ public struct LayOutModel: LayOutModelUseCase {
         var shared = 0
         let flows = request.source.flows
 
-        // Each curve is sampled once, not once per pair it takes part in.
-        // Sixty components draw fifty-nine flows, which is 1711 pairs, and
-        // sampling inside the pair loop sampled each curve about a hundred
-        // times over.
         var sampled: [Int: [Point]] = [:]
         var bounds: [Int: Rect] = [:]
         for index in flows.indices {
@@ -516,6 +513,7 @@ public struct LayOutModel: LayOutModelUseCase {
                 continue
             }
             let points = CurveCrossing.samples(of: curve, steps: FlowShape.steps)
+            onSample?()
             sampled[index] = points
             bounds[index] = Self.bounds(of: points)
         }
@@ -532,8 +530,6 @@ public struct LayOutModel: LayOutModelUseCase {
                       let oneBox = bounds[first], let otherBox = bounds[second]
                 else { continue }
 
-                // Two flows whose boxes do not meet neither cross nor run
-                // together, and most pairs on a large diagram are that.
                 guard Self.meet(oneBox, otherBox, within: FlowShape.sameLine) else { continue }
 
                 if FlowShape.crosses(onePoints, otherPoints) { crossings += 1 }

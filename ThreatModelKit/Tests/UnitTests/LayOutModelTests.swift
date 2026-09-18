@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import ThreatModelKit
+@testable import ThreatModelKit
 
 @Suite("Laying a diagram out from declaration order")
 struct LayOutModelTests {
@@ -456,6 +456,113 @@ struct ZoneOrderTests {
                 SourceFlow(sourceId: "a2", targetId: "b2", kind: "network")
             ]
         )
+    }
+}
+
+@Suite("Counting how easy a laid-out picture is to read")
+struct ReadabilityTests {
+    private let emptyLayout = LayOutModelResponse(components: [], zones: [])
+
+    private func flow(_ source: String, _ target: String) -> SourceFlow {
+        SourceFlow(sourceId: source, targetId: target)
+    }
+
+    private func request(flows: [SourceFlow]) -> LayOutModelRequest {
+        LayOutModelRequest(source: ArchitectureSource(systemName: "P", flows: flows))
+    }
+
+    /// A curve along y = 199, from x = 0 to x = 401. The odd span keeps its
+    /// sampled points off the round numbers `verticalCurve` samples at, so the
+    /// two curves cross inside a sampled segment rather than exactly on one
+    /// of its sampled points.
+    private func horizontalCurve() -> FlowCurve {
+        FlowCurve(from: Point(x: 0, y: 199), to: Point(x: 401, y: 199))
+    }
+
+    /// A curve along x = 200, from y = 0 to y = 401. It crosses
+    /// `horizontalCurve` near (200, 199), away from either curve's ends.
+    private func verticalCurve() -> FlowCurve {
+        FlowCurve(from: Point(x: 200, y: 0), to: Point(x: 200, y: 401))
+    }
+
+    @Test func twoFlowsSharingASourceAreNoCrossing() {
+        let flows = [flow("a", "b"), flow("a", "c")]
+        let curves = ["a->b": horizontalCurve(), "a->c": verticalCurve()]
+
+        let result = LayOutModel.readability(of: emptyLayout, in: request(flows: flows), curves: curves)
+
+        #expect(result.crossings == 0)
+    }
+
+    @Test func twoFlowsSharingATargetAreNoCrossing() {
+        let flows = [flow("b", "a"), flow("c", "a")]
+        let curves = ["b->a": horizontalCurve(), "c->a": verticalCurve()]
+
+        let result = LayOutModel.readability(of: emptyLayout, in: request(flows: flows), curves: curves)
+
+        #expect(result.crossings == 0)
+    }
+
+    @Test func twoFlowsChainedEitherWayAreNoCrossing() {
+        let curves = ["a->b": horizontalCurve(), "b->c": verticalCurve()]
+
+        let forward = LayOutModel.readability(
+            of: emptyLayout,
+            in: request(flows: [flow("a", "b"), flow("b", "c")]),
+            curves: curves
+        )
+        let reversed = LayOutModel.readability(
+            of: emptyLayout,
+            in: request(flows: [flow("b", "c"), flow("a", "b")]),
+            curves: curves
+        )
+
+        #expect(forward.crossings == 0)
+        #expect(reversed.crossings == 0)
+    }
+
+    @Test func twoFlowsWithFourDifferentEndsAndCrossingCurvesAreOneCrossing() {
+        let flows = [flow("a", "b"), flow("c", "d")]
+        let curves = ["a->b": horizontalCurve(), "c->d": verticalCurve()]
+
+        let result = LayOutModel.readability(of: emptyLayout, in: request(flows: flows), curves: curves)
+
+        #expect(result.crossings == 1)
+    }
+
+    @Test func twoFlowsWithBoxesFartherThanSameLineApartAreNoCrossingAndNoSharedRun() {
+        let flows = [flow("a", "b"), flow("c", "d")]
+        let curves = [
+            "a->b": FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0)),
+            "c->d": FlowCurve(from: Point(x: 5000, y: 0), to: Point(x: 5000, y: 400))
+        ]
+
+        let result = LayOutModel.readability(of: emptyLayout, in: request(flows: flows), curves: curves)
+
+        #expect(result.crossings == 0)
+        #expect(result.shared == 0)
+    }
+
+    @Test func samplesEachCurveOnceOverSixtyComponentsNotOncePerPair() {
+        let flows = (0 ..< 59).map { flow("c\($0)", "c\($0 + 1)") }
+        var curves: [String: FlowCurve] = [:]
+        for index in 0 ..< 59 {
+            curves["c\(index)->c\(index + 1)"] = FlowCurve(
+                from: Point(x: Double(index) * 50, y: 0),
+                to: Point(x: Double(index + 1) * 50, y: 0)
+            )
+        }
+        var sampleCount = 0
+
+        _ = LayOutModel.readability(
+            of: emptyLayout,
+            in: request(flows: flows),
+            curves: curves,
+            onSample: { sampleCount += 1 }
+        )
+
+        #expect(sampleCount == flows.count)
+        #expect(sampleCount != flows.count * (flows.count - 1) / 2)
     }
 }
 
