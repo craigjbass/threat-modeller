@@ -59,17 +59,6 @@ struct HtmlPdfPrinter {
 /// Waits for one page to finish loading. `WKWebView` reports the load through
 /// its delegate, and the print must not start before it.
 ///
-/// Four delegate calls end a load: `didFinish` (it worked), `didFail` (a
-/// navigation error after the page commits), `didFailProvisionalNavigation`
-/// (a navigation error before the page commits), and
-/// `webViewWebContentProcessDidTerminate` (the content process died, with no
-/// `Error` of its own). Each delegate method forwards to one entry point,
-/// `loadFinished()`, `loadFailed(_:)` or `contentProcessDied()`, and each
-/// entry point records the outcome once and resumes the waiting continuation
-/// once. A continuation resumed twice traps; one never resumed leaves the
-/// caller waiting forever. A test calls the entry points, so no test builds
-/// a `WKWebView` to reach them.
-///
 /// The load can end before the caller calls `waitForLoad()`, and it can end
 /// in the gap between the call and the point where the continuation is
 /// stored. `LoadWatcher` keeps the outcome, and `waitForLoad()` reads the
@@ -115,8 +104,7 @@ final class LoadWatcher: NSObject, WKNavigationDelegate {
         end(with: .failure(HtmlPdfPrinter.Fault.webContentProcessTerminated))
     }
 
-    /// Records the first outcome and resumes the waiting caller once. A
-    /// later delegate call finds an outcome and changes nothing.
+    /// Records the outcome and resumes the waiting caller.
     private func end(with result: Result<Void, Error>) {
         guard outcome == nil else { return }
         outcome = result

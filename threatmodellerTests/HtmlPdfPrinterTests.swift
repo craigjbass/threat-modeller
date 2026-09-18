@@ -121,6 +121,52 @@ struct HtmlPdfPrinterTests {
 
         try await watcher.waitForLoad()
     }
+
+    /// `WKWebView` can call more than one delegate method for one load, for
+    /// example a provisional navigation failure and then a content process
+    /// termination. The watcher keeps the first outcome it sees, so a
+    /// success recorded first wins over a failure recorded after it.
+    @Test func theFirstOutcomeWinsWhenALoadFinishesThenLaterCallsReportAFailureBeforeTheCallerWaits() async throws {
+        let watcher = LoadWatcher()
+        watcher.loadFinished()
+        watcher.loadFailed(Boom())
+        watcher.contentProcessDied()
+
+        try await watcher.waitForLoad()
+    }
+
+    /// The first outcome wins the other way round too: a failure recorded
+    /// first keeps its error, and a load finish reported after it changes
+    /// nothing.
+    @Test func theFirstOutcomeWinsWhenALoadFailsThenALaterCallReportsItFinishedBeforeTheCallerWaits() async {
+        let watcher = LoadWatcher()
+        watcher.loadFailed(Boom())
+        watcher.loadFinished()
+
+        do {
+            try await watcher.waitForLoad()
+            Issue.record("did not throw")
+        } catch {
+            #expect(error is Boom)
+        }
+    }
+
+    /// A second outcome reported while the caller waits must not resume the
+    /// continuation a second time, so the caller keeps the first outcome and
+    /// the run does not stop with a trapped continuation.
+    @Test func aSecondOutcomeWhileTheCallerWaitsLeavesTheCallerWithTheFirstOutcome() async {
+        let watcher = LoadWatcher()
+        watcher.onWaiting = { [weak watcher] in
+            watcher?.loadFinished()
+            watcher?.loadFailed(Boom())
+        }
+
+        do {
+            try await watcher.waitForLoad()
+        } catch {
+            Issue.record("threw \(error)")
+        }
+    }
 }
 
 
