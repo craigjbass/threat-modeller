@@ -59,4 +59,56 @@ struct ConnectionLabelTests {
     @Test func leavesAShortGuardNameWhole() {
         #expect(FlowGeometry.cut("WAF", to: FlowGeometry.guardLimit) == "WAF")
     }
+
+    private func chipRun(guards: [EdgeGuard], openCount: Int = 0) -> BoundaryCrossings.BoundaryRun {
+        BoundaryCrossings.BoundaryRun(
+            zoneId: "z1",
+            networkZoneId: "private",
+            guards: guards,
+            openCount: openCount,
+            connectionIds: ["f1"],
+            start: Point(x: 0, y: 0),
+            end: Point(x: 0, y: 100),
+            control: Point(x: 0, y: 50)
+        )
+    }
+
+    private func edgeGuard(_ label: String) -> EdgeGuard {
+        EdgeGuard(label: label, isAssumed: false)
+    }
+
+    @Test func writesEveryGuardsNameWhileThereAreGuardsShownOrFewer() {
+        let run = chipRun(guards: [edgeGuard("WAF"), edgeGuard("mTLS")])
+
+        #expect(FlowGeometry.chipTexts(of: run) == ["WAF", "mTLS"])
+    }
+
+    @Test func countsTheGuardsPastGuardsShownAsPlusN() {
+        let names = (1 ... FlowGeometry.guardsShown + 2).map { "Guard \($0)" }
+        let run = chipRun(guards: names.map(edgeGuard))
+
+        let texts = FlowGeometry.chipTexts(of: run)
+
+        #expect(texts == Array(names.prefix(FlowGeometry.guardsShown)) + ["+2"])
+    }
+
+    @Test func writesNoGuardWhenUnguardedWithAnOpenThreat() {
+        let run = chipRun(guards: [], openCount: 1)
+
+        #expect(FlowGeometry.chipTexts(of: run) == ["no guard"])
+    }
+
+    @Test func writesAnEmptyListWhenUnguardedWithNoOpenThreat() {
+        let run = chipRun(guards: [], openCount: 0)
+
+        #expect(FlowGeometry.chipTexts(of: run) == [])
+    }
+
+    @Test func cutsAGuardsNameAtItsBracket() {
+        let label = "opfilter System Extension (Endpoint Security)"
+        let run = chipRun(guards: [edgeGuard(label)])
+
+        #expect(FlowGeometry.chipTexts(of: run) == [FlowGeometry.name(of: label)])
+        #expect(FlowGeometry.chipTexts(of: run) == ["opfilter System Extension"])
+    }
 }

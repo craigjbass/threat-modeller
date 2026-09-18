@@ -12,9 +12,7 @@ import ThreatModelKit
 /// Declared `nonisolated`: the app target defaults every type to the main
 /// actor, and this is a pure value computation with no shared state.
 nonisolated struct FlowGeometry {
-    /// How many guards a crossing names before it counts the rest.
     static let guardsShown = 2
-    /// How long a guard's name may be on a chip.
     static let guardLimit = 30
 
     /// The curve every flow draws, by connection id.
@@ -193,9 +191,6 @@ nonisolated struct FlowGeometry {
         )
     }
 
-    /// What this boundary writes: the components that guard it, or the words
-    /// that say none does. An unguarded crossing carrying an open threat is
-    /// what a reviewer looks for, so it is stated rather than left blank.
     static func chipTexts(of run: BoundaryCrossings.BoundaryRun) -> [String] {
         let shown = Array(run.guards.prefix(guardsShown))
         let hidden = run.guards.count - shown.count
