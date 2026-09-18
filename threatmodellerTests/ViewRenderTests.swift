@@ -1990,6 +1990,60 @@ struct ViewRenderTests {
         expectDrawn(field.padding(20), width: 520, height: 220, "the MITRE id field with no data")
     }
 
+    // MARK: the id token field
+
+    /// Issue #179: the control `Uses`, `Reaches` and `Holds` share.
+    private func anIdTokenField(
+        ids: [String],
+        choices: [IdTokenField.Choice] = ViewRenderTests.clientChoices,
+        isOpen: Bool = false,
+        search: String = ""
+    ) -> IdTokenField {
+        IdTokenField(
+            identifier: "render-id-tokens",
+            ids: .constant(ids),
+            choices: choices,
+            emptyMessage: "No component to pick yet. Add one on the canvas.",
+            isOpen: .constant(isOpen),
+            search: .constant(search)
+        )
+    }
+
+    private static let clientChoices = [
+        IdTokenField.Choice(id: "browser", name: "Web Browser", icon: "circle.fill"),
+        IdTokenField.Choice(id: "mobile", name: "Mobile App", icon: "circle.fill"),
+        IdTokenField.Choice(id: "terminal", name: "Terminal", icon: "circle.fill")
+    ]
+
+    @Test func drawsTheIdTokenFieldWithThreeTokens() {
+        expectDrawn(
+            anIdTokenField(ids: ["browser", "mobile", "terminal"]).padding(20),
+            width: 520,
+            height: 200,
+            "the id token field with three tokens"
+        )
+    }
+
+    @Test func drawsTheIdTokenFieldWithTheListOpen() {
+        expectDrawn(
+            anIdTokenField(ids: ["browser"], isOpen: true).padding(20),
+            width: 520,
+            height: 300,
+            "the id token field with the list open"
+        )
+    }
+
+    /// The empty state: the caller's own choices are empty, so the field
+    /// says so instead of drawing a control with nothing to offer.
+    @Test func drawsTheIdTokenFieldWithNoChoice() {
+        expectDrawn(
+            anIdTokenField(ids: [], choices: []).padding(20),
+            width: 520,
+            height: 100,
+            "the id token field with no choice"
+        )
+    }
+
     // MARK: the architecture sidebar
 
     /// A model holding one assumption and one mitigates edge, which is what

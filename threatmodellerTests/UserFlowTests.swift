@@ -22,6 +22,18 @@ struct UserFlowTests {
 
     """
 
+    /// One user, no other component. `Uses` and `Reaches` have nothing to
+    /// offer yet.
+    private let onlyAUser = """
+    system "Payments" {
+      user "alice" {
+        name = "Alice"
+        role = "Operator"
+      }
+    }
+
+    """
+
     private let insider = """
     system "Payments" {
       threat_actor "insider" {
@@ -92,6 +104,51 @@ struct UserFlowTests {
       flow browser -> api
       flow browser -> console
       flow mobile -> api
+    }
+
+    """
+
+    /// Alice holds no client yet. Three clients wait to be picked: a
+    /// browser, a mobile app and a terminal.
+    private let threeClients = """
+    system "Payments" {
+      technology "web" {
+        name     = "Web Browser"
+        category = "client"
+      }
+
+      technology "app" {
+        name     = "Mobile App"
+        category = "client"
+      }
+
+      technology "term" {
+        name     = "Terminal"
+        category = "client"
+      }
+
+      component "api" {
+        technology = "aws-ec2"
+        name       = "API"
+        data       = "confidential"
+      }
+
+      component "browser" {
+        technology = "web"
+      }
+
+      component "mobile" {
+        technology = "app"
+      }
+
+      component "terminal" {
+        technology = "term"
+      }
+
+      user "alice" {
+        name = "Alice"
+        role = "Operator"
+      }
     }
 
     """
@@ -186,6 +243,21 @@ struct UserFlowTests {
 
     // MARK: the panel
 
+    /// Issue #179: `Uses` and `Reaches` show even while the system holds no
+    /// component to pick, with the empty-state message in place of the
+    /// control.
+    @Test func theFieldsShowTheEmptyStateWhenNoComponentExists() async throws {
+        let (session, _) = await aProject(onlyAUser)
+        let model = try #require(session.model)
+        let panel = UserPanel(session: model, user: try user(of: model))
+
+        #expect(panel.reachable.isEmpty)
+        #expect(panel.usesField.choices.isEmpty)
+        #expect(panel.usesField.emptyMessage == UserPanel.noComponentMessage)
+        #expect(panel.reachesField.choices.isEmpty)
+        #expect(panel.reachesField.emptyMessage == UserPanel.noComponentMessage)
+    }
+
     @Test func thePanelWritesTheRoleTheAccessAndTheActorIntoTheFile() async throws {
         let (session, useCases) = await aProject(insider)
         let model = try #require(session.model)
@@ -220,7 +292,8 @@ struct UserFlowTests {
 
         let panel = UserPanel(session: model, user: try user(of: model))
 
-        #expect(panel.reachesLabel == "Reaches EC2")
+        #expect(try user(of: model).reaches == ["api"])
+        #expect(panel.reachableChoices.first { $0.id == "api" }?.name == "EC2")
         #expect(panel.reachable.map(\.id) == ["api"])
         #expect(panel.actorChoices.map(\.id).contains("insider"))
         #expect(panel.threatActor.wrappedValue == "insider")
@@ -288,11 +361,12 @@ struct UserFlowTests {
         let model = try #require(session.model)
 
         var panel = UserPanel(session: model, user: try user(of: model))
-        #expect(panel.usesLabel == "Uses 2 components")
-        #expect(panel.uses("browser").wrappedValue)
-        panel.uses("browser").wrappedValue = false
+        #expect(try user(of: model).uses == ["browser", "mobile"])
+
+        // A token removed takes the id off the list and the file follows.
+        panel.usesField.remove("browser")
         panel = UserPanel(session: model, user: try user(of: model))
-        #expect(panel.usesLabel == "Uses Mobile App")
+        #expect(try user(of: model).uses == ["mobile"])
         await session.save()
 
         #expect(model.errorMessage == nil)
@@ -300,6 +374,30 @@ struct UserFlowTests {
         #expect(written.contains("uses = [\"mobile\"]"))
         #expect(written.contains("flow alice") == false)
         #expect(model.canvas.connections.filter(\.isUse).map(\.id) == ["use:alice:mobile"])
+    }
+
+    /// The acceptance criterion: three clients picked in one open of the
+    /// list write in the order picked. `IdTokenFieldTests
+    /// .picksThreeInOneOpenWithoutClosing` proves the list itself never
+    /// closes between picks; this test proves the file that comes out of
+    /// three such picks.
+    @Test func picksThreeClientsInOneOpenOfTheListAndWritesThemInOrder() async throws {
+        let (session, useCases) = await aProject(threeClients)
+        let model = try #require(session.model)
+
+        var panel = UserPanel(session: model, user: try user(of: model))
+        for componentId in ["browser", "mobile", "terminal"] {
+            let choice = try #require(panel.usesField.rows.first { $0.id == componentId })
+            panel.usesField.pick(choice)
+            panel = UserPanel(session: model, user: try user(of: model))
+        }
+
+        #expect(try user(of: model).uses == ["browser", "mobile", "terminal"])
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("uses = [\"browser\", \"mobile\", \"terminal\"]"))
     }
 
     /// The palette gesture: a technology dropped on a user is added beside
@@ -333,7 +431,7 @@ struct UserFlowTests {
     @Test func aFlowDraggedFromAUserToAClientWritesUsesAndNoFlow() async throws {
         let (session, useCases) = await aProject(clients)
         let model = try #require(session.model)
-        UserPanel(session: model, user: try user(of: model)).uses("browser").wrappedValue = false
+        UserPanel(session: model, user: try user(of: model)).usesField.remove("browser")
         #expect(try user(of: model).uses == ["mobile"])
 
         model.connect(sourceComponentId: "alice", targetComponentId: "browser")

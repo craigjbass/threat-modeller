@@ -15,6 +15,20 @@ struct UserPanel: View {
     /// The empty id is nobody: the user is not a threat actor.
     static let noActor = ""
 
+    /// What `Uses` and `Reaches` say in place of the control while the
+    /// system holds no component to pick. Issue #179.
+    static let noComponentMessage = "No component to pick yet. Add one on the canvas."
+
+    /// Whether each field's search list is open, and what is typed into it.
+    /// Held here, not inside `IdTokenField`, so the state survives every
+    /// re-render the way a person's own click does: a pick writes through
+    /// `session`, which redraws this panel with a fresh `user`, and the list
+    /// a person had open stays open across that redraw.
+    @State private var usesOpen = false
+    @State private var usesSearch = ""
+    @State private var reachesOpen = false
+    @State private var reachesSearch = ""
+
     var body: some View {
         SelectionEditor(title: "This user", identifier: "user-panel") {
             controls
@@ -50,31 +64,14 @@ struct UserPanel: View {
         }
 
         // The clients the user holds and the components the user reaches
-        // are each a multiple choice: none, one or many, and the menu
-        // states which.
-        if reachable.isEmpty == false {
-            SelectionField("Uses") {
-                Menu {
-                    ForEach(reachable, id: \.id) { component in
-                        Toggle(component.name, isOn: uses(component.id))
-                    }
-                } label: {
-                    Text(usesLabel)
-                }
-                .accessibilityIdentifier("user-uses")
-            }
+        // are each a set: none, one or many, picked as tokens. The field
+        // shows even while the system holds no such component yet, so a
+        // person who makes the user first still sees the control, empty.
+        SelectionField("Uses") {
+            usesField
         }
-        if reachable.isEmpty == false {
-            SelectionField("Reaches") {
-                Menu {
-                    ForEach(reachable, id: \.id) { component in
-                        Toggle(component.name, isOn: reaches(component.id))
-                    }
-                } label: {
-                    Text(reachesLabel)
-                }
-                .accessibilityIdentifier("user-reaches")
-            }
+        SelectionField("Reaches") {
+            reachesField
         }
 
         SelectionField("Threat actor") {
@@ -91,18 +88,34 @@ struct UserPanel: View {
         session.canvas.components.filter { $0.isUser == false }
     }
 
-    /// What the Uses menu reads when it is closed.
-    var usesLabel: String {
-        guard user.uses.isEmpty == false else { return "Uses nothing" }
-        let names = user.uses.compactMap { id in reachable.first { $0.id == id }?.name }
-        return names.count == 1 ? "Uses \(names[0])" : "Uses \(names.count) components"
+    /// The token field choices: every component this user could use or
+    /// reach.
+    var reachableChoices: [IdTokenField.Choice] {
+        reachable.map { IdTokenField.choice(forComponent: $0) }
     }
 
-    /// What the Reaches menu reads when it is closed.
-    var reachesLabel: String {
-        guard user.reaches.isEmpty == false else { return "Reaches nothing" }
-        let names = user.reaches.compactMap { id in reachable.first { $0.id == id }?.name }
-        return names.count == 1 ? "Reaches \(names[0])" : "Reaches \(names.count) components"
+    /// The field that writes `uses`.
+    var usesField: IdTokenField {
+        IdTokenField(
+            identifier: "user-uses",
+            ids: usesBinding,
+            choices: reachableChoices,
+            emptyMessage: Self.noComponentMessage,
+            isOpen: $usesOpen,
+            search: $usesSearch
+        )
+    }
+
+    /// The field that writes `reaches`.
+    var reachesField: IdTokenField {
+        IdTokenField(
+            identifier: "user-reaches",
+            ids: reachesBinding,
+            choices: reachableChoices,
+            emptyMessage: Self.noComponentMessage,
+            isOpen: $reachesOpen,
+            search: $reachesSearch
+        )
     }
 
     /// What the picker offers: nobody, then every actor the project holds.
@@ -111,35 +124,12 @@ struct UserPanel: View {
             + session.threatActorsInUse.map { (id: $0.id, label: $0.name) }
     }
 
-    /// Whether the user holds this client. Setting it writes `uses`.
-    func uses(_ componentId: String) -> Binding<Bool> {
-        Binding(
-            get: { user.uses.contains(componentId) },
-            set: { wanted in
-                var held = user.uses
-                if wanted {
-                    if held.contains(componentId) == false { held.append(componentId) }
-                } else {
-                    held.removeAll { $0 == componentId }
-                }
-                write(uses: held)
-            }
-        )
+    private var usesBinding: Binding<[String]> {
+        Binding(get: { user.uses }, set: { write(uses: $0) })
     }
 
-    private func reaches(_ componentId: String) -> Binding<Bool> {
-        Binding(
-            get: { user.reaches.contains(componentId) },
-            set: { wanted in
-                var held = user.reaches
-                if wanted {
-                    if held.contains(componentId) == false { held.append(componentId) }
-                } else {
-                    held.removeAll { $0 == componentId }
-                }
-                write(reaches: held)
-            }
-        )
+    private var reachesBinding: Binding<[String]> {
+        Binding(get: { user.reaches }, set: { write(reaches: $0) })
     }
 
     // MARK: writing through

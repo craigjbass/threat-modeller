@@ -33,6 +33,12 @@ struct ComponentPanel: View {
     @State private var assetName = ""
     @State private var assetClassification = ""
 
+    /// Whether `Holds`'s search list is open, and what is typed into it. See
+    /// `UserPanel`'s matching state for why this lives here, not inside
+    /// `IdTokenField`.
+    @State private var holdsOpen = false
+    @State private var holdsSearch = ""
+
     private static let privileges = [
         ("user", "User"),
         ("admin", "Administrator"),
@@ -109,19 +115,11 @@ struct ComponentPanel: View {
             .accessibilityIdentifier("component-runs-as")
         }
 
-        // The assets a system declares are a multiple choice: a component
-        // holds none, one or many, and the menu states which.
-        if session.canvas.systemAssets.isEmpty == false {
-            SelectionField("Holds") {
-                Menu {
-                    ForEach(session.canvas.systemAssets, id: \.id) { asset in
-                        Toggle(asset.name, isOn: holds(asset.id))
-                    }
-                } label: {
-                    Text(heldLabel)
-                }
-                .accessibilityIdentifier("component-holds")
-            }
+        // The assets a system declares are a set: a component holds none,
+        // one or many, picked as tokens. The field shows even while the
+        // system holds no asset yet.
+        SelectionField("Holds") {
+            holdsField
         }
 
         // A component may hold things of value of its own, named here
@@ -291,13 +289,24 @@ struct ComponentPanel: View {
         write(cves: TagFilter.tags(from: text))
     }
 
-    /// What the menu reads when it is closed.
-    private var heldLabel: String {
-        guard component.holds.isEmpty == false else { return "Holds nothing" }
-        let names = component.holds.compactMap { id in
-            session.canvas.systemAssets.first { $0.id == id }?.name
-        }
-        return names.count == 1 ? "Holds \(names[0])" : "Holds \(names.count) assets"
+    /// What `Holds` says in place of the control while the system holds no
+    /// asset to pick. Issue #179.
+    static let noAssetMessage = "No asset to pick yet. Add one in Assets."
+
+    /// The field that writes `holds`.
+    var holdsField: IdTokenField {
+        IdTokenField(
+            identifier: "component-holds",
+            ids: holdsBinding,
+            choices: session.canvas.systemAssets.map { IdTokenField.choice(forAsset: $0) },
+            emptyMessage: Self.noAssetMessage,
+            isOpen: $holdsOpen,
+            search: $holdsSearch
+        )
+    }
+
+    private var holdsBinding: Binding<[String]> {
+        Binding(get: { component.holds }, set: { write(holds: $0) })
     }
 
     /// What the picker offers: nobody, then every third party the system
@@ -315,21 +324,6 @@ struct ComponentPanel: View {
                     componentId: component.id,
                     thirdPartyId: picked.isEmpty ? nil : picked
                 )
-            }
-        )
-    }
-
-    private func holds(_ assetId: String) -> Binding<Bool> {
-        Binding(
-            get: { component.holds.contains(assetId) },
-            set: { wanted in
-                var held = component.holds
-                if wanted {
-                    if held.contains(assetId) == false { held.append(assetId) }
-                } else {
-                    held.removeAll { $0 == assetId }
-                }
-                write(holds: held)
             }
         )
     }
