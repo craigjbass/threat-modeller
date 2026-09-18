@@ -19,18 +19,9 @@ public enum SaveSystemResponse: Equatable, Sendable {
 }
 
 /// Writes the model on screen back to the files it came from.
-///
-/// A split system is written file by file: the save re-reads the files as they
-/// are on disk, takes which file each block came from, and writes each file
-/// again. Only a file whose text changed is written.
-///
-/// WARNING: a save reads the files at that moment. A person who moves a block
-/// between two files while the application is open gets the move they made.
 public struct SaveSystem: SaveSystemUseCase {
     private let projects: ProjectSourceGateway
     private let exports: ExportArchitectureUseCase
-    /// Reads the files again, to take the origins. Nil writes one file, which
-    /// is what a flat system needs.
     private let sources: ArchitectureSourceGateway?
 
     public init(

@@ -400,4 +400,68 @@ struct SaveSplitSystemTests {
         #expect(fresh.modelStore.current().components.count == 2)
         #expect(fresh.modelStore.current().connections.count == 1)
     }
+
+    @Test func aSaveOfAnUnchangedSplitSystemWritesNoFile() throws {
+        let app = aSplitProject()
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+        app.project.resetWriteCounts()
+
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+
+        #expect(app.project.totalWriteCount == 0)
+    }
+
+    @Test func aSaveAfterOneChangeWritesOneFileAndNoOther() throws {
+        let app = aSplitProject()
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+        app.project.resetWriteCounts()
+        _ = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-rds", x: 0, y: 0, sensitivity: "internal")
+        )
+
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+
+        #expect(app.project.writeCount(at: "/work/threatmodel/payments/arch/payments.arch") == 1)
+        #expect(app.project.writeCount(at: "/work/threatmodel/payments/arch/edge.arch") == 0)
+        #expect(app.project.writeCount(at: "/work/threatmodel/payments/arch/ledger.arch") == 0)
+    }
+
+    @Test func aBlockMovedOnDiskIsSavedIntoTheFileItNowSitsIn() throws {
+        let app = aSplitProject()
+
+        // A person moves the "waf" component from `edge.arch` to
+        // `ledger.arch`, on disk, while the application is open.
+        app.project.put("", at: "/work/threatmodel/payments/arch/edge.arch")
+        app.project.put(
+            edge + "\n\n" + ledger,
+            at: "/work/threatmodel/payments/arch/ledger.arch"
+        )
+
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+
+        let edgeFile = try #require(
+            app.project.text(at: "/work/threatmodel/payments/arch/edge.arch")
+        )
+        let ledgerFile = try #require(
+            app.project.text(at: "/work/threatmodel/payments/arch/ledger.arch")
+        )
+        #expect(edgeFile.contains("component \"waf\"") == false)
+        #expect(ledgerFile.contains("component \"waf\""))
+    }
+}
+
+/// Writing a flat system back to its one file.
+@Suite("Saving a flat system")
+struct SaveFlatSystemTests {
+    @Test func aFlatSystemWithNoArchitectureSourceGatewayWritesItsOneFile() throws {
+        let app = TestDependencies()
+        app.project.put("system \"Ledger\" { }", at: "/work/threatmodel/ledger.arch")
+        _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "ledger"))
+
+        let save = SaveSystem(projects: app.project, exports: app.exportArchitecture())
+        let response = save.execute(SaveSystemRequest(root: "/work", systemName: "ledger"))
+
+        #expect(response == .saved(architecturePath: "/work/threatmodel/ledger.arch"))
+        #expect(app.project.writeCount(at: "/work/threatmodel/ledger.arch") == 1)
+    }
 }

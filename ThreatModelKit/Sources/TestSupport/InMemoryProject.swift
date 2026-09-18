@@ -6,6 +6,9 @@ import ThreatModelKit
 public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
     private var files: [String: String] = [:]
     private var directories: Set<String> = []
+    /// How many times a save wrote each path, for a test that states which
+    /// files a save touched.
+    private var writeCounts: [String: Int] = [:]
 
     public init(root: String = "/project") {
         directories.insert(root)
@@ -88,14 +91,28 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
     }
 
     public func write(_ text: String, to path: String) throws {
+        writeCounts[path, default: 0] += 1
         put(text, at: path)
     }
 
     /// A picture is bytes. This holds it as the text of its own byte count, so
     /// a test can say a file was written without holding a bitmap.
     public func write(bytes: Data, to path: String) throws {
+        writeCounts[path, default: 0] += 1
         put("<\(bytes.count) bytes>", at: path)
     }
+
+    /// How many times a save wrote this path, for a test that states which
+    /// files a save touched.
+    public func writeCount(at path: String) -> Int { writeCounts[path] ?? 0 }
+
+    /// How many writes every path saw together, for a test that states a
+    /// save wrote no file at all.
+    public var totalWriteCount: Int { writeCounts.values.reduce(0, +) }
+
+    /// Clears the write counts, so a test can isolate the writes one save
+    /// makes from the writes before it.
+    public func resetWriteCounts() { writeCounts = [:] }
 
     public func delete(path: String) throws {
         files.removeValue(forKey: path)
