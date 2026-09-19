@@ -198,8 +198,6 @@ public final class BundledTechnologyCatalogue: TechnologyCatalogue {
             declaredThreatIds: Set(threats.keys)
         )
 
-        // Application-owned, like the external actors: the vendored library
-        // states no adversary.
         let threatActorsJSON = try decoder.decode(
             ThreatActorsFileJSON.self,
             from: try resources.appOwnedData(named: "threat-actors.json")

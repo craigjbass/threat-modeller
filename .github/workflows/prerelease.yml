@@ -44,6 +44,9 @@ jobs:
           NEXT_MINOR=$(( ${LAST_MINOR:-0} + 1 ))
           echo "name=v${MARKETING_VERSION}.${NEXT_MINOR}-beta-${SHORT_HASH}" >> "$GITHUB_OUTPUT"
 
+      - name: Verify the vendored catalogue
+        run: scripts/update-catalogue.sh verify
+
       - name: Test the package
         working-directory: ThreatModelKit
         run: swift test

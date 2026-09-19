@@ -28,6 +28,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Verify the vendored catalogue
+        run: scripts/update-catalogue.sh verify
+
       - name: Test the package
         working-directory: ThreatModelKit
         run: swift test

@@ -20,4 +20,25 @@ struct LibraryResourcesTests {
             try LibraryResources.data(named: "does-not-exist.json")
         }
     }
+
+    @Test func dataReadsFromLibraryAndAppOwnedDataReadsFromActors() throws {
+        _ = try LibraryResources.data(named: "taxonomy.json")
+        _ = try LibraryResources.appOwnedData(named: "threat-actors.json")
+
+        #expect(throws: LibraryResourceError.self) {
+            try LibraryResources.appOwnedData(named: "taxonomy.json")
+        }
+        #expect(throws: LibraryResourceError.self) {
+            try LibraryResources.data(named: "threat-actors.json")
+        }
+    }
+
+    @Test func lockFileNamesNoFileUnderActors() throws {
+        struct LockFileFilesJSON: Decodable {
+            let files: [String: String]
+        }
+        let lockData = try LibraryResources.data(named: "library.lock.json")
+        let lock = try JSONDecoder().decode(LockFileFilesJSON.self, from: lockData)
+        #expect(lock.files.keys.allSatisfy { !$0.hasPrefix("Actors/") })
+    }
 }

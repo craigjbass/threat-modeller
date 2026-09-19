@@ -10,9 +10,6 @@ public enum LibraryResources {
         try read("Library/\(name)")
     }
 
-    /// Application-owned data, outside the vendored library. No checksum, no
-    /// lock entry: it is ours, and `scripts/update-catalogue.sh` never touches
-    /// the directory it lives in.
     public static func appOwnedData(named name: String) throws -> Data {
         try read("Actors/\(name)")
     }
