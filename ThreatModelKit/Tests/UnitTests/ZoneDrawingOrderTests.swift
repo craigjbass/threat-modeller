@@ -73,6 +73,32 @@ struct ZoneDrawingOrderTests {
             == Rect(x: 0, y: 0, width: 400, height: 300))
     }
 
+    @Test func takesTheLastPositionWhenAZoneIsNamedTwice() {
+        let models = gateway()
+
+        let response = MoveZones(models: models).execute(
+            MoveZonesRequest(moves: [
+                ZoneMove(zoneId: "back", x: 10, y: 20),
+                ZoneMove(zoneId: "back", x: 30, y: 40)
+            ])
+        )
+
+        #expect(response == .moved(count: 1))
+        #expect(models.current().zone(ZoneId("back"))?.rect
+            == Rect(x: 30, y: 40, width: 400, height: 300))
+    }
+
+    @Test func givesTheSameResultWhenCalledTwice() {
+        let models = gateway()
+        let request = MoveZonesRequest(moves: [ZoneMove(zoneId: "back", x: 55, y: 65)])
+
+        _ = MoveZones(models: models).execute(request)
+        _ = MoveZones(models: models).execute(request)
+
+        #expect(models.current().zone(ZoneId("back"))?.rect
+            == Rect(x: 55, y: 65, width: 400, height: 300))
+    }
+
     @Test func bringsAZoneToTheFrontOfTheDrawingOrder() {
         let models = gateway()
 

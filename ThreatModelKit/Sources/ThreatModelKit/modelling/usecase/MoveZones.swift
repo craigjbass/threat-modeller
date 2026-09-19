@@ -30,15 +30,6 @@ public enum MoveZonesResponse: Equatable, Sendable {
 }
 
 /// Puts zones at new positions, as one change.
-///
-/// A zone keeps its width and its height: this moves the rectangle and does
-/// not resize it, which is what `ResizeZone` is for. Positions are absolute,
-/// so the same request applied twice leaves the same model. The move is all or
-/// nothing: one unknown zone leaves every position as it was. Naming a zone
-/// twice in one request takes the last position given for it.
-///
-/// Moving several zones together is one change, so one undo takes the whole
-/// move back.
 public struct MoveZones: MoveZonesUseCase {
     private let models: ThreatModelGateway
 
