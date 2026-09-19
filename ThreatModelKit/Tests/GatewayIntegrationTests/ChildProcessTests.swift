@@ -19,6 +19,41 @@ struct ChildProcessTests {
         return directory.path
     }
 
+    #if os(Linux)
+    @Test func aToolWrittenWhileSiblingsSpawnStillRuns() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("written-tools-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let stop = DispatchSemaphore(value: 0)
+        let siblings = (0..<8).map { _ in
+            Thread {
+                while stop.wait(timeout: .now()) == .timedOut {
+                    _ = try? ChildProcess.run("/bin/sh", ["-c", "sleep 0.02"], environment: Self.environment, timeout: 5)
+                }
+            }
+        }
+        siblings.forEach { $0.start() }
+        defer { siblings.forEach { _ in stop.signal() } }
+
+        var refused = 0
+        for index in 0..<600 {
+            let tool = directory.appendingPathComponent("tool-\(index)")
+            FileManager.default.createFile(atPath: tool.path, contents: nil)
+            let writer = try FileHandle(forWritingTo: tool)
+            writer.write(Data("#!/bin/sh\n".utf8))
+            Thread.sleep(forTimeInterval: 0.002)
+            writer.write(Data("echo ok\n".utf8))
+            try writer.close()
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tool.path)
+            let answer = try ChildProcess.run("/usr/bin/env", [tool.path], environment: Self.environment, timeout: 5)
+            if answer.exitCode != 0 || answer.output != "ok\n" { refused += 1 }
+        }
+
+        #expect(refused == 0, "\(refused) tools of 600 did not run")
+    }
+    #endif
+
     @Test func aChildThatWritesMoreThanOnePipeBufferAnswersWithTheWholeTextAndEnds() throws {
         let answer = try ChildProcess.run(
             "/bin/sh",

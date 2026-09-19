@@ -41,7 +41,10 @@ public enum ChildProcess {
         process.standardError = errors
 
         beforeItStarts?(process)
-        try process.run()
+        try spawnLock.withLock {
+            closeEveryOtherDescriptorOnExec()
+            try process.run()
+        }
 
         let killed = KilledByTheTimer()
         let ended = DispatchSemaphore(value: 0)
@@ -71,6 +74,23 @@ public enum ChildProcess {
             timerKilledIt: killed.value
         )
     }
+}
+
+private let spawnLock = NSLock()
+
+/// Keeps every file and pipe this process holds out of the child about to
+/// start, so a script another thread is still writing can run once its
+/// writer closes it.
+private func closeEveryOtherDescriptorOnExec() {
+    #if os(Linux)
+    guard let entries = try? FileManager.default.contentsOfDirectory(atPath: "/proc/self/fd") else { return }
+    for entry in entries {
+        guard let descriptor = Int32(entry), descriptor > 2 else { continue }
+        let flags = fcntl(descriptor, F_GETFD)
+        guard flags >= 0 else { continue }
+        _ = fcntl(descriptor, F_SETFD, flags | FD_CLOEXEC)
+    }
+    #endif
 }
 
 /// Keeps a pipe out of every other child spawned at the same moment.
