@@ -40,7 +40,7 @@ struct FormingPicture: View {
     var body: some View {
         GeometryReader { space in
             let picture = drawn
-            let whole = FormingDiagram.rect(of: layout) ?? .zero
+            let whole = LayoutReportBounds.rect(of: layout) ?? .zero
             let transform = CanvasTransform().fitting(whole, in: space.size)
 
             ZStack(alignment: .topLeading) {

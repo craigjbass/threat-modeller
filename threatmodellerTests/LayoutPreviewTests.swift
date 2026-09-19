@@ -110,17 +110,16 @@ struct LayoutPreviewTests {
         #expect(hasContent(drawn.image))
     }
 
-    /// `FormingDiagram` is the fit alone now, not a view.
-    @Test func theSkeletonIsReducedToTheFit() {
+    @Test func theBoundsCoverWhatTheReportPlaced() {
         let layout = LayOutModelResponse(
             components: [LaidOutComponent(id: "a", x: 100, y: 200)],
             zones: []
         )
 
-        let rect = FormingDiagram.rect(of: layout)
+        let rect = LayoutReportBounds.rect(of: layout)
 
         #expect(rect?.contains(CGPoint(x: 100, y: 200)) == true)
-        #expect(FormingDiagram.rect(of: LayOutModelResponse(components: [], zones: [])) == nil)
+        #expect(LayoutReportBounds.rect(of: LayOutModelResponse(components: [], zones: [])) == nil)
     }
 
     // MARK: the fit
@@ -143,7 +142,7 @@ struct LayoutPreviewTests {
                 LaidOutZone(id: $0.id, x: $0.x, y: $0.y, width: $0.width, height: $0.height)
             }
         )
-        let fit = CanvasTransform().fitting(FormingDiagram.rect(of: layout) ?? .zero, in: column)
+        let fit = CanvasTransform().fitting(LayoutReportBounds.rect(of: layout) ?? .zero, in: column)
 
         #expect(fit == canvas.transform)
     }
@@ -161,8 +160,8 @@ struct LayoutPreviewTests {
             zones: []
         )
 
-        let first = CanvasTransform().fitting(FormingDiagram.rect(of: near) ?? .zero, in: column)
-        let second = CanvasTransform().fitting(FormingDiagram.rect(of: far) ?? .zero, in: column)
+        let first = CanvasTransform().fitting(LayoutReportBounds.rect(of: near) ?? .zero, in: column)
+        let second = CanvasTransform().fitting(LayoutReportBounds.rect(of: far) ?? .zero, in: column)
 
         #expect(second.zoom < first.zoom)
     }
