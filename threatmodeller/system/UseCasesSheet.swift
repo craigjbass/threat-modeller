@@ -71,7 +71,6 @@ struct UseCasesSheet: View {
         }
     }
 
-    /// Writes a new use case, or changes the one whose label the form holds.
     func write() {
         session.setSystemUseCase(
             label: draft.label.trimmingCharacters(in: .whitespaces),

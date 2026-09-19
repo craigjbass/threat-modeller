@@ -86,7 +86,6 @@ struct DiagramsSheet: View {
         }
     }
 
-    /// Writes a new diagram, or changes the one whose label the form holds.
     func write() {
         session.setSystemDiagram(
             label: draft.label.trimmingCharacters(in: .whitespaces),

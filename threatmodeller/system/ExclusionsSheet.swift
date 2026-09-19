@@ -86,7 +86,6 @@ struct ExclusionsSheet: View {
             && SystemSheetWriting.states(draft.rationale)
     }
 
-    /// Writes a new exclusion, or changes the one whose label the form holds.
     func write() {
         session.setExclusion(
             label: draft.label.trimmingCharacters(in: .whitespaces),

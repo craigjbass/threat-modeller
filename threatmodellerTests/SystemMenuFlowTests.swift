@@ -90,6 +90,40 @@ struct SystemMenuFlowTests {
         #expect(source.attributes.map(\.value) == ["gold"])
     }
 
+    @Test func aSecondWriteOfTheSameAttributeNameChangesTheAttributeThatIsThere() async throws {
+        let (project, useCases) = await aProject()
+        let model = try #require(project.model)
+        model.setSystemFacts(owner: "Payments team")
+
+        let first = DocumentControlSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(name: "service_tier", value: "gold")
+        )
+        first.write()
+        let other = DocumentControlSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(name: "cost_centre", value: "1234")
+        )
+        other.write()
+        let second = DocumentControlSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(name: "service_tier", value: "silver")
+        )
+        second.write()
+        await project.save()
+
+        #expect(model.errorMessage == nil)
+        let source = try written(useCases)
+        #expect(source.attributes.map(\.name) == ["service_tier", "cost_centre"])
+        #expect(source.attributes.map(\.value) == ["silver", "1234"])
+        #expect(source.owner == "Payments team")
+        #expect(source.systemName == "Payments")
+        #expect(source.components.map(\.id) == ["api"])
+    }
+
     // MARK: Assets
 
     @Test func opensAssetsAndWritesOneAsset() async throws {
@@ -118,6 +152,62 @@ struct SystemMenuFlowTests {
         #expect(asset.classification == "confidential")
         #expect(asset.description == "The card number and expiry a customer enters.")
         #expect(asset.owner == "Payments team")
+    }
+
+    @Test func aSecondWriteOfTheSameAssetIdentifierChangesTheAssetThatIsThere() async throws {
+        let (project, useCases) = await aProject()
+        let model = try #require(project.model)
+
+        let first = AssetsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: "card-data",
+                name: "Card data",
+                classification: "confidential",
+                description: "The card number a customer enters.",
+                owner: "Payments team"
+            )
+        )
+        first.write()
+        let other = AssetsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: "audit-log",
+                name: "Audit log",
+                classification: "internal",
+                description: "What the service wrote down.",
+                owner: "Platform team"
+            )
+        )
+        other.write()
+        let second = AssetsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: "card-data",
+                name: "Card number",
+                classification: "restricted",
+                description: "The card number and the expiry.",
+                owner: "Card team"
+            )
+        )
+        second.write()
+        await project.save()
+
+        #expect(model.errorMessage == nil)
+        let source = try written(useCases)
+        #expect(source.systemAssets.map(\.id) == ["card-data", "audit-log"])
+        let changed = try #require(source.systemAssets.first)
+        #expect(changed.name == "Card number")
+        #expect(changed.classification == "restricted")
+        #expect(changed.description == "The card number and the expiry.")
+        #expect(changed.owner == "Card team")
+        #expect(source.systemAssets.last?.name == "Audit log")
+        #expect(source.systemAssets.last?.classification == "internal")
+        #expect(source.systemName == "Payments")
+        #expect(source.components.map(\.id) == ["api"])
     }
 
     // MARK: Third parties
@@ -177,6 +267,39 @@ struct SystemMenuFlowTests {
         #expect(useCase.text == "A customer pays with a card.")
     }
 
+    @Test func aSecondWriteOfTheSameUseCaseLabelChangesTheUseCaseThatIsThere() async throws {
+        let (project, useCases) = await aProject()
+        let model = try #require(project.model)
+
+        let first = UseCasesSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(label: "Pay by card", text: "A customer pays with a card.")
+        )
+        first.write()
+        let other = UseCasesSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(label: "Refund", text: "An agent refunds a payment.")
+        )
+        other.write()
+        let second = UseCasesSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(label: "Pay by card", text: "A customer pays with a saved card.")
+        )
+        second.write()
+        await project.save()
+
+        #expect(model.errorMessage == nil)
+        let source = try written(useCases)
+        #expect(source.useCases.map(\.label) == ["Pay by card", "Refund"])
+        #expect(source.useCases.first?.text == "A customer pays with a saved card.")
+        #expect(source.useCases.last?.text == "An agent refunds a payment.")
+        #expect(source.systemName == "Payments")
+        #expect(source.components.map(\.id) == ["api"])
+    }
+
     // MARK: Exclusions
 
     @Test func opensExclusionsAndWritesOneExclusion() async throws {
@@ -201,6 +324,53 @@ struct SystemMenuFlowTests {
         #expect(exclusion.label == "The card network")
         #expect(exclusion.text == "The card network is not modelled.")
         #expect(exclusion.rationale == "Another team owns it.")
+    }
+
+    @Test func aSecondWriteOfTheSameExclusionLabelChangesTheExclusionThatIsThere() async throws {
+        let (project, useCases) = await aProject()
+        let model = try #require(project.model)
+
+        let first = ExclusionsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                label: "The card network",
+                text: "The card network is not modelled.",
+                rationale: "Another team owns it."
+            )
+        )
+        first.write()
+        let other = ExclusionsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                label: "The office network",
+                text: "The office network is not modelled.",
+                rationale: "The IT team owns it."
+            )
+        )
+        other.write()
+        let second = ExclusionsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                label: "The card network",
+                text: "The card network stays outside this model.",
+                rationale: "The card scheme states its own model."
+            )
+        )
+        second.write()
+        await project.save()
+
+        #expect(model.errorMessage == nil)
+        let source = try written(useCases)
+        #expect(source.exclusions.map(\.label) == ["The card network", "The office network"])
+        let changed = try #require(source.exclusions.first)
+        #expect(changed.text == "The card network stays outside this model.")
+        #expect(changed.rationale == "The card scheme states its own model.")
+        #expect(source.exclusions.last?.rationale == "The IT team owns it.")
+        #expect(source.systemName == "Payments")
+        #expect(source.components.map(\.id) == ["api"])
     }
 
     // MARK: Diagrams

@@ -152,8 +152,6 @@ struct DocumentControlSheet: View {
         )
     }
 
-    /// Writes one free `attribute` block. Writing a name that is already there
-    /// changes that block.
     func write() {
         session.setSystemAttribute(
             name: draft.name.trimmingCharacters(in: .whitespaces),

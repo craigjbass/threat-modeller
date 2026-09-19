@@ -7,6 +7,9 @@ import ThreatModelKit
 /// it: a heading and one sentence at the top, the list on the left, the form on
 /// the right, and a footer that names the file the sheet writes. Escape closes
 /// the sheet, and Cmd+S writes what the form holds.
+///
+/// Every System sheet writes by key: a write whose key the file already holds
+/// changes that entry, and never adds a second entry under the same key.
 struct SystemSheet<Entries: View, Form: View>: View {
     let kind: SystemSheetKind
     /// One sentence that says what this sheet states.

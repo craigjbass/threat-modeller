@@ -105,8 +105,6 @@ struct AssetsSheet: View {
         SystemSheetWriting.states(draft.id, draft.name)
     }
 
-    /// Writes a new asset, or changes the asset whose identifier the form
-    /// holds. Writing an identifier that is already there changes that asset.
     func write() {
         let owner = draft.owner.trimmingCharacters(in: .whitespaces)
         session.setSystemAsset(

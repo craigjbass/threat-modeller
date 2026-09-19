@@ -134,8 +134,6 @@ struct ThirdPartiesSheet: View {
         }
     }
 
-    /// Writes a new party, or changes the party whose identifier the form
-    /// holds.
     func write() {
         let owner = draft.owner.trimmingCharacters(in: .whitespaces)
         let link = draft.link.trimmingCharacters(in: .whitespaces)
