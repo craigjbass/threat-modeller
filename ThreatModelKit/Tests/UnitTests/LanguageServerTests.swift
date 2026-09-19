@@ -287,6 +287,41 @@ struct LanguageServerTests {
         #expect(heldLines.contains(4))
     }
 
+    @Test func coloursTheIdentifierAMitigatesBlockNamesAsAVariable() {
+        let data = semanticTokens("""
+        system "Payments" {
+          mitigates api {
+          }
+        }
+        """, at: "file:///work/threatmodel/small.arch")
+
+        #expect(decoded(data).contains(DecodedToken(line: 1, column: 12, length: 3, type: 5)))
+    }
+
+    @Test func readsTheExtensionsSamplePolicyWithNoDiagnostic() throws {
+        let text = try Self.fixtureText("vscode/test-fixtures/project/policy.hcl")
+        let uri = "file:///work/threatmodel/policy.hcl"
+        let answers = ask(server(), [
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": ["textDocument": ["uri": uri, "text": text]]
+        ])
+        let diagnostics = try #require(
+            (answers.first?["params"] as? [String: Any])?["diagnostics"] as? [[String: Any]]
+        )
+
+        #expect(diagnostics.isEmpty)
+    }
+
+    private static func fixtureText(_ path: String) throws -> String {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        return try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
+    }
+
     // MARK: diagnostics
 
     @Test func publishesTheParsersOwnDiagnostics() throws {
@@ -552,15 +587,207 @@ struct LanguageServerTests {
         #expect(labels.contains("app"))
     }
 
+
+    // MARK: every block of every language
+
+    /// One document that nests a block where its language nests it, and the
+    /// place a person's cursor sits inside it.
+    private struct Sample {
+        let text: String
+        let uri: String
+        let line: Int
+        let character: Int
+    }
+
+    private static func fileName(of language: String) -> String {
+        language == "policy" ? "policy.hcl" : "walk.\(language)"
+    }
+
+    /// The line one block opens on, as its language writes it.
+    private static func header(of id: LanguageBlockId) -> String {
+        let keyword = id.block.keywords[0]
+        switch keyword {
+        case "controls", "attack_trees", "governance":
+            return "\(keyword) for \"Payments\" {"
+        case "policy":
+            return "policy {"
+        case "flow", "mitigates":
+            return "\(keyword) api -> db {"
+        case "all_of", "any_of", "then":
+            return "\(keyword) {"
+        case "threat" where id.block.language != "lib":
+            return "threat \"credential-theft\" on component \"api\" {"
+        case "step" where id.block.language == "attacktree":
+            return "step \"read the store\" on component \"api\" {"
+        default:
+            return "\(keyword) \"one\" {"
+        }
+    }
+
+    private static func sample(of id: LanguageBlockId) -> Sample {
+        var chain: [LanguageBlockId] = [id]
+        while let parent = chain[0].block.within.first {
+            chain.insert(parent, at: 0)
+        }
+
+        var lines = chain.enumerated().map { depth, each in
+            String(repeating: "  ", count: depth) + header(of: each)
+        }
+        let indent = String(repeating: "  ", count: chain.count)
+        lines.append(indent)
+        for depth in stride(from: chain.count - 1, through: 0, by: -1) {
+            lines.append(String(repeating: "  ", count: depth) + "}")
+        }
+
+        return Sample(
+            text: lines.joined(separator: "\n") + "\n",
+            uri: "file:///work/threatmodel/" + fileName(of: id.block.language),
+            line: chain.count,
+            character: indent.count
+        )
+    }
+
+    @Test func completesTheAttributesOfEveryBlockTheVocabularyDeclares() {
+        for id in LanguageBlockId.allCases {
+            let sample = Self.sample(of: id)
+            let labels = completions(
+                opened(sample.text, at: sample.uri),
+                line: sample.line,
+                character: sample.character,
+                at: sample.uri
+            )
+            let missing = id.block.attributes.filter { labels.contains($0) == false }
+
+            #expect(
+                missing.isEmpty,
+                """
+                Inside \(id.rawValue) the server offers no \
+                \(missing.joined(separator: ", ")). The block opens with \
+                \(id.block.keywords.joined(separator: " or ")).
+                """
+            )
+        }
+    }
+
+    @Test func completesTheAttributesOfAUseBlock() {
+        let text = """
+        system "Payments" {
+          user "alice" {
+            uses "browser" {
+              r
+            }
+          }
+        }
+
+        """
+        let labels = completions(opened(text), line: 3, character: 7)
+
+        #expect(labels.contains("reaches"))
+    }
+
+    @Test func completesTheAttributesOfACompensatingControl() {
+        let controls = """
+        controls for "Payments" {
+          threat "credential-theft" on component "api" {
+            compensating "Break glass" {
+              r
+            }
+          }
+        }
+
+        """
+        let uri = "file:///work/threatmodel/payments.controls"
+        let labels = completions(opened(controls, at: uri), line: 3, character: 7, at: uri)
+
+        #expect(labels.contains("reduces_risk_by"))
+        #expect(labels.contains("rationale"))
+        #expect(labels.contains("verified_on"))
+    }
+
+    @Test func completesTheAttributesOfALikelihoodFinding() {
+        let controls = """
+        controls for "Payments" {
+          threat "credential-theft" on component "api" {
+            likelihood "no campaign names this" {
+              t
+            }
+          }
+        }
+
+        """
+        let uri = "file:///work/threatmodel/payments.controls"
+        let labels = completions(opened(controls, at: uri), line: 3, character: 7, at: uri)
+
+        #expect(labels.contains("tier"))
+        #expect(labels.contains("prior"))
+        #expect(labels.contains("rationale"))
+    }
+
+    @Test func completesTheAttributesOfAControlsTree() {
+        let controls = """
+        controls for "Payments" {
+          tree "t" {
+            g
+          }
+        }
+
+        """
+        let uri = "file:///work/threatmodel/payments.controls"
+        let labels = completions(opened(controls, at: uri), line: 2, character: 5, at: uri)
+
+        #expect(labels.contains("goal"))
+        #expect(labels.contains("chain"))
+        #expect(labels.contains("score_before"))
+        #expect(labels.contains("sufficient"))
+    }
+
+    @Test func completesTheAttributesOfALibraryMitigation() {
+        let library = """
+        library "acme" {
+          mitigation "m" {
+            m
+          }
+        }
+
+        """
+        let uri = "file:///work/libraries/acme.lib"
+        let labels = completions(opened(library, at: uri), line: 2, character: 5, at: uri)
+
+        #expect(labels.contains("mitigates"))
+        #expect(labels.contains("provided_by"))
+        #expect(labels.contains("reduces_risk_by"))
+        #expect(labels.contains("mode"))
+    }
+
+    @Test func completesTheAttributesOfAGovernanceFile() {
+        let governance = """
+        governance for "Payments" {
+          t
+        }
+
+        """
+        let uri = "file:///work/threatmodel/payments.governance"
+        let labels = completions(opened(governance, at: uri), line: 1, character: 3, at: uri)
+
+        #expect(labels.contains("threat"))
+        #expect(labels.contains("action"))
+        #expect(labels.contains("stale threat"))
+    }
+
     // MARK: hover
 
-    private func hovered(_ server: LanguageServer, line: Int, character: Int) -> String {
+    private func hovered(
+        _ server: LanguageServer,
+        line: Int,
+        character: Int,
+        at uri: String? = nil
+    ) -> String {
         let answers = ask(server, [
             "jsonrpc": "2.0",
             "id": 3,
             "method": "textDocument/hover",
             "params": [
-                "textDocument": ["uri": uri],
+                "textDocument": ["uri": uri ?? self.uri],
                 "position": ["line": line, "character": character]
             ]
         ])
@@ -616,6 +843,62 @@ struct LanguageServerTests {
         ])
 
         #expect(result(answers) is NSNull || (result(answers) as? [String: Any]) != nil)
+    }
+
+
+    @Test func hoversOnACapabilityTierWithItsFactor() {
+        let text = """
+        system "Payments" {
+          threat_actor "spy" {
+            capability = "insider"
+          }
+        }
+
+        """
+        let said = hovered(opened(text), line: 2, character: 19)
+
+        #expect(said.contains("Insider"))
+        #expect(said.contains("0.6"))
+    }
+
+    @Test func hoversOnAClearanceWithItsReductionAndItsRationale() {
+        let text = """
+        system "Payments" {
+          clearance "sc" {
+            name                    = "Security Check"
+            reduces_insider_risk_by = 60
+            rationale               = "The vetting reads the whole employment record."
+          }
+
+          user "alice" {
+            clearance = "sc"
+          }
+        }
+
+        """
+        let said = hovered(opened(text), line: 8, character: 18)
+
+        #expect(said.contains("60"))
+        #expect(said.contains("The vetting reads the whole employment record."))
+    }
+
+    @Test func hoversOnACompensatingControlWithItsReductionAndItsRationale() {
+        let controls = """
+        controls for "Payments" {
+          threat "credential-theft" on component "api" {
+            compensating "Break-glass account watched by the SIEM" {
+              reduces_risk_by = 40
+              rationale       = "The one account left alerts on use."
+            }
+          }
+        }
+
+        """
+        let uri = "file:///work/threatmodel/payments.controls"
+        let said = hovered(opened(controls, at: uri), line: 2, character: 20, at: uri)
+
+        #expect(said.contains("40"))
+        #expect(said.contains("The one account left alerts on use."))
     }
 
     // MARK: go to definition

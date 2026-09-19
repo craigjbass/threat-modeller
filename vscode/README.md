@@ -10,7 +10,8 @@ language server the `threatmodeller` executable holds.
 - `threatmodeller lsp` runs as the language server over standard input and
   output. The server publishes the parser's diagnostics, and answers
   completion, hover, go to definition, formatting and semantic tokens, so the
-  files colour without a grammar.
+  files colour without a grammar. Completion offers the attributes of every
+  block of every language, read from the block the cursor sits in.
 - Three commands in the command palette: **Threat Modeller: Check**,
   **Threat Modeller: Compile** and **Threat Modeller: Draw**. Each command
   runs the executable over the first folder of the workspace and writes what

@@ -1,4 +1,5 @@
 # A sample policy the extension tests open.
-policy "every system names an owner" {
-  description = "The owner answers for the system"
+policy {
+  accepted_requires_owner = true
+  system_requires_owner   = true
 }

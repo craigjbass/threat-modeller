@@ -13,6 +13,10 @@ public struct LanguageBlock: Equatable, Sendable {
     /// The name the parity list knows the block by. A keyword that names two
     /// different blocks carries a qualifier in brackets.
     public let name: String
+    /// The words that open the block in a file.
+    public let keywords: [String]
+    /// The blocks this block opens inside.
+    public let within: [LanguageBlockId]
     /// How the unknown-attribute message opens.
     public let phrase: String
     /// The attribute names the parser reads, in the order the message lists
@@ -25,12 +29,16 @@ public struct LanguageBlock: Equatable, Sendable {
     public init(
         language: String,
         name: String,
+        keywords: [String],
+        within: [LanguageBlockId],
         phrase: String,
         attributes: [String],
         listsWithCommasAlone: Bool = false
     ) {
         self.language = language
         self.name = name
+        self.keywords = keywords
+        self.within = within
         self.phrase = phrase
         self.attributes = attributes
         self.listsWithCommasAlone = listsWithCommasAlone
@@ -128,6 +136,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "system",
+                keywords: ["system"],
+                within: [],
                 phrase: "a system holds",
                 attributes: [
                     "catalogue", "owner", "description", "authors", "links", "repositories",
@@ -141,6 +151,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "user",
+                keywords: ["user"],
+                within: [.archSystem],
                 phrase: "a user holds",
                 attributes: [
                     "name", "role", "access", "uses", "reaches", "threat_actor", "clearance"
@@ -150,6 +162,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "use",
+                keywords: ["uses"],
+                within: [.archUser, .archAdversary],
                 phrase: "a use holds",
                 attributes: ["reaches"]
             )
@@ -157,6 +171,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "adversary",
+                keywords: ["adversary"],
+                within: [.archSystem],
                 phrase: "an adversary holds",
                 attributes: [
                     "name", "role", "access", "uses", "reaches", "threat_actor", "clearance"
@@ -166,6 +182,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "clearance",
+                keywords: ["clearance"],
+                within: [.archSystem],
                 phrase: "a clearance holds",
                 attributes: [
                     "name", "description", "reduces_insider_risk_by", "rationale", "sources"
@@ -175,6 +193,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "attribute",
+                keywords: ["attribute"],
+                within: [.archSystem],
                 phrase: "an attribute holds",
                 attributes: ["value"]
             )
@@ -182,6 +202,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "assumption",
+                keywords: ["assumption"],
+                within: [.archSystem],
                 phrase: "an assumption holds",
                 attributes: ["text", "owner"]
             )
@@ -189,6 +211,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "diagram",
+                keywords: ["diagram"],
+                within: [.archSystem],
                 phrase: "a diagram holds",
                 attributes: ["kind", "text"]
             )
@@ -196,6 +220,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "third_party",
+                keywords: ["third_party"],
+                within: [.archSystem],
                 phrase: "a third_party holds",
                 attributes: [
                     "name", "description", "kind", "paying_customer", "uptime", "uptime_notes",
@@ -206,6 +232,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "asset (in system)",
+                keywords: ["asset"],
+                within: [.archSystem],
                 phrase: "an asset holds",
                 attributes: ["name", "classification", "description", "owner"]
             )
@@ -213,6 +241,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "use_case",
+                keywords: ["use_case"],
+                within: [.archSystem],
                 phrase: "a use_case holds",
                 attributes: ["text"]
             )
@@ -220,6 +250,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "exclusion",
+                keywords: ["exclusion"],
+                within: [.archSystem],
                 phrase: "an exclusion holds",
                 attributes: ["text", "rationale"]
             )
@@ -227,6 +259,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "threat_actor",
+                keywords: ["threat_actor"],
+                within: [.archSystem],
                 phrase: "a threat actor holds",
                 attributes: [
                     "name", "description", "aliases", "capability", "intent", "performs",
@@ -237,6 +271,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "technology",
+                keywords: ["technology"],
+                within: [.archSystem],
                 phrase: "a technology holds",
                 attributes: ["name", "category", "description", "threats", "encrypts", "control"]
             )
@@ -244,6 +280,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "zone",
+                keywords: ["zone"],
+                within: [.archSystem],
                 phrase: "a zone holds",
                 attributes: [
                     "kind", "network", "name", "reduces_risk", "reduces_risk_by", "component",
@@ -254,6 +292,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "component",
+                keywords: ["component"],
+                within: [.archSystem, .archZone],
                 phrase: "a component holds",
                 attributes: [
                     "technology", "name", "zone", "data", "status", "version", "cves", "holds",
@@ -264,6 +304,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "asset (in component)",
+                keywords: ["asset"],
+                within: [.archComponent],
                 phrase: "an asset holds",
                 attributes: ["data"]
             )
@@ -271,6 +313,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "flow",
+                keywords: ["flow"],
+                within: [.archSystem],
                 phrase: "a flow holds",
                 attributes: ["kind", "description", "carries", "tags"]
             )
@@ -278,6 +322,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "mitigates",
+                keywords: ["mitigates"],
+                within: [.archSystem],
                 phrase: "a mitigates edge holds",
                 attributes: ["threats", "reduces_risk_by", "status", "recommendation"]
             )
@@ -285,6 +331,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "arch",
                 name: "recommendation (in mitigates)",
+                keywords: ["recommendation"],
+                within: [.archMitigates],
                 phrase: "a recommendation holds",
                 attributes: ["text", "note", "blocked_by", "sources"]
             )
@@ -293,6 +341,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "controls for",
+                keywords: ["controls"],
+                within: [],
                 phrase: "a controls file holds",
                 attributes: [
                     "catalogue", "tolerance", "threat", "tree", "stale threat", "stale tree"
@@ -302,6 +352,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "tree",
+                keywords: ["tree"],
+                within: [.controlsDocument],
                 phrase: "a tree holds",
                 attributes: [
                     "goal", "chain", "raises_risk_by", "score", "score_before", "closed_by",
@@ -312,6 +364,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "sufficient",
+                keywords: ["sufficient"],
+                within: [.controlsTree],
                 phrase: "a sufficient control holds",
                 attributes: ["state"]
             )
@@ -319,6 +373,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "step",
+                keywords: ["step"],
+                within: [.controlsTree],
                 phrase: "a step holds",
                 attributes: ["state", "by", "position"]
             )
@@ -326,6 +382,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "threat",
+                keywords: ["threat"],
+                within: [.controlsDocument],
                 phrase: "a threat holds",
                 attributes: [
                     "severity", "score", "impacts", "likelihood", "severity_override", "control",
@@ -336,6 +394,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "likelihood",
+                keywords: ["likelihood"],
+                within: [.controlsThreat],
                 phrase: "a likelihood holds",
                 attributes: ["tier", "prior", "rationale", "sources"]
             )
@@ -343,6 +403,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "severity_override",
+                keywords: ["severity_override"],
+                within: [.controlsThreat],
                 phrase: "a severity_override holds",
                 attributes: ["rationale", "sources"]
             )
@@ -350,6 +412,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "control",
+                keywords: ["control"],
+                within: [.controlsThreat],
                 phrase: "a control holds",
                 attributes: ["status", "note", "evidence", "reference", "verified_on"]
             )
@@ -357,6 +421,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "compensating",
+                keywords: ["compensating"],
+                within: [.controlsThreat],
                 phrase: "a compensating control holds",
                 attributes: [
                     "reduces_risk_by", "rationale", "sources", "evidence", "reference",
@@ -367,6 +433,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "controls",
                 name: "recommendation",
+                keywords: ["recommendation"],
+                within: [.controlsThreat],
                 phrase: "a recommendation holds",
                 attributes: ["note", "sources"]
             )
@@ -375,6 +443,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "attacktree",
                 name: "attack_trees for",
+                keywords: ["attack_trees"],
+                within: [],
                 phrase: "an attack tree file holds",
                 attributes: ["catalogue", "tree"]
             )
@@ -382,6 +452,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "attacktree",
                 name: "tree",
+                keywords: ["tree"],
+                within: [.attackTreeDocument],
                 phrase: "a tree holds",
                 attributes: [
                     "name", "description", "raises_risk_by", "closed_by", "goal", "all_of",
@@ -392,6 +464,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "attacktree",
                 name: "step",
+                keywords: ["step"],
+                within: [.attackTreeTree, .attackTreeAllOf, .attackTreeAnyOf, .attackTreeThen],
                 phrase: "a step holds",
                 attributes: ["note"]
             )
@@ -399,6 +473,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "attacktree",
                 name: "all_of",
+                keywords: ["all_of"],
+                within: [.attackTreeTree, .attackTreeAllOf, .attackTreeAnyOf, .attackTreeThen],
                 phrase: "an all_of holds",
                 attributes: ["step", "all_of", "any_of", "then"]
             )
@@ -406,6 +482,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "attacktree",
                 name: "any_of",
+                keywords: ["any_of"],
+                within: [.attackTreeTree, .attackTreeAllOf, .attackTreeAnyOf, .attackTreeThen],
                 phrase: "an any_of holds",
                 attributes: ["step", "all_of", "any_of", "then"]
             )
@@ -413,6 +491,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "attacktree",
                 name: "then",
+                keywords: ["then"],
+                within: [.attackTreeTree, .attackTreeAllOf, .attackTreeAnyOf, .attackTreeThen],
                 phrase: "a then holds",
                 attributes: ["step", "all_of", "any_of", "then"]
             )
@@ -421,6 +501,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "governance",
                 name: "governance for",
+                keywords: ["governance"],
+                within: [],
                 phrase: "a governance file holds",
                 attributes: ["threat", "action", "stale threat", "stale action"]
             )
@@ -428,6 +510,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "governance",
                 name: "threat",
+                keywords: ["threat"],
+                within: [.governanceDocument],
                 phrase: "a governed threat holds",
                 attributes: ["accepted", "work", "stale accepted", "stale work"]
             )
@@ -435,6 +519,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "governance",
                 name: "accepted",
+                keywords: ["accepted"],
+                within: [.governanceThreat],
                 phrase: "an accepted risk holds",
                 attributes: ["owner", "accepted_on", "review_by", "rationale", "sources"]
             )
@@ -442,6 +528,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "governance",
                 name: "work and action",
+                keywords: ["work", "action"],
+                within: [.governanceThreat, .governanceDocument],
                 phrase: "planned work holds",
                 attributes: [
                     "owner", "effort", "due_by", "status", "acceptance", "note", "sources"
@@ -452,6 +540,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "policy",
                 name: "policy",
+                keywords: ["policy"],
+                within: [],
                 phrase: "a policy holds",
                 attributes: PolicySource.ruleNames + PolicySource.settingNames,
                 listsWithCommasAlone: true
@@ -461,6 +551,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "library",
+                keywords: ["library"],
+                within: [],
                 phrase: "a library holds",
                 attributes: [
                     "name", "catalogue", "technology", "threat", "mitigation", "threat_actor",
@@ -471,6 +563,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "classification",
+                keywords: ["classification"],
+                within: [.libraryLibrary],
                 phrase: "a classification holds",
                 attributes: ["name", "colour"]
             )
@@ -478,6 +572,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "override",
+                keywords: ["override"],
+                within: [.libraryLibrary],
                 phrase: "an override holds",
                 attributes: ["severity", "likelihood", "description", "control"]
             )
@@ -485,6 +581,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "category",
+                keywords: ["category"],
+                within: [.libraryLibrary],
                 phrase: "this block holds",
                 attributes: ["name"]
             )
@@ -492,6 +590,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "severity",
+                keywords: ["severity"],
+                within: [.libraryLibrary],
                 phrase: "this block holds",
                 attributes: ["name"]
             )
@@ -499,6 +599,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "stride",
+                keywords: ["stride"],
+                within: [.libraryLibrary],
                 phrase: "this block holds",
                 attributes: ["name"]
             )
@@ -506,6 +608,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "technology",
+                keywords: ["technology"],
+                within: [.libraryLibrary],
                 phrase: "a technology holds",
                 attributes: ["name", "category", "description", "threats", "encrypts", "control"]
             )
@@ -513,6 +617,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "threat",
+                keywords: ["threat"],
+                within: [.libraryLibrary],
                 phrase: "a threat holds",
                 attributes: [
                     "name", "description", "severity", "stride", "impacts", "connection", "zone",
@@ -524,6 +630,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "mitigation",
+                keywords: ["mitigation"],
+                within: [.libraryLibrary],
                 phrase: "a mitigation holds",
                 attributes: [
                     "name", "description", "mitigates", "provided_by", "reduces_risk_by", "mode"
@@ -533,6 +641,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "threat_actor",
+                keywords: ["threat_actor"],
+                within: [.libraryLibrary],
                 phrase: "a threat actor holds",
                 attributes: [
                     "name", "description", "aliases", "capability", "intent", "performs",
@@ -543,6 +653,8 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
             LanguageBlock(
                 language: "lib",
                 name: "mitre",
+                keywords: ["mitre"],
+                within: [.libraryThreat],
                 phrase: "a mitre technique holds",
                 attributes: ["name", "tactic"]
             )
@@ -554,6 +666,26 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
 public enum LanguageVocabulary {
     /// Every block of every language, in case order.
     public static var blocks: [LanguageBlock] { LanguageBlockId.allCases.map(\.block) }
+
+    /// The block one keyword opens in one language, read with the keywords of
+    /// the blocks it sits inside, nearest first.
+    public static func blockId(
+        keyword: String,
+        within: [String],
+        language: String
+    ) -> LanguageBlockId? {
+        let candidates = LanguageBlockId.allCases.filter {
+            $0.block.language == language && $0.block.keywords.contains(keyword)
+        }
+        guard candidates.count > 1 else { return candidates.first }
+        for enclosing in within {
+            let found = candidates.first { candidate in
+                candidate.block.within.contains { $0.block.keywords.contains(enclosing) }
+            }
+            if let found { return found }
+        }
+        return candidates.first
+    }
 
     /// Every attribute of every block, as `<language>.<block>.<attribute>`.
     /// The parity list is keyed by this word.

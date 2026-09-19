@@ -23,6 +23,11 @@ public final class LanguageServer: @unchecked Sendable {
         case governance
         case policy = "hcl"
 
+        /// The word `LanguageVocabulary` names this language by.
+        var vocabulary: String {
+            self == .policy ? "policy" : rawValue
+        }
+
         /// The language a file name holds, or nil for a file this server does
         /// not read.
         static func of(_ uri: String) -> Language? {
@@ -123,6 +128,8 @@ public final class LanguageServer: @unchecked Sendable {
     /// them. A client reads a token's type as an index into this list.
     static let tokenTypes = ["keyword", "string", "number", "comment", "operator", "variable"]
 
+    private static let blocksThatNameBareIdentifiers = ["flow", "mitigates"]
+
     private enum TokenType: Int {
         case keyword = 0
         case string = 1
@@ -191,9 +198,14 @@ public final class LanguageServer: @unchecked Sendable {
         case .boolean: .keyword
         case .arrow: .operator
         case .identifier:
-            // A flow names two components beside the arrow. Every other word
-            // is a block name or an attribute name.
-            (before?.kind == .arrow || after?.kind == .arrow) ? .variable : .keyword
+            if before?.kind == .arrow || after?.kind == .arrow {
+                .variable
+            } else if before?.kind == .identifier,
+                      blocksThatNameBareIdentifiers.contains(before?.text ?? "") {
+                .variable
+            } else {
+                .keyword
+            }
         case .string:
             // A block header states its label straight after a word, as in
             // `component "api"`. An attribute and a list state a text after
@@ -280,8 +292,12 @@ public final class LanguageServer: @unchecked Sendable {
         // An attribute of the block the cursor sits in. A person typing a word
         // at the start of a line is naming an attribute.
         if before.trimmingCharacters(in: .whitespaces).contains(" ") == false {
-            items += Self.attributes(of: block(above: lineNumber, in: lines), language: language)
-                .map { item($0, kind: 10, detail: "an attribute") }
+            let open = blocks(above: lineNumber, in: lines)
+            items += Self.attributes(
+                of: open.first ?? "",
+                within: Array(open.dropFirst()),
+                language: language
+            ).map { item($0, kind: 10, detail: "an attribute") }
         }
 
         return ["isIncomplete": false, "items": items]
@@ -297,62 +313,42 @@ public final class LanguageServer: @unchecked Sendable {
     /// `LanguageVocabulary` is the one place that spells a block's
     /// attributes; this reads it, so a parser that gains an attribute offers
     /// its completion with no change here.
-    static func attributes(of block: String, language: Language?) -> [String] {
-        guard let id = blockId(of: block, language: language) else {
+    static func attributes(
+        of block: String,
+        within: [String] = [],
+        language: Language?
+    ) -> [String] {
+        guard let language else { return [] }
+        guard let id = LanguageVocabulary.blockId(
+            keyword: block,
+            within: within,
+            language: language.vocabulary
+        ) else {
             if language == .policy { return PolicySource.ruleNames + PolicySource.settingNames }
             return []
         }
         return id.block.attributes
     }
 
-    /// Which vocabulary entry a block keyword names, for the language it was
-    /// read in. A keyword shared by two blocks in one language, such as
-    /// `asset`, resolves to the one the editor meets first.
-    private static func blockId(of block: String, language: Language?) -> LanguageBlockId? {
-        switch (language, block) {
-        case (.architecture, "system"): .archSystem
-        case (.architecture, "component"): .archComponent
-        case (.architecture, "user"): .archUser
-        case (.architecture, "adversary"): .archAdversary
-        case (.architecture, "clearance"): .archClearance
-        case (.architecture, "zone"): .archZone
-        case (.architecture, "flow"): .archFlow
-        case (.architecture, "asset"): .archSystemAsset
-        case (.architecture, "third_party"): .archThirdParty
-        case (.architecture, "mitigates"): .archMitigates
-        case (.architecture, "technology"): .archTechnology
-        case (.controls, "threat"): .controlsThreat
-        case (.controls, "control"): .controlsControl
-        case (.library, "threat"): .libraryThreat
-        case (.library, "technology"): .libraryTechnology
-        case (.attackTree, "attack_trees"): .attackTreeDocument
-        case (.attackTree, "tree"): .attackTreeTree
-        case (.attackTree, "all_of"): .attackTreeAllOf
-        case (.attackTree, "any_of"): .attackTreeAnyOf
-        case (.attackTree, "then"): .attackTreeThen
-        case (.attackTree, "step"): .attackTreeStep
-        case (.governance, "accepted"): .governanceAccepted
-        case (.governance, "work"): .governanceWork
-        default: nil
-        }
-    }
-
-    /// The block the cursor sits in, by the nearest opening line above it.
-    func block(above line: Int, in lines: [String]) -> String {
+    /// The blocks the cursor sits in, by the opening lines above it, the
+    /// nearest first.
+    func blocks(above line: Int, in lines: [String]) -> [String] {
         var depth = 0
         var index = min(line, lines.count) - 1
+        var open: [String] = []
         while index >= 0 {
             let text = lines[index].trimmingCharacters(in: .whitespaces)
             if text.hasSuffix("}") && text.hasPrefix("{") == false { depth += 1 }
             if text.hasSuffix("{") {
                 if depth == 0 {
-                    return text.split(separator: " ").first.map(String.init) ?? ""
+                    open.append(text.split(separator: " ").first.map(String.init) ?? "")
+                } else {
+                    depth -= 1
                 }
-                depth -= 1
             }
             index -= 1
         }
-        return ""
+        return open
     }
 
     /// The controls the threat above this line offers, from the catalogue.
@@ -397,6 +393,25 @@ public final class LanguageServer: @unchecked Sendable {
             return ["contents": ["kind": "markdown", "value": said]]
         }
 
+        if let tier = Likelihood(rawValue: word) {
+            return Self.said("**\(tier.label)** \u{2014} likelihood factor \(tier.factor)")
+        }
+
+        if let body = Self.body(of: "clearance", named: word, in: lines) {
+            return Self.said(
+                "**\(body["name"] ?? word)** (`\(word)`)\n\nReduces insider risk by "
+                    + "\(body["reduces_insider_risk_by"] ?? "0")%.\n\n"
+                    + (body["rationale"] ?? "")
+            )
+        }
+
+        if let body = Self.body(of: "compensating", named: word, in: lines) {
+            return Self.said(
+                "**\(word)**\n\nReduces risk by \(body["reduces_risk_by"] ?? "0")%.\n\n"
+                    + (body["rationale"] ?? "")
+            )
+        }
+
         // A threat stanza in a `.controls` file states its own score.
         if line.trimmingCharacters(in: .whitespaces).hasPrefix("threat "),
            Language.of(uri) == .controls {
@@ -434,6 +449,29 @@ public final class LanguageServer: @unchecked Sendable {
         }
 
         return NSNull()
+    }
+
+    /// One markdown answer, in the shape the protocol states.
+    static func said(_ value: String) -> [String: Any] {
+        ["contents": ["kind": "markdown", "value": value]]
+    }
+
+    /// The attributes one named block states, read as the file writes them.
+    static func body(of keyword: String, named: String, in lines: [String]) -> [String: String]? {
+        guard let start = line(declaring: keyword, named: named, in: lines) else { return nil }
+        var read: [String: String] = [:]
+        var index = start + 1
+        while index < lines.count {
+            let inner = lines[index].trimmingCharacters(in: .whitespaces)
+            if inner.hasPrefix("}") { break }
+            let parts = inner.split(separator: "=", maxSplits: 1)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2 {
+                read[parts[0]] = firstQuoted(in: parts[1]) ?? parts[1]
+            }
+            index += 1
+        }
+        return read
     }
 
     // MARK: go to definition

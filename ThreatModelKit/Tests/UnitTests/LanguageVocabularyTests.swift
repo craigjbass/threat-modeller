@@ -189,14 +189,26 @@ struct LanguageVocabularyTests {
 
     @Test func theSentenceReadsAsTheMessageDoes() {
         let one = LanguageBlock(
-            language: "arch", name: "one", phrase: "a one holds", attributes: ["a"]
+            language: "arch",
+            name: "one",
+            keywords: ["one"],
+            within: [],
+            phrase: "a one holds",
+            attributes: ["a"]
         )
         let three = LanguageBlock(
-            language: "arch", name: "three", phrase: "a three holds", attributes: ["a", "b", "c"]
+            language: "arch",
+            name: "three",
+            keywords: ["three"],
+            within: [],
+            phrase: "a three holds",
+            attributes: ["a", "b", "c"]
         )
         let commas = LanguageBlock(
             language: "arch",
             name: "commas",
+            keywords: ["commas"],
+            within: [],
             phrase: "a commas holds",
             attributes: ["a", "b", "c"],
             listsWithCommasAlone: true
