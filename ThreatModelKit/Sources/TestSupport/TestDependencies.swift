@@ -10,6 +10,9 @@ public final class TestDependencies: UseCaseFactory {
     private let base: InMemoryTechnologyCatalogue
     /// The open project's libraries. `useLibraries` is what fills it.
     private let libraries = LibraryStore()
+    /// The libraries of the commit the risk history is scoring. Separate from
+    /// the open project's, so a history read leaves the open project alone.
+    private let historyLibraries = LibraryStore()
     /// The last resolution, kept so one change runs the resolver once.
     private let resolutions = ThreatResolutionCache()
     /// The fixture catalogue and the open project's libraries, read as one.
@@ -383,11 +386,13 @@ public final class TestDependencies: UseCaseFactory {
         ReadRiskHistory(
             projects: projects,
             history: history,
-            catalogue: catalogue,
+            catalogue: MergedCatalogue(base: base, store: historyLibraries, mitre: mitreActors),
+            libraries: historyLibraries,
             architectureSources: architectureSources,
             controlsSources: controlsSources,
             attackTreeSources: attackTreeSources,
             governanceSources: governanceSources,
+            librarySources: librarySources,
             layout: layOutModel()
         )
     }

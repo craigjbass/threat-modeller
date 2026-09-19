@@ -1011,14 +1011,17 @@ public struct CommandLineApplication {
             return ExitCode.fileFault.rawValue
         }
 
+        let historyLibraries = LibraryStore()
         let read = ReadRiskHistory(
             projects: projects,
             history: history,
-            catalogue: catalogue,
+            catalogue: MergedCatalogue(base: catalogue, store: historyLibraries, mitre: mitreActors),
+            libraries: historyLibraries,
             architectureSources: architecture,
             controlsSources: controls,
             attackTreeSources: attackTrees,
             governanceSources: HclGovernanceSource(),
+            librarySources: HclLibrarySource(),
             layout: LayOutModel()
         ).execute(ReadRiskHistoryRequest(root: root, commits: commits))
 
@@ -1328,14 +1331,21 @@ public struct CommandLineApplication {
             // sampled commit, so `--commits 0` turns it off.
             var historyRead = RiskHistory()
             if commits > 0 {
+                let historyLibraries = LibraryStore()
                 let read = ReadRiskHistory(
                     projects: projects,
                     history: history,
-                    catalogue: useCases.catalogue,
+                    catalogue: MergedCatalogue(
+                        base: useCases.baseCatalogue,
+                        store: historyLibraries,
+                        mitre: useCases.mitre
+                    ),
+                    libraries: historyLibraries,
                     architectureSources: architecture,
                     controlsSources: controls,
                     attackTreeSources: attackTrees,
                     governanceSources: HclGovernanceSource(),
+                    librarySources: HclLibrarySource(),
                     layout: LayOutModel()
                 ).execute(ReadRiskHistoryRequest(root: root, commits: commits))
                 if case .read(let found) = read { historyRead = found }
@@ -2121,6 +2131,7 @@ public struct CommandLineApplication {
         for system in layout.systems {
             let useCases = CommandLineDependencies(
                 catalogue: merged,
+                baseCatalogue: catalogue,
                 mitre: mitreActors,
                 architectureSources: architecture,
                 controlsSources: controls,

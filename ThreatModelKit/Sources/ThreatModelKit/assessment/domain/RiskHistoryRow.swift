@@ -32,8 +32,7 @@ public struct RiskHistoryNumbers: Equatable, Sendable {
     public let acceptedRisks: Int
     /// How many written routes are still open.
     public let openAttackTrees: Int
-    /// The catalogue the files named, or nil when they named none. A score
-    /// that moved on a catalogue change is not a posture change.
+    /// The catalogue version that produced these numbers.
     public let catalogueTag: String?
 
     public init(

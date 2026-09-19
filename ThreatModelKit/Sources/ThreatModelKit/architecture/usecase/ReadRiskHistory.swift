@@ -61,30 +61,39 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
 
     private let projects: ProjectSourceGateway
     private let history: GitHistoryGateway
+    /// The catalogue this use case scores with. It reads `libraries`, so each
+    /// commit is scored with the libraries that commit held.
     private let catalogue: TechnologyCatalogue
+    /// The libraries of the commit being scored.
+    private let libraries: LibraryStore
     private let architectureSources: ArchitectureSourceGateway
     private let controlsSources: ControlsSourceGateway
     private let attackTreeSources: AttackTreeSourceGateway
     private let governanceSources: GovernanceSourceGateway
+    private let librarySources: LibrarySourceGateway
     private let layout: LayOutModelUseCase
 
     public init(
         projects: ProjectSourceGateway,
         history: GitHistoryGateway,
         catalogue: TechnologyCatalogue,
+        libraries: LibraryStore,
         architectureSources: ArchitectureSourceGateway,
         controlsSources: ControlsSourceGateway,
         attackTreeSources: AttackTreeSourceGateway,
         governanceSources: GovernanceSourceGateway,
+        librarySources: LibrarySourceGateway,
         layout: LayOutModelUseCase
     ) {
         self.projects = projects
         self.history = history
         self.catalogue = catalogue
+        self.libraries = libraries
         self.architectureSources = architectureSources
         self.controlsSources = controlsSources
         self.attackTreeSources = attackTreeSources
         self.governanceSources = governanceSources
+        self.librarySources = librarySources
         self.layout = layout
     }
 
@@ -113,7 +122,7 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
                 + system.attackTreePaths
                 + [system.governancePath])
                 .map { relative($0, to: request.root) }
-        }
+        } + discovered.libraryPaths.map { relative($0, to: request.root) }
 
         let commits: [SourceCommit]
         do {
@@ -136,6 +145,9 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
         var previousCatalogueTag: String?
 
         for (index, commit) in sampled.enumerated() {
+            libraries.set(
+                held(at: commit, libraryPaths: discovered.libraryPaths, root: request.root)
+            )
             let read = reading(at: commit, systems: systems, root: request.root)
             rows.append(RiskHistoryRow(commit: commit, numbers: read?.numbers))
             if index == 0 {
@@ -143,6 +155,7 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
                 previousCatalogueTag = read?.numbers.catalogueTag
             }
         }
+        libraries.set([])
 
         return .read(
             RiskHistory(
@@ -171,7 +184,6 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
         var threatCount = 0
         var acceptedRisks = 0
         var openAttackTrees = 0
-        var catalogueTag: String?
         var readAnything = false
         var compared: [ComparedThreat] = []
 
@@ -198,8 +210,7 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
                     }
                 )
             )
-            guard case .imported(_, _, let tag) = imported else { return nil }
-            catalogueTag = tag ?? catalogueTag
+            guard case .imported = imported else { return nil }
 
             for path in system.controlsPaths {
                 guard let controlsText = text(at: commit, path: path, root: root) else { continue }
@@ -246,7 +257,7 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
                 threatCount: threatCount,
                 acceptedRisks: acceptedRisks,
                 openAttackTrees: openAttackTrees,
-                catalogueTag: catalogueTag
+                catalogueTag: catalogue.version().tag
             ),
             threats: compared
         )
@@ -275,6 +286,28 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
                 uniquingKeysWith: { first, _ in first }
             )
         )
+    }
+
+    /// The libraries one commit held, built the way `LoadLibraries` builds
+    /// the working tree's.
+    private func held(
+        at commit: SourceCommit,
+        libraryPaths: [String],
+        root: String
+    ) -> [Library] {
+        libraries.set([])
+        let taxonomy = catalogue.taxonomy()
+
+        var built: [Library] = []
+        for path in libraryPaths {
+            guard let text = text(at: commit, path: path, root: root) else { continue }
+            guard let source = librarySources.read(text).source else { continue }
+            guard let library = Library.build(from: source, taxonomy: taxonomy).library else {
+                continue
+            }
+            built.append(library)
+        }
+        return built
     }
 
     /// What one file of the project holds at one commit, or nil when that

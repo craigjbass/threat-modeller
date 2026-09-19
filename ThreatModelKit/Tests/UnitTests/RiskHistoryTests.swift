@@ -1,4 +1,5 @@
 import ArchitectureDSL
+import FileGateways
 import Foundation
 import Testing
 import ThreatModelKit
@@ -44,10 +45,12 @@ struct ReadRiskHistoryTests {
             projects: project,
             history: git,
             catalogue: CatalogueFixture.catalogue(),
+            libraries: LibraryStore(),
             architectureSources: HclArchitectureSource(),
             controlsSources: HclControlsSource(),
             attackTreeSources: HclAttackTreeSource(),
             governanceSources: HclGovernanceSource(),
+            librarySources: HclLibrarySource(),
             layout: LayOutModel()
         ).execute(
             ReadRiskHistoryRequest(root: "/work", systemName: systemName, commits: commits)
@@ -400,10 +403,12 @@ struct SplitSystemRiskHistoryTests {
             projects: project,
             history: git,
             catalogue: CatalogueFixture.catalogue(),
+            libraries: LibraryStore(),
             architectureSources: HclArchitectureSource(),
             controlsSources: HclControlsSource(),
             attackTreeSources: HclAttackTreeSource(),
             governanceSources: HclGovernanceSource(),
+            librarySources: HclLibrarySource(),
             layout: LayOutModel()
         ).execute(ReadRiskHistoryRequest(root: "/work"))
     }
@@ -474,5 +479,181 @@ struct SplitSystemRiskHistoryTests {
         seed()
 
         #expect(rows().contains { $0.commit.shortHash == "ddddddd" } == false)
+    }
+}
+
+@Suite("Scoring a project's libraries at each sampled commit")
+struct LibraryRiskHistoryTests {
+    private let payments = """
+    system "Payments" {
+      catalogue = "v0.0.0"
+
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+    }
+    """
+
+    private let plainLibrary = """
+    library "acme" {
+      name = "Acme Platform"
+    }
+    """
+
+    private let overridingLibrary = """
+    library "acme" {
+      name = "Acme Platform"
+
+      override "credential-theft" {
+        severity = "low"
+      }
+    }
+    """
+
+    @Test func showsARowForACommitThatEditedOnlyALibraryFile() throws {
+        let repository = try aRepository()
+        defer { try? FileManager.default.removeItem(atPath: repository) }
+
+        let read = try rows(repository)
+
+        #expect(read.map(\.commit.subject) == ["the library override", "the first"])
+        let newest = try #require(read.first?.numbers)
+        #expect(newest.totalScore == workingTreeScore(repository))
+    }
+
+    @Test func scoresACommitWithTheLibrariesThatCommitHeld() throws {
+        let repository = try aRepository()
+        defer { try? FileManager.default.removeItem(atPath: repository) }
+
+        let read = try rows(repository)
+
+        let newest = try #require(read.first?.numbers)
+        let oldest = try #require(read.last?.numbers)
+        #expect(newest.totalScore < oldest.totalScore)
+    }
+
+    @Test func namesTheCatalogueVersionThatProducedTheNumbers() throws {
+        let repository = try aRepository()
+        defer { try? FileManager.default.removeItem(atPath: repository) }
+
+        let read = try rows(repository)
+
+        #expect(read.isEmpty == false)
+        #expect(read.allSatisfy { $0.numbers?.catalogueTag == "v9.9.9" })
+    }
+
+    /// A catalogue whose version differs from the one the architecture file
+    /// names.
+    private func catalogue() -> InMemoryTechnologyCatalogue {
+        InMemoryTechnologyCatalogue(
+            technologies: [
+                CatalogueFixture.ec2(),
+                CatalogueFixture.rds(),
+                CatalogueFixture.bigQuery(),
+                CatalogueFixture.waf(),
+                CatalogueFixture.user()
+            ],
+            threats: CatalogueFixture.ec2Threats()
+                + CatalogueFixture.connectionThreats()
+                + CatalogueFixture.zoneThreats(),
+            taxonomy: CatalogueFixture.taxonomy(),
+            providers: CatalogueFixture.providers(),
+            pathwayMitigations: CatalogueFixture.pathwayMitigations(),
+            threatActors: CatalogueFixture.threatActors(),
+            version: CatalogueVersion(repository: "fixture", tag: "v9.9.9")
+        )
+    }
+
+    private func rows(_ root: String) throws -> [RiskHistoryRow] {
+        let store = LibraryStore()
+        let response = ReadRiskHistory(
+            projects: FileSystemProject(),
+            history: GitHistory(),
+            catalogue: MergedCatalogue(base: catalogue(), store: store),
+            libraries: store,
+            architectureSources: HclArchitectureSource(),
+            controlsSources: HclControlsSource(),
+            attackTreeSources: HclAttackTreeSource(),
+            governanceSources: HclGovernanceSource(),
+            librarySources: HclLibrarySource(),
+            layout: LayOutModel()
+        ).execute(ReadRiskHistoryRequest(root: root))
+
+        guard case .read(let history) = response else {
+            Issue.record("expected the history to be read, got \(response)")
+            return []
+        }
+        return history.rows
+    }
+
+    /// What the report scores the working tree at, through the same library
+    /// path the report uses.
+    private func workingTreeScore(_ root: String) -> Int {
+        let store = LibraryStore()
+        let merged = MergedCatalogue(base: catalogue(), store: store)
+
+        guard case .loaded(let held, _) = LoadLibraries(
+            projects: FileSystemProject(),
+            sources: HclLibrarySource(),
+            catalogue: catalogue()
+        ).execute(LoadLibrariesRequest(root: root)) else {
+            Issue.record("expected the libraries to load")
+            return 0
+        }
+        store.set(held)
+
+        let models = InMemoryThreatModelGateway()
+        _ = ImportArchitecture(
+            models: models,
+            catalogue: merged,
+            sources: HclArchitectureSource(),
+            attackTreeSources: HclAttackTreeSource(),
+            layout: LayOutModel()
+        ).execute(ImportArchitectureRequest(text: payments))
+
+        return AssessThreatModel(models: models, catalogue: merged)
+            .execute(AssessThreatModelRequest())
+            .threats
+            .reduce(0) { $0 + $1.riskScore }
+    }
+
+    /// A repository whose second commit edits the library file alone.
+    private func aRepository() throws -> String {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threatmodeller-library-history-\(UUID().uuidString)")
+        let threatmodel = directory.appendingPathComponent("threatmodel")
+        let library = threatmodel.appendingPathComponent("library")
+        try FileManager.default.createDirectory(at: library, withIntermediateDirectories: true)
+
+        _ = try run(["init", "--quiet"], in: directory.path)
+        _ = try run(["config", "user.email", "test@example.test"], in: directory.path)
+        _ = try run(["config", "user.name", "A Test"], in: directory.path)
+        _ = try run(["config", "commit.gpgsign", "false"], in: directory.path)
+
+        try payments.write(
+            to: threatmodel.appendingPathComponent("payments.arch"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let libraryFile = library.appendingPathComponent("acme.lib")
+        try plainLibrary.write(to: libraryFile, atomically: true, encoding: .utf8)
+        _ = try run(["add", "."], in: directory.path)
+        _ = try run(["commit", "--quiet", "-m", "the first"], in: directory.path)
+
+        try overridingLibrary.write(to: libraryFile, atomically: true, encoding: .utf8)
+        _ = try run(["add", "."], in: directory.path)
+        _ = try run(["commit", "--quiet", "-m", "the library override"], in: directory.path)
+
+        return directory.path
+    }
+
+    private func run(_ arguments: [String], in directory: String) throws -> String {
+        try ChildProcess.run(
+            "/usr/bin/env",
+            ["git", "-C", directory] + arguments,
+            environment: ProcessInfo.processInfo.environment,
+            timeout: 60
+        ).output
     }
 }
