@@ -233,9 +233,9 @@ struct UserRow: View {
                 .padding(6)
                 .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.2)))
         }
-        .onTapGesture(count: 2) {
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
             session.addAtDefaultPoint(technologyId: ThreatModelSession.userDropId)
-        }
+        })
     }
 }
 
@@ -324,9 +324,9 @@ struct TechnologyRow: View {
                 .padding(6)
                 .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.2)))
         }
-        .onTapGesture(count: 2) {
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
             session.addAtDefaultPoint(technologyId: technology.id)
-        }
+        })
         .contextMenu {
             if isDefinedByThisModel {
                 Button("Edit\u{2026}") { edit(technology.id) }
