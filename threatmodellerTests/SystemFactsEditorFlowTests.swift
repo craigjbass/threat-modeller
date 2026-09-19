@@ -264,6 +264,79 @@ struct SystemFactsEditorFlowTests {
         #expect(SystemDateField.day(of: "last Tuesday") == nil)
     }
 
+    private func calendar(timeZone identifier: String) throws -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: identifier))
+        return calendar
+    }
+
+    /// A Date late in the evening at Greenwich already falls on the next day
+    /// for a person east of Greenwich. `text(of:)` answers the day of the
+    /// calendar it is given, not the day UTC would answer.
+    @Test func textOfAnswersTheNextLocalDayEastOfGreenwich() throws {
+        let auckland = try calendar(timeZone: "Pacific/Auckland")
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = try #require(TimeZone(identifier: "UTC"))
+
+        var lateEveningAtGreenwich = DateComponents()
+        lateEveningAtGreenwich.year = 2026
+        lateEveningAtGreenwich.month = 9
+        lateEveningAtGreenwich.day = 16
+        lateEveningAtGreenwich.hour = 23
+        let instant = try #require(utc.date(from: lateEveningAtGreenwich))
+
+        #expect(SystemDateField.text(of: instant, calendar: auckland) == "2026-09-17")
+    }
+
+    /// A Date early in the morning at Greenwich still falls on the day before
+    /// for a person west of Greenwich. `text(of:)` answers the day of the
+    /// calendar it is given, not the day UTC would answer.
+    @Test func textOfAnswersThePreviousLocalDayWestOfGreenwich() throws {
+        let losAngeles = try calendar(timeZone: "America/Los_Angeles")
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = try #require(TimeZone(identifier: "UTC"))
+
+        var earlyMorningAtGreenwich = DateComponents()
+        earlyMorningAtGreenwich.year = 2026
+        earlyMorningAtGreenwich.month = 9
+        earlyMorningAtGreenwich.day = 16
+        earlyMorningAtGreenwich.hour = 2
+        let instant = try #require(utc.date(from: earlyMorningAtGreenwich))
+
+        #expect(SystemDateField.text(of: instant, calendar: losAngeles) == "2026-09-15")
+    }
+
+    /// `day(of:)` round-trips through `text(of:)` in a named calendar, east
+    /// and west of Greenwich, and answers the exact midday instant so a wider
+    /// time zone never moves the day.
+    @Test func dayOfRoundTripsThroughTextOfEastAndWestOfGreenwich() throws {
+        for (timeZone, written) in [("Pacific/Auckland", "2026-09-17"), ("America/Los_Angeles", "2026-09-15")] {
+            let zoned = try calendar(timeZone: timeZone)
+
+            var midday = DateComponents()
+            midday.year = 2026
+            midday.month = 9
+            midday.day = timeZone == "Pacific/Auckland" ? 17 : 15
+            midday.hour = 12
+            let expected = try #require(zoned.date(from: midday))
+
+            #expect(SystemDateField.day(of: written, calendar: zoned) == expected)
+            let roundTripped = try #require(SystemDateField.day(of: written, calendar: zoned))
+            #expect(SystemDateField.text(of: roundTripped, calendar: zoned) == written)
+        }
+    }
+
+    @Test func theCreatedSwitchOffLeavesNoCreatedLine() async throws {
+        let (session, useCases) = await aProject(described)
+        let model = try #require(session.model)
+
+        model.setSystemFacts(created: "")
+
+        await session.save()
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("created") == false)
+    }
+
     // MARK: the sheet
 
     /// #145: the document-control fields and the free attributes left the
