@@ -76,11 +76,15 @@ struct IdTokenField: View {
     }
 
     /// The choice a token draws for one id, or nil when the id names no
-    /// current choice. An id the caller's list no longer holds still draws,
-    /// by its bare id, so the file round trips even when a component or an
-    /// asset the field once offered is gone.
+    /// current choice.
     func choice(of id: String) -> Choice? {
         choices.first { $0.id == id }
+    }
+
+    /// The name a token draws for one id: the choice's name, or the bare id
+    /// when `choice(of:)` gives nil.
+    func nameForToken(_ id: String) -> String {
+        choice(of: id)?.name ?? id
     }
 
     // MARK: what the field writes
@@ -143,7 +147,7 @@ struct IdTokenField: View {
         HStack(spacing: 3) {
             Image(systemName: choice(of: id)?.icon ?? "questionmark.circle")
                 .font(.caption2)
-            Text(choice(of: id)?.name ?? id)
+            Text(nameForToken(id))
                 .font(.caption.weight(.medium))
             Button {
                 remove(id)

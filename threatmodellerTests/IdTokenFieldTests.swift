@@ -115,6 +115,35 @@ struct IdTokenFieldTests {
         #expect(held.ids == ["browser"])
     }
 
+    // MARK: an id the list no longer holds
+
+    @Test func choiceOfAnIdTheListStillHoldsGivesIt() {
+        let field = aField(held: Held(["browser"]))
+
+        #expect(field.choice(of: "browser")?.name == "Web Browser")
+    }
+
+    @Test func choiceOfAnIdTheListNoLongerHoldsGivesNil() {
+        let field = aField(held: Held(["gone"]))
+
+        #expect(field.choice(of: "gone") == nil)
+    }
+
+    @Test func aTokenForAnIdTheListNoLongerHoldsDrawsTheBareId() {
+        let field = aField(held: Held(["gone"]))
+
+        #expect(field.nameForToken("gone") == "gone")
+    }
+
+    @Test func removingAnotherTokenLeavesTheUnknownIdInIds() {
+        let held = Held(["gone", "browser"])
+        let field = aField(held: held)
+
+        field.remove("browser")
+
+        #expect(held.ids == ["gone"])
+    }
+
     // MARK: taking a token off
 
     @Test func aTokenComesOff() {

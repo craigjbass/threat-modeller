@@ -376,6 +376,31 @@ struct UserFlowTests {
         #expect(model.canvas.connections.filter(\.isUse).map(\.id) == ["use:alice:mobile"])
     }
 
+    /// A client alice's `uses` names leaves the model, by a path other than
+    /// the panel. The file still names it in `uses`, and an unrelated edit
+    /// on another component writes the file back with that name unchanged.
+    @Test func aClientTheModelNoLongerHoldsRoundTripsAfterAnUnrelatedEdit() async throws {
+        let (session, useCases) = await aProject(clients)
+        let model = try #require(session.model)
+        #expect(try user(of: model).uses == ["browser", "mobile"])
+
+        useCases.modelStore.mutate(label: "test setup") { threatModel in
+            threatModel.components.removeAll { $0.id.value == "browser" }
+        }
+        model.reread()
+
+        #expect(try user(of: model).uses == ["browser", "mobile"])
+        let api = try #require(model.canvas.components.first { $0.id == "api" })
+        let panel = ComponentPanel(session: model, component: api)
+        panel.commitTags("payments")
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("uses = [\"mobile\", \"browser\"]"))
+        #expect(written.contains("tags"))
+    }
+
     /// The acceptance criterion: three clients picked in one open of the
     /// list write in the order picked. `IdTokenFieldTests
     /// .picksThreeInOneOpenWithoutClosing` proves the list itself never
