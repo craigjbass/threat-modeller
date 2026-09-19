@@ -97,8 +97,8 @@ public enum JsonSchemaCheck {
         switch wanted {
         case "null": value is NSNull
         case "integer": (value as? NSNumber).map { isBool($0) == false } ?? false
-        case "boolean": (value as? NSNumber).map(isBool) ?? false
-        case "number": (value as? NSNumber).map { isBool($0) == false } ?? false
+        case "boolean": isBool(value)
+        case "number": value is NSNumber && isBool(value) == false
         case "string": value is String
         case "array": value is [Any]
         case "object": value is [String: Any]
@@ -106,8 +106,14 @@ public enum JsonSchemaCheck {
         }
     }
 
-    private static func isBool(_ number: NSNumber) -> Bool {
-        CFGetTypeID(number) == CFBooleanGetTypeID()
+    private static func isBool(_ value: Any) -> Bool {
+        if type(of: value) == Bool.self { return true }
+        guard let number = value as? NSNumber else { return false }
+        #if canImport(Darwin)
+        return CFGetTypeID(number) == CFBooleanGetTypeID()
+        #else
+        return String(cString: number.objCType) == "c"
+        #endif
     }
 
     private static func equal(_ left: Any, _ right: Any) -> Bool {
