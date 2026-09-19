@@ -199,7 +199,10 @@ struct WriteLikelihoodFindingTests {
 
         #expect(
             response
-                == .refused(reason: "this application holds \"commodity\", \"targeted\" and \"research\"")
+                == .refused(
+                    reason: "this application holds \"commodity\", \"targeted\", "
+                        + "\"insider\", \"research\""
+                )
         )
         #expect(app.project.text(at: "/work/threatmodel/payments.controls") == answered)
     }

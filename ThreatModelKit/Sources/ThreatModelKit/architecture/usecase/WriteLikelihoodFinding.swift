@@ -27,7 +27,7 @@ public struct WriteLikelihoodFindingRequest: Equatable, Sendable {
     public let sourceId: String
     /// What the finding says.
     public let label: String
-    /// A band: `commodity`, `targeted` or `research`. A finding states this
+    /// A band the likelihood tiers hold. A finding states this
     /// or a prior, never both.
     public let tier: String?
     /// A percentage a person measured or estimated directly, 0 to 100.
@@ -114,7 +114,7 @@ public struct WriteLikelihoodFinding: WriteLikelihoodFindingUseCase {
         case (.some(let raw), nil):
             guard let tier = Likelihood(rawValue: raw) else {
                 return .refused(
-                    reason: "this application holds \"commodity\", \"targeted\" and \"research\""
+                    reason: "this application holds \(Likelihood.quotedTierWords)"
                 )
             }
             likelihood = tier

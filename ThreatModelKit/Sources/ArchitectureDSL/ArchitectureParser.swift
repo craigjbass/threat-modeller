@@ -747,8 +747,8 @@ struct ArchitectureParser {
                 capability = parseTextAttribute()
                 if let word = capability, Likelihood(rawValue: word) == nil {
                     record(
-                        "capability is \"\(word)\"; this application holds \"commodity\", "
-                            + "\"targeted\", \"research\"",
+                        "capability is \"\(word)\"; this application holds "
+                            + Likelihood.quotedTierWords,
                         at: token
                     )
                     capability = nil
@@ -762,7 +762,7 @@ struct ArchitectureParser {
                 if let word = performsCatalogueTier, Likelihood(rawValue: word) == nil {
                     record(
                         "performs_catalogue_tier is \"\(word)\"; this application holds "
-                            + "\"commodity\", \"targeted\", \"research\"",
+                            + Likelihood.quotedTierWords,
                         at: token
                     )
                     performsCatalogueTier = nil

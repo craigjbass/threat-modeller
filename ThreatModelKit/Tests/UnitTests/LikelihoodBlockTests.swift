@@ -37,6 +37,19 @@ struct LikelihoodBlockTests {
         #expect(finding.sources == ["https://example.test/a", "CVE-2021-30892"])
     }
 
+    @Test func readsTheInsiderTier() throws {
+        let text = controls("""
+            likelihood "one operator holds the key" {
+              tier      = "insider"
+              rationale = "the bypass needs a key only an operator holds"
+            }
+        """)
+        let finding = try #require(gateway.read(text).source?.answers.first?.likelihood)
+
+        #expect(finding.likelihood == .insider)
+        #expect(finding.likelihood.factor == 0.6)
+    }
+
     @Test func readsANumericPrior() throws {
         let text = controls("""
             likelihood "one campaign in five years" {

@@ -289,7 +289,7 @@ struct ControlsParser {
                 if Likelihood(rawValue: raw) == nil {
                     record(
                         "tier is \"\(raw)\"; this application holds "
-                            + Likelihood.allTiers.map { "\"\($0.id)\"" }.joined(separator: ", "),
+                            + Likelihood.quotedTierWords,
                         at: token
                     )
                 } else {

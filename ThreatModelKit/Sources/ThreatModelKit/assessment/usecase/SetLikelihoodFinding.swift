@@ -6,7 +6,7 @@ public struct SetLikelihoodFindingRequest: Equatable, Sendable {
     public let threatKey: String
     /// What the finding says.
     public let label: String
-    /// A band: `commodity`, `targeted` or `research`. A finding states this or
+    /// A band the likelihood tiers hold. A finding states this or
     /// a prior, never both.
     public let tier: String?
     /// A percentage a person measured or estimated directly, 0 to 100.
@@ -53,7 +53,7 @@ public enum SetLikelihoodFindingResponse: Equatable, Sendable {
         case .statesNeither:
             message = "A finding states a tier or a prior."
         case .unknownTier:
-            message = "This application holds \"commodity\", \"targeted\" and \"research\"."
+            message = "This application holds \(Likelihood.quotedTierWords)."
         case .priorOutOfRange:
             message = "A prior runs from 0 to 100."
         }

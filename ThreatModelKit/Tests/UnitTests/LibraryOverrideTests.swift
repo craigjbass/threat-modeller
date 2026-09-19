@@ -67,6 +67,25 @@ struct LibraryOverrideTests {
         #expect(threat.controls.map(\.description) == ["Rotate the keys every day"])
     }
 
+    @Test func readsAnOverrideThatStatesTheInsiderTier() throws {
+        let app = withTheLibrary(
+            """
+            library "acme" {
+              override "credential-theft" {
+                likelihood = "insider"
+              }
+            }
+            """
+        )
+
+        let threat = try #require(
+            app.catalogueInUse.threatsFor(technologyId: TechnologyId("aws-ec2"))
+                .first { $0.id == ThreatId("credential-theft") }
+        )
+
+        #expect(threat.likelihood == .insider)
+    }
+
     /// An override states what it changes and nothing else.
     @Test func anOverrideThatStatesOneThingChangesOneThing() throws {
         let app = withTheLibrary(

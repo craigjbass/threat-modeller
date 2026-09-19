@@ -9,7 +9,7 @@ public struct SetLocalThreatActorRequest: Equatable, Sendable {
     public let name: String
     public let description: String
     public let aliases: [String]
-    /// A tier id: `commodity`, `targeted` or `research`. Nil takes the
+    /// A tier id the likelihood tiers hold. Nil takes the
     /// application's own default, `targeted`.
     public let capability: String?
     public let intent: String
@@ -57,9 +57,9 @@ public enum SetLocalThreatActorResponse: Equatable, Sendable {
         case .noId: message = "A threat actor needs an identifier."
         case .noName: message = "A threat actor needs a name."
         case .unknownCapability:
-            message = "A capability is commodity, targeted or research."
+            message = "A capability is \(Likelihood.tierWordsAsProse)."
         case .unknownCatalogueTier:
-            message = "A catalogue tier is commodity, targeted or research."
+            message = "A catalogue tier is \(Likelihood.tierWordsAsProse)."
         }
     }
 }

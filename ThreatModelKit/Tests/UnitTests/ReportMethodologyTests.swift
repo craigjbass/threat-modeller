@@ -25,8 +25,11 @@ struct ReportMethodologyTests {
         let methodology = ReportMethodology.build(zones: [], tolerance: .medium)
 
         #expect(methodology.controlCapPercent == 70)
-        #expect(methodology.likelihoodTiers.map(\.label) == ["Commodity", "Targeted", "Research"])
-        #expect(methodology.likelihoodTiers.map(\.count) == [100, 60, 25])
+        #expect(
+            methodology.likelihoodTiers.map(\.label)
+                == ["Commodity", "Targeted", "Insider", "Research"]
+        )
+        #expect(methodology.likelihoodTiers.map(\.count) == [100, 60, 60, 25])
         #expect(methodology.toleranceLabel == "Medium")
     }
 

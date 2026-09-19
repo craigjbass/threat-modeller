@@ -121,7 +121,16 @@ struct SetThreatActorsTests {
         #expect(actor.techniques == ["T1552"])
     }
 
-    @Test func refusesACapabilityOutsideTheThreeTiers() {
+    @Test func writesAnInsiderCapability() throws {
+        let app = app()
+
+        #expect(writeContractor(app, capability: "insider") == .recorded)
+
+        let actor = try #require(app.modelStore.current().localActors.first)
+        #expect(actor.capability == .insider)
+    }
+
+    @Test func refusesACapabilityOutsideTheTiers() {
         let app = app()
 
         let response = writeContractor(app, capability: "worried")

@@ -183,7 +183,7 @@ public struct McpServer {
                     "label": ["type": "string", "description": "what the finding is called"],
                     "tier": [
                         "type": "string",
-                        "description": "commodity, targeted or research"
+                        "description": Likelihood.tierWordsAsProse
                     ],
                     "prior": [
                         "type": "integer",
@@ -437,7 +437,7 @@ public struct McpServer {
             let likelihood = prior.flatMap(Likelihood.init(prior:))
                 ?? tier.flatMap(Likelihood.init(rawValue:))
             guard let likelihood else {
-                return "state a tier — commodity, targeted or research — or a prior from 0 to 100"
+                return "state a tier — \(Likelihood.tierWordsAsProse) — or a prior from 0 to 100"
             }
             written = SourceThreatAnswer(
                 threatId: answer.threatId,

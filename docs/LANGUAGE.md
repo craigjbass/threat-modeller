@@ -1831,7 +1831,7 @@ block.
 
 | Attribute | Type | Values | Default |
 | --- | --- | --- | --- |
-| `tier` | string | `commodity`, `targeted`, `research` | one of `tier` or `prior` is **required** |
+| `tier` | string | `commodity`, `targeted`, `insider`, `research` | one of `tier` or `prior` is **required** |
 | `prior` | number | 0 to 100 | one of `tier` or `prior` is **required** |
 | `rationale` | string | any, and not empty | **required** |
 | `sources` | list of strings | any | empty |
@@ -1840,11 +1840,12 @@ block.
 finding comes from.
 
 A block states a tier or a prior, never both. `tier` names a band from the
-library language's three tiers; `prior` is a percentage a person measured or
+library language's four tiers; `prior` is a percentage a person measured or
 estimated directly.
 
-A `tier` outside `commodity`, `targeted` or `research` is the error `tier is
-"<raw>"; this application holds "commodity", "targeted", "research"`. A block
+A `tier` outside `commodity`, `targeted`, `insider` or `research` is the error
+`tier is "<raw>"; this application holds "commodity", "targeted", "insider",
+"research"`. A block
 with no `rationale`, or an empty one, is the error `the likelihood "<label>"
 has no rationale`, and the block is dropped. A finding nobody can justify is
 not one. A block that states both a `tier` and a `prior` is the error `the
@@ -2144,7 +2145,7 @@ read.
 | | | `boundary` | `network`, `privilege` | none |
 | | | `runs_as` | a list of privilege levels: `user`, `admin`, `root`, `system`, `kernel` | empty |
 | | | `pathway` | `true` or `false` | `false` |
-| | | `likelihood` | a tier — `commodity`, `targeted`, `research` — or a whole number 0 to 100 | `commodity` |
+| | | `likelihood` | a tier — `commodity`, `targeted`, `insider`, `research` — or a whole number 0 to 100 | `commodity` |
 | `mitre` | the technique id | `name` | string | **required** |
 | | | `tactic` | string | **required** |
 | `control` | the control's description | none | | |
@@ -2163,7 +2164,7 @@ at. `pathway = true` marks the threat as one a pathway mitigation can lower.
 
 `likelihood` states how often an attack of this kind happens: how many
 attackers actually use it, not how bad it is when they do. It takes one of the
-three tier words, or a whole number from 0 to 100 that a person measured
+four tier words, or a whole number from 0 to 100 that a person measured
 directly. A threat that states none is `commodity`, the busiest tier, so a
 model that says nothing about likelihood keeps the score it always had.
 
@@ -2181,9 +2182,9 @@ threat "supply-chain-compromise" {
 }
 ```
 
-A tier word outside the three is the error `likelihood is "<word>"; this
-application holds "commodity", "targeted", "research", or a whole number from
-0 to 100`. A number outside 0 to 100 is the error `likelihood is <n>; a whole
+A tier word outside the four is the error `likelihood is "<word>"; this
+application holds "commodity", "targeted", "insider", "research", or a whole
+number from 0 to 100`. A number outside 0 to 100 is the error `likelihood is <n>; a whole
 number runs from 0 to 100`.
 
 A `mitigation` block declares a pathway mitigation: a control a technology
@@ -2231,26 +2232,28 @@ it; a firewall in the zone answers the threats about moving inside it.
 
 A `threat_actor` block declares an adversary a system can face. `capability`
 carries the factor a likelihood tier carries: `commodity` 1.0, `targeted` 0.6,
-`research` 0.25. A capability says how many attackers of this kind there are,
-not how skilled one of them is.
+`insider` 0.6, `research` 0.25. A capability says how many attackers of this
+kind there are, not how skilled one of them is. `insider` is a person who
+already holds access to the system, and there are as many of those for a given
+system as there are targeted attackers.
 
 | Attribute | Type | Values | Default |
 | --- | --- | --- | --- |
 | `name` | string | any | **required** |
 | `description` | string | any | empty |
 | `aliases` | list of strings | any | empty |
-| `capability` | string | `commodity`, `targeted`, `research` | `targeted` |
+| `capability` | string | `commodity`, `targeted`, `insider`, `research` | `targeted` |
 | `intent` | string | any | empty |
 | `performs` | list of strings | threat ids | empty |
 | `techniques` | list of strings | MITRE technique ids | empty |
-| `performs_catalogue_tier` | string | `commodity`, `targeted`, `research` | none |
+| `performs_catalogue_tier` | string | `commodity`, `targeted`, `insider`, `research` | none |
 
 ```hcl
 threat_actor "insider" {
   name        = "Disgruntled operator"
   description = "A person with production access who has resigned."
   aliases     = ["leaver"]
-  capability  = "commodity"
+  capability  = "insider"
   intent      = "sabotage"
   performs    = ["data-exfiltration", "credential-theft"]
   techniques  = ["T1078", "T1530"]
@@ -2322,8 +2325,8 @@ Errors, which stop the project opening:
 | a threat with no `severity` | `the threat "<id>" has no severity` |
 | a duplicate threat actor id | `the threat actor "<id>" is declared twice` |
 | a threat actor with no `name` | `the threat actor "<id>" has no name` |
-| a `capability` outside the three tiers | `capability is "<word>"; this application holds "commodity", "targeted", "research"` |
-| a `performs_catalogue_tier` outside the three tiers | `performs_catalogue_tier is "<word>"; this application holds "commodity", "targeted", "research"` |
+| a `capability` outside the tiers | `capability is "<word>"; this application holds "commodity", "targeted", "insider", "research"` |
+| a `performs_catalogue_tier` outside the tiers | `performs_catalogue_tier is "<word>"; this application holds "commodity", "targeted", "insider", "research"` |
 | a `mitre` block with no `name` | `the technique "<id>" has no name` |
 | a `mitre` block with no `tactic` | `the technique "<id>" has no tactic` |
 | a block or an attribute the grammar does not hold | `a library holds name, catalogue, technology, threat and mitigation, not "<word>"` |

@@ -115,6 +115,38 @@ struct ActorLikelihoodTests {
         #expect(ActorLikelihood.performers(of: research, among: [crimeware()]).isEmpty)
     }
 
+    @Test func anInsiderCatalogueTierPerformsEveryInsiderThreat() {
+        let insider = ThreatActor(
+            id: ThreatActorId("acme-insider"),
+            name: "Disgruntled operator",
+            capability: .insider,
+            performsCatalogueTier: .insider
+        )
+        let byAnInsider = threat("key-copying", likelihood: .insider)
+        let byAnybody = threat("dos-attack", likelihood: .commodity)
+
+        #expect(ActorLikelihood.performers(of: byAnInsider, among: [insider]).count == 1)
+        #expect(ActorLikelihood.performers(of: byAnybody, among: [insider]).isEmpty)
+    }
+
+    @Test func lowersACommodityThreatToTheInsiderThatPerformsIt() {
+        let insider = ThreatActor(
+            id: ThreatActorId("acme-insider"),
+            name: "Disgruntled operator",
+            capability: .insider,
+            performs: [ThreatId("credential-theft")]
+        )
+
+        let source = ActorLikelihood.likelihood(
+            of: threat(likelihood: .commodity),
+            faced: [insider]
+        )
+
+        #expect(source.likelihood == .insider)
+        #expect(source.likelihood.factor == 0.6)
+        #expect(source.reason == "set by Disgruntled operator")
+    }
+
     @Test func readsAParentTechniqueId() {
         #expect(ActorLikelihood.parent(of: "T1550.001") == "T1550")
         #expect(ActorLikelihood.parent(of: "T1550") == "T1550")

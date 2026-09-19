@@ -118,7 +118,7 @@ public struct SourceThreatActor: Equatable, Sendable {
     public let name: String
     public let description: String
     public let aliases: [String]
-    /// A tier id: `commodity`, `targeted` or `research`. Nil means the
+    /// A tier id the likelihood tiers hold. Nil means the
     /// application's own default, `targeted`.
     public let capability: String?
     public let intent: String

@@ -325,8 +325,8 @@ score:
 6. **Likelihood.** A `.controls` file's `likelihood` block for this threat on
    this source, or, failing that, the threat's own likelihood tier, multiplies
    both the residual score and the target score. `commodity` (the default)
-   leaves the score unchanged; `targeted` multiplies by 0.6; `research`
-   multiplies by 0.25. A `likelihood` block can also raise a threat's tier
+   leaves the score unchanged; `targeted` multiplies by 0.6; `insider`
+   multiplies by 0.6; `research` multiplies by 0.25. A `likelihood` block can also raise a threat's tier
    back to `commodity`.
 7. **Compensating control.** The strongest `compensating` block on the threat
    reduces both the residual score and the target score.

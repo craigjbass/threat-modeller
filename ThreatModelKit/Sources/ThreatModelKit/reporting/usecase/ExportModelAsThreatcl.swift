@@ -332,11 +332,10 @@ public struct ExportModelAsThreatcl: ExportModelAsThreatclUseCase {
         }
     }
 
-    /// A likelihood tier, in threatcl's five words. A commodity attack is one
-    /// anybody can run, so it is the likeliest; research is the least likely.
+    /// A likelihood tier, in threatcl's own words.
     static func likelihood(of label: String) -> String {
         switch label.lowercased() {
-        case "commodity": "high"
+        case "commodity", "insider": "high"
         case "targeted": "medium"
         case "research": "low"
         default: "medium"

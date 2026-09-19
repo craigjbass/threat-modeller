@@ -60,6 +60,19 @@ struct LikelihoodScoringTests {
         #expect(threat.likelihoodLabel == "Research")
     }
 
+    @Test func anInsiderThreatScoresLikeATargetedOne() throws {
+        app.useLibraries([endpointLibrary(threatId: "key-copying", likelihood: "insider")])
+        _ = app.addComponent().execute(
+            AddComponentRequest(technologyId: "endpoint-laptop", x: 0, y: 0, sensitivity: "restricted")
+        )
+
+        let threat = try #require(threats().first)
+        #expect(threat.scoreBeforeLikelihood == 16)
+        #expect(threat.riskScore == 10)
+        #expect(threat.likelihoodId == "insider")
+        #expect(threat.likelihoodLabel == "Insider")
+    }
+
     /// The compensating stage rebuilds a `ResolvedThreat`. This proves it
     /// carries the likelihood fields through rather than dropping them.
     @Test func aCompensatingControlKeepsTheLikelihoodFields() throws {

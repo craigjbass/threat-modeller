@@ -233,6 +233,15 @@ struct ExportModelAsThreatclTests {
         #expect(ExportModelAsThreatcl.stride(of: "Spoofing") == "Spoofing")
     }
 
+    /// An insider already holds access, so an attack an insider performs is
+    /// at least as likely as a targeted one.
+    @Test func anInsiderTierTravelsAsHigh() {
+        #expect(ExportModelAsThreatcl.likelihood(of: "Insider") == "high")
+        #expect(ExportModelAsThreatcl.likelihood(of: "Commodity") == "high")
+        #expect(ExportModelAsThreatcl.likelihood(of: "Targeted") == "medium")
+        #expect(ExportModelAsThreatcl.likelihood(of: "Research") == "low")
+    }
+
     /// threatcl holds three classifications, and a project's own scheme may
     /// hold more.
     @Test func aClassificationOutsideTheThreeTravelsAsConfidential() {

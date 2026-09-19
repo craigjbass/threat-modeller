@@ -19,10 +19,25 @@ public struct Likelihood: Equatable, Sendable {
     public static let commodity = Likelihood(id: "commodity", label: "Commodity", factor: 1.0)
     /// A funded attacker uses it against a chosen target.
     public static let targeted = Likelihood(id: "targeted", label: "Targeted", factor: 0.6)
+    /// A person who already holds access to the system uses it.
+    public static let insider = Likelihood(id: "insider", label: "Insider", factor: 0.6)
     /// A researcher has shown it, and no campaign has used it.
     public static let research = Likelihood(id: "research", label: "Research", factor: 0.25)
 
-    public static let allTiers: [Likelihood] = [.commodity, .targeted, .research]
+    public static let allTiers: [Likelihood] = [.commodity, .targeted, .insider, .research]
+
+    /// Every tier word in quotation marks, for a diagnostic that lists the
+    /// words a file may state.
+    public static var quotedTierWords: String {
+        allTiers.map { "\"\($0.id)\"" }.joined(separator: ", ")
+    }
+
+    /// Every tier word as prose, for a message a person reads in the window.
+    public static var tierWordsAsProse: String {
+        let words = allTiers.map(\.id)
+        guard let last = words.last else { return "" }
+        return words.dropLast().joined(separator: ", ") + " or " + last
+    }
 
     /// The tier with that id, or nil. A file that names another word is wrong,
     /// and the parser says so.

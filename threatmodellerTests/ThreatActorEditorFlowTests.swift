@@ -133,6 +133,35 @@ struct ThreatActorEditorFlowTests {
         #expect(written.contains("faces"))
     }
 
+    @Test func writesTheInsiderCapabilityThePickerOffers() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+
+        #expect(Likelihood.allTiers.map(\.label).contains("Insider"))
+
+        let sheet = ThreatActorsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: "leaver",
+                name: "Disgruntled operator",
+                capability: "insider",
+                intent: "sabotage",
+                performs: "credential-theft"
+            )
+        )
+        sheet.write()
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        let source = try #require(HclArchitectureSource().read(written).source)
+        let actor = try #require(source.threatActors.first { $0.id == "leaver" })
+        #expect(actor.capability == "insider")
+        let listed = try #require(model.threatActorsInUse.first { $0.id == "leaver" })
+        #expect(listed.capabilityLabel == "Insider")
+    }
+
     @Test func takesALocalBlockBackOff() async throws {
         let (session, useCases) = await aProject()
         let model = try #require(session.model)

@@ -148,8 +148,8 @@ struct LibraryParser {
                 likelihood = parseTextAttribute()
                 if let word = likelihood, Likelihood(rawValue: word) == nil {
                     record(
-                        "likelihood is \"\(word)\"; this application holds \"commodity\", "
-                            + "\"targeted\", \"research\"",
+                        "likelihood is \"\(word)\"; this application holds "
+                            + Likelihood.quotedTierWords,
                         at: token
                     )
                     likelihood = nil
@@ -317,7 +317,7 @@ struct LibraryParser {
                     if Likelihood(rawValue: raw) == nil {
                         record(
                             "likelihood is \"\(raw)\"; this application holds "
-                                + Likelihood.allTiers.map { "\"\($0.id)\"" }.joined(separator: ", ")
+                                + Likelihood.quotedTierWords
                                 + ", or a whole number from 0 to 100",
                             at: token
                         )
@@ -450,8 +450,8 @@ struct LibraryParser {
                 capability = parseTextAttribute()
                 if let word = capability, Likelihood(rawValue: word) == nil {
                     record(
-                        "capability is \"\(word)\"; this application holds \"commodity\", "
-                            + "\"targeted\", \"research\"",
+                        "capability is \"\(word)\"; this application holds "
+                            + Likelihood.quotedTierWords,
                         at: token
                     )
                     capability = nil
@@ -465,7 +465,7 @@ struct LibraryParser {
                 if let word = performsCatalogueTier, Likelihood(rawValue: word) == nil {
                     record(
                         "performs_catalogue_tier is \"\(word)\"; this application holds "
-                            + "\"commodity\", \"targeted\", \"research\"",
+                            + Likelihood.quotedTierWords,
                         at: token
                     )
                     performsCatalogueTier = nil

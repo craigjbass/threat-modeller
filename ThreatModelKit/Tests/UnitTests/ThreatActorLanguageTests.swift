@@ -124,7 +124,36 @@ struct ThreatActorLanguageTests {
         )
     }
 
-    @Test func refusesACapabilityOutsideTheThreeTiers() {
+    @Test func readsAnInsiderCapabilityInALibraryBlock() throws {
+        let source = try #require(libraries.read("""
+        library "acme" {
+          threat_actor "leaver" {
+            name       = "Disgruntled operator"
+            capability = "insider"
+          }
+        }
+        """).source)
+
+        #expect(source.threatActors.first?.capability == "insider")
+    }
+
+    @Test func readsAnInsiderCapabilityInASystemBlock() throws {
+        let source = try #require(architecture.read("""
+        system "Payments" {
+          threat_actor "leaver" {
+            name                    = "Disgruntled operator"
+            capability              = "insider"
+            performs_catalogue_tier = "insider"
+          }
+        }
+        """).source)
+
+        let actor = try #require(source.threatActors.first)
+        #expect(actor.capability == "insider")
+        #expect(actor.performsCatalogueTier == "insider")
+    }
+
+    @Test func refusesACapabilityOutsideTheTiers() {
         #expect(
             libraryErrors("""
             library "acme" {
@@ -135,12 +164,12 @@ struct ThreatActorLanguageTests {
             }
             """) == [
                 "capability is \"nation-state\"; this application holds \"commodity\", "
-                    + "\"targeted\", \"research\""
+                    + "\"targeted\", \"insider\", \"research\""
             ]
         )
     }
 
-    @Test func refusesACatalogueTierOutsideTheThreeTiers() {
+    @Test func refusesACatalogueTierOutsideTheTiers() {
         #expect(
             libraryErrors("""
             library "acme" {
@@ -151,7 +180,7 @@ struct ThreatActorLanguageTests {
             }
             """) == [
                 "performs_catalogue_tier is \"everything\"; this application holds "
-                    + "\"commodity\", \"targeted\", \"research\""
+                    + "\"commodity\", \"targeted\", \"insider\", \"research\""
             ]
         )
     }
