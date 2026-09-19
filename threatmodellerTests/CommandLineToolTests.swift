@@ -62,6 +62,32 @@ struct CommandLineToolTests {
         #expect(tool.status() == .notInstalled(target: world.installed.path, isOnPath: false))
     }
 
+    @Test func saysTheDirectoryIsOnThePathWhenTheEntryEndsInASlash() throws {
+        let (world, tool) = try aWorld(path: "/usr/bin")
+        defer { remove(world) }
+        let onPath = CommandLineTool(
+            bundle: world.app,
+            home: world.home,
+            path: "/usr/bin:\(world.home.path)/.local/bin/"
+        )
+
+        #expect(onPath.status() == .notInstalled(target: world.installed.path, isOnPath: true))
+        #expect(tool.status() == .notInstalled(target: world.installed.path, isOnPath: false))
+    }
+
+    @Test func saysADirectoryThatOnlyStartsWithTheTargetsNameIsNotOnThePath() throws {
+        let (world, tool) = try aWorld(path: "/usr/bin")
+        defer { remove(world) }
+        let similarName = CommandLineTool(
+            bundle: world.app,
+            home: world.home,
+            path: "/usr/bin:\(world.home.path)/.local/bin-other"
+        )
+
+        #expect(similarName.status() == .notInstalled(target: world.installed.path, isOnPath: false))
+        #expect(tool.status() == .notInstalled(target: world.installed.path, isOnPath: false))
+    }
+
     @Test func saysSoWhenThisBuildCarriesNoCommand() throws {
         let (world, tool) = try aWorld(carryingTheHelper: false)
         defer { remove(world) }

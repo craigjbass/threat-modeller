@@ -53,8 +53,7 @@ struct CommandLineTool {
         home.appendingPathComponent(".local/bin/threatmodeller")
     }
 
-    /// The one line a user adds to their shell profile when the directory is
-    /// not on their `PATH` yet.
+    /// The one line a user adds to their shell profile.
     var pathLine: String {
         "export PATH=\"$HOME/.local/bin:$PATH\""
     }
@@ -62,7 +61,6 @@ struct CommandLineTool {
     var isTargetOnPath: Bool {
         let directory = target.deletingLastPathComponent().path
         return path.split(separator: ":").contains { candidate in
-            // A profile may write the directory with a trailing slash.
             let text = String(candidate)
             return text == directory || text == directory + "/"
         }
