@@ -184,9 +184,7 @@ struct CanvasGestures: CanvasZooming {
         )
     }
 
-    /// A plain drag on the background. A drag reports the translation from
-    /// where it started, so the pan applies the step since the last change,
-    /// not the whole translation again.
+    /// Draws the zone instead while the zone tool is on.
     func panDragChanged(from start: CGPoint, to end: CGPoint, by translation: CGSize) {
         guard canvas.isDrawingZone == false else {
             return marqueeDragChanged(from: start, to: end)
@@ -194,7 +192,7 @@ struct CanvasGestures: CanvasZooming {
         viewport.panDragChanged(by: translation)
     }
 
-    /// The end of either background drag.
+    /// Commits the drawn zone or ends the marquee.
     func backgroundDragEnded() {
         canvas.lastPanTranslation = .zero
         canvas.isPanning = false
@@ -205,29 +203,19 @@ struct CanvasGestures: CanvasZooming {
         }
     }
 
-    /// A two finger scroll moves the diagram, by the same transform a drag
-    /// moves it by.
-    ///
-    /// macOS states a scrolling delta that already answers the person's own
-    /// natural-scrolling setting, so the delta is applied as it arrives.
-    /// Negating it a second time moved the diagram the wrong way.
     func scroll(by delta: CGSize) {
         viewport.scroll(by: delta)
     }
 
-    /// What one wheel event or one two finger scroll does, by pointer mode.
-    /// The scroll monitor calls this; `ViewportGestures` holds the rule, so
-    /// the tree canvas reads the wheel the same way.
+    /// The scroll monitor calls this.
     func wheel(by delta: CGSize, at viewPoint: CGPoint, isShiftDown: Bool, mode: PointerMode) {
         viewport.wheel(by: delta, at: viewPoint, isShiftDown: isShiftDown, mode: mode)
     }
 
-    /// One step of a middle-button drag or a Space-drag.
     func panStep(by step: CGSize) {
         viewport.panStep(by: step)
     }
 
-    /// The end of a middle-button drag or a Space-drag.
     func panStepEnded() {
         viewport.panStepEnded()
     }
@@ -501,8 +489,6 @@ struct CanvasGestures: CanvasZooming {
         viewport.zoom(by: factor, about: viewPoint)
     }
 
-    /// One press of Zoom In or Zoom Out. The point under the middle of the
-    /// visible canvas stays where it is.
     func zoomAStep(in closer: Bool) {
         viewport.zoomAStep(in: closer)
     }

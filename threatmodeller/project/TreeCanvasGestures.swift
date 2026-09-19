@@ -152,8 +152,7 @@ struct TreeCanvasGestures: CanvasZooming {
         }
     }
 
-    /// The end of either background drag. A marquee selects every node it
-    /// touches.
+    /// A marquee selects every node it touches.
     func backgroundDragEnded() {
         guard let rect = viewport.dragEnded() else { return }
         canvas.select(everyId.filter { rect.intersects(self.rect(of: $0)) })
@@ -163,18 +162,15 @@ struct TreeCanvasGestures: CanvasZooming {
         viewport.scroll(by: delta)
     }
 
-    /// What one wheel event or one two finger scroll does, by pointer mode.
     /// The scroll monitor calls this.
     func wheel(by delta: CGSize, at viewPoint: CGPoint, isShiftDown: Bool, mode: PointerMode) {
         viewport.wheel(by: delta, at: viewPoint, isShiftDown: isShiftDown, mode: mode)
     }
 
-    /// One step of a middle-button drag or a Space-drag.
     func panStep(by step: CGSize) {
         viewport.panStep(by: step)
     }
 
-    /// The end of a middle-button drag or a Space-drag.
     func panStepEnded() {
         viewport.panStepEnded()
     }

@@ -13,12 +13,11 @@ protocol CanvasViewport: AnyObject {
     var transform: CanvasTransform { get set }
     /// How big the visible canvas is. Zoom to Fit and a zoom step need it.
     var visibleSize: CGSize { get set }
-    /// True while a pan is in flight, so the pointer shows a closed hand.
+    /// True while a pan is in flight.
     var isPanning: Bool { get set }
     /// How much of a drag has already been applied to the pan.
     var lastPanTranslation: CGSize { get set }
-    /// The marquee's two corners in model coordinates while a marquee drag is
-    /// in flight.
+    /// The marquee's two corners, in model coordinates.
     var marquee: (start: CGPoint, end: CGPoint)? { get set }
 }
 
@@ -33,9 +32,7 @@ struct ViewportGestures {
 
     // MARK: the background drags
 
-    /// A plain drag on the background. A drag reports the translation from
-    /// where it started, so the pan applies the step since the last change,
-    /// not the whole translation again.
+    /// The pan a background drag makes.
     func panDragChanged(by translation: CGSize) {
         let step = CGSize(
             width: translation.width - viewport.lastPanTranslation.width,
@@ -46,8 +43,7 @@ struct ViewportGestures {
         viewport.isPanning = true
     }
 
-    /// A shift-drag on the background. The corners are held in model
-    /// coordinates, so the rectangle is over the same things at any zoom.
+    /// The marquee a shift-drag draws.
     func marqueeDragChanged(from start: CGPoint, to end: CGPoint) {
         viewport.marquee = (
             start: viewport.transform.modelPoint(start),
@@ -55,8 +51,7 @@ struct ViewportGestures {
         )
     }
 
-    /// The end of either background drag. It gives the marquee's rectangle in
-    /// model coordinates when a marquee was in flight, and nil after a pan.
+    /// The end of either background drag.
     @discardableResult
     func dragEnded() -> CGRect? {
         viewport.lastPanTranslation = .zero
@@ -66,11 +61,7 @@ struct ViewportGestures {
         return rect
     }
 
-    /// A two finger scroll moves the canvas, by the same transform a drag
-    /// moves it by.
-    ///
-    /// macOS states a scrolling delta that already answers the person's own
-    /// natural-scrolling setting, so the delta is applied as it arrives.
+    /// The pan a two finger scroll makes.
     func scroll(by delta: CGSize) {
         viewport.transform = viewport.transform.panned(by: delta)
     }
@@ -109,15 +100,13 @@ struct ViewportGestures {
         exp(delta.height * wheelZoomRate)
     }
 
-    /// One step of a middle-button drag or a Space-drag. Both state the step
-    /// since the last event, so the pan adds each step as it arrives, rather
-    /// than the whole translation again.
+    /// One step of a pan from the middle button or the Space key.
     func panStep(by step: CGSize) {
         viewport.transform = viewport.transform.panned(by: step)
         viewport.isPanning = true
     }
 
-    /// The end of a middle-button drag or a Space-drag.
+    /// The end of a pan from the middle button or the Space key.
     func panStepEnded() {
         viewport.isPanning = false
     }
@@ -128,8 +117,7 @@ struct ViewportGestures {
         viewport.transform = viewport.transform.zoomed(by: factor, about: viewPoint)
     }
 
-    /// One press of Zoom In or Zoom Out. The point under the middle of the
-    /// visible canvas stays where it is.
+    /// One press of Zoom In or Zoom Out.
     func zoomAStep(in closer: Bool) {
         viewport.transform = viewport.transform.zoomedAboutTheCentre(
             by: closer ? CanvasTransform.zoomStep : 1 / CanvasTransform.zoomStep,

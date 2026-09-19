@@ -35,11 +35,8 @@ final class CanvasState: CanvasViewport {
     /// on the diagram calls it. Nil in a window that has no stages.
     var showStage: ((WorkStage) -> Void)?
 
-    /// How big the visible canvas is. Zoom to Fit needs it, and the canvas
-    /// reports it as it lays out.
     var visibleSize: CGSize = .zero
 
-    /// True while a pan is in flight, so the pointer shows a closed hand.
     var isPanning = false
 
     /// Whether the canvas fits the whole diagram the next time it appears.
@@ -107,17 +104,13 @@ final class CanvasState: CanvasViewport {
     /// model units. Nil when no drag is in flight.
     var dragTranslation: CGSize?
 
-    /// The marquee's two corners in model coordinates while a marquee drag is
-    /// in flight.
     var marquee: (start: CGPoint, end: CGPoint)?
 
     /// The component a connection drag started from, and where the pointer is
     /// now, in model coordinates.
     var connectionDrag: (sourceComponentId: String, currentPoint: CGPoint)?
 
-    /// How much of a Command-drag has already been applied to the pan. A drag
-    /// reports the translation from where it started, so the pan applies the
-    /// step since the last change rather than the whole translation again.
+    /// The background drag's translation already applied to the pan.
     var lastPanTranslation: CGSize = .zero
 
     var marqueeRect: CGRect? {
