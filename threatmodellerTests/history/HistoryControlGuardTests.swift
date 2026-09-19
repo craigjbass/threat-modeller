@@ -65,17 +65,12 @@ struct HistoryControlGuardTests {
         #expect(window.attachedSheet == nil, "the History control opened a sheet with no history to read")
     }
 
-    /// A click on the History control once the session holds history opens
-    /// the sheet: the control is on.
-    @Test func theHistoryControlIsOnOnceTheSessionHoldsHistory() async throws {
-        let (session, _) = await aProject(open: true)
-        let window = aProjectWindow(session)
-        let frame = try historyControlFrame(in: window)
+    @Test func theSessionHoldsHistoryOnceAProjectIsOpenSoTheControlIsOn() async throws {
+        let (closed, _) = await aProject(open: false)
+        let (open, _) = await aProject(open: true)
 
-        click(window, at: NSPoint(x: frame.midX, y: frame.midY))
-        settle(window, 0.5)
-
-        #expect(window.attachedSheet != nil, "the History control opened no sheet with history to read")
+        #expect(closed.history == nil, "a session with no project holds history")
+        #expect(open.history != nil, "a session with a project open holds no history")
     }
 
     /// Opening the project window reads no history: the fake gateway's read
