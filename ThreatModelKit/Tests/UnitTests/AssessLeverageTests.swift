@@ -144,6 +144,40 @@ struct AssessLeverageTests {
         #expect(measured[0].removes + measured[1].removes > removedByBoth)
     }
 
+    @Test func breaksATieInRemovesByLabelWhicheverOrderTheEdgesAreWritten() {
+        let ids = aModelWorthMeasuring()
+        let threats = threatIdsOn(ids.storeId)
+        let alpha = MitigatesEdge(
+            source: ComponentId(ids.queueId),
+            target: ComponentId(ids.storeId),
+            threatIds: threats,
+            reducesRiskBy: 50,
+            status: .assumed,
+            action: EdgeAction(label: "alpha", text: "Do alpha")
+        )
+        let beta = MitigatesEdge(
+            source: ComponentId(ids.guardId),
+            target: ComponentId(ids.storeId),
+            threatIds: threats,
+            reducesRiskBy: 50,
+            status: .assumed,
+            action: EdgeAction(label: "beta", text: "Do beta")
+        )
+
+        setEdges([beta, alpha])
+        let writtenBetaFirst = app.assessLeverage().execute(AssessLeverageRequest()).leverage
+
+        setEdges([alpha, beta])
+        let writtenAlphaFirst = app.assessLeverage().execute(AssessLeverageRequest()).leverage
+
+        #expect(writtenBetaFirst.count == 2)
+        #expect(writtenBetaFirst[0].removes == writtenBetaFirst[1].removes)
+        #expect(writtenBetaFirst[0].action.label == "alpha")
+        #expect(writtenBetaFirst[1].action.label == "beta")
+        #expect(writtenAlphaFirst[0].action.label == "alpha")
+        #expect(writtenAlphaFirst[1].action.label == "beta")
+    }
+
     @Test func reportsAnActionThatRemovesNothing() {
         let ids = aModelWorthMeasuring()
         setEdges([

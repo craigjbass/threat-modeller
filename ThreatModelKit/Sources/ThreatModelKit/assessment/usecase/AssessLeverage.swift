@@ -41,8 +41,6 @@ public struct LeverageOfAction: Equatable, Sendable {
 }
 
 public struct AssessLeverageResponse: Equatable, Sendable {
-    /// Worst first, ties broken by label, so two runs of one model rank the
-    /// same.
     public let leverage: [LeverageOfAction]
     public let totalResidual: Int
     public let worst: Int
