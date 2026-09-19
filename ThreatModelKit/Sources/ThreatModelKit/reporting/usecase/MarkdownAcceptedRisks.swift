@@ -13,15 +13,16 @@ public enum MarkdownAcceptedRisks {
                 + "score: accepting a risk lowers nothing."
         )
         lines.append("")
-        lines.append("| Threat | Element | Score | Owner | Accepted | Review by | Rationale |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+        lines.append("| Threat | Element | Score | Owner | Accepted | Review by | Rationale | Sources |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
 
         for risk in risks {
             let reviewBy = risk.reviewBy.map { risk.isOverdue ? "\($0) **overdue**" : $0 }
             lines.append(
                 "| \(Markdown.cell(risk.threatName)) | \(Markdown.cell(risk.sourceName))"
                     + " | \(risk.riskScore) | \(cell(risk.owner)) | \(cell(risk.acceptedOn))"
-                    + " | \(cell(reviewBy)) | \(cell(risk.rationale)) |"
+                    + " | \(cell(reviewBy)) | \(cell(risk.rationale))"
+                    + " | \(cell(risk.sources.isEmpty ? nil : risk.sources.joined(separator: "; "))) |"
             )
         }
         lines.append("")

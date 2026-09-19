@@ -11,7 +11,8 @@ struct MarkdownAcceptedRisksTests {
         acceptedOn: String? = "2026-09-01",
         reviewBy: String? = "2027-03-01",
         rationale: String = "The MFA rollout waits on the SSO migration.",
-        isOverdue: Bool = false
+        isOverdue: Bool = false,
+        sources: [String] = []
     ) -> ReportAcceptedRisk {
         ReportAcceptedRisk(
             threatName: threatName,
@@ -22,7 +23,8 @@ struct MarkdownAcceptedRisksTests {
             acceptedOn: acceptedOn,
             reviewBy: reviewBy,
             rationale: rationale,
-            isOverdue: isOverdue
+            isOverdue: isOverdue,
+            sources: sources
         )
     }
 
@@ -36,13 +38,24 @@ struct MarkdownAcceptedRisksTests {
 
         #expect(lines.first == "## Accepted risks")
         #expect(text.contains("The score is the full score: accepting a risk lowers nothing."))
-        #expect(text.contains("| Threat | Element | Score | Owner | Accepted | Review by | Rationale |"))
+        #expect(
+            text.contains("| Threat | Element | Score | Owner | Accepted | Review by | Rationale | Sources |")
+        )
         #expect(
             text.contains(
                 "| Credential theft | api | 12 | Head of Platform | 2026-09-01 | 2027-03-01"
-                    + " | The MFA rollout waits on the SSO migration. |"
+                    + " | The MFA rollout waits on the SSO migration. | \u{2014} |"
             )
         )
+    }
+
+    /// GAP: `accepted.sources` reached the model and no column read it.
+    @Test func writesTheAcceptanceSources() {
+        let lines = MarkdownAcceptedRisks.lines([
+            risk(sources: ["https://example.com/decision"])
+        ])
+
+        #expect(lines.contains { $0.contains("https://example.com/decision") })
     }
 
     @Test func writesDashesForAnUngovernedRisk() {
@@ -60,7 +73,7 @@ struct MarkdownAcceptedRisksTests {
 
         #expect(
             lines.contains(
-                "| Data exfiltration | ledger | 9 | \u{2014} | \u{2014} | \u{2014} | \u{2014} |"
+                "| Data exfiltration | ledger | 9 | \u{2014} | \u{2014} | \u{2014} | \u{2014} | \u{2014} |"
             )
         )
     }

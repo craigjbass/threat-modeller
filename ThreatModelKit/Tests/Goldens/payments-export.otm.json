@@ -2,6 +2,9 @@
   "components" : [
     {
       "id" : "api",
+      "modelTags" : [
+
+      ],
       "name" : "EC2",
       "parent" : {
         "trustZone" : "private-zone"

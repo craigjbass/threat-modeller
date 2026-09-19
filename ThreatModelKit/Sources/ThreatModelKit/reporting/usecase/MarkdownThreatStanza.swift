@@ -10,6 +10,9 @@ public enum MarkdownThreatStanza {
         lines.append(threat.description)
         lines.append("")
         lines.append("- Raised by: \(threat.sourceKind)")
+        if let matchReason = threat.matchReason {
+            lines.append("- Narrowed to this element: \(matchReason)")
+        }
         lines.append("- Severity: \(threat.severityLabel)")
         if threat.inherentScore == threat.riskScore {
             lines.append("- Risk: \(threat.riskLevel) (\(threat.riskScore))")
@@ -69,7 +72,10 @@ public enum MarkdownThreatStanza {
             lines.append("- STRIDE: \(threat.strideLabels.joined(separator: ", "))")
         }
         if let overriddenBy = threat.overriddenBy {
-            lines.append("- Changed by the library: \(overriddenBy)")
+            let changes = threat.overrideChanges.isEmpty
+                ? ""
+                : " (\(threat.overrideChanges.joined(separator: ", ")))"
+            lines.append("- Changed by the library: \(overriddenBy)\(changes)")
         }
         if threat.mitreTechniqueIds.isEmpty == false {
             // Each id is a link, so the Markdown and the page built from it
@@ -97,10 +103,11 @@ public enum MarkdownThreatStanza {
             lines += Markdown.sourceLines(compensating.sources)
         }
         if threat.pathwayMitigationLabels.isEmpty == false {
-            lines.append(
-                "- Answered upstream by: "
-                    + threat.pathwayMitigationLabels.joined(separator: ", ")
-            )
+            let described = threat.pathwayMitigationLabels.map { label -> String in
+                guard let mode = threat.pathwayMitigationModes[label] else { return label }
+                return "\(label) (\(mode))"
+            }
+            lines.append("- Answered upstream by: " + described.joined(separator: ", "))
         }
         if threat.mitigatedByComponentLabels.isEmpty == false {
             let named = threat.mitigatedByComponentLabels.enumerated().map { index, label -> String in
@@ -118,6 +125,7 @@ public enum MarkdownThreatStanza {
                     "- [\(control.isImplemented ? "x" : " ")] \(control.description)"
                         + " \u{2014} \(control.statusLabel)"
                         + (control.evidence.map { " \u{2014} \($0)" } ?? "")
+                        + (control.note.map { " \u{2014} \($0)" } ?? "")
                 )
             }
         }

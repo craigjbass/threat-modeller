@@ -1,9 +1,17 @@
 import Testing
 import ThreatModelKit
 
-@Suite("One threat, written the same way wherever the report writes it")
+/// The threat stanza: the one shape a threat prints in, wherever the report
+/// prints it.
+@Suite("The report's threat stanza")
 struct MarkdownThreatStanzaTests {
     private func threat(
+        controls: [ReportControl] = [],
+        matchReason: String? = nil,
+        overriddenBy: String? = nil,
+        overrideChanges: [String] = [],
+        pathwayMitigationLabels: [String] = [],
+        pathwayMitigationModes: [String: String] = [:],
         mitigatedByComponentLabels: [String] = [],
         mitigatedByComponentReductions: [Int] = [],
         likelihoodLabel: String = Likelihood.commodity.label,
@@ -14,16 +22,20 @@ struct MarkdownThreatStanzaTests {
         ReportThreat(
             threatId: "credential-theft",
             name: "Credential Theft",
-            description: "Attacker steals credentials to impersonate a principal.",
-            severityLabel: "Critical",
-            riskScore: 12,
-            riskLevel: "critical",
-            strideLabels: ["Spoofing"],
+            description: "An attacker steals credentials.",
+            severityLabel: "High",
+            riskScore: 8,
+            riskLevel: "high",
+            strideLabels: [],
             mitreTechniqueIds: [],
-            sourceName: "Application Server",
+            overriddenBy: overriddenBy,
+            overrideChanges: overrideChanges,
+            matchReason: matchReason,
+            pathwayMitigationModes: pathwayMitigationModes,
+            sourceName: "api",
             sourceKind: "Component",
-            controls: [],
-            pathwayMitigationLabels: [],
+            controls: controls,
+            pathwayMitigationLabels: pathwayMitigationLabels,
             compensating: compensating,
             mitigatedByComponentLabels: mitigatedByComponentLabels,
             mitigatedByComponentReductions: mitigatedByComponentReductions,
@@ -107,5 +119,74 @@ struct MarkdownThreatStanzaTests {
         let lines = MarkdownThreatStanza.lines(threat())
 
         #expect(lines.contains { $0.contains("Finding:") } == false)
+    }
+
+    // MARK: attributes group E: the attributes nothing reads today
+
+    /// GAP: `control.note` reached the window and no report section read it.
+    @Test func statesAControlSNote() {
+        let lines = MarkdownThreatStanza.lines(
+            threat(
+                controls: [
+                    ReportControl(
+                        description: "Rotate credentials regularly",
+                        isImplemented: true,
+                        note: "Rotated by the platform team every quarter."
+                    )
+                ]
+            )
+        )
+
+        #expect(lines.contains { $0.contains("Rotated by the platform team every quarter.") })
+    }
+
+    /// GAP: the match reason `applies_to`, `runs_as`, `boundary`, `pathway`
+    /// and `zone_context` compute to reached only the window's threat card.
+    @Test func statesWhyAThreatWasNarrowedToThisElement() {
+        let lines = MarkdownThreatStanza.lines(
+            threat(matchReason: "Applies only where the component runs as Administrator.")
+        )
+
+        #expect(
+            lines.contains {
+                $0.contains("Applies only where the component runs as Administrator.")
+            }
+        )
+    }
+
+    @Test func statesNothingWhenNoMatcherNarrowsTheThreat() {
+        let lines = MarkdownThreatStanza.lines(threat(matchReason: nil))
+
+        #expect(lines.contains { $0.contains("Narrowed to this element") } == false)
+    }
+
+    /// GAP: a pathway mitigation's `mode` states only the label, never
+    /// whether it removes the threat or reduces it.
+    @Test func statesWhatAPathwayMitigationDoesToTheThreat() {
+        let lines = MarkdownThreatStanza.lines(
+            threat(
+                pathwayMitigationLabels: ["WAF Protection"],
+                pathwayMitigationModes: ["WAF Protection": "Lower the score"]
+            )
+        )
+
+        #expect(lines.contains { $0.contains("WAF Protection (Lower the score)") })
+    }
+
+    /// GAP: a library override names only the library, never what it
+    /// changed.
+    @Test func statesWhatALibraryOverrideChanged() {
+        let lines = MarkdownThreatStanza.lines(
+            threat(overriddenBy: "acme", overrideChanges: ["severity", "controls"])
+        )
+
+        #expect(lines.contains { $0.contains("Changed by the library: acme (severity, controls)") })
+    }
+
+    @Test func statesTheLibraryAloneWhenItChangedNothingNamed() {
+        let lines = MarkdownThreatStanza.lines(threat(overriddenBy: "acme", overrideChanges: []))
+
+        #expect(lines.contains { $0.contains("Changed by the library: acme") })
+        #expect(lines.contains { $0.contains("acme (") } == false)
     }
 }

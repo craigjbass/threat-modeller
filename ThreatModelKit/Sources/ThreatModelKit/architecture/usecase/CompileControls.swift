@@ -148,6 +148,22 @@ public struct CompileControls: CompileControlsUseCase {
             if case .applied(_, let warnings) = applied {
                 applyWarnings = warnings
             }
+
+            // A controls file states the catalogue tag it was written
+            // against, the way a library file does. This compile overwrites
+            // that tag with the one in use, so the drift is worth a warning
+            // before it is lost.
+            if let stated = source.catalogueTag, stated != catalogue.version().tag {
+                applyWarnings.append(
+                    Diagnostic(
+                        severity: .warning,
+                        line: 1,
+                        column: 1,
+                        message: "the controls file was written against catalogue "
+                            + "\(stated), and the catalogue in use is \(catalogue.version().tag)"
+                    )
+                )
+            }
         }
 
         let model = store.current()

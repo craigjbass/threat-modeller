@@ -358,6 +358,10 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The pathway mitigations that answered this threat, by label. Empty when
     /// none did.
     public let pathwayMitigationLabels: [String]
+    /// What each pathway mitigation in `pathwayMitigationLabels` does to a
+    /// threat it answers, by label: `Remove the threat` or `Lower the
+    /// score`.
+    public let pathwayMitigationModes: [String: String]
     /// The score before any pathway mitigation. Equal to `riskScore` when none
     /// applied, so a card can show what the mitigation bought.
     public let scoreBeforePathwayMitigation: Int
@@ -453,6 +457,7 @@ public struct AssessedThreat: Hashable, Sendable {
         threatKey: String = "",
         overriddenSeverityId: String?,
         pathwayMitigationLabels: [String] = [],
+        pathwayMitigationModes: [String: String] = [:],
         scoreBeforePathwayMitigation: Int = 0,
         compensatingLabels: [String] = [],
         compensating: [AssessedCompensatingControl] = [],
@@ -500,6 +505,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.threatKey = threatKey
         self.overriddenSeverityId = overriddenSeverityId
         self.pathwayMitigationLabels = pathwayMitigationLabels
+        self.pathwayMitigationModes = pathwayMitigationModes
         self.scoreBeforePathwayMitigation = scoreBeforePathwayMitigation
         self.compensatingLabels = compensatingLabels
         self.compensating = compensating
@@ -714,6 +720,11 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     ).value,
                     overriddenSeverityId: threat.overriddenSeverityId,
                     pathwayMitigationLabels: threat.mitigatedBy.map(\.label),
+                    pathwayMitigationModes: Dictionary(
+                        uniqueKeysWithValues: threat.mitigatedBy.map {
+                            ($0.label, model.pathwayMitigations.config(for: $0).mode.label)
+                        }
+                    ),
                     scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
                     compensatingLabels: threat.compensating.map(\.label),
                     compensating: threat.compensating.map {

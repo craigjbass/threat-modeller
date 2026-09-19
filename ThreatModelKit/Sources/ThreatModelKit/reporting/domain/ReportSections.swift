@@ -32,6 +32,8 @@ public struct ReportAcceptedRisk: Equatable, Sendable {
     public let rationale: String
     /// True when the review date has passed.
     public let isOverdue: Bool
+    /// Where the acceptance comes from. Empty when a person names none.
+    public let sources: [String]
 
     public init(
         threatName: String,
@@ -42,7 +44,8 @@ public struct ReportAcceptedRisk: Equatable, Sendable {
         acceptedOn: String? = nil,
         reviewBy: String? = nil,
         rationale: String = "",
-        isOverdue: Bool = false
+        isOverdue: Bool = false,
+        sources: [String] = []
     ) {
         self.threatName = threatName
         self.sourceName = sourceName
@@ -53,6 +56,7 @@ public struct ReportAcceptedRisk: Equatable, Sendable {
         self.reviewBy = reviewBy
         self.rationale = rationale
         self.isOverdue = isOverdue
+        self.sources = sources
     }
 }
 
@@ -71,6 +75,15 @@ public struct ReportRecommendation: Equatable, Sendable {
     /// Who does it, how big it is, by when and where it stands, or nil when
     /// the governance file states nothing about it.
     public let governance: String?
+    /// What the governance file states proves this work is done, or nil when
+    /// it states none.
+    public let planAcceptance: String?
+    /// What a person wrote about the planned work, beside its acceptance, or
+    /// nil when the governance file states none.
+    public let planNote: String?
+    /// Where the planned work comes from. Empty when the governance file
+    /// names none.
+    public let planSources: [String]
 
     public init(
         text: String,
@@ -81,7 +94,10 @@ public struct ReportRecommendation: Equatable, Sendable {
         sources: [String] = [],
         threatId: String = "",
         sourceId: String = "",
-        governance: String? = nil
+        governance: String? = nil,
+        planAcceptance: String? = nil,
+        planNote: String? = nil,
+        planSources: [String] = []
     ) {
         self.text = text
         self.note = note
@@ -92,6 +108,9 @@ public struct ReportRecommendation: Equatable, Sendable {
         self.threatId = threatId
         self.sourceId = sourceId
         self.governance = governance
+        self.planAcceptance = planAcceptance
+        self.planNote = planNote
+        self.planSources = planSources
     }
 
     /// Identifies the threat a recommendation answers, the way a report keys

@@ -16,6 +16,7 @@ public enum RecommendationsReport {
         for threat in threats {
             let key = ThreatKey(threatId: threat.threatId, sourceId: threat.sourceId)
             for recommendation in recommendations[key] ?? [] {
+                let plan = governance[key]?.first { $0.label == recommendation.text }
                 built.append(
                     ReportRecommendation(
                         text: recommendation.text,
@@ -26,9 +27,10 @@ public enum RecommendationsReport {
                         sources: recommendation.sources,
                         threatId: threat.threatId,
                         sourceId: threat.sourceId,
-                        governance: governance[key]?
-                            .first { $0.label == recommendation.text }?
-                            .says
+                        governance: plan?.says,
+                        planAcceptance: plan?.acceptance.isEmpty == false ? plan?.acceptance : nil,
+                        planNote: plan?.note.isEmpty == false ? plan?.note : nil,
+                        planSources: plan?.sources ?? []
                     )
                 )
             }

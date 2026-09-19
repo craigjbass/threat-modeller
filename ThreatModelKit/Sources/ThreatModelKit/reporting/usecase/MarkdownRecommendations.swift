@@ -23,7 +23,14 @@ public enum MarkdownRecommendations {
             if let governance = recommendation.governance {
                 lines.append("  - \(governance)")
             }
+            if let acceptance = recommendation.planAcceptance {
+                lines.append("  - Acceptance: \(acceptance)")
+            }
+            if let planNote = recommendation.planNote {
+                lines.append("  - \(planNote)")
+            }
             lines += Markdown.sourceLines(recommendation.sources)
+            lines += Markdown.sourceLines(recommendation.planSources)
         }
         lines.append("")
         return lines

@@ -99,7 +99,8 @@ struct OtmDocument: Codable {
                 name: $0.name,
                 type: $0.categoryId.isEmpty ? "generic-component" : $0.categoryId,
                 parent: OtmParent(trustZone: zoneByComponent[$0.id]),
-                tags: [$0.technologyId, $0.sensitivityLabel, $0.privilegeLabel, $0.statusLabel]
+                tags: [$0.technologyId, $0.sensitivityLabel, $0.privilegeLabel, $0.statusLabel],
+                modelTags: $0.tags
             )
         }
         var nameToId: [String: String] = [:]
@@ -113,7 +114,8 @@ struct OtmDocument: Codable {
                 description: flow.description,
                 source: source,
                 destination: target,
-                tags: [flow.kindLabel]
+                tags: [flow.kindLabel],
+                modelTags: flow.tags
             )
         }
         // OTM keys a threat once and lists what it sits on, and this model
@@ -208,7 +210,12 @@ struct OtmComponent: Codable {
     let name: String
     let type: String
     let parent: OtmParent
+    /// The tags this export synthesises from technology, sensitivity,
+    /// privilege and status.
     let tags: [String]
+    /// The tags the model states for itself, separate from the synthesised
+    /// ones above.
+    let modelTags: [String]
 }
 
 struct OtmParent: Codable {
@@ -221,7 +228,11 @@ struct OtmDataflow: Codable {
     let description: String?
     let source: String
     let destination: String
+    /// The tag this export synthesises from the flow's kind.
     let tags: [String]
+    /// The tags the model states for itself, separate from the synthesised
+    /// one above.
+    let modelTags: [String]
 }
 
 struct OtmThreat: Codable {

@@ -36,4 +36,26 @@ struct MarkdownRecommendationsTests {
 
         #expect(lines.last == "")
     }
+
+    /// GAP: `work.acceptance`, `work.note` and `work.sources` reached the
+    /// model and nothing read them.
+    @Test func writesThePlannedWorkSAcceptanceNoteAndSources() {
+        let lines = MarkdownRecommendations.lines([
+            ReportRecommendation(
+                text: "Enforce MFA",
+                note: nil,
+                threatName: "Credential theft",
+                sourceName: "api",
+                riskScore: 12,
+                planAcceptance: "MFA is enforced for every administrative account.",
+                planNote: "Blocked on the SSO migration.",
+                planSources: ["https://example.com/ticket/9"]
+            )
+        ])
+        let text = lines.joined(separator: "\n")
+
+        #expect(text.contains("Acceptance: MFA is enforced for every administrative account."))
+        #expect(text.contains("Blocked on the SSO migration."))
+        #expect(text.contains("https://example.com/ticket/9"))
+    }
 }

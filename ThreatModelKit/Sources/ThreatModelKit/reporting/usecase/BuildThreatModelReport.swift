@@ -66,8 +66,15 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             .execute(AssessThreatModelRequest())
 
         // What each technique is called, read once. A machine that has not
-        // synchronised holds none and the report prints bare ids.
+        // synchronised holds none, so a technique the library itself names
+        // falls back to the library's own name and tactic before the report
+        // prints the bare id.
         var techniqueNames: [String: String] = [:]
+        for technique in assessment.threats.flatMap(\.mitreTechniques) where technique.name.isEmpty == false {
+            techniqueNames[technique.id] = technique.tactic.isEmpty
+                ? technique.name
+                : "\(technique.name) (\(technique.tactic))"
+        }
         if let mitre {
             for id in Set(assessment.threats.flatMap { $0.mitreTechniques.map(\.id) }) {
                 guard let technique = mitre.technique(id) else { continue }
@@ -88,6 +95,13 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 ?? (component.isUser ? component.id.value : component.technologyId.value)
         }
         let nameOf: (ComponentId) -> String = { nameById[$0] ?? $0.value }
+
+        // A custom technology's own description, by its id. A catalogue
+        // technology states its description nowhere the report reads, so
+        // only a custom one carries one here.
+        let customTechnologyDescriptions = Dictionary(
+            uniqueKeysWithValues: model.customTechnologies.map { ($0.id, $0.description) }
+        )
 
         let zonesById = Dictionary(
             model.zones.map { ($0.id, $0) },
@@ -168,7 +182,10 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 riskReductionPercent: zone.networkZone == .privateZone && zone.riskReductionEnabled
                     ? zone.riskReductionPercent
                     : nil,
-                boundaryLabel: zone.boundary.label
+                boundaryLabel: zone.boundary.label,
+                tags: zone.tags,
+                source: zone.source,
+                description: zone.description
             )
         }
 
@@ -312,7 +329,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         acceptedOn: governed?.acceptedOn?.description,
                         reviewBy: governed?.reviewBy?.description,
                         rationale: governed?.rationale ?? "",
-                        isOverdue: governed?.isOverdue(on: today) ?? false
+                        isOverdue: governed?.isOverdue(on: today) ?? false,
+                        sources: governed?.sources ?? []
                     )
                 )
             }
@@ -325,7 +343,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
 
         let findingsCut = ReportFindingsCut.build(from: threats, tolerance: tolerance)
 
-        let actions = leverage.leverage.map {
+        var actions = leverage.leverage.map {
             ReportAction(
                 label: $0.action.label,
                 text: $0.action.text,
@@ -338,6 +356,21 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 threatsMoved: $0.threatsMoved,
                 worstBefore: $0.worstBefore,
                 worstAfter: $0.worstAfter
+            )
+        }
+
+        // A governance action names a label no `mitigates` edge gives text
+        // to. It removes nothing, so it reaches the table as a row of its
+        // own rather than the number of a real action.
+        let namedActionLabels = Set(actions.map(\.label))
+        for label in model.actionWork.keys.sorted() where namedActionLabels.contains(label) == false {
+            actions.append(
+                ReportAction(
+                    label: label,
+                    text: label,
+                    note: "No mitigates edge names this action.",
+                    governance: model.actionWork[label]?.says
+                )
             )
         }
 
@@ -424,7 +457,12 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                             providerId: lookup.findById(component.technologyId)?.provider.value ?? "",
                             categoryId: lookup.findById(component.technologyId)?.category.value ?? ""
                         ).rawValue,
-                        statusLabel: component.status.label
+                        statusLabel: component.status.label,
+                        tags: component.tags,
+                        source: component.source,
+                        version: component.version,
+                        threatsDisabled: component.threatsDisabled,
+                        technologyDescription: customTechnologyDescriptions[component.technologyId]
                     )
                 },
                 connections: model.connections.map { connection in
@@ -432,7 +470,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         sourceName: nameById[connection.source] ?? connection.source.value,
                         targetName: nameById[connection.target] ?? connection.target.value,
                         kindLabel: connection.kind.label,
-                        description: connection.description
+                        description: connection.description,
+                        tags: connection.tags
                     )
                 },
                 zones: zones,
@@ -600,6 +639,9 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             scoreBeforeTree: tree?.scoreBefore,
             raisedByTree: tree?.name,
             overriddenBy: overrides[ThreatId(assessed.threatId)]?.libraryLabel,
+            overrideChanges: Self.overrideChanges(overrides[ThreatId(assessed.threatId)]),
+            matchReason: assessed.matchReason,
+            pathwayMitigationModes: assessed.pathwayMitigationModes,
             sourceName: assessed.source.displayName,
             sourceKind: kind(of: assessed.source),
             sourceId: assessed.source.id,
@@ -616,7 +658,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                             reference: $0.evidenceReference ?? "",
                             verifiedOn: $0.verifiedOn.flatMap { try? GovernanceDate.read($0).get() }
                         ).says
-                        : nil
+                        : nil,
+                    note: $0.note
                 )
             },
             pathwayMitigationLabels: assessed.pathwayMitigationLabels,
@@ -648,5 +691,18 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         case .connection: "Connection"
         case .zone: "Zone"
         }
+    }
+
+    /// What one library override changed about a threat: `severity`,
+    /// `likelihood`, `description`, `controls`, any combination, or empty
+    /// for no override.
+    private static func overrideChanges(_ override: ThreatOverride?) -> [String] {
+        guard let override else { return [] }
+        var changed: [String] = []
+        if override.severity != nil { changed.append("severity") }
+        if override.likelihood != nil { changed.append("likelihood") }
+        if override.description != nil { changed.append("description") }
+        if override.controls.isEmpty == false { changed.append("controls") }
+        return changed
     }
 }

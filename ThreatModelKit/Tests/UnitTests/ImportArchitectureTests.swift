@@ -352,4 +352,68 @@ struct ImportArchitectureTests {
         #expect(app.modelStore.current().localActors.map(\.name) == ["Third-party contractor"])
     }
 
+    // GAP: a `.trees` file states the catalogue tag it was written against,
+    // and only the `.arch` file's own tag reaches the Document control row.
+    // A tree file pinned to another tag is never flagged, the way a `.lib`
+    // file is.
+
+    @Test func warnsWhenATreeFileSCatalogueTagIsNotTheTagInUse() {
+        let response = app.importArchitecture().execute(
+            ImportArchitectureRequest(
+                text: """
+                system "Payments" {
+                  component "api" {
+                    technology = "aws-ec2"
+                    data       = "confidential"
+                  }
+                }
+                """,
+                attackTreeText: """
+                attack_trees for "Payments" {
+                  catalogue = "v0.9.0"
+                }
+                """
+            )
+        )
+
+        guard case .imported(_, let warnings, _) = response else {
+            Issue.record("expected the architecture to import, got \(response)")
+            return
+        }
+
+        #expect(
+            warnings.map(\.message).contains(
+                "the attack tree file was written against catalogue v0.9.0, "
+                    + "and the catalogue in use is v0.0.0"
+            )
+        )
+    }
+
+    @Test func warnsAboutNothingWhenATreeFileSTagMatches() {
+        let response = app.importArchitecture().execute(
+            ImportArchitectureRequest(
+                text: """
+                system "Payments" {
+                  component "api" {
+                    technology = "aws-ec2"
+                    data       = "confidential"
+                  }
+                }
+                """,
+                attackTreeText: """
+                attack_trees for "Payments" {
+                  catalogue = "v0.0.0"
+                }
+                """
+            )
+        )
+
+        guard case .imported(_, let warnings, _) = response else {
+            Issue.record("expected the architecture to import, got \(response)")
+            return
+        }
+
+        #expect(warnings.isEmpty)
+    }
+
 }

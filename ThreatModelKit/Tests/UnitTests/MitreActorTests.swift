@@ -197,11 +197,16 @@ struct MitreReportLineTests {
         }
     }
 
-    @Test func printsABareIdForATechniqueTheDataDoesNotHold() {
+    /// GAP: a library threat's `mitre` block states a name and a tactic, and
+    /// the report took the name from the synced bundle alone, so a machine
+    /// that has not synchronised printed a bare id.
+    @Test func printsTheLibrarySOwnNameWhenTheMachineHasNotSynchronised() {
         let markdown = app(withData: false).exportModelAsMarkdown()
             .execute(ExportModelAsMarkdownRequest()).markdown
 
-        #expect(markdown.contains("Unsecured Credentials") == false)
+        // The fixture catalogue names T1552 "Unsecured Credentials" on
+        // credential theft, tactic "Credential Access".
+        #expect(markdown.contains("Unsecured Credentials (Credential Access)"))
         #expect(markdown.contains("MITRE ATT&CK:"))
     }
 }

@@ -246,6 +246,47 @@ struct CompileControlsTests {
         #expect(warnings[0].message.contains("not-a-real-severity"))
     }
 
+    // GAP: a `.controls` file states the catalogue tag it was written
+    // against, and a compile overwrote that tag with the one in use on every
+    // run, with no warning, the way a `.lib` file drifting does warn.
+
+    @Test func warnsWhenAControlsFileSCatalogueTagIsNotTheTagInUse() throws {
+        let existing = """
+        controls for "Payments" {
+          catalogue = "v0.9.0"
+        }
+        """
+
+        let response = compile(payments, existing)
+
+        guard case .compiled(_, _, _, _, _, _, let warnings) = response else {
+            Issue.record("expected the controls to compile, got \(response)")
+            return
+        }
+        #expect(
+            warnings.map(\.message).contains(
+                "the controls file was written against catalogue v0.9.0, "
+                    + "and the catalogue in use is v0.0.0"
+            )
+        )
+    }
+
+    @Test func warnsAboutNothingWhenAControlsFileSTagMatches() throws {
+        let existing = """
+        controls for "Payments" {
+          catalogue = "v0.0.0"
+        }
+        """
+
+        let response = compile(payments, existing)
+
+        guard case .compiled(_, _, _, _, _, _, let warnings) = response else {
+            Issue.record("expected the controls to compile, got \(response)")
+            return
+        }
+        #expect(warnings.isEmpty)
+    }
+
     @Test func refusesAnArchitectureThatDidNotParse() {
         let response = compile("system \"P\" { component \"a\" { } }")
 

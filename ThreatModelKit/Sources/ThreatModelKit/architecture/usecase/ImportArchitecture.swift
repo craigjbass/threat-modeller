@@ -100,12 +100,28 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
         // importing one reads both. A tree file that does not parse refuses
         // the whole import: half a model states a route nobody can check.
         var attackTrees: [SourceAttackTree] = []
+        var treeCatalogueWarnings: [Diagnostic] = []
         for treeText in request.everyAttackTreeText where treeText.isEmpty == false {
             let treeRead = attackTreeSources.read(treeText)
             guard let treeSource = treeRead.source, treeRead.hasErrors == false else {
                 return .refused(diagnostics: treeRead.diagnostics)
             }
             attackTrees += treeSource.trees
+
+            // A tree file states the catalogue tag it was written against,
+            // the way a library file does. A tree file pinned to another tag
+            // may name a step or a goal this catalogue no longer holds.
+            if let stated = treeSource.catalogueTag, stated != catalogue.version().tag {
+                treeCatalogueWarnings.append(
+                    Diagnostic(
+                        severity: .warning,
+                        line: 1,
+                        column: 1,
+                        message: "the attack tree file was written against catalogue "
+                            + "\(stated), and the catalogue in use is \(catalogue.version().tag)"
+                    )
+                )
+            }
         }
 
         // The layout holds no catalogue, and measures the picture it drew, so
@@ -443,7 +459,7 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
 
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         var warnings = read.warnings + statusWarnings + toleranceWarnings
-            + unknownClassifications + lowerThanHeld
+            + unknownClassifications + lowerThanHeld + treeCatalogueWarnings
         for component in source.everyComponent
         where lookup.findById(TechnologyId(component.technologyId)) == nil {
             warnings.append(

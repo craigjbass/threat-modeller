@@ -268,9 +268,10 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             return lines + ["None.", ""]
         }
         lines.append(
-            "| Name | Technology | Status | Sensitivity | Privilege | Zone | Assets |"
+            "| Name | Technology | Status | Sensitivity | Privilege | Zone | Assets"
+                + " | Version | Source | Tags |"
         )
-        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for component in components {
             lines.append(
                 "| \(Markdown.cell(component.name))"
@@ -280,10 +281,22 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
                     + " | \(Markdown.cell(component.privilegeLabel))"
                     + " | \(Markdown.cell(component.zoneName ?? "\u{2014}"))"
                     + " | \(Markdown.cell(component.assetNames.joined(separator: ", ")))"
+                    + " | \(Markdown.cell(component.version.isEmpty ? "\u{2014}" : component.version))"
+                    + " | \(Markdown.cell(component.source.map { "imported by \($0)" } ?? "drawn by hand"))"
+                    + " | \(Markdown.cell(component.tags.isEmpty ? "\u{2014}" : component.tags.joined(separator: ", ")))"
                     + " |"
             )
         }
         lines.append("")
+        for component in components where component.technologyDescription != nil {
+            lines.append("- \(component.name): \(component.technologyDescription ?? "")")
+        }
+        for component in components where component.threatsDisabled {
+            lines.append("- \(component.name) raises no threats.")
+        }
+        if components.contains(where: { $0.technologyDescription != nil || $0.threatsDisabled }) {
+            lines.append("")
+        }
         return lines
     }
 
@@ -296,6 +309,9 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             var line = "- \(connection.sourceName) \u{2192} \(connection.targetName), by \(connection.kindLabel)"
             if let description = connection.description {
                 line += ": \(description)"
+            }
+            if connection.tags.isEmpty == false {
+                line += " (tags: \(connection.tags.joined(separator: ", ")))"
             }
             lines.append(line)
         }
@@ -316,6 +332,13 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             lines.append("- Boundary: \(zone.boundaryLabel)")
             if let percent = zone.riskReductionPercent {
                 lines.append("- Risk reduction: \(percent)%")
+            }
+            if let description = zone.description {
+                lines.append("- Description: \(description)")
+            }
+            lines.append("- Source: \(zone.source.map { "imported by \($0)" } ?? "drawn by hand")")
+            if zone.tags.isEmpty == false {
+                lines.append("- Tags: \(zone.tags.joined(separator: ", "))")
             }
             lines.append(
                 "- Holds: "

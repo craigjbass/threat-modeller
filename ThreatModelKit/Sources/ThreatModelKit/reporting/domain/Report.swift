@@ -578,6 +578,19 @@ public struct ReportComponent: Equatable, Sendable {
     /// Whether the component runs in Production today or is a planned change:
     /// Live or Proposed.
     public let statusLabel: String
+    /// The words a team files this component under, in model order.
+    public let tags: [String]
+    /// What wrote this component: `terraform` for one an import wrote, nil
+    /// for one a person wrote.
+    public let source: String?
+    /// The version of the software this component runs. Empty when the
+    /// model states none.
+    public let version: String
+    /// True when the component raises no threats.
+    public let threatsDisabled: Bool
+    /// A custom technology's own description, or nil for a catalogue
+    /// technology, which states its description nowhere the report reads.
+    public let technologyDescription: String?
 
     public init(
         id: String,
@@ -589,7 +602,12 @@ public struct ReportComponent: Equatable, Sendable {
         assetNames: [String] = [],
         privilegeLabel: String = PrivilegeLevel.default.label,
         shapeId: String = DiagramShape.process.rawValue,
-        statusLabel: String = ComponentStatus.default.label
+        statusLabel: String = ComponentStatus.default.label,
+        tags: [String] = [],
+        source: String? = nil,
+        version: String = "",
+        threatsDisabled: Bool = false,
+        technologyDescription: String? = nil
     ) {
         self.statusLabel = statusLabel
         self.id = id
@@ -601,6 +619,11 @@ public struct ReportComponent: Equatable, Sendable {
         self.assetNames = assetNames
         self.privilegeLabel = privilegeLabel
         self.shapeId = shapeId
+        self.tags = tags
+        self.source = source
+        self.version = version
+        self.threatsDisabled = threatsDisabled
+        self.technologyDescription = technologyDescription
     }
 }
 
@@ -610,17 +633,21 @@ public struct ReportConnection: Equatable, Sendable {
     /// The flow's kind: Network, Local IPC, File, System Call or Human.
     public let kindLabel: String
     public let description: String?
+    /// The words a team files this flow under, in model order.
+    public let tags: [String]
 
     public init(
         sourceName: String,
         targetName: String,
         kindLabel: String = FlowKind.default.label,
-        description: String? = nil
+        description: String? = nil,
+        tags: [String] = []
     ) {
         self.sourceName = sourceName
         self.targetName = targetName
         self.kindLabel = kindLabel
         self.description = description
+        self.tags = tags
     }
 }
 
@@ -636,6 +663,14 @@ public struct ReportZone: Equatable, Sendable {
     public let riskReductionPercent: Int?
     /// What the zone is a boundary of: Network Boundary or Privilege Boundary.
     public let boundaryLabel: String
+    /// The words a team files this zone under, in model order.
+    public let tags: [String]
+    /// What wrote this zone: `terraform` for one an import wrote, nil for
+    /// one a person wrote.
+    public let source: String?
+    /// What the zone is for, in the team's own words, or nil when the model
+    /// states none.
+    public let description: String?
 
     public init(
         name: String,
@@ -644,7 +679,10 @@ public struct ReportZone: Equatable, Sendable {
         componentNames: [String],
         componentIds: [String] = [],
         riskReductionPercent: Int?,
-        boundaryLabel: String = ZoneBoundary.default.label
+        boundaryLabel: String = ZoneBoundary.default.label,
+        tags: [String] = [],
+        source: String? = nil,
+        description: String? = nil
     ) {
         self.name = name
         self.networkZoneLabel = networkZoneLabel
@@ -653,6 +691,9 @@ public struct ReportZone: Equatable, Sendable {
         self.componentIds = componentIds
         self.riskReductionPercent = riskReductionPercent
         self.boundaryLabel = boundaryLabel
+        self.tags = tags
+        self.source = source
+        self.description = description
     }
 }
 
@@ -689,6 +730,17 @@ public struct ReportThreat: Equatable, Sendable {
     /// words stand. A reader can then tell an overridden value from the
     /// catalogue's.
     public let overriddenBy: String?
+    /// What the library named at `overriddenBy` changed about this threat:
+    /// `severity`, `likelihood`, `description`, `controls`, any combination,
+    /// or empty when `overriddenBy` is nil.
+    public let overrideChanges: [String]
+    /// Why the library's matchers narrowed this threat to this element, or
+    /// nil when no matcher narrows it.
+    public let matchReason: String?
+    /// What each pathway mitigation in `pathwayMitigationLabels` does to the
+    /// threat it answers, by label: `Remove the threat` or `Lower the
+    /// score`.
+    public let pathwayMitigationModes: [String: String]
     public let sourceName: String
     /// "Component", "Connection" or "Zone", so a reader can group by what
     /// raised the threat.
@@ -750,6 +802,9 @@ public struct ReportThreat: Equatable, Sendable {
         scoreBeforeTree: Int? = nil,
         raisedByTree: String? = nil,
         overriddenBy: String? = nil,
+        overrideChanges: [String] = [],
+        matchReason: String? = nil,
+        pathwayMitigationModes: [String: String] = [:],
         sourceName: String,
         sourceKind: String,
         sourceId: String = "",
@@ -790,6 +845,9 @@ public struct ReportThreat: Equatable, Sendable {
         self.scoreBeforeTree = scoreBeforeTree
         self.raisedByTree = raisedByTree
         self.overriddenBy = overriddenBy
+        self.overrideChanges = overrideChanges
+        self.matchReason = matchReason
+        self.pathwayMitigationModes = pathwayMitigationModes
         self.sourceName = sourceName
         self.sourceKind = sourceKind
         self.controls = controls
@@ -1047,17 +1105,21 @@ public struct ReportControl: Equatable, Sendable {
     /// date, or `no evidence`. Nil for a control nobody has implemented,
     /// which has nothing to prove.
     public let evidence: String?
+    /// What a person wrote about this control, beside its evidence, or nil.
+    public let note: String?
 
     public init(
         description: String,
         isImplemented: Bool,
         statusLabel: String? = nil,
-        evidence: String? = nil
+        evidence: String? = nil,
+        note: String? = nil
     ) {
         self.description = description
         self.isImplemented = isImplemented
         self.statusLabel = statusLabel ?? (isImplemented ? "Implemented" : "Not implemented")
         self.evidence = evidence
+        self.note = note
     }
 }
 
