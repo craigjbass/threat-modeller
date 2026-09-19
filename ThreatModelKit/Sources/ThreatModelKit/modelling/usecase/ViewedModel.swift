@@ -49,6 +49,7 @@ public enum ViewedModel {
                 reaches: component.user?.reaches ?? [],
                 threatActorId: component.user?.threatActorId,
                 isAdversary: component.isAdversary,
+                clearanceId: component.clearanceId,
                 version: component.version,
                 cves: component.cves,
                 assets: component.assets.map {

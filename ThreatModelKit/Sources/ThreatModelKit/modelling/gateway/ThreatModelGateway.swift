@@ -110,6 +110,8 @@ public enum ChangeLabel {
     public static let setRequiresEvidenceAbove = "Set Requires Evidence Above"
     public static let setLocalThreatActor = "Set Threat Actor"
     public static let removeLocalThreatActor = "Remove Threat Actor"
+    public static let setClearance = "Set Clearance"
+    public static let removeClearance = "Remove Clearance"
     public static let createCustomTechnology = "New Technology"
     public static let editCustomTechnology = "Edit Technology"
     public static let deleteCustomTechnology = "Delete Technology"

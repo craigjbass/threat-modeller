@@ -62,6 +62,7 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
     case archSystem
     case archUser
     case archAdversary
+    case archClearance
     case archAttribute
     case archAssumption
     case archDiagram
@@ -132,7 +133,7 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                     "created", "reviewed", "version", "attribute", "technology", "zone",
                     "component", "user", "adversary", "flow", "mitigates", "risk_tolerance",
                     "requires_evidence_above", "assumption", "use_case", "exclusion", "asset",
-                    "third_party", "diagram", "faces", "threat_actor"
+                    "third_party", "diagram", "faces", "threat_actor", "clearance"
                 ]
             )
         case .archUser:
@@ -140,14 +141,27 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                 language: "arch",
                 name: "user",
                 phrase: "a user holds",
-                attributes: ["name", "role", "access", "uses", "reaches", "threat_actor"]
+                attributes: [
+                    "name", "role", "access", "uses", "reaches", "threat_actor", "clearance"
+                ]
             )
         case .archAdversary:
             LanguageBlock(
                 language: "arch",
                 name: "adversary",
                 phrase: "an adversary holds",
-                attributes: ["name", "role", "access", "uses", "reaches", "threat_actor"]
+                attributes: [
+                    "name", "role", "access", "uses", "reaches", "threat_actor", "clearance"
+                ]
+            )
+        case .archClearance:
+            LanguageBlock(
+                language: "arch",
+                name: "clearance",
+                phrase: "a clearance holds",
+                attributes: [
+                    "name", "description", "reduces_insider_risk_by", "rationale", "sources"
+                ]
             )
         case .archAttribute:
             LanguageBlock(

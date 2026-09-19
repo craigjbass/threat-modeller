@@ -132,20 +132,15 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 tree: treeByGoal[
                     ThreatKey(threatId: assessed.threatId, sourceId: assessed.source.id)
                 ],
-                compensating: model.compensatingControls[
-                    ThreatKey(
-                        threatId: assessed.threatId,
-                        sourceId: assessed.source.id
-                    )
-                ]?.map {
+                compensating: assessed.compensating.map {
                     ReportCompensatingControl(
                         label: $0.label,
                         reducesRiskBy: $0.reducesRiskBy,
                         rationale: $0.rationale,
                         sources: $0.sources,
-                        evidence: $0.proof.isEmpty ? nil : $0.proof.says
+                        evidence: $0.evidence
                     )
-                } ?? [],
+                },
                 // The assessment names STRIDE by id. A report is read
                 // by people, so it names it by label.
                 strideLabels: assessed.stride.compactMap {
@@ -529,7 +524,10 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 threatActorName: facts.threatActorId.flatMap {
                     actors.findById(ThreatActorId($0))?.name
                 },
-                isAdversary: facts.isAdversary
+                isAdversary: facts.isAdversary,
+                clearanceName: facts.clearanceId.flatMap { named in
+                    model.clearances.first { $0.id == named }?.name
+                }
             )
         }
     }

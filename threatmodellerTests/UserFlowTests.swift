@@ -189,6 +189,12 @@ struct UserFlowTests {
         try #require(model.canvas.components.first { $0.isUser })
     }
 
+    /// The user blocks the written file holds, read back through the parser.
+    private func users(_ useCases: TestDependencies) throws -> [SourceUser] {
+        let text = try #require(architecture(useCases))
+        return try #require(HclArchitectureSource().read(text).source).users
+    }
+
     // MARK: the palette
 
     /// The drop from the palette's User row: the same path a technology drop
@@ -331,6 +337,39 @@ struct UserFlowTests {
         written = try #require(architecture(useCases))
         #expect(written.contains("user \"alice\" {"))
         #expect(written.contains("adversary \"alice\" {") == false)
+    }
+
+    /// Issue #259: the Clearance picker offers every level the system
+    /// declares, and picking one writes `clearance` into the user block.
+    @Test func thePanelPicksAClearanceAndWritesItIntoTheFile() async throws {
+        let (session, useCases) = await aProject(insider)
+        let model = try #require(session.model)
+        model.setClearance(
+            id: "sc",
+            name: "Security Check",
+            reducesInsiderRiskBy: 60,
+            rationale: "The vetting reads the whole employment record."
+        )
+
+        var panel = UserPanel(session: model, user: try user(of: model))
+        #expect(panel.clearance.wrappedValue == UserPanel.noClearance)
+        #expect(
+            panel.clearanceChoices.map(\.label)
+                == ["No clearance", "Security Check (\u{2212}60%)"]
+        )
+        panel.clearance.wrappedValue = "sc"
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        #expect(try user(of: model).clearanceId == "sc")
+        #expect(try users(useCases).map(\.clearanceId) == ["sc"])
+
+        panel = UserPanel(session: model, user: try user(of: model))
+        #expect(panel.clearance.wrappedValue == "sc")
+        panel.clearance.wrappedValue = UserPanel.noClearance
+        await session.save()
+
+        #expect(try users(useCases).map(\.clearanceId) == [nil])
     }
 
     /// A file that states the `adversary` keyword draws an adversary on the

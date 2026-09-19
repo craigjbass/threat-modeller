@@ -1395,7 +1395,8 @@ final class ThreatModelSession {
         uses: [String],
         reaches: [String],
         threatActorId: String?,
-        isAdversary: Bool
+        isAdversary: Bool,
+        clearanceId: String? = nil
     ) {
         switch useCases.setUserProperties().execute(
             SetUserPropertiesRequest(
@@ -1406,7 +1407,8 @@ final class ThreatModelSession {
                 uses: uses,
                 reaches: reaches,
                 threatActorId: threatActorId,
-                isAdversary: isAdversary
+                isAdversary: isAdversary,
+                clearanceId: clearanceId
             )
         ) {
         case .updated:
@@ -1419,6 +1421,8 @@ final class ThreatModelSession {
             errorMessage = "This model holds no component called \"\(id)\"."
         case .unknownActor(let id):
             errorMessage = "This project holds no threat actor called \"\(id)\"."
+        case .unknownClearance(let id):
+            errorMessage = "This system declares no clearance called \"\(id)\"."
         }
 
         refresh()
@@ -1887,6 +1891,40 @@ final class ThreatModelSession {
     func removeLocalThreatActor(id: String) {
         useCases.removeLocalThreatActor()
             .execute(RemoveLocalThreatActorRequest(id: id))
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    // MARK: the vetting levels this system declares
+
+    /// Writes one `clearance` block. Writing the same id again changes the
+    /// block that is there.
+    func setClearance(
+        id: String,
+        name: String,
+        description: String = "",
+        reducesInsiderRiskBy: Int,
+        rationale: String,
+        sources: [String] = []
+    ) {
+        useCases.setClearance()
+            .execute(
+                SetClearanceRequest(
+                    id: id,
+                    name: name,
+                    description: description,
+                    reducesInsiderRiskBy: reducesInsiderRiskBy,
+                    rationale: rationale,
+                    sources: sources
+                )
+            )
+            .describe(into: &errorMessage)
+        refresh()
+    }
+
+    func removeClearance(id: String) {
+        useCases.removeClearance()
+            .execute(RemoveClearanceRequest(id: id))
             .describe(into: &errorMessage)
         refresh()
     }

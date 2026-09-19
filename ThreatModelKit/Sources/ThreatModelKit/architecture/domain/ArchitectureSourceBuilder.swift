@@ -21,7 +21,8 @@ public enum ArchitectureSourceBuilder {
                             uses: facts.uses,
                             reaches: facts.reaches,
                             threatActorId: facts.threatActorId,
-                            isAdversary: facts.isAdversary
+                            isAdversary: facts.isAdversary,
+                            clearanceId: facts.clearanceId
                         )
                     )
                     continue
@@ -191,7 +192,17 @@ public enum ArchitectureSourceBuilder {
                 attributes: model.documentFacts.attributes.map {
                     SourceSystemAttribute(name: $0.name, value: $0.value)
                 },
-                users: users
+                users: users,
+                clearances: model.clearances.map {
+                    SourceClearance(
+                        id: $0.id,
+                        name: $0.name,
+                        description: $0.description,
+                        reducesInsiderRiskBy: $0.reducesInsiderRiskBy,
+                        rationale: $0.rationale,
+                        sources: $0.sources
+                    )
+                }
             )
         return source
     }

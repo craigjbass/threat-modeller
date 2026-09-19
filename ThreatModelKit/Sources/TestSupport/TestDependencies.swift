@@ -299,6 +299,14 @@ public final class TestDependencies: UseCaseFactory {
         RemoveLocalThreatActor(models: models, catalogue: catalogue)
     }
 
+    public func setClearance() -> SetClearanceUseCase {
+        SetClearance(models: models)
+    }
+
+    public func removeClearance() -> RemoveClearanceUseCase {
+        RemoveClearance(models: models)
+    }
+
     public func setCompensatingControl() -> SetCompensatingControlUseCase {
         SetCompensatingControl(models: models)
     }

@@ -195,8 +195,8 @@ struct UserClientsTests {
 
         #expect(
             read.diagnostics.contains {
-                $0.message == "a user holds name, role, access, uses, reaches and threat_actor, "
-                    + "not \"via\""
+                $0.message == "a user holds name, role, access, uses, reaches, threat_actor "
+                    + "and clearance, not \"via\""
             }
         )
     }

@@ -314,6 +314,7 @@ public final class LanguageServer: @unchecked Sendable {
         case (.architecture, "component"): .archComponent
         case (.architecture, "user"): .archUser
         case (.architecture, "adversary"): .archAdversary
+        case (.architecture, "clearance"): .archClearance
         case (.architecture, "zone"): .archZone
         case (.architecture, "flow"): .archFlow
         case (.architecture, "asset"): .archSystemAsset

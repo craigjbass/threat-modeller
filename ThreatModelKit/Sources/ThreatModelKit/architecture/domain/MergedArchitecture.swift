@@ -241,7 +241,8 @@ public enum MergedArchitecture {
             owner: head.owner,
             faces: head.faces,
             threatActors: head.threatActors,
-            users: users
+            users: users,
+            clearances: head.clearances
         )
 
         // Every file is read now, so a component that states a zone finds it
@@ -392,7 +393,8 @@ public enum MergedArchitecture {
                 reviewed: source.reviewed,
                 version: source.version,
                 attributes: source.attributes,
-                users: source.users
+                users: source.users,
+                clearances: source.clearances
             ),
             unknown
         )

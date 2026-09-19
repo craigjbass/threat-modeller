@@ -87,6 +87,14 @@ public enum MarkdownMethodology {
                 + " states. Two give the stronger reduction, never the sum."
         )
         stages.append(
+            "A security clearance is a compensating control on a threat an"
+                + " insider performs. The reduction on one component is the"
+                + " weakest clearance among the legitimate users that reach it,"
+                + " so one uncleared user leaves the score where it was. An"
+                + " adversary reduces nothing. A clearance and a compensating"
+                + " control on one threat give the stronger, never the sum."
+        )
+        stages.append(
             "An attack tree raises the score of the threat it names as its"
                 + " goal, by its `raises_risk_by` percentage scaled by how much"
                 + " of the chain is still open."

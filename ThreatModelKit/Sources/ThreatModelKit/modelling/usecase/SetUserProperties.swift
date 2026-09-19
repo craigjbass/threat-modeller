@@ -20,6 +20,8 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
     /// True to write the user as an adversary, false to write a legitimate
     /// user.
     public let isAdversary: Bool
+    /// The id of the clearance this user holds, or nil.
+    public let clearanceId: String?
 
     public init(
         componentId: String,
@@ -29,8 +31,10 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
         uses: [String] = [],
         reaches: [String],
         threatActorId: String?,
-        isAdversary: Bool = false
+        isAdversary: Bool = false,
+        clearanceId: String? = nil
     ) {
+        self.clearanceId = clearanceId
         self.componentId = componentId
         self.name = name
         self.role = role
@@ -51,6 +55,8 @@ public enum SetUserPropertiesResponse: Equatable, Sendable {
     case unknownComponent(String)
     /// The threat actor names nothing this project holds.
     case unknownActor(String)
+    /// The clearance names nothing this system declares.
+    case unknownClearance(String)
 }
 
 /// Changes what a user is called, what the user does, what privilege the user
@@ -98,6 +104,11 @@ public struct SetUserProperties: SetUserPropertiesUseCase {
         for client in uses where reachable.contains(client) == false {
             return .unknownComponent(client)
         }
+        let clearanceId = request.clearanceId?.trimmingWhitespace()
+        if let clearanceId, clearanceId.isEmpty == false,
+           model.clearances.contains(where: { $0.id == clearanceId }) == false {
+            return .unknownClearance(clearanceId)
+        }
         if let actorId, actorId.isEmpty == false {
             let lookup = ThreatActorLookup(model: model, catalogue: catalogue)
             guard lookup.findById(ThreatActorId(actorId)) != nil else {
@@ -116,7 +127,8 @@ public struct SetUserProperties: SetUserPropertiesUseCase {
                 uses: uses,
                 reaches: reaches,
                 threatActorId: (actorId?.isEmpty ?? true) ? nil : actorId,
-                isAdversary: request.isAdversary
+                isAdversary: request.isAdversary,
+                clearanceId: (clearanceId?.isEmpty ?? true) ? nil : clearanceId
             )
             return .updated
         }

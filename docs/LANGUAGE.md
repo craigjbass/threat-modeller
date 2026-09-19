@@ -121,6 +121,7 @@ The architecture language reads these keywords: `system`, `catalogue`,
 `shape`, `asset`, `holds`, `carries`, `tags`, `status`, `version`, `cves`,
 `classification`, `third_party`,
 `user`, `role`, `access`, `uses`, `reaches`,
+`clearance`, `reduces_insider_risk_by`, `rationale`,
 `provided_by`, `paying_customer`, `uptime`, `uptime_notes`, `kind`, `link`,
 `diagram`, `text`, `flow`, `mitigates`,
 `status`, `recommendation`, `note`,
@@ -371,6 +372,7 @@ SystemEntry  = CatalogueAttr
              | ZoneBlock
              | ComponentBlock
              | UserBlock
+             | ClearanceBlock
              | FlowStatement
              | MitigatesBlock
              | AssumptionBlock
@@ -446,7 +448,15 @@ UserEntry = "name"         "=" String
           | "access"       "=" String
           | "uses"         "=" StringList
           | "reaches"      "=" StringList
-          | "threat_actor" "=" String ;
+          | "threat_actor" "=" String
+          | "clearance"    "=" String ;
+
+ClearanceBlock = "clearance" String "{" { ClearanceEntry } "}" ;
+ClearanceEntry = "name"                    "=" String
+               | "description"             "=" String
+               | "reduces_insider_risk_by" "=" Number
+               | "rationale"               "=" String
+               | "sources"                 "=" StringList ;
 
 SystemAssetBlock = "asset" String "{" { SystemAssetEntry } "}" ;
 
@@ -1082,6 +1092,7 @@ zone.
 | `uses` | list of strings | empty | the component ids of the clients the user holds |
 | `reaches` | list of strings | empty | the component ids the user reaches |
 | `threat_actor` | string | none | the id of a threat actor this user is |
+| `clearance` | string | none | the id of a clearance this user holds |
 
 A user is not a technology. It raises no threats, states no `data`, holds no
 asset and has no `status`. The canvas draws it with the actor shape, the
@@ -1166,7 +1177,69 @@ Scope section names it an adversary:
 keyword back, so a file that states `adversary` reads and writes unchanged.
 
 A word the block does not hold is the error `an adversary holds name, role,
-access, uses, reaches and threat_actor, not "<word>"`.
+access, uses, reaches, threat_actor and clearance, not "<word>"`.
+
+#### The `clearance` block
+
+```hcl
+clearance "sc" {
+  name                    = "Security Check"
+  description             = "Five years of employment history are checked."
+  reduces_insider_risk_by = 60
+  rationale               = "The vetting reads the whole employment record."
+  sources                 = ["https://example.com/vetting-policy"]
+}
+
+user "alice" {
+  name      = "Alice"
+  reaches   = ["ledger"]
+  clearance = "sc"
+}
+```
+
+A `clearance` block declares one vetting level. The label is the clearance's
+identifier, and a `user` or an `adversary` block names one with `clearance`. A
+clearance block sits at the top level of a system or of a part file, never
+inside a zone.
+
+The team writing the model defines the levels. The application ships none, so
+a scheme of two levels and a scheme of six each state themselves.
+
+| Attribute | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `name` | string | required | what the report and the window call the level |
+| `description` | string | empty | what the level checks |
+| `reduces_insider_risk_by` | number | required | how much of an insider threat the level answers, 0 to 100 |
+| `rationale` | string | required | why the level answers insider risk |
+| `sources` | list of strings | empty | where the rationale comes from |
+
+**What a clearance does to a score.** A clearance is a compensating control on
+the threats an insider performs: the threats whose likelihood tier is
+`insider`, on the components the cleared legitimate users reach through
+`reaches` and `uses`. The reduction on one component is the weakest clearance
+among the legitimate users that reach it, so one uncleared user leaves the
+risk where it was. An adversary is not a legitimate user and reduces nothing.
+A clearance and a `compensating` block on one threat give the stronger of the
+two, never the sum, which is the rule section 5.7 states for two compensating
+blocks. The report names the clearance, the users that hold it and the
+reduction beside the threat, and the Scope section states each user's
+clearance.
+
+A block that states no `name` is the error `the clearance "<id>" has no name`.
+A block that states no `reduces_insider_risk_by` is `the clearance "<id>"
+states no reduces_insider_risk_by`. A block that states no rationale is `the
+clearance "<id>" has no rationale`, the way a `compensating` block needs one: a
+reduction nobody can justify is not one. A reduction outside 0 to 100 is
+`reduces_insider_risk_by is <value>; a reduction is 0 to 100`. An identifier
+declared twice is `the clearance "<id>" is declared twice`. Each of those drops
+the block.
+
+A user naming a clearance no `clearance` block declares is the error `the user
+"<id>" names the clearance "<clearance>", which no clearance block declares`,
+raised by `ImportArchitecture`, and the project does not open.
+
+A word the block does not hold is the error `a clearance holds name,
+description, reduces_insider_risk_by, rationale and sources, not "<word>"`.
 
 ### 4.7 `flow`
 
@@ -1806,6 +1879,11 @@ A `reduces_risk_by` outside 0 to 100 is the error
 
 A compensating control makes a threat answered on its own, without any control
 being `implemented`.
+
+A security clearance is a compensating control too. A `clearance` block that
+every legitimate user reaching a component holds takes its stated percentage
+off that component's `insider` threats, and a clearance and a `compensating`
+block on one threat give the stronger of the two. Section 4.6 states the rule.
 
 Two compensating controls on one threat give the stronger of the two, not the
 sum.
@@ -3093,6 +3171,7 @@ SystemEntry  = CatalogueAttr
              | ZoneBlock
              | ComponentBlock
              | UserBlock
+             | ClearanceBlock
              | FlowStatement
              | MitigatesBlock
              | AssumptionBlock
@@ -3167,7 +3246,15 @@ UserEntry = "name"         "=" String
           | "access"       "=" String
           | "uses"         "=" StringList
           | "reaches"      "=" StringList
-          | "threat_actor" "=" String ;
+          | "threat_actor" "=" String
+          | "clearance"    "=" String ;
+
+ClearanceBlock = "clearance" String "{" { ClearanceEntry } "}" ;
+ClearanceEntry = "name"                    "=" String
+               | "description"             "=" String
+               | "reduces_insider_risk_by" "=" Number
+               | "rationale"               "=" String
+               | "sources"                 "=" StringList ;
 
 SystemAssetBlock = "asset" String "{" { SystemAssetEntry } "}" ;
 

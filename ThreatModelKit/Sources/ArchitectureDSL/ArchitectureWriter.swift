@@ -107,6 +107,26 @@ struct ArchitectureWriter {
             body.append("")
         }
 
+        for clearance in source.clearances {
+            body.append("clearance \(quoted(clearance.id)) {")
+            var attributes: [(String, String)] = [("name", quoted(clearance.name))]
+            if clearance.description.isEmpty == false {
+                attributes.append(("description", quoted(clearance.description)))
+            }
+            attributes.append(
+                ("reduces_insider_risk_by", String(clearance.reducesInsiderRiskBy))
+            )
+            attributes.append(("rationale", quoted(clearance.rationale)))
+            if clearance.sources.isEmpty == false {
+                attributes.append(
+                    ("sources", "[" + clearance.sources.map(quoted).joined(separator: ", ") + "]")
+                )
+            }
+            body += indent(aligned(attributes))
+            body.append("}")
+            body.append("")
+        }
+
         for actor in source.threatActors {
             body.append("threat_actor \(quoted(actor.id)) {")
             var attributes: [(String, String)] = [("name", quoted(actor.name))]
@@ -282,6 +302,9 @@ struct ArchitectureWriter {
             if user.reaches.isEmpty == false { attributes.append(("reaches", list(user.reaches))) }
             if let actorId = user.threatActorId {
                 attributes.append(("threat_actor", quoted(actorId)))
+            }
+            if let clearanceId = user.clearanceId {
+                attributes.append(("clearance", quoted(clearanceId)))
             }
             body += indent(aligned(attributes))
             body.append("}")

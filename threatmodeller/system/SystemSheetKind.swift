@@ -14,6 +14,7 @@ enum SystemSheetKind: String, CaseIterable, Identifiable, Sendable {
     case exclusions
     case diagrams
     case threatActors
+    case clearances
 
     var id: String { rawValue }
 
@@ -27,6 +28,7 @@ enum SystemSheetKind: String, CaseIterable, Identifiable, Sendable {
         case .exclusions: "Exclusions"
         case .diagrams: "Diagrams"
         case .threatActors: "Threat Actors"
+        case .clearances: "Clearances"
         }
     }
 
@@ -61,6 +63,7 @@ enum SystemSheetKind: String, CaseIterable, Identifiable, Sendable {
         case .exclusions: return session.canvas.exclusions.count
         case .diagrams: return session.canvas.diagrams.count
         case .threatActors: return session.threatActorsInUse.filter(\.isFaced).count
+        case .clearances: return session.canvas.clearances.count
         }
     }
 

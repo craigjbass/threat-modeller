@@ -43,7 +43,8 @@ public enum ArchitectureSourceSplit {
                 owner: path == header ? source.owner : nil,
                 faces: path == header ? source.faces : [],
                 threatActors: path == header ? source.threatActors : [],
-                users: source.users.filter { file(of: .user($0.id)) == path }
+                users: source.users.filter { file(of: .user($0.id)) == path },
+                clearances: path == header ? source.clearances : []
             )
 
             written.append(

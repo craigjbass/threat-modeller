@@ -960,6 +960,8 @@ public struct ReportUser: Equatable, Sendable {
     /// True for an adversary: a threat actor that behaves like a user and is
     /// not a legitimate user.
     public let isAdversary: Bool
+    /// The name of the clearance this user holds, or nil.
+    public let clearanceName: String?
 
     public init(
         name: String,
@@ -968,8 +970,10 @@ public struct ReportUser: Equatable, Sendable {
         reaches: [String] = [],
         clients: [ReportClient] = [],
         threatActorName: String? = nil,
-        isAdversary: Bool = false
+        isAdversary: Bool = false,
+        clearanceName: String? = nil
     ) {
+        self.clearanceName = clearanceName
         self.name = name
         self.role = role
         self.accessLabel = accessLabel

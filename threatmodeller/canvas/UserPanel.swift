@@ -15,6 +15,9 @@ struct UserPanel: View {
     /// The empty id is nobody: the user is not a threat actor.
     static let noActor = ""
 
+    /// The empty id is no clearance: the person holds none.
+    static let noClearance = ""
+
     /// What the Kind picker offers. An adversary behaves like a user and is
     /// not a legitimate user.
     static let kinds: [(Bool, String)] = [(false, "Legitimate user"), (true, "Adversary")]
@@ -79,6 +82,23 @@ struct UserPanel: View {
             .labelsHidden()
             .accessibilityIdentifier("user-threat-actor")
         }
+
+        SelectionField("Clearance") {
+            Picker("Clearance", selection: clearance) {
+                ForEach(clearanceChoices, id: \.id) { Text($0.label).tag($0.id) }
+            }
+            .labelsHidden()
+            .accessibilityIdentifier("user-clearance")
+        }
+    }
+
+    /// What the picker offers: no clearance, then every level the System
+    /// menu's Clearances sheet declares.
+    var clearanceChoices: [(id: String, label: String)] {
+        [(id: Self.noClearance, label: "No clearance")]
+            + session.canvas.clearances.map {
+                (id: $0.id, label: "\($0.name) (\u{2212}\($0.reducesInsiderRiskBy)%)")
+            }
     }
 
     /// Every component that is not a user, in canvas order.
@@ -135,7 +155,8 @@ struct UserPanel: View {
         uses newUses: [String]? = nil,
         reaches newReaches: [String]? = nil,
         threatActorId newActor: String?? = nil,
-        isAdversary newKind: Bool? = nil
+        isAdversary newKind: Bool? = nil,
+        clearanceId newClearance: String?? = nil
     ) {
         session.setUserProperties(
             componentId: user.id,
@@ -145,7 +166,8 @@ struct UserPanel: View {
             uses: newUses ?? user.uses,
             reaches: newReaches ?? user.reaches,
             threatActorId: newActor ?? user.threatActorId,
-            isAdversary: newKind ?? user.isAdversary
+            isAdversary: newKind ?? user.isAdversary,
+            clearanceId: newClearance ?? user.clearanceId
         )
     }
 
@@ -168,6 +190,14 @@ struct UserPanel: View {
         Binding(
             get: { user.threatActorId ?? Self.noActor },
             set: { write(threatActorId: .some($0.isEmpty ? nil : $0)) }
+        )
+    }
+
+    /// What the Clearance picker reads and writes. The empty id is none.
+    var clearance: Binding<String> {
+        Binding(
+            get: { user.clearanceId ?? Self.noClearance },
+            set: { write(clearanceId: .some($0.isEmpty ? nil : $0)) }
         )
     }
 }

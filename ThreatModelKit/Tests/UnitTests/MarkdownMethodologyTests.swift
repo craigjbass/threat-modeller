@@ -105,7 +105,8 @@ struct MarkdownMethodologyTests {
         // and neither renumbered it.
         for (index, stage) in ["A private zone", "The implemented controls",
                                "A pathway mitigation", "The likelihood multiplies",
-                               "A compensating control", "An attack tree",
+                               "A compensating control", "A security clearance",
+                               "An attack tree",
                                "A score never falls below 1."].enumerated() {
             #expect(
                 text.contains("\(index + 1). \(stage)"),

@@ -294,7 +294,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                         uses: user.uses,
                         reaches: user.reaches,
                         threatActorId: user.threatActorId,
-                        isAdversary: user.isAdversary
+                        isAdversary: user.isAdversary,
+                        clearanceId: user.clearanceId
                     )
                 )
             )
@@ -429,6 +430,16 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             )
         }
         model.facedActorIds = source.faces
+        model.clearances = source.clearances.map {
+            Clearance(
+                id: $0.id,
+                name: $0.name,
+                description: $0.description,
+                reducesInsiderRiskBy: $0.reducesInsiderRiskBy,
+                rationale: $0.rationale,
+                sources: $0.sources
+            )
+        }
 
         let lookup = TechnologyLookup(model: model, catalogue: catalogue)
         var warnings = read.warnings + statusWarnings + toleranceWarnings
@@ -486,6 +497,23 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     )
                 }
             )
+        }
+        // A user that names a clearance nothing declares stops the project
+        // opening the way a user that names an unknown actor does.
+        let declaredClearances = Set(model.clearances.map(\.id))
+        let unknownClearances = model.components.compactMap { component -> Diagnostic? in
+            guard let named = component.clearanceId,
+                  declaredClearances.contains(named) == false else { return nil }
+            return Diagnostic(
+                severity: .error,
+                line: 1,
+                column: 1,
+                message: "the user \"\(component.id.value)\" names the clearance "
+                    + "\"\(named)\", which no clearance block declares"
+            )
+        }
+        if unknownClearances.isEmpty == false {
+            return .refused(diagnostics: unknownClearances)
         }
         warnings += Self.actorWarnings(model: model, catalogue: catalogue, faced: actors.faced())
 

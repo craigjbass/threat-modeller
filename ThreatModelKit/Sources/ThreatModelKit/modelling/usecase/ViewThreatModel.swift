@@ -77,6 +77,8 @@ public struct ViewedComponent: Equatable, Sendable {
     /// True for an adversary: a user the file declares with the `adversary`
     /// keyword.
     public let isAdversary: Bool
+    /// The id of the clearance this user holds, or nil.
+    public let clearanceId: String?
     /// The version of the software this component runs. Empty when the file
     /// states none.
     public let version: String
@@ -112,6 +114,7 @@ public struct ViewedComponent: Equatable, Sendable {
         reaches: [String] = [],
         threatActorId: String? = nil,
         isAdversary: Bool = false,
+        clearanceId: String? = nil,
         version: String = "",
         cves: [String] = [],
         assets: [ViewedComponentAsset] = []
@@ -125,6 +128,7 @@ public struct ViewedComponent: Equatable, Sendable {
         self.reaches = reaches
         self.threatActorId = threatActorId
         self.isAdversary = isAdversary
+        self.clearanceId = clearanceId
         self.statusId = statusId
         self.tags = tags
         self.holds = holds
@@ -178,6 +182,7 @@ public struct ViewedComponent: Equatable, Sendable {
             reaches: reaches,
             threatActorId: threatActorId,
             isAdversary: isAdversary,
+            clearanceId: clearanceId,
             version: version,
             cves: cves,
             assets: assets
@@ -456,6 +461,32 @@ public struct ViewedSystemFacts: Equatable, Sendable {
     }
 }
 
+/// One vetting level the system declares, as the interface reads it.
+public struct ViewedClearance: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let description: String
+    public let reducesInsiderRiskBy: Int
+    public let rationale: String
+    public let sources: [String]
+
+    public init(
+        id: String,
+        name: String,
+        description: String = "",
+        reducesInsiderRiskBy: Int,
+        rationale: String,
+        sources: [String] = []
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.reducesInsiderRiskBy = reducesInsiderRiskBy
+        self.rationale = rationale
+        self.sources = sources
+    }
+}
+
 /// One thing a person does with the system, as the interface reads it.
 public struct ViewedUseCase: Equatable, Sendable {
     public let label: String
@@ -536,6 +567,8 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
     public let useCases: [ViewedUseCase]
     /// What this model does not cover, in file order.
     public let exclusions: [ViewedExclusion]
+    /// The vetting levels this system declares, in file order.
+    public let clearances: [ViewedClearance]
     /// The named things of value this system holds, in model order.
     public let systemAssets: [ViewedSystemAsset]
     /// The parties outside this team the system depends on, in file order.
@@ -571,6 +604,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         assumptions: [ViewedAssumption] = [],
         useCases: [ViewedUseCase] = [],
         exclusions: [ViewedExclusion] = [],
+        clearances: [ViewedClearance] = [],
         systemAssets: [ViewedSystemAsset] = [],
         thirdParties: [ViewedThirdParty] = [],
         diagrams: [ViewedSystemDiagram] = [],
@@ -587,6 +621,7 @@ public struct ViewThreatModelResponse: Equatable, Sendable {
         self.assumptions = assumptions
         self.useCases = useCases
         self.exclusions = exclusions
+        self.clearances = clearances
         self.systemAssets = systemAssets
         self.thirdParties = thirdParties
         self.diagrams = diagrams
@@ -631,6 +666,16 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
             },
             exclusions: model.exclusions.map {
                 ViewedExclusion(label: $0.label, text: $0.text, rationale: $0.rationale)
+            },
+            clearances: model.clearances.map {
+                ViewedClearance(
+                    id: $0.id,
+                    name: $0.name,
+                    description: $0.description,
+                    reducesInsiderRiskBy: $0.reducesInsiderRiskBy,
+                    rationale: $0.rationale,
+                    sources: $0.sources
+                )
             },
             systemAssets: model.systemAssets.map {
                 ViewedSystemAsset(

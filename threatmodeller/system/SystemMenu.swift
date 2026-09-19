@@ -45,6 +45,7 @@ struct SystemSheetView: View {
         case .exclusions: ExclusionsSheet(session: session, dismiss: dismiss)
         case .diagrams: DiagramsSheet(session: session, dismiss: dismiss)
         case .threatActors: ThreatActorsSheet(session: session, dismiss: dismiss)
+        case .clearances: ClearancesSheet(session: session, dismiss: dismiss)
         }
     }
 }

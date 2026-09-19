@@ -38,6 +38,8 @@ public struct ArchitectureSource: Equatable, Sendable {
     public let faces: [String]
     /// The threat actors this file declares for itself.
     public let threatActors: [SourceThreatActor]
+    /// The vetting levels this file declares, in file order.
+    public let clearances: [SourceClearance]
     /// What this system is, in the team's own words.
     public let description: String?
     /// Who wrote the model, in file order.
@@ -82,8 +84,10 @@ public struct ArchitectureSource: Equatable, Sendable {
         reviewed: String? = nil,
         version: String? = nil,
         attributes: [SourceSystemAttribute] = [],
-        users: [SourceUser] = []
+        users: [SourceUser] = [],
+        clearances: [SourceClearance] = []
     ) {
+        self.clearances = clearances
         self.users = users
         self.description = description
         self.authors = authors
@@ -152,7 +156,8 @@ public struct ArchitectureSource: Equatable, Sendable {
             reviewed: reviewed,
             version: version,
             attributes: attributes,
-            users: users
+            users: users,
+            clearances: clearances
         )
     }
 }
@@ -176,6 +181,8 @@ public struct SourceUser: Equatable, Sendable {
     public let threatActorId: String?
     /// True for a user the file declares with the `adversary` keyword.
     public let isAdversary: Bool
+    /// The id of the clearance this user holds, or nil.
+    public let clearanceId: String?
 
     public init(
         id: String,
@@ -185,7 +192,8 @@ public struct SourceUser: Equatable, Sendable {
         uses: [String] = [],
         reaches: [String] = [],
         threatActorId: String? = nil,
-        isAdversary: Bool = false
+        isAdversary: Bool = false,
+        clearanceId: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -195,10 +203,38 @@ public struct SourceUser: Equatable, Sendable {
         self.reaches = reaches
         self.threatActorId = threatActorId
         self.isAdversary = isAdversary
+        self.clearanceId = clearanceId
     }
 
     /// The word a user with no stated access holds.
     public static let defaultAccess = "user"
+}
+
+/// One vetting level the file declares. A user names one of these.
+public struct SourceClearance: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let description: String
+    /// 0 to 100.
+    public let reducesInsiderRiskBy: Int
+    public let rationale: String
+    public let sources: [String]
+
+    public init(
+        id: String,
+        name: String,
+        description: String = "",
+        reducesInsiderRiskBy: Int,
+        rationale: String,
+        sources: [String] = []
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.reducesInsiderRiskBy = reducesInsiderRiskBy
+        self.rationale = rationale
+        self.sources = sources
+    }
 }
 
 public struct SourceTechnology: Equatable, Sendable {

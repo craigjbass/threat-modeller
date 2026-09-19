@@ -103,6 +103,7 @@ struct ArchitectureParser {
         var version: String?
         var attributes: [SourceSystemAttribute] = []
         var users: [SourceUser] = []
+        var clearances: [SourceClearance] = []
 
         while current.kind != .endOfFile && (insideABlock == false || current.kind != .rightBrace) {
             switch current.text {
@@ -118,6 +119,15 @@ struct ArchitectureParser {
                 if let user = parseUser() { users.append(user) }
             case "adversary":
                 if let user = parseUser(isAdversary: true) { users.append(user) }
+            case "clearance":
+                let token = current
+                if let clearance = parseClearance() {
+                    if clearances.contains(where: { $0.id == clearance.id }) {
+                        record("the clearance \"\(clearance.id)\" is declared twice", at: token)
+                    } else {
+                        clearances.append(clearance)
+                    }
+                }
             case "asset":
                 if let asset = parseSystemAsset() { systemAssets.append(asset) }
             case "third_party":
@@ -239,7 +249,72 @@ struct ArchitectureParser {
             reviewed: reviewed,
             version: version,
             attributes: attributes,
-            users: users
+            users: users,
+            clearances: clearances
+        )
+    }
+
+    /// A `clearance` block: one vetting level, and how far it answers the
+    /// threats an insider performs.
+    private mutating func parseClearance() -> SourceClearance? {
+        let opening = current
+        advance()
+        guard let id = expect(.string, "the clearance's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var name: String?
+        var description = ""
+        var reduction: Int?
+        var rationale = ""
+        var sources: [String] = []
+
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "name": name = parseTextAttribute()
+            case "description": description = parseTextAttribute() ?? description
+            case "reduces_insider_risk_by":
+                let token = current
+                guard let stated = parseNumberAttribute() else { break }
+                if (0...Clearance.widestReduction).contains(stated) {
+                    reduction = stated
+                } else {
+                    record(
+                        "reduces_insider_risk_by is \(stated); a reduction is 0 to 100",
+                        at: token
+                    )
+                }
+            case "rationale": rationale = parseTextAttribute() ?? rationale
+            case "sources": sources = parseListAttribute()
+            default:
+                record(LanguageBlockId.archClearance.unknownAttribute(current.text))
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard let name, name.isEmpty == false else {
+            record("the clearance \"\(id.text)\" has no name", at: opening)
+            return nil
+        }
+        guard let reduction else {
+            record(
+                "the clearance \"\(id.text)\" states no reduces_insider_risk_by",
+                at: opening
+            )
+            return nil
+        }
+        guard rationale.isEmpty == false else {
+            record("the clearance \"\(id.text)\" has no rationale", at: opening)
+            return nil
+        }
+
+        return SourceClearance(
+            id: id.text,
+            name: name,
+            description: description,
+            reducesInsiderRiskBy: reduction,
+            rationale: rationale,
+            sources: sources
         )
     }
 
@@ -256,6 +331,7 @@ struct ArchitectureParser {
         var uses: [String] = []
         var reaches: [String] = []
         var threatActorId: String?
+        var clearanceId: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -268,6 +344,7 @@ struct ArchitectureParser {
             case "uses": uses = parseListAttribute()
             case "reaches": reaches = parseListAttribute()
             case "threat_actor": threatActorId = parseTextAttribute()
+            case "clearance": clearanceId = parseTextAttribute()
             default:
                 let block: LanguageBlockId = isAdversary ? .archAdversary : .archUser
                 record(block.unknownAttribute(current.text))
@@ -284,7 +361,8 @@ struct ArchitectureParser {
             uses: uses,
             reaches: reaches,
             threatActorId: threatActorId,
-            isAdversary: isAdversary
+            isAdversary: isAdversary,
+            clearanceId: clearanceId
         )
     }
 

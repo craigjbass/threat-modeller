@@ -292,6 +292,14 @@ nonisolated final class Dependencies: UseCaseFactory {
         RemoveLocalThreatActor(models: models, catalogue: catalogue)
     }
 
+    func setClearance() -> SetClearanceUseCase {
+        SetClearance(models: models)
+    }
+
+    func removeClearance() -> RemoveClearanceUseCase {
+        RemoveClearance(models: models)
+    }
+
     func setCompensatingControl() -> SetCompensatingControlUseCase {
         SetCompensatingControl(models: models)
     }

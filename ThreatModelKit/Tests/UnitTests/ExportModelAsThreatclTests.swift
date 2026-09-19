@@ -181,6 +181,70 @@ struct ExportModelAsThreatclTests {
         #expect(hcl.contains("      risk_reduction = 100"))
     }
 
+    /// Issue #259: threatcl holds no clearance, so a clearance travels as
+    /// the control it is, with the reduction it states.
+    @Test func aClearanceTravelsAsAControl() {
+        let source = LibrarySource(
+            label: "endpoint",
+            technologies: [
+                SourceTechnology(
+                    id: "laptop",
+                    name: "Laptop",
+                    category: "compute",
+                    threatIds: ["key-copying"]
+                )
+            ],
+            threats: [
+                SourceLibraryThreat(
+                    id: "key-copying",
+                    name: "An operator copies a key",
+                    severityLabel: "critical",
+                    likelihood: "insider"
+                )
+            ]
+        )
+        let (library, _) = Library.build(from: source, taxonomy: CatalogueFixture.taxonomy())
+        app.useLibraries([library!])
+        _ = app.importArchitecture().execute(
+            ImportArchitectureRequest(
+                text: """
+                system "Payments" {
+                  clearance "sc" {
+                    name                    = "Security Check"
+                    reduces_insider_risk_by = 60
+                    rationale               = "The vetting reads the whole employment record."
+                  }
+
+                  component "api" {
+                    technology = "endpoint-laptop"
+                    data       = "restricted"
+                  }
+
+                  user "alice" {
+                    reaches   = ["api"]
+                    clearance = "sc"
+                  }
+                }
+
+                """
+            )
+        )
+
+        let hcl = app.exportModelAsThreatcl().execute(ExportModelAsThreatclRequest()).hcl
+
+        #expect(
+            hcl.contains(
+                "control \"Security clearance \\\"Security Check\\\", held by alice\" {"
+            )
+        )
+        #expect(
+            hcl.contains(
+                "      description = \"The vetting reads the whole employment record.\""
+            )
+        )
+        #expect(hcl.contains("      risk_reduction = 60"))
+    }
+
     @Test func theDiagramHoldsTheZonesTheElementsAndTheFlows() {
         let hcl = exported()
 

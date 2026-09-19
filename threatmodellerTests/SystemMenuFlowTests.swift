@@ -6,7 +6,7 @@ import ThreatModelKit
 import TestSupport
 @testable import threatmodeller
 
-/// The System menu, the toolbar control beside it, and the seven sheets they
+/// The System menu, the toolbar control beside it, and the sheets they
 /// open.
 ///
 /// Each test runs the row from the menu, runs the same row from the toolbar,
@@ -20,6 +20,22 @@ struct SystemMenuFlowTests {
       component "api" {
         technology = "aws-ec2"
         data       = "confidential"
+      }
+    }
+
+    """
+
+    /// One system with one user, for the sheet whose entry a user picks.
+    private let paymentsWithAUser = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      user "alice" {
+        name    = "Alice"
+        reaches = ["api"]
       }
     }
 
@@ -507,6 +523,69 @@ struct SystemMenuFlowTests {
             guard case .item(let id, _, _, let isEnabled, _) = row else { continue }
             #expect(isEnabled == false, "\(id) is on with no system drawn")
         }
+    }
+
+    // MARK: Clearances
+
+    /// Issue #259: the sheet writes the `clearance` block and the user panel
+    /// picks it, and the `.arch` file holds both.
+    @Test func opensClearancesAndWritesOneTheUserPanelThenPicks() async throws {
+        let (project, useCases) = await aProject(paymentsWithAUser)
+        let model = try #require(project.model)
+        openFromBothControls(.clearances, project)
+
+        let sheet = ClearancesSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: "sc",
+                name: "Security Check",
+                description: "Five years of history are checked.",
+                reducesInsiderRiskBy: 60,
+                rationale: "The vetting reads the whole employment record.",
+                sources: "https://example.test/vetting"
+            )
+        )
+        sheet.write()
+
+        let alice = try #require(model.canvas.components.first { $0.isUser })
+        UserPanel(session: model, user: alice).clearance.wrappedValue = "sc"
+        await project.save()
+
+        #expect(model.errorMessage == nil)
+        let source = try written(useCases)
+        let clearance = try #require(source.clearances.first)
+        #expect(clearance.id == "sc")
+        #expect(clearance.name == "Security Check")
+        #expect(clearance.description == "Five years of history are checked.")
+        #expect(clearance.reducesInsiderRiskBy == 60)
+        #expect(clearance.rationale == "The vetting reads the whole employment record.")
+        #expect(clearance.sources == ["https://example.test/vetting"])
+        #expect(source.users.map(\.clearanceId) == ["sc"])
+    }
+
+    /// Taking the block off takes the attribute off every user that named it,
+    /// because a user naming a clearance nothing declares is a file the next
+    /// open refuses.
+    @Test func removingAClearanceTakesItOffTheUsersThatNamedIt() async throws {
+        let (project, useCases) = await aProject(paymentsWithAUser)
+        let model = try #require(project.model)
+
+        model.setClearance(
+            id: "sc",
+            name: "Security Check",
+            reducesInsiderRiskBy: 60,
+            rationale: "The vetting reads the whole employment record."
+        )
+        let alice = try #require(model.canvas.components.first { $0.isUser })
+        UserPanel(session: model, user: alice).clearance.wrappedValue = "sc"
+        model.removeClearance(id: "sc")
+        await project.save()
+
+        #expect(model.errorMessage == nil)
+        let source = try written(useCases)
+        #expect(source.clearances.isEmpty)
+        #expect(source.users.map(\.clearanceId) == [nil])
     }
 
     // MARK: the sheets draw

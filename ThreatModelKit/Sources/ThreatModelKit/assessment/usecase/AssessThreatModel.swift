@@ -47,6 +47,31 @@ public struct AssessThreatModelResponse: Equatable, Sendable {
 /// What an assessor decided a threat's severity is, and why, in report-ready
 /// form: both labels already resolved, so a delivery mechanism looks up
 /// nothing else.
+/// One compensating control on one threat, as a delivery mechanism reads it.
+public struct AssessedCompensatingControl: Hashable, Sendable {
+    public let label: String
+    /// 0 to 100.
+    public let reducesRiskBy: Int
+    public let rationale: String
+    public let sources: [String]
+    /// What proves the control is in place, or nil when nothing does.
+    public let evidence: String?
+
+    public init(
+        label: String,
+        reducesRiskBy: Int,
+        rationale: String,
+        sources: [String] = [],
+        evidence: String? = nil
+    ) {
+        self.label = label
+        self.reducesRiskBy = reducesRiskBy
+        self.rationale = rationale
+        self.sources = sources
+        self.evidence = evidence
+    }
+}
+
 public struct AssessedSeverityDecision: Hashable, Sendable {
     /// The severity the threat started from.
     public let fromLabel: String
@@ -338,6 +363,8 @@ public struct AssessedThreat: Hashable, Sendable {
     public let scoreBeforePathwayMitigation: Int
     /// What compensates this threat, from the controls file, by label.
     public let compensatingLabels: [String]
+    /// What compensates this threat, whole, in the order the score read it.
+    public let compensating: [AssessedCompensatingControl]
     /// The evidence tier the compensating control states, or nil.
     public let compensatingEvidenceId: String?
     /// Where the compensating control's proof is, or nil.
@@ -428,6 +455,7 @@ public struct AssessedThreat: Hashable, Sendable {
         pathwayMitigationLabels: [String] = [],
         scoreBeforePathwayMitigation: Int = 0,
         compensatingLabels: [String] = [],
+        compensating: [AssessedCompensatingControl] = [],
         compensatingEvidenceId: String? = nil,
         compensatingEvidenceReference: String? = nil,
         compensatingVerifiedOn: String? = nil,
@@ -474,6 +502,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.pathwayMitigationLabels = pathwayMitigationLabels
         self.scoreBeforePathwayMitigation = scoreBeforePathwayMitigation
         self.compensatingLabels = compensatingLabels
+        self.compensating = compensating
         self.compensatingEvidenceId = compensatingEvidenceId
         self.compensatingEvidenceReference = compensatingEvidenceReference
         self.compensatingVerifiedOn = compensatingVerifiedOn
@@ -687,6 +716,15 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     pathwayMitigationLabels: threat.mitigatedBy.map(\.label),
                     scoreBeforePathwayMitigation: threat.scoreBeforePathwayMitigation,
                     compensatingLabels: threat.compensating.map(\.label),
+                    compensating: threat.compensating.map {
+                        AssessedCompensatingControl(
+                            label: $0.label,
+                            reducesRiskBy: $0.reducesRiskBy,
+                            rationale: $0.rationale,
+                            sources: $0.sources,
+                            evidence: $0.proof.isEmpty ? nil : $0.proof.says
+                        )
+                    },
                     compensatingEvidenceId: threat.compensating.first?.proof.evidence?.rawValue,
                     compensatingEvidenceReference: threat.compensating.first.flatMap {
                         $0.proof.reference.isEmpty ? nil : $0.proof.reference

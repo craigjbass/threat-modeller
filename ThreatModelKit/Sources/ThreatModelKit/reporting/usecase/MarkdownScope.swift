@@ -65,6 +65,9 @@ public enum MarkdownScope {
         for client in user.clients {
             clauses.append("through \(client.name) reaches \(joined(client.reaches))")
         }
+        if let clearance = user.clearanceName {
+            clauses.append("holds the clearance \(clearance)")
+        }
         if let actor = user.threatActorName {
             clauses.append("is the threat actor \(actor)")
         }

@@ -572,7 +572,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     uses: $0.uses.isEmpty ? nil : $0.uses,
                     reaches: $0.reaches,
                     threatActorId: $0.threatActorId,
-                    isAdversary: $0.isAdversary ? true : nil
+                    isAdversary: $0.isAdversary ? true : nil,
+                    clearanceId: $0.clearanceId
                 )
             }
         )
@@ -660,7 +661,8 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     uses: $0.uses ?? [],
                     reaches: $0.reaches,
                     threatActorId: $0.threatActorId,
-                    isAdversary: $0.isAdversary ?? false
+                    isAdversary: $0.isAdversary ?? false,
+                    clearanceId: $0.clearanceId
                 )
             }
         )

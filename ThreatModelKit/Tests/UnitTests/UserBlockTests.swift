@@ -156,8 +156,8 @@ struct UserBlockTests {
 
         #expect(
             read.diagnostics.contains {
-                $0.message == "a user holds name, role, access, uses, reaches and threat_actor, "
-                    + "not \"technology\""
+                $0.message == "a user holds name, role, access, uses, reaches, threat_actor "
+                    + "and clearance, not \"technology\""
             }
         )
     }
@@ -775,8 +775,8 @@ struct UserBlockTests {
 
         #expect(
             read.diagnostics.contains {
-                $0.message == "an adversary holds name, role, access, uses, reaches and "
-                    + "threat_actor, not \"technology\""
+                $0.message == "an adversary holds name, role, access, uses, reaches, "
+                    + "threat_actor and clearance, not \"technology\""
             }
         )
     }

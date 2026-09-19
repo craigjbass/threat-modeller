@@ -234,6 +234,8 @@ public struct ThreatResolver {
     /// Where each faced actor performs. An actor a user with clients names
     /// performs on the user's path and not beyond.
     private let reach: ActorReach
+    /// What the clearances the legitimate users hold answer, by source.
+    private let clearances: ClearanceCover
 
     public init(model: ThreatModel, catalogue: TechnologyCatalogue) {
         self.model = model
@@ -241,6 +243,7 @@ public struct ThreatResolver {
         lookup = TechnologyLookup(model: model, catalogue: catalogue)
         facedActors = ThreatActorLookup(model: model, catalogue: catalogue).faced()
         reach = ActorReach(model: model)
+        clearances = ClearanceCover(model: model)
     }
 
     public func resolve() -> [ResolvedThreat] {
@@ -595,9 +598,11 @@ public struct ThreatResolver {
     /// stronger, not the sum, which is the rule the pathway mitigations follow.
     private func compensated(_ threat: ResolvedThreat) -> ResolvedThreat {
         let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
-        guard let controls = model.compensatingControls[key], controls.isEmpty == false else {
-            return threat
+        var controls = model.compensatingControls[key] ?? []
+        if threat.likelihood == .insider, let cover = clearances.cover(on: threat.source.id) {
+            controls.append(cover.asCompensatingControl)
         }
+        guard controls.isEmpty == false else { return threat }
 
         let strongest = controls.map(\.reducesRiskBy).max() ?? 0
         let reduced = max(1, Int((Double(threat.score.value) * (1 - Double(strongest) / 100)).rounded()))

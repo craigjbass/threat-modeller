@@ -62,7 +62,15 @@ extension WindowModelParityTests {
             ("third_party", nested("third_party")),
             ("diagram", nested("diagram")),
             ("faces", .writes("faces-")),
-            ("threat_actor", nested("threat_actor"))
+            ("threat_actor", nested("threat_actor")),
+            ("clearance", nested("clearance"))
+        ])) { first, _ in first }
+        all.merge(rows("arch", "clearance", [
+            ("name", .writes("clearance-name")),
+            ("description", .writes("clearance-description")),
+            ("reduces_insider_risk_by", .writes("clearance-reduces-insider-risk-by")),
+            ("rationale", .writes("clearance-rationale")),
+            ("sources", .writes("clearance-sources"))
         ])) { first, _ in first }
         all.merge(rows("arch", "user", [
             ("name", .writes("user-name")),
@@ -70,7 +78,8 @@ extension WindowModelParityTests {
             ("access", .writes("user-access")),
             ("uses", .writes("user-uses")),
             ("reaches", .writes("user-reaches")),
-            ("threat_actor", .writes("user-threat-actor"))
+            ("threat_actor", .writes("user-threat-actor")),
+            ("clearance", .writes("user-clearance"))
         ])) { first, _ in first }
         all.merge(rows("arch", "adversary", [
             ("name", .writes("user-name")),
@@ -78,7 +87,8 @@ extension WindowModelParityTests {
             ("access", .writes("user-access")),
             ("uses", .writes("user-uses")),
             ("reaches", .writes("user-reaches")),
-            ("threat_actor", .writes("user-threat-actor"))
+            ("threat_actor", .writes("user-threat-actor")),
+            ("clearance", .writes("user-clearance"))
         ])) { first, _ in first }
         all.merge(rows("arch", "attribute", [
             ("value", .writes("system-attribute-value"))
