@@ -161,12 +161,9 @@ public final class LanguageServer: @unchecked Sendable {
             let before = index > 0 ? tokens[index - 1] : nil
             let after = index + 1 < tokens.count ? tokens[index + 1] : nil
             guard let type = type(of: token, after: before, before: after) else { continue }
-            // The protocol counts from zero and the lexer counts from one.
             let line = token.line - 1
             let column = token.column - 1
             guard line >= 0, column >= 0, line < lengths.count else { continue }
-            // The protocol states that a token stays on one line, and a
-            // heredoc does not, so a token stops at the end of its own line.
             let length = min(token.length, lengths[line] - column)
             guard length > 0 else { continue }
             data += [

@@ -232,6 +232,60 @@ struct LanguageServerTests {
         #expect(semanticTokens("", at: "file:///work/threatmodel/empty.arch") == [])
     }
 
+    /// One token of the wire format, decoded from the five-number deltas back
+    /// to an absolute line and column.
+    private struct DecodedToken: Equatable {
+        let line: Int
+        let column: Int
+        let length: Int
+        let type: Int
+    }
+
+    private func decoded(_ data: [Int]) -> [DecodedToken] {
+        var line = 0
+        var column = 0
+        var tokens: [DecodedToken] = []
+        var index = 0
+        while index + 4 < data.count {
+            line += data[index]
+            column = data[index] == 0 ? column + data[index + 1] : data[index + 1]
+            tokens.append(DecodedToken(line: line, column: column, length: data[index + 2], type: data[index + 3]))
+            index += 5
+        }
+        return tokens
+    }
+
+    @Test func sendsNoTokenPastTheEndOfTheLineAHeredocOpensOn() {
+        let data = semanticTokens("""
+        <<EOT
+        one
+        two
+        EOT
+        """, at: "file:///work/threatmodel/small.arch")
+
+        #expect(decoded(data) == [DecodedToken(line: 0, column: 0, length: 5, type: 1)])
+    }
+
+    @Test func sendsTheLexersLineOneColumnOneAsLineZeroColumnZero() {
+        let data = semanticTokens("true", at: "file:///work/threatmodel/tiny.arch")
+
+        #expect(data == [0, 0, 4, 0, 0])
+    }
+
+    @Test func leavesOutEveryTokenForALineAHeredocSwallows() {
+        let data = semanticTokens("""
+        x = <<EOT
+        one
+        two
+        EOT
+        y = 2
+        """, at: "file:///work/threatmodel/small.arch")
+
+        let heldLines = decoded(data).map(\.line)
+        #expect(Set(heldLines).isDisjoint(with: [1, 2, 3]))
+        #expect(heldLines.contains(4))
+    }
+
     // MARK: diagnostics
 
     @Test func publishesTheParsersOwnDiagnostics() throws {
