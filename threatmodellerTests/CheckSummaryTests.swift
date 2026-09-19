@@ -177,6 +177,47 @@ struct CheckSummaryTests {
         )
     }
 
+    // MARK: which finding warns rather than fails
+
+    private func aSystemCheck(didParse: Bool) -> SystemCheck {
+        SystemCheck(
+            name: "Payments",
+            didParse: didParse,
+            unreadable: nil,
+            diagnosticsPath: "/work/threatmodel/payments.arch",
+            controlsPath: "/work/threatmodel/payments.controls",
+            governancePath: "/work/threatmodel/governance.hcl",
+            controlsText: nil,
+            diagnostics: [],
+            unanswered: [],
+            stale: [],
+            staleTrees: [],
+            governance: [],
+            tolerance: "medium"
+        )
+    }
+
+    @Test func aDiagnosticOnAParsedSystemWarns() {
+        let finding = CheckFinding(category: .diagnostic, said: "a diagnostic")
+        let system = aSystemCheck(didParse: true)
+
+        #expect(CheckSummarySheet.warns(finding, of: system))
+    }
+
+    @Test func aDiagnosticOnASystemThatDidNotParseDoesNotWarn() {
+        let finding = CheckFinding(category: .diagnostic, said: "a diagnostic")
+        let system = aSystemCheck(didParse: false)
+
+        #expect(CheckSummarySheet.warns(finding, of: system) == false)
+    }
+
+    @Test func anUnansweredThreatDoesNotWarnWhetherTheSystemParsedOrNot() {
+        let finding = CheckFinding(category: .unanswered, said: "an unanswered threat")
+
+        #expect(CheckSummarySheet.warns(finding, of: aSystemCheck(didParse: true)) == false)
+        #expect(CheckSummarySheet.warns(finding, of: aSystemCheck(didParse: false)) == false)
+    }
+
     // MARK: the summary is what check prints
 
     @Test func statesEverySystemTheWayTheUseCaseAnswersIt() async {

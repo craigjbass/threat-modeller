@@ -28,7 +28,6 @@ struct CheckSummarySheet: View {
         }
     }
 
-    /// The one state: what `threatmodeller check` would exit with, and why.
     var says: String {
         guard passes == false else { return "This project passes check." }
         return failureCount == 1
@@ -97,11 +96,14 @@ struct CheckSummarySheet: View {
         .accessibilityIdentifier("check-summary-sheet")
     }
 
-    /// One finding, in the words the verb prints, with its group named. A
-    /// diagnostic on a parsed system is a warning and does not fail the
-    /// check; everything else does.
+    /// Whether a finding warns rather than fails the check.
+    static func warns(_ finding: CheckFinding, of system: SystemCheck) -> Bool {
+        finding.category == .diagnostic && system.didParse
+    }
+
+    /// One finding, in the words the verb prints, with its group named.
     private func row(_ finding: CheckFinding, of system: SystemCheck, at index: Int) -> some View {
-        let warns = finding.category == .diagnostic && system.didParse
+        let warns = Self.warns(finding, of: system)
         return HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: symbol(of: finding.category))
                 .foregroundStyle(warns ? Color.yellow : Color.red)
