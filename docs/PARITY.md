@@ -62,6 +62,16 @@ A policy file and a library file are read in the window and written in a text
 editor. Their rows state `read only in the window` with the place the window
 draws the value.
 
+## An attribute that names another block
+
+One attribute names a block somewhere else in the file, so removing that block
+changes the attribute. The row states the one rule the window, the use case and
+the language all follow.
+
+| Language | Attribute | Rule |
+| --- | --- | --- |
+| `.arch` | `recommendation.blocked_by` on a `mitigates` edge | The parser refuses an action whose `blocked_by` names an assumption the file does not declare. `RemoveAssumption` clears `blocked_by` on every edge that names the removed assumption, keeps the action, and reports how many actions it unblocked. The assumptions panel shows that count in `unblocked-actions-note`. The mitigates sheet opens the "Held up by" picker on `nothing` when the model no longer declares the blocker. |
+
 ## What to do when a language changes
 
 1. Add the attribute to the block's entry in `LanguageVocabulary`.

@@ -71,6 +71,9 @@ final class ThreatModelSession {
         mitigations: []
     )
     private(set) var errorMessage: String?
+    /// What the last assumption removal unblocked, for the assumptions panel
+    /// to show.
+    private(set) var unblockedActionsNote: String?
     /// The threats the technology editor offers. Read once: the catalogue does
     /// not change while the application runs.
     private(set) var threatChoices: [ThreatChoice] = []
@@ -1583,9 +1586,9 @@ final class ThreatModelSession {
     }
 
     func removeAssumption(label: String) {
-        useCases.removeAssumption()
-            .execute(RemoveAssumptionRequest(label: label))
-            .describe(into: &errorMessage)
+        let answer = useCases.removeAssumption().execute(RemoveAssumptionRequest(label: label))
+        answer.describe(into: &errorMessage)
+        unblockedActionsNote = answer.unblockedActionsNote
         refresh()
     }
 

@@ -79,7 +79,7 @@ public struct RemoveAssumptionRequest: Equatable, Sendable {
 }
 
 public enum RemoveAssumptionResponse: Equatable, Sendable {
-    case removed
+    case removed(unblockedActions: Int)
     case noSuchAssumption
 
     public func describe(into message: inout String?) {
@@ -88,9 +88,19 @@ public enum RemoveAssumptionResponse: Equatable, Sendable {
         case .noSuchAssumption: message = "This system holds no such assumption."
         }
     }
+
+    /// What the window says about the actions the removal unblocked.
+    public var unblockedActionsNote: String? {
+        guard case .removed(let actions) = self, actions > 0 else { return nil }
+        if actions == 1 {
+            return "One recommendation no longer waits on that assumption."
+        }
+        return "\(actions) recommendations no longer wait on that assumption."
+    }
 }
 
-/// Takes an assumption off the system.
+/// Takes an assumption off the system, and takes the blocker off every edge
+/// action that names it.
 public struct RemoveAssumption: RemoveAssumptionUseCase {
     private let models: ThreatModelGateway
 
@@ -101,12 +111,29 @@ public struct RemoveAssumption: RemoveAssumptionUseCase {
     public func execute(_ request: RemoveAssumptionRequest) -> RemoveAssumptionResponse {
         let label = request.label.trimmingWhitespace()
 
-        return models.mutate(label: ChangeLabel.setAssumption) { model in
+        return models.mutate(label: ChangeLabel.removeAssumption) { model in
             guard let found = model.assumptions.firstIndex(where: { $0.label == label }) else {
                 return .noSuchAssumption
             }
             model.assumptions.remove(at: found)
-            return .removed
+            return .removed(unblockedActions: Self.unblock(label, in: &model))
         }
+    }
+
+    private static func unblock(_ label: String, in model: inout ThreatModel) -> Int {
+        var unblocked = 0
+        for index in model.mitigatesEdges.indices {
+            guard let action = model.mitigatesEdges[index].action,
+                  action.blockedBy == label else { continue }
+            model.mitigatesEdges[index].action = EdgeAction(
+                label: action.label,
+                text: action.text,
+                note: action.note,
+                blockedBy: nil,
+                sources: action.sources
+            )
+            unblocked += 1
+        }
+        return unblocked
     }
 }

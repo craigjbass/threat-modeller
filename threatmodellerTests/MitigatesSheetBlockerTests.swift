@@ -64,6 +64,46 @@ struct MitigatesSheetBlockerTests {
         #expect(opening == .nothing)
     }
 
+    @Test func removingTheAssumptionUnblocksTheActionAndThePanelSaysSo() async throws {
+        let (project, useCases) = await aProject()
+        let model = try #require(project.model)
+
+        model.setAssumption(label: "the-old-assumption", text: "The team has none.", owner: nil)
+        model.setMitigatesEdge(
+            from: "guard",
+            to: "store",
+            threatIds: ["credential-theft"],
+            reducesRiskBy: 60,
+            status: "assumed",
+            actionLabel: "adopt-the-guard",
+            actionText: "Adopt the guard",
+            actionNote: "The platform team owns it.",
+            blockedBy: "the-old-assumption",
+            sources: ["https://example.test/plan"]
+        )
+
+        model.removeAssumption(label: "the-old-assumption")
+        await project.save()
+
+        #expect(model.errorMessage == nil)
+        #expect(
+            model.unblockedActionsNote
+                == "One recommendation no longer waits on that assumption."
+        )
+        let edge = try #require(model.canvas.mitigations.first)
+        #expect(edge.actionLabel == "adopt-the-guard")
+        #expect(edge.actionBlockedBy == nil)
+        let arch = try #require(useCases.project.text(at: "/work/threatmodel/payments.arch"))
+        #expect(arch.contains("blocked_by") == false)
+        #expect(arch.contains("recommendation \"adopt-the-guard\" {"))
+
+        let renderer = ImageRenderer(
+            content: AssumptionsPanel(session: model).frame(width: 400, height: 600)
+        )
+        renderer.scale = 1
+        #expect(renderer.cgImage != nil)
+    }
+
     /// The scenario the sheet guards against: an edge's action names an
     /// assumption a person later removes. A save that uses the picker's
     /// opening choice keeps the action and drops only the blocker, and a

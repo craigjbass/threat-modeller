@@ -74,7 +74,10 @@ struct SetAssumptionTests {
     @Test func removesOneWhenTheTextIsCleared() {
         _ = set(label: "network-segmented")
 
-        #expect(app.removeAssumption().execute(RemoveAssumptionRequest(label: "network-segmented")) == .removed)
+        #expect(
+            app.removeAssumption().execute(RemoveAssumptionRequest(label: "network-segmented"))
+                == .removed(unblockedActions: 0)
+        )
         #expect(assumptions.isEmpty)
     }
 
@@ -82,7 +85,15 @@ struct SetAssumptionTests {
         #expect(app.removeAssumption().execute(RemoveAssumptionRequest(label: "nothing")) == .noSuchAssumption)
     }
 
-    @Test func leavesAnAssumedEdgesBlockedByUnchangedWhenTheAssumptionIsRemoved() {
+    @Test func namesTheRemovalForTheEditMenu() {
+        _ = set(label: "network-segmented")
+
+        _ = app.removeAssumption().execute(RemoveAssumptionRequest(label: "network-segmented"))
+
+        #expect(app.modelStore.undoLabel == ChangeLabel.removeAssumption)
+    }
+
+    @Test func clearsTheBlockerOnEveryEdgeThatNamesTheRemovedAssumption() {
         guard case .added(let guardId) = app.addComponent().execute(
             AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "internal")
         ), case .added(let storeId) = app.addComponent().execute(
@@ -107,10 +118,14 @@ struct SetAssumptionTests {
             )
         )
 
-        #expect(app.removeAssumption().execute(RemoveAssumptionRequest(label: "guard-not-deployed")) == .removed)
+        #expect(
+            app.removeAssumption().execute(RemoveAssumptionRequest(label: "guard-not-deployed"))
+                == .removed(unblockedActions: 1)
+        )
 
         #expect(assumptions.isEmpty)
-        #expect(edges.first?.action?.blockedBy == "guard-not-deployed")
+        #expect(edges.first?.action?.label == "adopt-the-guard")
+        #expect(edges.first?.action?.blockedBy == nil)
     }
 
     private let anAssumedEdgeNamingTheRemovedAssumption = """
@@ -137,17 +152,22 @@ struct SetAssumptionTests {
     }
     """
 
-    @Test func writesTheDanglingBlockedByOutToTheArchitectureFileWithNoAssumptionBlock() throws {
+    @Test func keepsTheEdgesActionThroughSaveAndOpenWhenTheAssumptionIsRemoved() throws {
         app.project.put(anAssumedEdgeNamingTheRemovedAssumption, at: "/work/threatmodel/payments.arch")
         _ = app.openProject().execute(OpenProjectRequest(root: "/work"))
         _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
 
         _ = app.removeAssumption().execute(RemoveAssumptionRequest(label: "guard-not-deployed"))
         _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+        _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
 
         let written = try #require(app.project.text(at: "/work/threatmodel/payments.arch"))
-        #expect(written.contains("blocked_by = \"guard-not-deployed\""))
+        #expect(written.contains("blocked_by") == false)
         #expect(written.contains("assumption \"guard-not-deployed\"") == false)
+        #expect(edges.count == 1)
+        #expect(edges.first?.action?.label == "adopt-the-guard")
+        #expect(edges.first?.action?.text == "Adopt the guard")
+        #expect(edges.first?.action?.blockedBy == nil)
     }
 
     /// The point of the use case is that the interface can reach the feature,

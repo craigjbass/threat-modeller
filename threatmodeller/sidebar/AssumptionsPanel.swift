@@ -50,6 +50,14 @@ struct AssumptionsPanel: View {
                     }
                 }
 
+                if let unblockedActionsNote = session.unblockedActionsNote {
+                    Text(unblockedActionsNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("unblocked-actions-note")
+                }
+
                 writeOne
 
                 Divider()
