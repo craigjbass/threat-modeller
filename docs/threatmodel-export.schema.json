@@ -20,7 +20,11 @@
     "thirdParties",
     "knownVulnerabilities",
     "useCases",
-    "zones"
+    "zones",
+    "users",
+    "threatActors",
+    "attackTrees",
+    "diagrams"
   ],
   "additionalProperties": false,
   "properties": {
@@ -249,6 +253,7 @@
           "performedBy",
           "reducedBy",
           "riskLevel",
+          "scoreIfAssumptionsHold",
           "riskScore",
           "severity",
           "sourceId",
@@ -318,7 +323,31 @@
             }
           },
           "answeredUpstreamBy": { "type": "array", "items": { "type": "string" } },
-          "reducedBy": { "type": "array", "items": { "type": "string" } }
+          "reducedBy": { "type": "array", "items": { "type": "string" } },
+          "scoreIfAssumptionsHold": {
+            "type": "integer",
+            "description": "The score when every assumed mitigation is in place. Equal to riskScore when no assumed edge answers this threat."
+          },
+          "raisedByTree": {
+            "type": ["string", "null"],
+            "description": "The name of the attack tree that raised this threat, or absent when no tree did."
+          },
+          "overriddenBy": {
+            "type": ["string", "null"],
+            "description": "The library that changed this threat, or absent when the catalogue's own words stand."
+          },
+          "severityDecision": {
+            "type": "object",
+            "description": "What an assessor decided this threat's severity is, and why. Absent when no decision names it.",
+            "required": ["from", "rationale", "sources", "to"],
+            "additionalProperties": false,
+            "properties": {
+              "from": { "type": "string" },
+              "to": { "type": "string" },
+              "rationale": { "type": "string" },
+              "sources": { "type": "array", "items": { "type": "string" } }
+            }
+          }
         }
       }
     },
@@ -379,6 +408,126 @@
           "reviewBy": { "type": ["string", "null"] },
           "rationale": { "type": "string" },
           "isOverdue": { "type": "boolean" }
+        }
+      }
+    },
+    "users": {
+      "type": "array",
+      "description": "The people who use the system, and the adversaries who behave like one, in model order.",
+      "items": {
+        "type": "object",
+        "required": ["access", "clients", "isAdversary", "name", "reaches", "role"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "access": { "type": "string" },
+          "reaches": {
+            "type": "array",
+            "description": "The names of the components this person reaches directly.",
+            "items": { "type": "string" }
+          },
+          "clients": {
+            "type": "array",
+            "description": "The technologies this person reaches the system through, each with what it reaches.",
+            "items": {
+              "type": "object",
+              "required": ["name", "reaches"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "reaches": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "threatActorName": { "type": ["string", "null"] },
+          "isAdversary": {
+            "type": "boolean",
+            "description": "True for a threat actor that behaves like a user and is not a legitimate user."
+          },
+          "clearance": {
+            "type": ["string", "null"],
+            "description": "The name of the security clearance this person holds, or absent when the model states none."
+          }
+        }
+      }
+    },
+    "threatActors": {
+      "type": "array",
+      "description": "The threat actors this assessment is written against.",
+      "items": {
+        "type": "object",
+        "required": ["capability", "intent", "name", "threatsPerformed"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "capability": { "type": "string" },
+          "intent": { "type": "string" },
+          "threatsPerformed": { "type": "integer" }
+        }
+      }
+    },
+    "attackTrees": {
+      "type": "array",
+      "description": "The routes a person wrote, matched against the assessed model.",
+      "items": {
+        "type": "object",
+        "required": [
+          "goalElement",
+          "goalThreatName",
+          "id",
+          "isOpen",
+          "isStale",
+          "name",
+          "raisesRiskBy",
+          "score",
+          "scoreBefore",
+          "steps"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "raisesRiskBy": { "type": "integer" },
+          "goalThreatName": { "type": "string" },
+          "goalElement": { "type": "string" },
+          "isOpen": { "type": "boolean" },
+          "isStale": {
+            "type": "boolean",
+            "description": "True when a step or the goal no longer binds. A stale tree moves no score."
+          },
+          "scoreBefore": { "type": "integer" },
+          "score": { "type": "integer" },
+          "closedBy": { "type": ["string", "null"] },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["element", "state", "threatName"],
+              "additionalProperties": false,
+              "properties": {
+                "threatName": { "type": "string" },
+                "element": { "type": "string" },
+                "state": { "type": "string", "enum": ["open", "closed", "unbound"] },
+                "closedBy": { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "diagrams": {
+      "type": "array",
+      "description": "The pictures the team keeps beside the model, with their text unchanged.",
+      "items": {
+        "type": "object",
+        "required": ["kind", "label", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "kind": { "type": "string" },
+          "text": { "type": "string" }
         }
       }
     }

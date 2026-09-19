@@ -73,6 +73,10 @@ struct ExportedModel: Codable {
     let recommendations: [ExportedRecommendation]
     let leverage: [ExportedAction]
     let acceptedRisks: [ExportedAcceptedRisk]
+    let users: [ExportedUser]
+    let threatActors: [ExportedThreatActor]
+    let attackTrees: [ExportedAttackTree]
+    let diagrams: [ExportedDiagram]
 
     init(_ report: Report) {
         schemaVersion = ExportModelAsJson.schemaVersion
@@ -91,6 +95,112 @@ struct ExportedModel: Codable {
         recommendations = report.recommendations.map(ExportedRecommendation.init)
         leverage = report.actions.map(ExportedAction.init)
         acceptedRisks = report.acceptedRisks.map(ExportedAcceptedRisk.init)
+        users = report.users.map(ExportedUser.init)
+        threatActors = report.threatActors.map(ExportedThreatActor.init)
+        attackTrees = report.attackTrees.map(ExportedAttackTree.init)
+        diagrams = report.diagrams.map(ExportedDiagram.init)
+    }
+}
+
+struct ExportedUser: Codable {
+    let name: String
+    let role: String
+    let access: String
+    let reaches: [String]
+    let clients: [ExportedUserClient]
+    let threatActorName: String?
+    let isAdversary: Bool
+    let clearance: String?
+
+    init(_ user: ReportUser) {
+        name = user.name
+        role = user.role
+        access = user.accessLabel
+        reaches = user.reaches
+        clients = user.clients.map(ExportedUserClient.init)
+        threatActorName = user.threatActorName
+        isAdversary = user.isAdversary
+        clearance = user.clearanceName
+    }
+}
+
+struct ExportedUserClient: Codable {
+    let name: String
+    let reaches: [String]
+
+    init(_ client: ReportClient) {
+        name = client.name
+        reaches = client.reaches
+    }
+}
+
+struct ExportedThreatActor: Codable {
+    let name: String
+    let capability: String
+    let intent: String
+    let threatsPerformed: Int
+
+    init(_ actor: ReportThreatActor) {
+        name = actor.name
+        capability = actor.capabilityLabel
+        intent = actor.intent
+        threatsPerformed = actor.threatsPerformed
+    }
+}
+
+struct ExportedAttackTree: Codable {
+    let id: String
+    let name: String
+    let description: String?
+    let raisesRiskBy: Int
+    let goalThreatName: String
+    let goalElement: String
+    let isOpen: Bool
+    let isStale: Bool
+    let scoreBefore: Int
+    let score: Int
+    let closedBy: String?
+    let steps: [ExportedAttackTreeStep]
+
+    init(_ tree: BoundAttackTree) {
+        id = tree.id
+        name = tree.name
+        description = tree.description
+        raisesRiskBy = tree.raisesRiskBy
+        goalThreatName = tree.goalName
+        goalElement = tree.goalSourceName
+        isOpen = tree.isOpen
+        isStale = tree.isStale
+        scoreBefore = tree.scoreBefore
+        score = tree.score
+        closedBy = tree.closedBy
+        steps = tree.steps.map(ExportedAttackTreeStep.init)
+    }
+}
+
+struct ExportedAttackTreeStep: Codable {
+    let threatName: String
+    let element: String
+    let state: String
+    let closedBy: String?
+
+    init(_ step: BoundStep) {
+        threatName = step.threatName
+        element = step.sourceName
+        state = step.state.rawValue
+        closedBy = step.closedBy
+    }
+}
+
+struct ExportedDiagram: Codable {
+    let label: String
+    let kind: String
+    let text: String
+
+    init(_ diagram: ReportDiagram) {
+        label = diagram.label
+        kind = diagram.kind
+        text = diagram.text
     }
 }
 
@@ -339,6 +449,10 @@ struct ExportedThreat: Codable {
     let compensating: [ExportedCompensatingControl]
     let answeredUpstreamBy: [String]
     let reducedBy: [String]
+    let scoreIfAssumptionsHold: Int
+    let raisedByTree: String?
+    let overriddenBy: String?
+    let severityDecision: ExportedSeverityDecision?
 
     init(_ threat: ReportThreat) {
         id = threat.threatId
@@ -363,6 +477,24 @@ struct ExportedThreat: Codable {
         compensating = threat.compensating.map(ExportedCompensatingControl.init)
         answeredUpstreamBy = threat.pathwayMitigationLabels
         reducedBy = threat.mitigatedByComponentLabels
+        scoreIfAssumptionsHold = threat.scoreIfAssumptionsHold
+        raisedByTree = threat.raisedByTree
+        overriddenBy = threat.overriddenBy
+        severityDecision = threat.severityDecision.map(ExportedSeverityDecision.init)
+    }
+}
+
+struct ExportedSeverityDecision: Codable {
+    let from: String
+    let to: String
+    let rationale: String
+    let sources: [String]
+
+    init(_ decision: ReportSeverityDecision) {
+        from = decision.fromLabel
+        to = decision.toLabel
+        rationale = decision.rationale
+        sources = decision.sources
     }
 }
 

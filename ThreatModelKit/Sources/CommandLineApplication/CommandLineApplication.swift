@@ -1918,9 +1918,13 @@ public struct CommandLineApplication {
                 text = useCases.exportModelAsOtm().execute(ExportModelAsOtmRequest()).json
                 fileName = "\(system.name).otm.json"
             case .threatcl:
-                text = useCases.exportModelAsThreatcl()
-                    .execute(ExportModelAsThreatclRequest()).hcl
+                let written = useCases.exportModelAsThreatcl()
+                    .execute(ExportModelAsThreatclRequest())
+                text = written.hcl
                 fileName = "\(system.name).hcl"
+                if isQuiet == false {
+                    for note in written.diagnostics { output("threatmodeller: \(note)") }
+                }
             }
 
             if wantsStandardOutput {

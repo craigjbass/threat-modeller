@@ -93,7 +93,7 @@ struct OtmDocument: Codable {
         for zone in report.zones {
             for id in zone.componentIds { zoneByComponent[id] = OtmDocument.identifier(zone.name) }
         }
-        components = report.components.map {
+        var written = report.components.map {
             OtmComponent(
                 id: $0.id,
                 name: $0.name,
@@ -105,7 +105,7 @@ struct OtmDocument: Codable {
         }
         var nameToId: [String: String] = [:]
         for component in report.components { nameToId[component.name] = component.id }
-        dataflows = report.connections.map { flow in
+        let flows = report.connections.map { flow -> OtmDataflow in
             let source = nameToId[flow.sourceName] ?? flow.sourceName
             let target = nameToId[flow.targetName] ?? flow.targetName
             return OtmDataflow(
@@ -118,6 +118,28 @@ struct OtmDocument: Codable {
                 modelTags: flow.tags
             )
         }
+        dataflows = flows
+        var declared = Set(written.map(\.id))
+        let userByName = Dictionary(report.users.map { ($0.name, $0) }, uniquingKeysWith: { one, _ in one })
+        for endpoint in flows.flatMap({ [$0.source, $0.destination] })
+        where declared.contains(endpoint) == false {
+            declared.insert(endpoint)
+            let user = userByName[endpoint]
+            written.append(
+                OtmComponent(
+                    id: endpoint,
+                    name: endpoint,
+                    type: user == nil ? "generic-component" : "external-actor",
+                    parent: OtmParent(trustZone: nil),
+                    tags: user.map {
+                        [$0.accessLabel, $0.isAdversary ? "Adversary" : "User"]
+                            + ($0.clearanceName.map { [$0] } ?? [])
+                    } ?? [],
+                    modelTags: []
+                )
+            )
+        }
+        components = written
         // OTM keys a threat once and lists what it sits on, and this model
         // raises one threat on many elements. Each pair is one OTM threat, so
         // no score is lost, and the id says which pair it is.

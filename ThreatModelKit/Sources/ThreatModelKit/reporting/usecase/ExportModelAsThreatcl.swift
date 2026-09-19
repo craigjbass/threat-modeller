@@ -9,10 +9,13 @@ public struct ExportModelAsThreatclRequest: Equatable, Sendable {
 public struct ExportModelAsThreatclResponse: Equatable, Sendable {
     public let hcl: String
     public let fileName: String
+    /// What this export left out, one sentence each.
+    public let diagnostics: [String]
 
-    public init(hcl: String, fileName: String) {
+    public init(hcl: String, fileName: String, diagnostics: [String] = []) {
         self.hcl = hcl
         self.fileName = fileName
+        self.diagnostics = diagnostics
     }
 }
 
@@ -181,12 +184,12 @@ public struct ExportModelAsThreatcl: ExportModelAsThreatclUseCase {
             )
             lines.append("      impact = \(HCL.string(Self.impact(of: threat.severityLabel)))")
             lines.append("      severity = \(HCL.string(Self.severity(of: threat.riskLevel)))")
+            let scores = "Residual \(threat.riskScore) of \(threat.inherentScore) "
+                + "before controls, on \(threat.sourceName)."
             lines.append(
                 "      rationale = "
                     + HCL.string(
-                        threat.likelihoodRationale
-                            ?? "Residual \(threat.riskScore) of \(threat.inherentScore) "
-                                + "before controls, on \(threat.sourceName)."
+                        threat.likelihoodRationale.map { "\($0) \(scores)" } ?? scores
                     )
             )
             lines.append("    }")
@@ -219,6 +222,13 @@ public struct ExportModelAsThreatcl: ExportModelAsThreatclUseCase {
 
         lines += diagram(of: report)
 
+        var diagnostics: [String] = []
+        for diagram in report.diagrams where diagram.kind != "mermaid" {
+            diagnostics.append(
+                "threatcl holds no \(diagram.kind) block, so the export dropped the"
+                    + " diagram \"\(diagram.label)\""
+            )
+        }
         for diagram in report.diagrams where diagram.kind == "mermaid" {
             lines.append("")
             lines.append("  mermaid \(HCL.string(diagram.label)) {")
@@ -236,7 +246,8 @@ public struct ExportModelAsThreatcl: ExportModelAsThreatclUseCase {
 
         return ExportModelAsThreatclResponse(
             hcl: lines.joined(separator: "\n"),
-            fileName: "\(FileNaming.stem(from: report.modelName)).hcl"
+            fileName: "\(FileNaming.stem(from: report.modelName)).hcl",
+            diagnostics: diagnostics
         )
     }
 
@@ -275,6 +286,15 @@ public struct ExportModelAsThreatcl: ExportModelAsThreatclUseCase {
                let asset = Self.asset(held: component, in: report) {
                 lines.append("      information_asset = \(HCL.string(asset))")
             }
+            lines.append("    }")
+        }
+
+        var named = Set(report.components.map(\.name))
+        for endpoint in report.connections.flatMap({ [$0.sourceName, $0.targetName] })
+        where named.contains(endpoint) == false {
+            named.insert(endpoint)
+            lines.append("")
+            lines.append("    external_element \(HCL.string(endpoint)) {")
             lines.append("    }")
         }
 

@@ -435,3 +435,305 @@ struct TextDiagramVerbTests {
         #expect(run.lines.contains { $0.contains("there is no report diagram language") })
     }
 }
+
+/// The JSON export carries the people, the trees, the diagrams and the
+/// decisions a threat holds, and the file it writes matches the schema the
+/// repository publishes.
+@Suite("The exports carry the people, the trees and the decisions")
+struct ExportCarriesThePeopleTheTreesAndTheDecisionsTests {
+    private let app = TestDependencies()
+
+    private let payments = """
+    system "Payments" {
+      threat_actor "insider" {
+        name       = "Disgruntled operator"
+        capability = "targeted"
+        intent     = "sabotage"
+        performs   = ["credential-theft"]
+      }
+
+      clearance "sc" {
+        name                    = "Security Check"
+        reduces_insider_risk_by = 60
+        rationale               = "The vetting reads the whole employment record."
+      }
+
+      diagram "The login sequence" {
+        kind = "mermaid"
+        text = <<EOT
+    sequenceDiagram
+      Customer->>API: signs in
+    EOT
+      }
+
+      diagram "The network" {
+        kind = "d2"
+        text = <<EOT
+    shape: rectangle
+    EOT
+      }
+
+      zone "app" {
+        kind    = "private"
+        network = "vpc"
+
+        component "api" {
+          technology = "aws-ec2"
+          data       = "confidential"
+        }
+
+        component "ledger" {
+          technology = "aws-rds"
+          data       = "restricted"
+        }
+      }
+
+      component "browser" {
+        technology = "actor-user"
+      }
+
+      user "alice" {
+        name         = "Alice"
+        role         = "Operator"
+        access       = "admin"
+        threat_actor = "insider"
+        clearance    = "sc"
+
+        uses "browser" {
+          reaches = ["api"]
+        }
+      }
+
+      adversary "mallory" {
+        name    = "Mallory"
+        reaches = ["api"]
+      }
+
+      flow browser -> api
+      flow alice -> ledger {
+        kind = "human"
+      }
+      flow mallory -> api
+    }
+
+    """
+
+    private let trees = """
+    attack_trees for "Payments" {
+      tree "read-the-ledger" {
+        name           = "Read the ledger"
+        description    = "An operator walks one step to the table."
+        raises_risk_by = 40
+
+        goal "misconfiguration" on component "ledger"
+
+        step "credential-theft" on component "api"
+      }
+    }
+
+    """
+
+    private func imported() {
+        let answer = app.importArchitecture()
+            .execute(ImportArchitectureRequest(text: payments, attackTreeText: trees))
+        guard case .imported = answer else {
+            Issue.record("the sample model did not import: \(answer)")
+            return
+        }
+    }
+
+    private func exportedJson() throws -> [String: Any] {
+        imported()
+        let json = app.exportModelAsJson().execute(ExportModelAsJsonRequest()).json
+        return try #require(
+            try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
+        )
+    }
+
+    @Test func theJsonCarriesTheUsersTheAdversariesTheActorsTheTreesAndTheDiagrams() throws {
+        let json = try exportedJson()
+
+        let users = try #require(json["users"] as? [[String: Any]])
+        let alice = try #require(users.first { $0["name"] as? String == "Alice" })
+        #expect(alice["role"] as? String == "Operator")
+        #expect(alice["isAdversary"] as? Bool == false)
+        #expect(alice["threatActorName"] as? String == "Disgruntled operator")
+        #expect(alice["clearance"] as? String == "Security Check")
+        let clients = try #require(alice["clients"] as? [[String: Any]])
+        #expect(clients.first?["reaches"] as? [String] == ["EC2"])
+
+        let mallory = try #require(users.first { $0["name"] as? String == "Mallory" })
+        #expect(mallory["isAdversary"] as? Bool == true)
+        #expect(mallory["reaches"] as? [String] == ["EC2"])
+
+        let actors = try #require(json["threatActors"] as? [[String: Any]])
+        #expect(actors.contains { $0["name"] as? String == "Disgruntled operator" })
+
+        let attackTrees = try #require(json["attackTrees"] as? [[String: Any]])
+        let tree = try #require(attackTrees.first)
+        #expect(tree["name"] as? String == "Read the ledger")
+        #expect(tree["raisesRiskBy"] as? Int == 40)
+        let steps = try #require(tree["steps"] as? [[String: Any]])
+        #expect(steps.contains { $0["threatName"] as? String == "Credential Theft" })
+
+        let diagrams = try #require(json["diagrams"] as? [[String: Any]])
+        #expect(diagrams.contains { $0["kind"] as? String == "mermaid" })
+        #expect(diagrams.contains { $0["kind"] as? String == "d2" })
+    }
+
+    @Test func theJsonThreatCarriesTheDecisionTheTreeTheAssumptionScoreAndTheLibrary() throws {
+        let threat = ReportThreat(
+            threatId: "credential-theft",
+            name: "Credential Theft",
+            description: "An attacker steals a credential.",
+            severityLabel: "High",
+            riskScore: 9,
+            riskLevel: "high",
+            strideLabels: ["Spoofing"],
+            mitreTechniqueIds: [],
+            raisedByTree: "Read the ledger",
+            overriddenBy: "acme",
+            sourceName: "EC2",
+            sourceKind: "Component",
+            sourceId: "component:api",
+            controls: [],
+            pathwayMitigationLabels: [],
+            scoreIfAssumptionsHold: 4,
+            severityDecision: ReportSeverityDecision(
+                fromLabel: "Medium",
+                toLabel: "High",
+                rationale: "The exploit reads the whole table.",
+                sources: ["https://example.test/decision"]
+            )
+        )
+        let json = try Self.exported(threat: threat)
+
+        let threats = try #require(json["threats"] as? [[String: Any]])
+        let written = try #require(threats.first)
+        #expect(written["raisedByTree"] as? String == "Read the ledger")
+        #expect(written["overriddenBy"] as? String == "acme")
+        #expect(written["scoreIfAssumptionsHold"] as? Int == 4)
+
+        let decision = try #require(written["severityDecision"] as? [String: Any])
+        #expect(decision["from"] as? String == "Medium")
+        #expect(decision["to"] as? String == "High")
+        #expect(decision["rationale"] as? String == "The exploit reads the whole table.")
+        #expect(decision["sources"] as? [String] == ["https://example.test/decision"])
+    }
+
+    /// The acceptance test: one model holding a user, an adversary, an attack
+    /// tree and a diagram. The JSON matches the published schema and states
+    /// all four, and neither the OTM file nor the threatcl file points a flow
+    /// at an element it does not declare.
+    @Test func theExportsStateTheUserTheAdversaryTheTreeAndTheDiagram() throws {
+        let json = try exportedJson()
+
+        #expect(Self.faults(in: json).isEmpty, "\(Self.faults(in: json))")
+
+        let users = try #require(json["users"] as? [[String: Any]])
+        #expect(users.contains { $0["name"] as? String == "Alice" })
+        #expect(users.contains { $0["isAdversary"] as? Bool == true })
+        #expect((json["attackTrees"] as? [[String: Any]])?.isEmpty == false)
+        #expect((json["diagrams"] as? [[String: Any]])?.isEmpty == false)
+
+        let otmText = app.exportModelAsOtm().execute(ExportModelAsOtmRequest()).json
+        let otm = try #require(
+            try JSONSerialization.jsonObject(with: Data(otmText.utf8)) as? [String: Any]
+        )
+        let declared = Set(
+            try #require(otm["components"] as? [[String: Any]]).compactMap { $0["id"] as? String }
+        )
+        let dataflows = try #require(otm["dataflows"] as? [[String: Any]])
+        #expect(dataflows.isEmpty == false)
+        for flow in dataflows {
+            let source = try #require(flow["source"] as? String)
+            let destination = try #require(flow["destination"] as? String)
+            #expect(declared.contains(source), "no OTM component declares \(source)")
+            #expect(declared.contains(destination), "no OTM component declares \(destination)")
+        }
+
+        let hcl = app.exportModelAsThreatcl().execute(ExportModelAsThreatclRequest()).hcl
+        for (from, to) in Self.flows(in: hcl) {
+            #expect(Self.elements(in: hcl).contains(from), "the threatcl file declares no \(from)")
+            #expect(Self.elements(in: hcl).contains(to), "the threatcl file declares no \(to)")
+        }
+    }
+
+    /// The exported JSON, for one report holding one threat.
+    private static func exported(threat: ReportThreat) throws -> [String: Any] {
+        let report = Report(
+            modelName: "Payments",
+            catalogueTag: "v1.0.0",
+            summary: ReportSummary(
+                totalThreats: 1,
+                byLevel: [],
+                byStride: [],
+                controlsOffered: 0,
+                controlsRecorded: 0
+            ),
+            components: [],
+            connections: [],
+            zones: [],
+            threats: [threat]
+        )
+        let json = ExportModelAsJson(reports: FixedReport(report: report))
+            .execute(ExportModelAsJsonRequest())
+            .json
+        return try #require(
+            try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
+        )
+    }
+
+    /// Every way the written file departs from
+    /// `docs/threatmodel-export.schema.json`.
+    private static func faults(in json: [String: Any]) -> [String] {
+        (try? JsonSchemaCheck.faults(in: json, against: JsonSchemaCheck.exportSchema()))
+            ?? ["the schema did not load"]
+    }
+
+    /// Every `from` and `to` pair the threatcl flows state.
+    private static func flows(in hcl: String) -> [(String, String)] {
+        var pairs: [(String, String)] = []
+        var from: String?
+        for line in hcl.split(separator: "\n", omittingEmptySubsequences: false) {
+            let text = line.trimmingCharacters(in: .whitespaces)
+            if text.hasPrefix("from = ") { from = Self.quoted(after: "from = ", in: text) }
+            if text.hasPrefix("to = "), let source = from {
+                if let target = Self.quoted(after: "to = ", in: text) {
+                    pairs.append((source, target))
+                }
+                from = nil
+            }
+        }
+        return pairs
+    }
+
+    /// Every element the threatcl data-flow diagram declares, by name.
+    private static func elements(in hcl: String) -> Set<String> {
+        var names: Set<String> = []
+        for line in hcl.split(separator: "\n", omittingEmptySubsequences: false) {
+            let text = line.trimmingCharacters(in: .whitespaces)
+            for word in ["process ", "data_store ", "external_element "] where text.hasPrefix(word) {
+                if let name = Self.quoted(after: word, in: text) { names.insert(name) }
+            }
+        }
+        return names
+    }
+
+    private static func quoted(after prefix: String, in line: String) -> String? {
+        let rest = line.dropFirst(prefix.count)
+        guard rest.hasPrefix("\"") else { return nil }
+        let body = rest.dropFirst()
+        guard let end = body.firstIndex(of: "\"") else { return nil }
+        return String(body[body.startIndex..<end])
+    }
+}
+
+/// A report gateway that gives back one report a test wrote.
+private struct FixedReport: BuildThreatModelReportUseCase {
+    let report: Report
+
+    func execute(_ request: BuildThreatModelReportRequest) -> BuildThreatModelReportResponse {
+        BuildThreatModelReportResponse(report: report)
+    }
+}

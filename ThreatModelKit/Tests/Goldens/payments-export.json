@@ -25,6 +25,9 @@
       "text" : "The VPC has no route to the internet."
     }
   ],
+  "attackTrees" : [
+
+  ],
   "components" : [
     {
       "assetNames" : [
@@ -39,6 +42,9 @@
       "technologyId" : "aws-ec2",
       "zoneName" : "Private Zone"
     }
+  ],
+  "diagrams" : [
+
   ],
   "exclusions" : [
     {
@@ -164,6 +170,9 @@
       "uptimeNotes" : ""
     }
   ],
+  "threatActors" : [
+
+  ],
   "threats" : [
     {
       "answeredUpstreamBy" : [
@@ -207,6 +216,7 @@
       ],
       "riskLevel" : "critical",
       "riskScore" : 13,
+      "scoreIfAssumptionsHold" : 13,
       "severity" : "Critical",
       "sourceId" : "component:api",
       "sourceKind" : "Component",
@@ -252,6 +262,7 @@
       ],
       "riskLevel" : "medium",
       "riskScore" : 6,
+      "scoreIfAssumptionsHold" : 6,
       "severity" : "Medium",
       "sourceId" : "component:api",
       "sourceKind" : "Component",
@@ -299,6 +310,7 @@
       ],
       "riskLevel" : "medium",
       "riskScore" : 5,
+      "scoreIfAssumptionsHold" : 5,
       "severity" : "High",
       "sourceId" : "zone:app",
       "sourceKind" : "Zone",
@@ -344,6 +356,7 @@
       ],
       "riskLevel" : "low",
       "riskScore" : 3,
+      "scoreIfAssumptionsHold" : 3,
       "severity" : "Low",
       "sourceId" : "component:api",
       "sourceKind" : "Component",
@@ -389,6 +402,7 @@
       ],
       "riskLevel" : "low",
       "riskScore" : 3,
+      "scoreIfAssumptionsHold" : 3,
       "severity" : "Medium",
       "sourceId" : "zone:app",
       "sourceKind" : "Zone",
@@ -403,6 +417,9 @@
       "label" : "take-a-payment",
       "text" : "A customer pays for a basket."
     }
+  ],
+  "users" : [
+
   ],
   "zones" : [
     {

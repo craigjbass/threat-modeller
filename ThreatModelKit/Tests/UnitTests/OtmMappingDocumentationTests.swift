@@ -227,15 +227,30 @@ struct OtmMappingDocumentationTests {
             #expect(hcl.contains(dropped) == false, "the threatcl file states \"\(dropped)\", which the document says it drops")
         }
 
-        // The threat with a likelihood rationale loses the generated
-        // sentence that states its two numbers: the number-bearing sentence
-        // sits only in the two threats this model gives no rationale.
+    }
+
+    @Test func theThreatclRationaleStatesBothScoresBesideTheLikelihoodRationale() throws {
+        let hcl = ExportModelAsThreatcl(reports: reports).execute(ExportModelAsThreatclRequest()).hcl
+
         let stanzaStart = try #require(hcl.range(of: "threat \"Credential Theft on EC2\" {"))
         let stanzaEnd = try #require(
             hcl.range(of: "\n  threat \"", range: stanzaStart.upperBound..<hcl.endIndex)
         )
         let stanza = hcl[stanzaStart.lowerBound..<stanzaEnd.lowerBound]
-        #expect(stanza.contains("before controls, on") == false)
+        #expect(stanza.contains("No public reporting names this technique against this platform."))
+        #expect(stanza.contains("before controls, on EC2."))
+    }
+
+    @Test func theThreatclExportNamesTheDiagramItDropped() {
+        let response = ExportModelAsThreatcl(reports: reports)
+            .execute(ExportModelAsThreatclRequest())
+
+        #expect(
+            response.diagnostics.contains {
+                $0.contains("Network topology") && $0.contains("d2")
+            },
+            "the export records no diagnostic for the dropped diagram: \(response.diagnostics)"
+        )
     }
 
     // MARK: --format json
@@ -265,18 +280,36 @@ struct OtmMappingDocumentationTests {
         #expect(zones.first?["boundary"] as? String == "Privilege Boundary")
     }
 
+    @Test func theJsonFileCarriesThePeopleTheTreesAndTheDiagrams() throws {
+        let response = ExportModelAsJson(reports: reports).execute(ExportModelAsJsonRequest())
+        let json = try #require(
+            try JSONSerialization.jsonObject(with: Data(response.json.utf8)) as? [String: Any]
+        )
+
+        let users = try #require(json["users"] as? [[String: Any]])
+        let operatorUser = try #require(users.first { $0["name"] as? String == "Operator" })
+        #expect(operatorUser["role"] as? String == "runs the deploy")
+        #expect(operatorUser["isAdversary"] as? Bool == true)
+
+        let actors = try #require(json["threatActors"] as? [[String: Any]])
+        #expect(actors.contains { $0["name"] as? String == "Insider" })
+
+        let attackTrees = try #require(json["attackTrees"] as? [[String: Any]])
+        #expect(attackTrees.contains { $0["name"] as? String == "Read every record" })
+
+        let diagrams = try #require(json["diagrams"] as? [[String: Any]])
+        #expect(diagrams.contains { ($0["text"] as? String)?.contains("sequenceDiagram") == true })
+        #expect(diagrams.contains { ($0["text"] as? String)?.contains("shape: rectangle") == true })
+    }
+
     @Test func theJsonFileDropsWhatTheDocumentClaims() throws {
         let response = ExportModelAsJson(reports: reports).execute(ExportModelAsJsonRequest())
-        let text = response.json
+        let json = try #require(
+            try JSONSerialization.jsonObject(with: Data(response.json.utf8)) as? [String: Any]
+        )
 
-        for dropped in [
-            "runs the deploy",
-            "Insider",
-            "Read every record",
-            "sequenceDiagram",
-            "shape: rectangle"
-        ] {
-            #expect(text.contains(dropped) == false, "the JSON file states \"\(dropped)\", which the document says it drops")
+        for dropped in ["policy", "attackPaths", "protectionDependencies", "history", "rollups"] {
+            #expect(json[dropped] == nil, "the JSON file states \(dropped), which the document says it drops")
         }
     }
 }

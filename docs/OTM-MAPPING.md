@@ -29,6 +29,7 @@ version written is stated in the file as `otmVersion`.
 | a component's zone | `components[].parent.trustZone` | absent for a component outside every zone |
 | a component's technology, classification, privilege and status | `components[].tags` | four tags, in that order. The status tag is `Live` or `Proposed` |
 | a flow | one `dataflows` entry | the id is `<source>-><target>`, which is the id this model keys a flow on |
+| a user or an adversary a flow names | one `components` entry of type `external-actor` | a user is not a component, so this entry is written only for a user a flow names. The tags are the access level, `User` or `Adversary`, and the clearance when the user holds one. No dataflow points at an id the file does not declare |
 | a flow's description | `dataflows[].description` | absent when the flow states none |
 | a flow's kind | `dataflows[].tags` | one tag |
 | a threat on one element | one `threats` entry | see "Threats" below |
@@ -83,9 +84,12 @@ itself in `attributes.status`.
 ### What the OTM file drops
 
 The recommendations, the leverage table, the accepted risks, the assumptions,
-the scope (the use cases, the users and the exclusions), the data inventory,
-the third parties, the known vulnerabilities, the policy, the threat actors,
-the attack trees and the history have no place in the OTM schema.
+the scope (the use cases, the exclusions, and a user no flow names), the data
+inventory, the third parties, the known vulnerabilities, the policy, the
+threat actors, the attack trees and the history have no place in the OTM
+schema. A user a flow names is written as a component: see the table above.
+The user's role, the components it reaches and the clients it holds are not
+written.
 
 Within what OTM does carry, this export also drops: the model's own diagram
 blocks (`representations` names the model once, not each diagram); a
@@ -119,7 +123,9 @@ file's header comment and in the exporter's own `specVersion` constant.
 | each third party | one `third_party_dependency` block, with its kind as three booleans, whether it is a paying customer, and its uptime dependency |
 | each threat on one element | one `threat` block, labelled `<threat name> on <element name>`; see "Threats" below |
 | the zones, the components they hold, the components outside every zone, and the flows between them | one `data_flow_diagram_v2` block |
+| a user or an adversary a flow names | one `external_element` inside the `data_flow_diagram_v2` block | a user is not a component, so this element is written only for a user a flow names. No flow names an element the file does not declare |
 | a diagram whose kind is `mermaid` | one `mermaid` block, with the diagram's text unchanged |
+| a diagram whose kind is not `mermaid` | nothing in the file, and one diagnostic naming the diagram and its kind | the export gives the diagnostics back beside the file, and `threatmodeller export` prints each one |
 
 ### Threats
 
@@ -132,24 +138,27 @@ file's header comment and in the exporter's own `specVersion` constant.
 | the likelihood tier, banded to threatcl's `low`, `medium` or `high` | `risk.likelihood` |
 | the severity, mapped to threatcl's five words | `risk.impact` |
 | the risk level, mapped to threatcl's five words | `risk.severity` |
-| the likelihood's rationale, or, when the threat states none, a sentence stating the residual and the score before controls | `risk.rationale` |
+| the likelihood's rationale, then a sentence stating the residual and the score before controls | `risk.rationale` |
 | each control the catalogue offers | one `control` block, with its evidence as `implementation_notes` and a risk reduction of 100 when implemented and 0 otherwise |
 | each compensating control | one `control` block, implemented, with its own risk reduction percentage |
 
-WARNING: `risk.rationale` states the residual score and the score before
-controls only while the threat has no likelihood rationale of its own. A
-threat that states a likelihood rationale loses both numbers from the file:
-the rationale text takes the one line threatcl gives this attribute.
+`risk.rationale` states the residual score and the score before controls for
+every threat. A threat that states a likelihood rationale of its own carries
+that text first and the two numbers after it, in the one line threatcl gives
+this attribute.
 
 ### What the threatcl file drops
 
 The recommendations, the leverage table, the accepted risks, the policy, the
 known vulnerabilities, the threat actors, the attack trees, the attack paths,
-the protection dependencies, the users, the history and a diagram whose kind
-is not `mermaid` have no place in the file this export writes. A component's
-own tags, its version, its zone's boundary, and the `mitigates` edges between
-components (both adopted and assumed) are not carried either. `--format json`
-writes most of these; see `docs/threatmodel-export.schema.json`.
+the protection dependencies, the history, a user no flow names and a diagram
+whose kind is not `mermaid` have no place in the file this export writes. A
+user a flow names is written as an element, with its name and nothing else:
+its role, its access level and its clearance are not carried. A dropped
+diagram is named in a diagnostic. A component's own tags, its version, its
+zone's boundary, and the `mitigates` edges between components (both adopted
+and assumed) are not carried either. `--format json` writes most of these;
+see `docs/threatmodel-export.schema.json`.
 
 ## `--format json`
 
@@ -163,14 +172,17 @@ states only what a reader compares against the other two formats.
 The system's document control, the summary, the zones, the components, the
 flows, the data inventory, the third parties, the known vulnerabilities, the
 assumptions, the use cases, the exclusions, the threats (with their controls,
-their compensating controls, what answered them upstream and what reduced
-them), the recommendations, the leverage table and the accepted risks.
+their compensating controls, what answered them upstream, what reduced them,
+the severity decision an assessor wrote, the attack tree that raised them,
+the score if every assumed mitigation holds, and the library that changed
+them), the recommendations, the leverage table, the accepted risks, the users
+and the adversaries (with the clients each one uses and the clearance each
+one holds), the threat actors, the attack trees with their steps, and the
+model's own diagram blocks.
 
 ### What it drops
 
-The users, the threat actors, the policy, the attack trees, the attack
-paths, the protection dependencies, the rollup tables, the model's own
-diagram blocks, the history and what changed since the last sampled commit,
-the findings cut and the executive summary's and the methodology's own
-prose have no place in this shape. A person who needs those reads the
-Markdown report.
+The policy, the attack paths, the protection dependencies, the rollup tables,
+the history and what changed since the last sampled commit, the findings cut
+and the executive summary's and the methodology's own prose have no place in
+this shape. A person who needs those reads the Markdown report.
