@@ -15,6 +15,10 @@ struct UserPanel: View {
     /// The empty id is nobody: the user is not a threat actor.
     static let noActor = ""
 
+    /// What the Kind picker offers. An adversary behaves like a user and is
+    /// not a legitimate user.
+    static let kinds: [(Bool, String)] = [(false, "Legitimate user"), (true, "Adversary")]
+
     var body: some View {
         SelectionEditor(title: "This user", identifier: "user-panel") {
             controls
@@ -58,6 +62,14 @@ struct UserPanel: View {
         }
         SelectionField("Reaches") {
             reachesField
+        }
+
+        SelectionField("Kind") {
+            Picker("Kind", selection: adversary) {
+                ForEach(Self.kinds, id: \.0) { Text($0.1).tag($0.0) }
+            }
+            .labelsHidden()
+            .accessibilityIdentifier("user-adversary")
         }
 
         SelectionField("Threat actor") {
@@ -122,7 +134,8 @@ struct UserPanel: View {
         access newAccess: String? = nil,
         uses newUses: [String]? = nil,
         reaches newReaches: [String]? = nil,
-        threatActorId newActor: String?? = nil
+        threatActorId newActor: String?? = nil,
+        isAdversary newKind: Bool? = nil
     ) {
         session.setUserProperties(
             componentId: user.id,
@@ -131,7 +144,8 @@ struct UserPanel: View {
             accessId: newAccess ?? user.runsAsId,
             uses: newUses ?? user.uses,
             reaches: newReaches ?? user.reaches,
-            threatActorId: newActor ?? user.threatActorId
+            threatActorId: newActor ?? user.threatActorId,
+            isAdversary: newKind ?? user.isAdversary
         )
     }
 
@@ -141,6 +155,12 @@ struct UserPanel: View {
     /// What the Access picker reads and writes.
     var access: Binding<String> {
         Binding(get: { user.runsAsId }, set: { write(access: $0) })
+    }
+
+    /// What the Kind picker reads and writes. True writes the `adversary`
+    /// block keyword and false writes the `user` keyword.
+    var adversary: Binding<Bool> {
+        Binding(get: { user.isAdversary }, set: { write(isAdversary: $0) })
     }
 
     /// What the Threat actor picker reads and writes. The empty id is nobody.

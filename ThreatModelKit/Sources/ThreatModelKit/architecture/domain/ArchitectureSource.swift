@@ -157,7 +157,8 @@ public struct ArchitectureSource: Equatable, Sendable {
     }
 }
 
-/// One human who uses the system. The user block design states the block.
+/// One human who uses the system, legitimate or adversary. The user block
+/// design states the block.
 public struct SourceUser: Equatable, Sendable {
     public let id: String
     /// What the canvas and the report call the user, or nil to use the id.
@@ -173,6 +174,8 @@ public struct SourceUser: Equatable, Sendable {
     public let reaches: [String]
     /// The threat actor this user is, or nil.
     public let threatActorId: String?
+    /// True for a user the file declares with the `adversary` keyword.
+    public let isAdversary: Bool
 
     public init(
         id: String,
@@ -181,7 +184,8 @@ public struct SourceUser: Equatable, Sendable {
         access: String = "user",
         uses: [String] = [],
         reaches: [String] = [],
-        threatActorId: String? = nil
+        threatActorId: String? = nil,
+        isAdversary: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -190,6 +194,7 @@ public struct SourceUser: Equatable, Sendable {
         self.uses = uses
         self.reaches = reaches
         self.threatActorId = threatActorId
+        self.isAdversary = isAdversary
     }
 
     /// The word a user with no stated access holds.

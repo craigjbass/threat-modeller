@@ -171,14 +171,15 @@ struct ComponentNodeView: View {
     ///
     /// A user's row reads USER, the role, the access and a Threat actor chip
     /// when the user names one. The row is the mark that tells a user from a
-    /// technology drawn with the actor shape.
+    /// technology drawn with the actor shape. An adversary's row reads
+    /// ADVERSARY in red in place of USER.
     private var chips: some View {
         HStack(spacing: 6) {
             if component.isUser {
-                Text("USER")
+                Text(component.isAdversary ? "ADVERSARY" : "USER")
                     .font(.caption2)
                     .lineLimit(1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(component.isAdversary ? Color.red : Color.secondary)
                 if component.role.isEmpty == false {
                     Text(component.role)
                         .font(.caption2)

@@ -47,14 +47,17 @@ public enum MarkdownScope {
         return lines
     }
 
-    /// One user on one line: the name, the role and the access in brackets,
+    /// One user on one line: the word adversary for an adversary, the role
+    /// and the access in brackets,
     /// what the user reaches, each client the user holds with what it
     /// reaches, and the actor the user is. A user that reaches nothing and
     /// holds nothing reads `reaches nothing`.
     public static func line(for user: ReportUser) -> String {
-        let facts = user.role.isEmpty
-            ? user.accessLabel
-            : "\(user.role), \(user.accessLabel)"
+        var words: [String] = []
+        if user.isAdversary { words.append("adversary") }
+        if user.role.isEmpty == false { words.append(user.role) }
+        words.append(user.accessLabel)
+        let facts = words.joined(separator: ", ")
         var clauses: [String] = []
         if user.reaches.isEmpty == false || user.clients.isEmpty {
             clauses.append("reaches \(joined(user.reaches))")

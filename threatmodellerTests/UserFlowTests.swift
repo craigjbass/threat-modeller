@@ -34,6 +34,22 @@ struct UserFlowTests {
 
     """
 
+    private let phisher = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      adversary "phisher" {
+        name    = "Phisher"
+        role    = "Customer"
+        reaches = ["api"]
+      }
+    }
+
+    """
+
     private let insider = """
     system "Payments" {
       threat_actor "insider" {
@@ -268,7 +284,8 @@ struct UserFlowTests {
             accessId: "user",
             uses: [],
             reaches: [],
-            threatActorId: nil
+            threatActorId: nil,
+            isAdversary: false
         )
 
         var panel = UserPanel(session: model, user: try user(of: model))
@@ -284,6 +301,50 @@ struct UserFlowTests {
         #expect(written.contains("role         = \"Operator\""))
         #expect(written.contains("access       = \"admin\""))
         #expect(written.contains("threat_actor = \"insider\""))
+    }
+
+    /// The Kind picker writes the block keyword: the file holds
+    /// `adversary "alice"` after the pick, and `user "alice"` again after the
+    /// pick goes back.
+    @Test func thePanelWritesTheAdversaryKeywordIntoTheFile() async throws {
+        let (session, useCases) = await aProject(insider)
+        let model = try #require(session.model)
+
+        var panel = UserPanel(session: model, user: try user(of: model))
+        #expect(panel.adversary.wrappedValue == false)
+        panel.adversary.wrappedValue = true
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        #expect(try user(of: model).isAdversary)
+        var written = try #require(architecture(useCases))
+        #expect(written.contains("adversary \"alice\" {"))
+        #expect(written.contains("user \"alice\" {") == false)
+        #expect(written.contains("role         = \"Operator\""))
+        #expect(written.contains("threat_actor = \"insider\""))
+
+        panel = UserPanel(session: model, user: try user(of: model))
+        #expect(panel.adversary.wrappedValue)
+        panel.adversary.wrappedValue = false
+        await session.save()
+
+        written = try #require(architecture(useCases))
+        #expect(written.contains("user \"alice\" {"))
+        #expect(written.contains("adversary \"alice\" {") == false)
+    }
+
+    /// A file that states the `adversary` keyword draws an adversary on the
+    /// canvas, with the actor shape a user takes.
+    @Test func theCanvasDrawsAnAdversaryWithTheActorShape() async throws {
+        let (session, _) = await aProject(phisher)
+        let model = try #require(session.model)
+
+        let drawn = try user(of: model)
+
+        #expect(drawn.id == "phisher")
+        #expect(drawn.isUser)
+        #expect(drawn.isAdversary)
+        #expect(drawn.shapeId == "actor")
     }
 
     @Test func thePanelStatesWhatTheUserReaches() async throws {

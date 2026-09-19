@@ -293,7 +293,8 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                         role: user.role,
                         uses: user.uses,
                         reaches: user.reaches,
-                        threatActorId: user.threatActorId
+                        threatActorId: user.threatActorId,
+                        isAdversary: user.isAdversary
                     )
                 )
             )

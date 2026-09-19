@@ -710,4 +710,160 @@ struct UserBlockTests {
             ) == "Bob (Customer, User): reaches API, Ledger and Vault"
         )
     }
+
+    // MARK: the adversary alias
+
+    private let phisher = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      adversary "phisher" {
+        name    = "Phisher"
+        role    = "Customer"
+        reaches = ["api"]
+      }
+    }
+
+    """
+
+    @Test func theParserReadsAnAdversaryBlock() throws {
+        let source = try #require(architecture.read(phisher).source)
+
+        #expect(source.users == [
+            SourceUser(
+                id: "phisher",
+                name: "Phisher",
+                role: "Customer",
+                reaches: ["api"],
+                isAdversary: true
+            )
+        ])
+    }
+
+    @Test func aUserBlockReadsAsALegitimateUser() throws {
+        let source = try #require(architecture.read(insider).source)
+
+        #expect(source.users.map(\.isAdversary) == [false])
+    }
+
+    @Test func theWriterWritesAnAdversaryBackAsAnAdversary() throws {
+        let source = try #require(architecture.read(phisher).source)
+
+        #expect(architecture.write(source) == phisher)
+    }
+
+    @Test func theWriterWritesALegitimateUserAsAUser() throws {
+        let source = try #require(architecture.read(insider).source)
+
+        #expect(architecture.write(source) == insider)
+    }
+
+    @Test func anEntryTheAdversaryBlockDoesNotHoldIsAnError() {
+        let read = architecture.read(
+            """
+            system "Payments" {
+              adversary "phisher" {
+                technology = "aws-ec2"
+              }
+            }
+
+            """
+        )
+
+        #expect(
+            read.diagnostics.contains {
+                $0.message == "an adversary holds name, role, access, uses, reaches and "
+                    + "threat_actor, not \"technology\""
+            }
+        )
+    }
+
+    @Test func savingAndOpeningKeepsTheAdversaryKeyword() throws {
+        app.project.put(phisher, at: "/work/threatmodel/payments.arch")
+        _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
+
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+
+        let written = try #require(app.project.text(at: "/work/threatmodel/payments.arch"))
+        #expect(written.contains("adversary \"phisher\" {"))
+        #expect(written.contains("user \"phisher\" {") == false)
+
+        _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
+        let again = app.viewThreatModel().execute(ViewThreatModelRequest())
+        #expect(again.components.first { $0.id == "phisher" }?.isAdversary == true)
+    }
+
+    @Test func aSavedDocumentKeepsTheAdversaryFlag() throws {
+        let model = ThreatModel(
+            name: "Payments",
+            components: [
+                Component(
+                    id: ComponentId("phisher"),
+                    technologyId: Component.userTechnologyId,
+                    position: Point(x: 10, y: 20),
+                    sensitivity: .internalData,
+                    customName: "Phisher",
+                    statesOwnSensitivity: false,
+                    user: UserFacts(role: "Customer", isAdversary: true)
+                )
+            ]
+        )
+        let codec = ThreatModelCodec()
+
+        let read = try codec.decode(try codec.encode(model))
+
+        #expect(read.components == model.components)
+        #expect(read.components.first?.user?.isAdversary == true)
+    }
+
+    @Test func anAdversaryRaisesNoThreats() {
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: phisher))
+
+        let threats = app.assessThreatModel().execute(AssessThreatModelRequest()).threats
+
+        #expect(threats.contains { $0.source.id == "component:phisher" } == false)
+    }
+
+    @Test func theUseCaseWritesTheAdversaryKeyword() throws {
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: insider))
+
+        let answer = app.setUserProperties().execute(
+            SetUserPropertiesRequest(
+                componentId: "alice",
+                name: "Alice",
+                role: "Operator",
+                access: "admin",
+                reaches: ["api"],
+                threatActorId: "insider",
+                isAdversary: true
+            )
+        )
+
+        #expect(answer == .updated)
+        let view = app.viewThreatModel().execute(ViewThreatModelRequest())
+        #expect(view.components.first { $0.id == "alice" }?.isAdversary == true)
+        let written = app.exportArchitecture().execute(ExportArchitectureRequest()).text
+        #expect(written.contains("adversary \"alice\" {"))
+    }
+
+    @Test func theReportNamesTheAdversaryInTheScopeSection() {
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: phisher))
+
+        let report = app.buildThreatModelReport().execute(BuildThreatModelReportRequest()).report
+        let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
+
+        #expect(report.users.first?.isAdversary == true)
+        #expect(markdown.contains("- Phisher (adversary, Customer, User): reaches EC2"))
+    }
+
+    @Test func theScopeLineNamesAnAdversary() {
+        #expect(
+            MarkdownScope.line(
+                for: ReportUser(name: "Phisher", accessLabel: "User", isAdversary: true)
+            ) == "Phisher (adversary, User): reaches nothing"
+        )
+    }
 }

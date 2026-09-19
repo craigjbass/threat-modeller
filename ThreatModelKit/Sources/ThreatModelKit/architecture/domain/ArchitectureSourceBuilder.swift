@@ -20,7 +20,8 @@ public enum ArchitectureSourceBuilder {
                             access: component.runsAs.rawValue,
                             uses: facts.uses,
                             reaches: facts.reaches,
-                            threatActorId: facts.threatActorId
+                            threatActorId: facts.threatActorId,
+                            isAdversary: facts.isAdversary
                         )
                     )
                     continue

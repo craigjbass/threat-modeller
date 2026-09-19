@@ -216,7 +216,8 @@ final class ThreatModelSession {
             accessId: user.runsAsId,
             uses: user.uses + [added.id],
             reaches: user.reaches,
-            threatActorId: user.threatActorId
+            threatActorId: user.threatActorId,
+            isAdversary: user.isAdversary
         )
     }
 
@@ -241,7 +242,8 @@ final class ThreatModelSession {
                 accessId: user.runsAsId,
                 uses: user.uses + [targetComponentId],
                 reaches: user.reaches,
-                threatActorId: user.threatActorId
+                threatActorId: user.threatActorId,
+                isAdversary: user.isAdversary
             )
             return
         }
@@ -1379,7 +1381,8 @@ final class ThreatModelSession {
     /// Writes what the node panel shows. One call for the name, the
     /// sensitivity, the shape and whether the node raises threats at all.
     /// Writes what the user panel shows: the name, the role, the access, the
-    /// clients the user holds, the reaches and the threat actor the user is.
+    /// clients the user holds, the reaches, the threat actor the user is, and
+    /// whether the user is an adversary.
     func setUserProperties(
         componentId: String,
         name: String?,
@@ -1387,7 +1390,8 @@ final class ThreatModelSession {
         accessId: String,
         uses: [String],
         reaches: [String],
-        threatActorId: String?
+        threatActorId: String?,
+        isAdversary: Bool
     ) {
         switch useCases.setUserProperties().execute(
             SetUserPropertiesRequest(
@@ -1397,7 +1401,8 @@ final class ThreatModelSession {
                 access: accessId,
                 uses: uses,
                 reaches: reaches,
-                threatActorId: threatActorId
+                threatActorId: threatActorId,
+                isAdversary: isAdversary
             )
         ) {
         case .updated:

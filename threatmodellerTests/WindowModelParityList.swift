@@ -50,6 +50,7 @@ extension WindowModelParityTests {
             ("zone", nested("zone")),
             ("component", nested("component")),
             ("user", nested("user")),
+            ("adversary", .writes("user-adversary")),
             ("flow", nested("flow")),
             ("mitigates", nested("mitigates")),
             ("risk_tolerance", .writes("risk-tolerance")),
@@ -64,6 +65,14 @@ extension WindowModelParityTests {
             ("threat_actor", nested("threat_actor"))
         ])) { first, _ in first }
         all.merge(rows("arch", "user", [
+            ("name", .writes("user-name")),
+            ("role", .writes("user-role")),
+            ("access", .writes("user-access")),
+            ("uses", .writes("user-uses")),
+            ("reaches", .writes("user-reaches")),
+            ("threat_actor", .writes("user-threat-actor"))
+        ])) { first, _ in first }
+        all.merge(rows("arch", "adversary", [
             ("name", .writes("user-name")),
             ("role", .writes("user-role")),
             ("access", .writes("user-access")),

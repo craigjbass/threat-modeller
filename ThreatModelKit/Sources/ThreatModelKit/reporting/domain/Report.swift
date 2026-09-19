@@ -927,7 +927,7 @@ public struct ReportUseCase: Equatable, Sendable {
     }
 }
 
-/// One human who uses the system, in report form.
+/// One human who uses the system, in report form, legitimate or adversary.
 public struct ReportUser: Equatable, Sendable {
     public let name: String
     /// What the person does with the system. Empty when the model states none.
@@ -942,6 +942,9 @@ public struct ReportUser: Equatable, Sendable {
     public let clients: [ReportClient]
     /// The name of the threat actor this user is, or nil.
     public let threatActorName: String?
+    /// True for an adversary: a threat actor that behaves like a user and is
+    /// not a legitimate user.
+    public let isAdversary: Bool
 
     public init(
         name: String,
@@ -949,7 +952,8 @@ public struct ReportUser: Equatable, Sendable {
         accessLabel: String,
         reaches: [String] = [],
         clients: [ReportClient] = [],
-        threatActorName: String? = nil
+        threatActorName: String? = nil,
+        isAdversary: Bool = false
     ) {
         self.name = name
         self.role = role
@@ -957,6 +961,7 @@ public struct ReportUser: Equatable, Sendable {
         self.reaches = reaches
         self.clients = clients
         self.threatActorName = threatActorName
+        self.isAdversary = isAdversary
     }
 }
 

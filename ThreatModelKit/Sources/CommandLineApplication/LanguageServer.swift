@@ -304,7 +304,7 @@ public final class LanguageServer: @unchecked Sendable {
         case (.architecture, "component"):
             ["technology", "name", "zone", "data", "status", "version", "cves", "holds",
              "provided_by", "source", "threats", "runs_as", "shape", "tags"]
-        case (.architecture, "user"):
+        case (.architecture, "user"), (.architecture, "adversary"):
             ["name", "role", "access", "uses", "reaches", "threat_actor"]
         case (.architecture, "zone"):
             ["kind", "network", "name", "reduces_risk", "reduces_risk_by", "boundary",
@@ -461,7 +461,8 @@ public final class LanguageServer: @unchecked Sendable {
             let character = position["character"] as? Int ?? 0
             let named = Self.wordAt(character, in: line)
             if let found = Self.line(declaring: "component", named: named, in: lines)
-                ?? Self.line(declaring: "user", named: named, in: lines) {
+                ?? Self.line(declaring: "user", named: named, in: lines)
+                ?? Self.line(declaring: "adversary", named: named, in: lines) {
                 return Self.location(uri: uri, line: found)
             }
         }
@@ -585,6 +586,7 @@ public final class LanguageServer: @unchecked Sendable {
     /// names either at an end.
     func componentIds(in text: String) -> [String] {
         Self.declared("component", in: text) + Self.declared("user", in: text)
+            + Self.declared("adversary", in: text)
     }
 
     /// The zone ids this document declares.

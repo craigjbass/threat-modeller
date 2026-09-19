@@ -98,7 +98,8 @@ struct ViewRenderTests {
         shapeId: String,
         statusId: String = "live",
         isUser: Bool = false,
-        threatsDisabled: Bool = false
+        threatsDisabled: Bool = false,
+        isAdversary: Bool = false
     ) -> ViewedComponent {
         ViewedComponent(
             id: "c1",
@@ -119,7 +120,8 @@ struct ViewRenderTests {
             statusId: statusId,
             isUser: isUser,
             role: isUser ? "Operator" : "",
-            threatActorId: isUser ? "insider" : nil
+            threatActorId: isUser ? "insider" : nil,
+            isAdversary: isAdversary
         )
     }
 
@@ -130,14 +132,16 @@ struct ViewRenderTests {
         statusId: String = "live",
         isUser: Bool = false,
         classificationColour: Color? = nil,
-        threatsDisabled: Bool = false
+        threatsDisabled: Bool = false,
+        isAdversary: Bool = false
     ) -> ComponentNodeView {
         ComponentNodeView(
             component: aViewedComponent(
                 shapeId: shapeId,
                 statusId: statusId,
                 isUser: isUser,
-                threatsDisabled: threatsDisabled
+                threatsDisabled: threatsDisabled,
+                isAdversary: isAdversary
             ),
             risk: risk,
             isSelected: false,
@@ -1285,6 +1289,29 @@ struct ViewRenderTests {
                 "the \(shapeId) node"
             )
         }
+    }
+
+    // MARK: the mark for an adversary
+
+    /// An adversary and a legitimate user draw different pictures: the
+    /// adversary's chip row names the adversary in place of the user.
+    @Test func drawsAnAdversaryDifferentlyFromAUser() async throws {
+        let legitimate = try #require(
+            pixels(
+                of: aNode(shapeId: "actor", risk: nil, isUser: true),
+                width: 200,
+                height: 180
+            )
+        )
+        let adversary = try #require(
+            pixels(
+                of: aNode(shapeId: "actor", risk: nil, isUser: true, isAdversary: true),
+                width: 200,
+                height: 180
+            )
+        )
+
+        #expect(legitimate != adversary)
     }
 
     // MARK: the mark for a proposed component

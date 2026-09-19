@@ -74,6 +74,9 @@ public struct ViewedComponent: Equatable, Sendable {
     public let reaches: [String]
     /// The threat actor this user is, or nil.
     public let threatActorId: String?
+    /// True for an adversary: a user the file declares with the `adversary`
+    /// keyword.
+    public let isAdversary: Bool
     /// The version of the software this component runs. Empty when the file
     /// states none.
     public let version: String
@@ -108,6 +111,7 @@ public struct ViewedComponent: Equatable, Sendable {
         uses: [String] = [],
         reaches: [String] = [],
         threatActorId: String? = nil,
+        isAdversary: Bool = false,
         version: String = "",
         cves: [String] = [],
         assets: [ViewedComponentAsset] = []
@@ -120,6 +124,7 @@ public struct ViewedComponent: Equatable, Sendable {
         self.uses = uses
         self.reaches = reaches
         self.threatActorId = threatActorId
+        self.isAdversary = isAdversary
         self.statusId = statusId
         self.tags = tags
         self.holds = holds
@@ -172,6 +177,7 @@ public struct ViewedComponent: Equatable, Sendable {
             uses: uses,
             reaches: reaches,
             threatActorId: threatActorId,
+            isAdversary: isAdversary,
             version: version,
             cves: cves,
             assets: assets

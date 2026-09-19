@@ -116,6 +116,8 @@ struct ArchitectureParser {
                 if let component = parseComponent() { components.append(component) }
             case "user":
                 if let user = parseUser() { users.append(user) }
+            case "adversary":
+                if let user = parseUser(isAdversary: true) { users.append(user) }
             case "asset":
                 if let asset = parseSystemAsset() { systemAssets.append(asset) }
             case "third_party":
@@ -241,9 +243,9 @@ struct ArchitectureParser {
         )
     }
 
-    /// A `user` block: one human who uses the system. The user block design
-    /// states the attributes.
-    private mutating func parseUser() -> SourceUser? {
+    /// A `user` block, or the `adversary` block that takes the same
+    /// attributes. The user block design states the attributes.
+    private mutating func parseUser(isAdversary: Bool = false) -> SourceUser? {
         advance()
         guard let id = expect(.string, "the user's identifier") else { return nil }
         guard expect(.leftBrace, "{") != nil else { return nil }
@@ -267,7 +269,8 @@ struct ArchitectureParser {
             case "reaches": reaches = parseListAttribute()
             case "threat_actor": threatActorId = parseTextAttribute()
             default:
-                record(LanguageBlockId.archUser.unknownAttribute(current.text))
+                let block: LanguageBlockId = isAdversary ? .archAdversary : .archUser
+                record(block.unknownAttribute(current.text))
                 skipAttribute()
             }
         }
@@ -280,7 +283,8 @@ struct ArchitectureParser {
             access: access,
             uses: uses,
             reaches: reaches,
-            threatActorId: threatActorId
+            threatActorId: threatActorId,
+            isAdversary: isAdversary
         )
     }
 

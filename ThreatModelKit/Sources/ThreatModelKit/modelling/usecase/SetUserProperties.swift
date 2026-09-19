@@ -17,6 +17,9 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
     public let reaches: [String]
     /// The threat actor this user is, or nil.
     public let threatActorId: String?
+    /// True to write the user as an adversary, false to write a legitimate
+    /// user.
+    public let isAdversary: Bool
 
     public init(
         componentId: String,
@@ -25,7 +28,8 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
         access: String,
         uses: [String] = [],
         reaches: [String],
-        threatActorId: String?
+        threatActorId: String?,
+        isAdversary: Bool = false
     ) {
         self.componentId = componentId
         self.name = name
@@ -34,6 +38,7 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
         self.uses = uses
         self.reaches = reaches
         self.threatActorId = threatActorId
+        self.isAdversary = isAdversary
     }
 }
 
@@ -49,7 +54,8 @@ public enum SetUserPropertiesResponse: Equatable, Sendable {
 }
 
 /// Changes what a user is called, what the user does, what privilege the user
-/// holds, what the user reaches and which threat actor the user is.
+/// holds, what the user reaches, which threat actor the user is, and whether
+/// the user is an adversary.
 ///
 /// One use case for all five, the way `SetComponentProperties` does it: the
 /// panel writes what a person sees, and the model takes it or refuses it
@@ -109,7 +115,8 @@ public struct SetUserProperties: SetUserPropertiesUseCase {
                 role: role,
                 uses: uses,
                 reaches: reaches,
-                threatActorId: (actorId?.isEmpty ?? true) ? nil : actorId
+                threatActorId: (actorId?.isEmpty ?? true) ? nil : actorId,
+                isAdversary: request.isAdversary
             )
             return .updated
         }

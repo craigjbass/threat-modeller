@@ -33,17 +33,22 @@ public struct UserFacts: Equatable, Sendable {
     public var reaches: [String]
     /// The threat actor this user is, or nil. A user that names one is faced.
     public var threatActorId: String?
+    /// True for an adversary: a threat actor that behaves like a user and is
+    /// not a legitimate user. The `adversary` block writes it.
+    public var isAdversary: Bool
 
     public init(
         role: String = "",
         uses: [String] = [],
         reaches: [String] = [],
-        threatActorId: String? = nil
+        threatActorId: String? = nil,
+        isAdversary: Bool = false
     ) {
         self.role = role
         self.uses = uses
         self.reaches = reaches
         self.threatActorId = threatActorId
+        self.isAdversary = isAdversary
     }
 }
 
@@ -167,6 +172,10 @@ public struct Component: Equatable, Sendable {
 
     /// True for a user, which the canvas draws with the actor shape.
     public var isUser: Bool { user != nil }
+
+    /// True for an adversary: a user the file declares with the `adversary`
+    /// keyword.
+    public var isAdversary: Bool { user?.isAdversary ?? false }
 
     /// The size each shape draws at. `size` stays the slot the component
     /// occupies in a layout; this is what the canvas paints, and it centres on

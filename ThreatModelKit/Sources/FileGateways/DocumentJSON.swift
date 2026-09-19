@@ -209,6 +209,8 @@ struct UserJSON: Codable {
     let uses: [String]?
     let reaches: [String]
     let threatActorId: String?
+    /// Absent in a file written before the adversary alias.
+    let isAdversary: Bool?
 }
 
 struct ConnectionJSON: Codable {

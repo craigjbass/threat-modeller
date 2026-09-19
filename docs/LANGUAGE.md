@@ -1139,6 +1139,35 @@ A flow to or from a user is written the way every flow is written:
 flow alice -> api
 ```
 
+#### The `adversary` alias
+
+```hcl
+adversary "phisher" {
+  name    = "Phisher"
+  role    = "Customer"
+  reaches = ["api"]
+}
+```
+
+`adversary` is an alias of `user`. An adversary block takes every attribute a
+user block takes, sits where a user block sits, and shares the same namespace.
+It says one thing more: the person is not a legitimate user. A threat actor
+that behaves like a user is not a user of the system, so the file states the
+threat actor with `adversary` and the legitimate people with `user`.
+
+A `user` block that names a `threat_actor` stays a legitimate user: the
+attribute says which actor the person is, not that the person is illegitimate.
+`adversary` is the only way to state an illegitimate one.
+
+An adversary raises no threats, the way a user raises none. The canvas draws
+it with the actor shape and marks it ADVERSARY in place of USER. The report's
+Scope section names it an adversary:
+`Phisher (adversary, Customer, User): reaches API`. The writer writes the
+keyword back, so a file that states `adversary` reads and writes unchanged.
+
+A word the block does not hold is the error `an adversary holds name, role,
+access, uses, reaches and threat_actor, not "<word>"`.
+
 ### 4.7 `flow`
 
 ```hcl
@@ -2874,8 +2903,9 @@ entry" or "an unknown attribute".
 
 | Language | Block | Message |
 | --- | --- | --- |
-| architecture | `system` | `a system holds catalogue, owner, description, authors, links, repositories, created, reviewed, version, attribute, technology, zone, component, user, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, use_case, exclusion, asset, third_party, diagram, faces and threat_actor, not "<word>"` |
+| architecture | `system` | `a system holds catalogue, owner, description, authors, links, repositories, created, reviewed, version, attribute, technology, zone, component, user, adversary, flow, mitigates, risk_tolerance, requires_evidence_above, assumption, use_case, exclusion, asset, third_party, diagram, faces and threat_actor, not "<word>"` |
 | architecture | `user` | `a user holds name, role, access, uses, reaches and threat_actor, not "<word>"` |
+| architecture | `adversary` | `an adversary holds name, role, access, uses, reaches and threat_actor, not "<word>"` |
 | architecture | `assumption` | `an assumption holds text and owner, not "<word>"` |
 | architecture | `technology` | `a technology holds name, category, description, threats and encrypts, not "<word>"` |
 | architecture | `zone` | `a zone holds kind, network, name, reduces_risk, reduces_risk_by, component, boundary and description, not "<word>"` |

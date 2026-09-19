@@ -171,7 +171,8 @@ enum SelectionPlacement {
                         role: facts.role,
                         uses: facts.uses.compactMap { componentIds[ComponentId($0)]?.value },
                         reaches: facts.reaches.compactMap { componentIds[ComponentId($0)]?.value },
-                        threatActorId: facts.threatActorId
+                        threatActorId: facts.threatActorId,
+                        isAdversary: facts.isAdversary
                     )
                 }
             )

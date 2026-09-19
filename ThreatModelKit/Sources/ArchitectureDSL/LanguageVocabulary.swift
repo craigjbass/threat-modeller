@@ -61,6 +61,7 @@ public struct LanguageBlock: Equatable, Sendable {
 public enum LanguageBlockId: String, CaseIterable, Sendable {
     case archSystem
     case archUser
+    case archAdversary
     case archAttribute
     case archAssumption
     case archDiagram
@@ -129,7 +130,7 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                 attributes: [
                     "catalogue", "owner", "description", "authors", "links", "repositories",
                     "created", "reviewed", "version", "attribute", "technology", "zone",
-                    "component", "user", "flow", "mitigates", "risk_tolerance",
+                    "component", "user", "adversary", "flow", "mitigates", "risk_tolerance",
                     "requires_evidence_above", "assumption", "use_case", "exclusion", "asset",
                     "third_party", "diagram", "faces", "threat_actor"
                 ]
@@ -139,6 +140,13 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                 language: "arch",
                 name: "user",
                 phrase: "a user holds",
+                attributes: ["name", "role", "access", "uses", "reaches", "threat_actor"]
+            )
+        case .archAdversary:
+            LanguageBlock(
+                language: "arch",
+                name: "adversary",
+                phrase: "an adversary holds",
                 attributes: ["name", "role", "access", "uses", "reaches", "threat_actor"]
             )
         case .archAttribute:

@@ -263,7 +263,7 @@ struct ArchitectureWriter {
             uniquingKeysWith: { first, _ in first }
         )
         for user in source.users {
-            body.append("user \(quoted(user.id)) {")
+            body.append("\(user.isAdversary ? "adversary" : "user") \(quoted(user.id)) {")
             var attributes: [(String, String)] = []
             if let name = user.name { attributes.append(("name", quoted(name))) }
             if user.role.isEmpty == false { attributes.append(("role", quoted(user.role))) }

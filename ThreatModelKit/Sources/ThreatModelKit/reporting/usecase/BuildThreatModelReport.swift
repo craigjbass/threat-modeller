@@ -527,7 +527,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 },
                 threatActorName: facts.threatActorId.flatMap {
                     actors.findById(ThreatActorId($0))?.name
-                }
+                },
+                isAdversary: facts.isAdversary
             )
         }
     }
