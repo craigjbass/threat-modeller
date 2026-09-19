@@ -9,6 +9,9 @@ public final class FakeGitHistory: GitHistoryGateway, @unchecked Sendable {
     /// The files each commit holds, by hash and then by path.
     private var files: [String: [String: String]]
     private var repositories: Set<String>
+    /// How many times a caller asked for the commits, so a test can state
+    /// that no read ran until it pressed the control that asks for one.
+    public private(set) var readCount = 0
 
     public init(root: String = "/work") {
         ordered = []
@@ -37,6 +40,7 @@ public final class FakeGitHistory: GitHistoryGateway, @unchecked Sendable {
     }
 
     public func commits(root: String, touching paths: [String], limit: Int) throws -> [SourceCommit] {
+        readCount += 1
         guard isRepository(root: root) else { return [] }
         let wanted = Set(paths)
 

@@ -285,13 +285,9 @@ struct ProjectWindow: View {
             }
 
             ToolbarItem {
-                // Reading the history compiles the model once per sampled
-                // commit, so it is read when a person asks and never on open.
                 Button("History", systemImage: "chart.line.uptrend.xyaxis") {
                     isShowingHistory = true
                 }
-                // The neighbours carry the same guard. Without it this
-                // control opened a sheet with no history in it.
                 .disabled(session.history == nil)
                 .accessibilityIdentifier("show-history")
             }

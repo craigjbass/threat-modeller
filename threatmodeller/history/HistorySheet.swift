@@ -3,9 +3,6 @@ import ThreatModelKit
 
 /// What the model scored at each sampled commit, and the line those scores
 /// draw.
-///
-/// The history is read when a person presses Read, never when the window
-/// opens: reading compiles the model once per sampled commit.
 struct HistorySheet: View {
     let session: HistorySession
     let dismiss: () -> Void
