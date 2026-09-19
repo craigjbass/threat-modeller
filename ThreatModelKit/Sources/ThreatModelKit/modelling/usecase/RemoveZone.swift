@@ -16,10 +16,6 @@ public enum RemoveZoneResponse: Equatable, Sendable {
 }
 
 /// Removes one zone.
-///
-/// Every component the zone held stays on the model, where it was. A zone
-/// holds nothing: membership is derived from the geometry, so removing the
-/// zone simply leaves those components in no zone.
 public struct RemoveZone: RemoveZoneUseCase {
     private let models: ThreatModelGateway
 
@@ -36,8 +32,6 @@ public struct RemoveZone: RemoveZoneUseCase {
             }
 
             model.zones.removeAll { $0.id == id }
-            // The components that zone held belong to whichever zone still
-            // covers them, and to none when nothing does.
             for index in model.components.indices where model.components[index].zoneId == id {
                 model.components[index].zoneId = ZoneContainment.zone(
                     holding: model.components[index].centre,
