@@ -1,10 +1,6 @@
 import ThreatModelKit
 
 /// Writes a controls source in the canonical shape.
-///
-/// The order is fixed — components, then flows, then zones, then stale; inside
-/// each, threats by id; inside each, controls by description — so a compile of
-/// an unchanged model writes the file it read.
 struct ControlsWriter {
     func write(_ source: ControlsSource) -> String {
         var lines: [String] = []
@@ -37,7 +33,6 @@ struct ControlsWriter {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    /// Live trees first, then stale ones; inside each group, by id.
     static func treeOrder(_ left: SourceTreeAnswer, _ right: SourceTreeAnswer) -> Bool {
         if left.isStale != right.isStale { return right.isStale }
         return left.treeId < right.treeId
@@ -48,8 +43,6 @@ struct ControlsWriter {
         var lines: [String] = [tree.isStale ? "stale " + header : header]
         var body: [String] = []
 
-        // A stale tree states no number: nothing recomputed them, and a number
-        // nobody can trust is worse than no number.
         if tree.isStale == false {
             var attributes = [
                 ("goal", quoted(tree.goalKey)),
@@ -86,8 +79,6 @@ struct ControlsWriter {
         return lines
     }
 
-    /// Live answers first, in the order component, flow, zone; stale answers
-    /// last. Inside each group, by source and then by threat.
     static func ordered(_ answers: [SourceThreatAnswer]) -> [SourceThreatAnswer] {
         func rank(_ answer: SourceThreatAnswer) -> Int {
             switch answer.sourceKind {
