@@ -1492,6 +1492,173 @@ struct ViewRenderTests {
         )
     }
 
+    // MARK: the zone header band
+
+    /// A zone header's own name text, styled the way `ZoneView` styles it:
+    /// the same font and shrink rule, with the line limit as a parameter so
+    /// a wrapped rendering can be checked against a rendering that only ever
+    /// allows one line. Placed on a white background twice the header's
+    /// height, so a row below the header stays background and states where
+    /// the header's own content ends.
+    private func zoneHeaderText(_ name: String, lineLimit: Int, width: Double) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(name)
+                .font(.headline)
+                .lineLimit(lineLimit)
+                .minimumScaleFactor(0.65)
+                .frame(width: width, height: Double(ZoneBox.headerHeight), alignment: .leading)
+            Spacer(minLength: 0)
+        }
+        .frame(width: width, height: Double(ZoneBox.headerHeight) * 2, alignment: .top)
+        .background(Color.white)
+    }
+
+    /// The lowest and highest row that differ from the background colour, or
+    /// nil when every row read matches it. A second line of text reaches
+    /// further down the image than one line does. The background colour is
+    /// read from the image's own bottom right corner, which no header text
+    /// in these tests reaches, so no literal colour needs its own colour
+    /// space conversion.
+    private func rowsWithContent(_ image: NSBitmapImageRep) -> ClosedRange<Int>? {
+        guard let background = image.colorAt(x: image.pixelsWide - 2, y: image.pixelsHigh - 2) else { return nil }
+        var first: Int?
+        var last: Int?
+        for y in 0..<image.pixelsHigh {
+            for x in stride(from: 0, to: image.pixelsWide, by: 2) {
+                guard let colour = image.colorAt(x: x, y: y), Self.differs(colour, from: background) else { continue }
+                first = first ?? y
+                last = y
+            }
+        }
+        guard let first, let last else { return nil }
+        return first...last
+    }
+
+    /// A zone sized and coloured for the header tests: a fixed id and
+    /// network zone, with the name, risk and boundary each a parameter.
+    private func aHeaderTestZone(
+        name: String,
+        width: Double,
+        height: Double,
+        boundaryId: String
+    ) -> ZoneView {
+        ZoneView(
+            zone: ViewedZone(
+                id: "z1",
+                name: name,
+                customName: name,
+                networkZoneId: "private",
+                networkTypeId: "generic",
+                riskReductionEnabled: boundaryId == "privilege",
+                riskReductionPercent: 20,
+                x: 0,
+                y: 0,
+                width: width,
+                height: height,
+                boundaryId: boundaryId
+            ),
+            risk: boundaryId == "privilege"
+                ? ElementRisk(sourceId: "zone:z1", openCount: 4, totalCount: 6, highestLevelId: "critical")
+                : nil,
+            size: CGSize(width: width, height: height),
+            isSelected: false,
+            onSelect: { _ in },
+            onDragChanged: { _, _ in },
+            onDragEnded: { _, _ in }
+        )
+    }
+
+    /// #215: a name of fifty characters is too long for one line in a zone as
+    /// narrow as the one component it holds. The header wraps the name
+    /// across the two lines the forty point band holds, rather than cutting
+    /// it to one line.
+    @Test func aNarrowZoneWithAFiftyCharacterNameWrapsRatherThanBeingCutToOneLine() async throws {
+        let width = 140.0
+        let name = String(repeating: "n", count: 50)
+
+        let wrapped = try #require(
+            pixels(of: zoneHeaderText(name, lineLimit: 2, width: width), width: width, height: Double(ZoneBox.headerHeight) * 2)
+        )
+        let cut = try #require(
+            pixels(of: zoneHeaderText(name, lineLimit: 1, width: width), width: width, height: Double(ZoneBox.headerHeight) * 2)
+        )
+        #expect(wrapped != cut, "the wrapped name and the one line cut of it should draw different pixels")
+
+        let wrappedImage = try #require(
+            draw(zoneHeaderText(name, lineLimit: 2, width: width), width: width, height: Double(ZoneBox.headerHeight) * 2)
+        )
+        let cutImage = try #require(
+            draw(zoneHeaderText(name, lineLimit: 1, width: width), width: width, height: Double(ZoneBox.headerHeight) * 2)
+        )
+        let wrappedRows = try #require(rowsWithContent(wrappedImage))
+        let cutRows = try #require(rowsWithContent(cutImage))
+        #expect(wrappedRows.count > cutRows.count, "two lines should reach further down the band than one cut line")
+    }
+
+    /// #215: a short name never needs the second line the header band holds.
+    @Test func aZoneWithAShortNameDrawsItOnOneLine() async throws {
+        let width = 260.0
+        let name = "Payments"
+
+        let oneLine = try #require(
+            draw(zoneHeaderText(name, lineLimit: 2, width: width), width: width, height: Double(ZoneBox.headerHeight) * 2)
+        )
+        let twoLines = try #require(
+            draw(zoneHeaderText(String(repeating: "n", count: 50), lineLimit: 2, width: 140), width: 140, height: Double(ZoneBox.headerHeight) * 2)
+        )
+        let oneLineRows = try #require(rowsWithContent(oneLine))
+        let twoLineRows = try #require(rowsWithContent(twoLines))
+        #expect(oneLineRows.count < twoLineRows.count, "a short name should reach less far down the band than a wrapped one")
+    }
+
+    /// #215: the name comes first in the header's `HStack`. A zone with a
+    /// long name and every chip still draws the whole name, because the name
+    /// takes the room before the chips do.
+    @Test func aZoneWithALongNameAndEveryChipDrawsTheWholeNameBecauseTheNameTakesTheRoomBeforeTheChips() async throws {
+        let width = 260.0
+        let height = 90.0
+        let name = String(repeating: "n", count: 50)
+
+        let withEveryChip = aHeaderTestZone(name: name, width: width, height: height, boundaryId: "privilege")
+        let withNoChips = aHeaderTestZone(name: name, width: width, height: height, boundaryId: "network")
+
+        let withChipsImage = try #require(draw(withEveryChip, width: width, height: height))
+        let withoutChipsImage = try #require(draw(withNoChips, width: width, height: height))
+
+        let nameColumns = 0..<40
+        #expect(
+            differences(withChipsImage, withoutChipsImage, columns: nameColumns) == 0,
+            "the name's own columns should draw the same whether the chips are there or not"
+        )
+
+        let wholeImageColumns = 0..<Int(width)
+        #expect(
+            differences(withChipsImage, withoutChipsImage, columns: wholeImageColumns) > 0,
+            "the chips should still change the picture outside the name's own columns"
+        )
+    }
+
+    /// #215: the header band is forty points, the value `ZoneContainment`
+    /// states, and that band is what holds a wrapped name's two lines.
+    @Test func theHeaderBandHoldsTwoLinesAtItsFortyPointHeight() throws {
+        #expect(ZoneBox.headerHeight == 40)
+        #expect(Double(ZoneBox.headerHeight) == ZoneContainment.headerHeight)
+
+        let name = String(repeating: "n", count: 50)
+        let wrapped = try #require(
+            draw(zoneHeaderText(name, lineLimit: 2, width: 140), width: 140, height: Double(ZoneBox.headerHeight) * 2)
+        )
+        let oneLine = try #require(
+            draw(zoneHeaderText(name, lineLimit: 1, width: 140), width: 140, height: Double(ZoneBox.headerHeight) * 2)
+        )
+        let wrappedRows = try #require(rowsWithContent(wrapped))
+        let oneLineRows = try #require(rowsWithContent(oneLine))
+        #expect(
+            wrappedRows.count > oneLineRows.count,
+            "the two line layout should reach further down the forty point band than one line does"
+        )
+    }
+
     @Test func drawsAWholeDiagramWithTheRiskItCarries() async {
         let session = aModel()
 

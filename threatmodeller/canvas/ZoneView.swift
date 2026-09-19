@@ -93,15 +93,8 @@ struct ZoneView: View {
             } else {
                 Text(zone.name)
                 .font(.headline)
-                // A zone as narrow as the one component it holds cannot state
-                // a name of fifty characters on one line, so the name wraps
-                // and shrinks a little rather than being cut. The band is
-                // forty points, which holds two lines.
                 .lineLimit(2)
                 .minimumScaleFactor(0.65)
-                // The name comes first. Without this the chips take the room
-                // and the name is cut, which is the one thing in the band a
-                // reader needs.
                 .layoutPriority(1)
                 .onTapGesture(count: 2) { onStartEditingName() }
             }
