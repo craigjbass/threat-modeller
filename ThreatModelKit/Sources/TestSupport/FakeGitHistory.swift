@@ -50,7 +50,13 @@ public final class FakeGitHistory: GitHistoryGateway, @unchecked Sendable {
     }
 
     public func file(root: String, at hash: String, path: String) throws -> String? {
-        files[hash]?[path]
+        guard let index = ordered.firstIndex(where: { $0.hash == hash }) else {
+            return files[hash]?[path]
+        }
+        for commit in ordered[index...] {
+            if let text = files[commit.hash]?[path] { return text }
+        }
+        return nil
     }
 
     public func isRepository(root: String) -> Bool {

@@ -71,8 +71,6 @@ public struct ProjectSystem: Equatable, Sendable {
     /// True when this system is a directory of files rather than one file.
     public var isSplit: Bool { architecturePaths.count > 1 || headerPath.contains("/arch/") }
 
-    /// The one architecture file a caller that reads one file reads. It is the
-    /// header file, which is the whole of a flat system.
     public var architecturePath: String { headerPath }
 
     /// The controls file that mirrors the header file.

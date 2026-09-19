@@ -52,12 +52,8 @@ public enum ReadRiskHistoryResponse: Equatable, Sendable {
     case cannotRead(reason: String)
 }
 
-/// Scores the model at each sampled commit.
-///
-/// The history is git: the project's own commits hold the files of that day,
-/// and the compile is deterministic, so the score at any commit is recoverable
-/// by reading the files at that commit. Nothing is stored, because a second
-/// store would drift from the one that is already there.
+/// Scores the model at each sampled commit, by reading the files that commit
+/// holds. Nothing is stored.
 public struct ReadRiskHistory: ReadRiskHistoryUseCase {
     /// What a run samples when nobody says otherwise. A five-year repository
     /// would otherwise compile thousands of times.
@@ -111,15 +107,12 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
         } ?? discovered.systems
         guard systems.isEmpty == false else { return .noSuchSystem }
 
-        // The files a commit must have touched to change a score. A commit
-        // that touched none of them cannot move a number.
         let watched = systems.flatMap { system in
-            [
-                relative(system.architecturePath, to: request.root),
-                relative(system.controlsPath, to: request.root),
-                relative(system.attackTreePath, to: request.root),
-                relative(system.governancePath, to: request.root)
-            ]
+            (system.architecturePaths
+                + system.controlsPaths
+                + system.attackTreePaths
+                + [system.governancePath])
+                .map { relative($0, to: request.root) }
         }
 
         let commits: [SourceCommit]
@@ -167,9 +160,6 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
         let threats: [ComparedThreat]
     }
 
-    /// What the model scored at one commit, or nil when its files did not
-    /// parse. Every system of the project is summed: a project's posture is
-    /// every system it holds.
     private func reading(
         at commit: SourceCommit,
         systems: [ProjectSystem],
@@ -186,12 +176,10 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
         var compared: [ComparedThreat] = []
 
         for system in systems {
-            let readArchitecture = try? history.file(
-                root: root,
-                at: commit.hash,
-                path: relative(system.architecturePath, to: root)
-            )
-            guard let architectureText = readArchitecture ?? nil else { continue }
+            let parts = system.architecturePaths.compactMap { path in
+                text(at: commit, path: path, root: root).map { SourcePart(file: path, text: $0) }
+            }
+            guard parts.isEmpty == false else { continue }
 
             let store = InMemoryThreatModelGateway()
             let imported = ImportArchitecture(
@@ -202,22 +190,19 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
                 layout: layout
             ).execute(
                 ImportArchitectureRequest(
-                    text: architectureText,
-                    attackTreeText: (try? history.file(
-                        root: root,
-                        at: commit.hash,
-                        path: relative(system.attackTreePath, to: root)
-                    )) ?? nil
+                    text: parts.first?.text ?? "",
+                    parts: system.isSplit ? parts : [],
+                    directoryName: system.isSplit ? system.name : nil,
+                    attackTreeTexts: system.attackTreePaths.compactMap {
+                        text(at: commit, path: $0, root: root)
+                    }
                 )
             )
             guard case .imported(_, _, let tag) = imported else { return nil }
             catalogueTag = tag ?? catalogueTag
 
-            if let controlsText = (try? history.file(
-                root: root,
-                at: commit.hash,
-                path: relative(system.controlsPath, to: root)
-            )) ?? nil {
+            for path in system.controlsPaths {
+                guard let controlsText = text(at: commit, path: path, root: root) else { continue }
                 let applied = ApplyControlAnswers(
                     models: store,
                     catalogue: catalogue,
@@ -226,11 +211,7 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
                 if case .refused = applied { return nil }
             }
 
-            if let governanceText = (try? history.file(
-                root: root,
-                at: commit.hash,
-                path: relative(system.governancePath, to: root)
-            )) ?? nil {
+            if let governanceText = text(at: commit, path: system.governancePath, root: root) {
                 let applied = ApplyGovernance(models: store, sources: governanceSources)
                     .execute(ApplyGovernanceRequest(text: governanceText))
                 if case .refused = applied { return nil }
@@ -294,6 +275,12 @@ public struct ReadRiskHistory: ReadRiskHistoryUseCase {
                 uniquingKeysWith: { first, _ in first }
             )
         )
+    }
+
+    /// What one file of the project holds at one commit, or nil when that
+    /// commit holds no such file.
+    private func text(at commit: SourceCommit, path: String, root: String) -> String? {
+        (try? history.file(root: root, at: commit.hash, path: relative(path, to: root))) ?? nil
     }
 
     /// `git show` names a path from the repository root, and a layout names it

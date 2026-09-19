@@ -36,7 +36,10 @@ struct ReadRiskHistoryTests {
     }
     """
 
-    private func read(commits: Int = ReadRiskHistory.defaultCommits) -> ReadRiskHistoryResponse {
+    private func read(
+        commits: Int = ReadRiskHistory.defaultCommits,
+        systemName: String? = nil
+    ) -> ReadRiskHistoryResponse {
         ReadRiskHistory(
             projects: project,
             history: git,
@@ -46,7 +49,9 @@ struct ReadRiskHistoryTests {
             attackTreeSources: HclAttackTreeSource(),
             governanceSources: HclGovernanceSource(),
             layout: LayOutModel()
-        ).execute(ReadRiskHistoryRequest(root: "/work", commits: commits))
+        ).execute(
+            ReadRiskHistoryRequest(root: "/work", systemName: systemName, commits: commits)
+        )
     }
 
     private func rows(_ response: ReadRiskHistoryResponse) -> [RiskHistoryRow] {
@@ -179,6 +184,36 @@ struct ReadRiskHistoryTests {
         #expect(rows(read()).isEmpty)
     }
 
+    @Test func sumsTheScoreOfEverySystemOfTheProject() throws {
+        let ledger = """
+        system "Ledger" {
+          catalogue = "v0.0.0"
+
+          component "books" {
+            technology = "aws-rds"
+            data       = "restricted"
+          }
+        }
+        """
+        project.put(oneComponent, at: "/work/threatmodel/payments.arch")
+        project.put(ledger, at: "/work/threatmodel/ledger.arch")
+        git.add(
+            hash: "aaaaaaa1111",
+            date: Date(timeIntervalSince1970: 1_000_000),
+            files: [
+                "threatmodel/payments.arch": oneComponent,
+                "threatmodel/ledger.arch": ledger
+            ]
+        )
+
+        let wholeProject = try #require(rows(read()).first?.numbers)
+        let onePart = try #require(rows(read(systemName: "payments")).first?.numbers)
+        let otherPart = try #require(rows(read(systemName: "ledger")).first?.numbers)
+
+        #expect(wholeProject.totalScore == onePart.totalScore + otherPart.totalScore)
+        #expect(wholeProject.threatCount == onePart.threatCount + otherPart.threatCount)
+    }
+
     @Test func namesAPathTheWayGitNamesIt() {
         #expect(
             ReadRiskHistory.relative("/work/threatmodel/payments.arch", to: "/work")
@@ -307,5 +342,137 @@ struct CompareRiskToCommitTests {
 
     @Test func changesNothingWhenTheTwoReadingsMatch() {
         #expect(change(now: [threat()], then: [threat()]).isEmpty)
+    }
+}
+
+@Suite("Scoring a system split across files at each sampled commit")
+struct SplitSystemRiskHistoryTests {
+    private let project = InMemoryProject(root: "/work")
+    private let git = FakeGitHistory(root: "/work")
+
+    private let header = """
+    system "Payments" {
+      catalogue = "v0.0.0"
+
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+    }
+    """
+
+    private let oneEdgeComponent = """
+    component "cache" {
+      technology = "aws-rds"
+      data       = "restricted"
+    }
+    """
+
+    private let twoEdgeComponents = """
+    component "cache" {
+      technology = "aws-rds"
+      data       = "restricted"
+    }
+
+    component "gateway" {
+      technology = "aws-ec2"
+      data       = "confidential"
+    }
+    """
+
+    private let edgeControls = """
+    controls for "Payments" {
+      threat "misconfiguration" on component "cache" {
+        control "Scan configuration continuously" {
+          status = "accepted"
+        }
+      }
+    }
+    """
+
+    private let headerPath = "threatmodel/payments/arch/payments.arch"
+    private let edgePath = "threatmodel/payments/arch/edge.arch"
+    private let headerControlsPath = "threatmodel/payments/controls/payments.controls"
+    private let edgeControlsPath = "threatmodel/payments/controls/edge.controls"
+
+    private func read() -> ReadRiskHistoryResponse {
+        ReadRiskHistory(
+            projects: project,
+            history: git,
+            catalogue: CatalogueFixture.catalogue(),
+            architectureSources: HclArchitectureSource(),
+            controlsSources: HclControlsSource(),
+            attackTreeSources: HclAttackTreeSource(),
+            governanceSources: HclGovernanceSource(),
+            layout: LayOutModel()
+        ).execute(ReadRiskHistoryRequest(root: "/work"))
+    }
+
+    private func rows() -> [RiskHistoryRow] {
+        guard case .read(let history) = read() else {
+            Issue.record("expected the history to be read")
+            return []
+        }
+        return history.rows
+    }
+
+    private func row(_ shortHash: String) -> RiskHistoryRow? {
+        rows().first { $0.commit.shortHash == shortHash }
+    }
+
+    private func seed() {
+        project.put(header, at: "/work/" + headerPath)
+        project.put(twoEdgeComponents, at: "/work/" + edgePath)
+        project.put("controls for \"Payments\" {\n}\n", at: "/work/" + headerControlsPath)
+        project.put(edgeControls, at: "/work/" + edgeControlsPath)
+
+        git.add(
+            hash: "aaaaaaa1111",
+            date: Date(timeIntervalSince1970: 1_000_000),
+            files: [headerPath: header, edgePath: oneEdgeComponent]
+        )
+        git.add(
+            hash: "bbbbbbb2222",
+            date: Date(timeIntervalSince1970: 2_000_000),
+            files: [edgePath: twoEdgeComponents]
+        )
+        git.add(
+            hash: "ccccccc3333",
+            date: Date(timeIntervalSince1970: 3_000_000),
+            files: [edgeControlsPath: edgeControls]
+        )
+        git.add(
+            hash: "ddddddd4444",
+            date: Date(timeIntervalSince1970: 4_000_000),
+            files: ["README.md": "a readme"]
+        )
+    }
+
+    @Test func showsARowForACommitThatChangedAnArchitecturePartFile() {
+        seed()
+
+        #expect(rows().contains { $0.commit.shortHash == "bbbbbbb" })
+    }
+
+    @Test func countsEveryArchitectureFileOfTheSystemInTheScore() throws {
+        seed()
+
+        let added = try #require(row("bbbbbbb")?.numbers)
+        let before = try #require(row("aaaaaaa")?.numbers)
+        #expect(added.totalScore > before.totalScore)
+        #expect(added.threatCount > before.threatCount)
+    }
+
+    @Test func showsARowForACommitThatChangedAControlsPartFile() throws {
+        seed()
+
+        let answered = try #require(row("ccccccc")?.numbers)
+        #expect(answered.acceptedRisks == 1)
+    }
+
+    @Test func showsNoRowForACommitThatTouchedNoWatchedFile() {
+        seed()
+
+        #expect(rows().contains { $0.commit.shortHash == "ddddddd" } == false)
     }
 }
