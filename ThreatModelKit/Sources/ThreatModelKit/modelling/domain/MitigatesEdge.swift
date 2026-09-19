@@ -8,7 +8,7 @@ public struct EdgeAction: Equatable, Sendable {
     /// Stated on exactly one edge per label, and nil on the others.
     public let text: String?
     public let note: String?
-    /// The assumption that says why this is not true yet, or nil.
+    /// The assumption blocking this edge, or nil.
     public let blockedBy: String?
     public let sources: [String]
 

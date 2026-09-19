@@ -90,10 +90,7 @@ public enum RemoveAssumptionResponse: Equatable, Sendable {
     }
 }
 
-/// Takes an assumption off the system. A `mitigates` edge may name one in
-/// `blocked_by`, and the edge keeps that name: the language reads it, and a
-/// person deciding to drop an assumption is not deciding to drop the edges
-/// that waited on it.
+/// Takes an assumption off the system.
 public struct RemoveAssumption: RemoveAssumptionUseCase {
     private let models: ThreatModelGateway
 

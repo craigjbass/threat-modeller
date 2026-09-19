@@ -20,6 +20,10 @@ struct SetAssumptionTests {
         app.modelStore.current().assumptions
     }
 
+    private var edges: [MitigatesEdge] {
+        app.modelStore.current().mitigatesEdges
+    }
+
     @Test func writesOneDown() {
         #expect(set(label: "network-segmented") == .recorded)
 
@@ -76,6 +80,74 @@ struct SetAssumptionTests {
 
     @Test func saysSoWhenNothingHoldsThatLabel() {
         #expect(app.removeAssumption().execute(RemoveAssumptionRequest(label: "nothing")) == .noSuchAssumption)
+    }
+
+    @Test func leavesAnAssumedEdgesBlockedByUnchangedWhenTheAssumptionIsRemoved() {
+        guard case .added(let guardId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "internal")
+        ), case .added(let storeId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-rds", x: 400, y: 0, sensitivity: "restricted")
+        ) else {
+            Issue.record("the two components were not added")
+            return
+        }
+        _ = set(label: "guard-not-deployed", text: "The guard is bought and not deployed.")
+        _ = app.setMitigatesEdge().execute(
+            SetMitigatesEdgeRequest(
+                sourceComponentId: guardId,
+                targetComponentId: storeId,
+                threatIds: ["credential-theft"],
+                reducesRiskBy: 60,
+                status: "assumed",
+                action: SetMitigatesEdgeRequest.Action(
+                    label: "adopt-the-guard",
+                    text: "Adopt the guard",
+                    blockedBy: "guard-not-deployed"
+                )
+            )
+        )
+
+        #expect(app.removeAssumption().execute(RemoveAssumptionRequest(label: "guard-not-deployed")) == .removed)
+
+        #expect(assumptions.isEmpty)
+        #expect(edges.first?.action?.blockedBy == "guard-not-deployed")
+    }
+
+    private let anAssumedEdgeNamingTheRemovedAssumption = """
+    system "Payments" {
+      component "guard" {
+        technology = "aws-ec2"
+      }
+      component "store" {
+        technology = "aws-rds"
+      }
+      assumption "guard-not-deployed" {
+        text = "The guard is bought and not deployed."
+      }
+      mitigates guard -> store {
+        threats         = ["credential-theft"]
+        reduces_risk_by = 60
+        status          = "assumed"
+
+        recommendation "adopt-the-guard" {
+          text       = "Adopt the guard"
+          blocked_by = "guard-not-deployed"
+        }
+      }
+    }
+    """
+
+    @Test func writesTheDanglingBlockedByOutToTheArchitectureFileWithNoAssumptionBlock() throws {
+        app.project.put(anAssumedEdgeNamingTheRemovedAssumption, at: "/work/threatmodel/payments.arch")
+        _ = app.openProject().execute(OpenProjectRequest(root: "/work"))
+        _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
+
+        _ = app.removeAssumption().execute(RemoveAssumptionRequest(label: "guard-not-deployed"))
+        _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
+
+        let written = try #require(app.project.text(at: "/work/threatmodel/payments.arch"))
+        #expect(written.contains("blocked_by = \"guard-not-deployed\""))
+        #expect(written.contains("assumption \"guard-not-deployed\"") == false)
     }
 
     /// The point of the use case is that the interface can reach the feature,
