@@ -711,6 +711,79 @@ struct ViewRenderTests {
         expectDrawn(picture, width: 900, height: 700, "the report data flow picture")
     }
 
+    // MARK: the width a report picture draws at
+
+    /// A red rectangle the width tests measure by its own colour against the
+    /// transparent background `ImageRenderer` draws around it.
+    private func aRedPicture(width: Double, height: Double) -> NSImage {
+        let picture = NSImage(size: NSSize(width: width, height: height))
+        picture.lockFocus()
+        NSColor.red.setFill()
+        NSRect(x: 0, y: 0, width: width, height: height).fill()
+        picture.unlockFocus()
+        return picture
+    }
+
+    /// The width and height of a `ReportPicture`'s own drawn content, at the
+    /// column width `columnWidth` states, or nil when nothing but background
+    /// was drawn.
+    ///
+    /// The background is read from the canvas corner, which the picture
+    /// never reaches: the picture centres on the canvas height, and never
+    /// grows past `columnWidth` across.
+    private func drawnPictureSize(
+        _ view: some View,
+        columnWidth: Double,
+        height: Double = 300
+    ) -> CGSize? {
+        guard let image = draw(view, width: columnWidth, height: height),
+            let background = image.colorAt(x: image.pixelsWide - 2, y: image.pixelsHigh - 2)
+        else { return nil }
+
+        var left = image.pixelsWide
+        var right = -1
+        var top = image.pixelsHigh
+        var bottom = -1
+        for x in stride(from: 0, to: image.pixelsWide, by: 1) {
+            for y in stride(from: 0, to: image.pixelsHigh, by: 2) {
+                guard let colour = image.colorAt(x: x, y: y),
+                    Self.differs(colour, from: background)
+                else { continue }
+                left = min(left, x)
+                right = max(right, x)
+                top = min(top, y)
+                bottom = max(bottom, y)
+            }
+        }
+        guard right >= 0 else { return nil }
+        return CGSize(width: right - left + 1, height: bottom - top + 1)
+    }
+
+    /// A column wider than the picture measures the picture's own width, not
+    /// the column's.
+    @Test func aReportPictureInAWiderColumnMeasuresItsOwnWidth() throws {
+        let picture = aRedPicture(width: 200, height: 100)
+        let view = ReportPicture(image: picture, label: "diagram")
+
+        let measured = try #require(drawnPictureSize(view, columnWidth: 480))
+
+        #expect(abs(measured.width - picture.size.width) <= 2)
+    }
+
+    /// A column narrower than the picture measures the column's own width,
+    /// and keeps the picture's aspect ratio.
+    @Test func aReportPictureInANarrowerColumnMeasuresTheColumnsWidth() throws {
+        let picture = aRedPicture(width: 200, height: 100)
+        let columnWidth = 120.0
+        let view = ReportPicture(image: picture, label: "diagram")
+
+        let measured = try #require(drawnPictureSize(view, columnWidth: columnWidth))
+
+        #expect(abs(measured.width - columnWidth) <= 2)
+        let expectedHeight = columnWidth * (picture.size.height / picture.size.width)
+        #expect(abs(measured.height - expectedHeight) <= 2)
+    }
+
     // MARK: the tag filter control
 
     /// `aModel()` states no tag, so the control shows the disabled hint row

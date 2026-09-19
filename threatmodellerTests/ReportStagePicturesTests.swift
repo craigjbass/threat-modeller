@@ -166,6 +166,62 @@ struct ReportStagePicturesTests {
         #expect(section.blocks.contains(.dataFlow))
     }
 
+    // MARK: the redraw signature
+
+    /// Two reads of the signature give the same text when nothing about the
+    /// picture changed between them.
+    @Test func signatureHoldsStillWhenNothingChanged() async throws {
+        let (project, _) = await aProject()
+        let model = try #require(project.model)
+
+        let before = ReportDataFlowPicture(session: model).signature
+        let after = ReportDataFlowPicture(session: model).signature
+
+        #expect(before == after)
+    }
+
+    /// A component that moves changes the signature, so the picture is
+    /// drawn again at the component's new place.
+    @Test func signatureChangesWhenAComponentMoves() async throws {
+        let (project, _) = await aProject()
+        let model = try #require(project.model)
+        let component = try #require(model.canvas.components.first)
+        let before = ReportDataFlowPicture(session: model).signature
+
+        model.move([
+            ComponentMove(componentId: component.id, x: component.x + 40, y: component.y + 40)
+        ])
+
+        #expect(ReportDataFlowPicture(session: model).signature != before)
+    }
+
+    /// A component given a different technology changes the signature.
+    @Test func signatureChangesWhenATechnologyChanges() async throws {
+        let (project, _) = await aProject()
+        let model = try #require(project.model)
+        let component = try #require(model.canvas.components.first)
+        let before = ReportDataFlowPicture(session: model).signature
+
+        model.changeTechnology(componentId: component.id, technologyId: "aws-waf")
+
+        #expect(ReportDataFlowPicture(session: model).signature != before)
+    }
+
+    /// An answer given on the Controls stage, which changes a risk, changes
+    /// the signature, so the picture is drawn again with the new risk shown.
+    @Test func signatureChangesWhenAControlsStageAnswerChangesARisk() async throws {
+        let (project, _) = await aProject()
+        let model = try #require(project.model)
+        let control = try #require(
+            model.threats.first { $0.threatId == "credential-theft" }?.controls.first
+        )
+        let before = ReportDataFlowPicture(session: model).signature
+
+        model.setControl(key: control.key, implemented: true)
+
+        #expect(ReportDataFlowPicture(session: model).signature != before)
+    }
+
     // MARK: the threat pictures
 
     /// One picture per top residual threat, and the count is the count the

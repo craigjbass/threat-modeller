@@ -33,7 +33,6 @@ struct ReportSvgPicture: View {
     }
 }
 
-/// One drawn picture, fitted to the column and never scaled up.
 struct ReportPicture: View {
     let image: NSImage
     let label: String
@@ -42,8 +41,6 @@ struct ReportPicture: View {
         Image(nsImage: image)
             .resizable()
             .aspectRatio(contentMode: .fit)
-            // Never wider than the picture itself: a small picture stays
-            // small rather than turning into a blurred one.
             .frame(maxWidth: image.size.width, maxHeight: image.size.height)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityLabel(label)
@@ -61,9 +58,6 @@ struct ReportPicture: View {
 struct ReportDataFlowPicture: View {
     let session: ThreatModelSession
 
-    /// The picture drawn once, and drawn again when the model changes. Drawing
-    /// is a full layout pass over the diagram, so it does not run on every
-    /// draw of the column.
     @State private var drawn: NSImage?
 
     /// The picture at the report's own size, before a column fits it.
@@ -92,8 +86,6 @@ struct ReportDataFlowPicture: View {
         )
     }
 
-    /// What the picture is of. A change to any of it draws the picture again,
-    /// so an answer given on another stage shows here.
     var signature: String {
         let area = session.imageArea()
         let places = session.canvas.components
@@ -105,7 +97,12 @@ struct ReportDataFlowPicture: View {
         let zones = session.canvas.zones
             .map { "\($0.id):\($0.x),\($0.y),\($0.width),\($0.height)" }
             .joined(separator: "|")
-        let risks = session.elementRisks.keys.sorted().joined(separator: ",")
+        let risks = session.elementRisks.keys.sorted()
+            .map { key in
+                let risk = session.elementRisks[key]
+                return "\(key):\(risk?.highestLevelId ?? "-"):\(risk?.openCount ?? 0)"
+            }
+            .joined(separator: ",")
         let marks = session.canvas.mitigations
             .map { "\($0.sourceComponentId)>\($0.targetComponentId)" }
             .joined(separator: "|")
