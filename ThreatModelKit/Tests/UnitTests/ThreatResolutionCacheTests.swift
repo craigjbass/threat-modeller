@@ -142,4 +142,34 @@ struct ThreatResolutionCacheTests {
 
         #expect(first.threats == again.threats)
     }
+
+    @Test func aLibraryThatArrivesMakesTheKeptResolutionStale() throws {
+        let app = TestDependencies()
+        _ = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "confidential")
+        )
+        let before = app.assessThreatModel().execute(AssessThreatModelRequest())
+        let revisionBefore = app.modelStore.revision
+
+        let (library, faults) = Library.build(
+            from: LibrarySource(
+                label: "acme",
+                overrides: [SourceLibraryOverride(threatId: "credential-theft", severityLabel: "low")]
+            ),
+            taxonomy: CatalogueFixture.taxonomy()
+        )
+        #expect(faults.isEmpty)
+        app.useLibraries([try #require(library)])
+
+        let afterTheList = app.assessThreatModel().execute(AssessThreatModelRequest())
+        let afterTheSummary = app.summariseRisk().execute(SummariseRiskRequest())
+        let revisionAfter = app.modelStore.revision
+
+        let beforeTheLibrary = try #require(before.threats.first { $0.threatId == "credential-theft" })
+        let afterTheLibrary = try #require(afterTheList.threats.first { $0.threatId == "credential-theft" })
+        #expect(beforeTheLibrary.severityId != "low")
+        #expect(afterTheLibrary.severityId == "low")
+        #expect(revisionAfter == revisionBefore)
+        #expect(afterTheSummary.totalThreats == afterTheList.threats.count)
+    }
 }

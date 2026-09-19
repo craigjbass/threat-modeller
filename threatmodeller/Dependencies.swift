@@ -489,8 +489,6 @@ nonisolated final class Dependencies: UseCaseFactory {
 
     func useLibraries(_ libraries: [Library]) {
         self.libraries.set(libraries)
-        // The catalogue decides what a model raises, so a library that
-        // arrives makes the kept resolution stale.
         resolutions.forget()
     }
 
