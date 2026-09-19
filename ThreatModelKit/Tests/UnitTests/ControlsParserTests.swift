@@ -1,4 +1,5 @@
 import ArchitectureDSL
+import Foundation
 import Testing
 import ThreatModelKit
 
@@ -352,6 +353,53 @@ struct ControlsParserTests {
                     + "sufficient and step, not \"colour\""
             ]
         )
+    }
+
+    /// `docs/LANGUAGE.md` section 2's grammar, and the `tree` section, state
+    /// every attribute and block a `tree` stanza holds. This drives the
+    /// parser's own refusal to read the canonical list of names, then reads
+    /// the document to prove it states each one.
+    @Test func theLanguageGuideStatesEveryAttributeATreeStanzaHolds() throws {
+        let read = gateway.read("""
+        controls for "P" {
+          tree "t" {
+            colour = "red"
+          }
+        }
+        """)
+        let message = try #require(read.diagnostics.map(\.message).first)
+        let prefix = "a tree holds "
+        #expect(message.hasPrefix(prefix))
+        let list = message
+            .dropFirst(prefix.count)
+            .components(separatedBy: ", not ")[0]
+            .replacingOccurrences(of: " and ", with: ", ")
+        let words = list.components(separatedBy: ", ")
+        #expect(words.isEmpty == false)
+
+        let guideText = try Self.languageGuideText()
+        let grammarStart = try #require(guideText.range(of: "TreeAnswerBlock = [ \"stale\" ]"))
+        let grammarEnd = try #require(
+            guideText.range(of: "SufficientAnswerAttr", range: grammarStart.upperBound..<guideText.endIndex)
+        )
+        let grammar = guideText[grammarStart.lowerBound..<grammarEnd.upperBound]
+
+        for word in words {
+            #expect(
+                grammar.contains("\"\(word)\""),
+                "the language guide's tree grammar does not state \"\(word)\""
+            )
+        }
+    }
+
+    private static func languageGuideText() throws -> String {
+        let path = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("docs/LANGUAGE.md")
+        return try String(contentsOf: path, encoding: .utf8)
     }
 
     @Test func refusesAWordAStepDoesNotHold() {

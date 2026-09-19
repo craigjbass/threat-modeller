@@ -266,7 +266,7 @@
           "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
           "inherentScore": {
             "type": "integer",
-            "description": "The score before the controls, the compensating controls and the upstream mitigations."
+            "description": "The score after the zone reduction and before the controls, the compensating controls and the upstream mitigations."
           },
           "isOpen": {
             "type": "boolean",

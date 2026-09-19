@@ -1470,12 +1470,17 @@ TreeAnswerEntry = "goal"           "=" String
                 | "raises_risk_by" "=" Number
                 | "score"          "=" Number
                 | "score_before"   "=" Number
-                | StepAnswerBlock ;
+                | "closed_by"      "=" String
+                | StepAnswerBlock
+                | SufficientAnswerBlock ;
 
 StepAnswerBlock = "step" String "{" { StepAnswerAttr } "}" ;
 StepAnswerAttr  = "state"    "=" String
                 | "by"       "=" String
                 | "position" "=" Number ;
+
+SufficientAnswerBlock = "sufficient" String "{" { SufficientAnswerAttr } "}" ;
+SufficientAnswerAttr  = "state" "=" String ;
 
 ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String "{" { ThreatEntry } "}" ;
 SourceKind  = "component" | "zone" | "flow" ;
@@ -3310,12 +3315,17 @@ TreeAnswerEntry = "goal"           "=" String
                 | "raises_risk_by" "=" Number
                 | "score"          "=" Number
                 | "score_before"   "=" Number
-                | StepAnswerBlock ;
+                | "closed_by"      "=" String
+                | StepAnswerBlock
+                | SufficientAnswerBlock ;
 
 StepAnswerBlock = "step" String "{" { StepAnswerAttr } "}" ;
 StepAnswerAttr  = "state"    "=" String
                 | "by"       "=" String
                 | "position" "=" Number ;
+
+SufficientAnswerBlock = "sufficient" String "{" { SufficientAnswerAttr } "}" ;
+SufficientAnswerAttr  = "state" "=" String ;
 
 ThreatBlock = [ "stale" ] "threat" String "on" SourceKind String
               "{" { ThreatEntry } "}" ;
