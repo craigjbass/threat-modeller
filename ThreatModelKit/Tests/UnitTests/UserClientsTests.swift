@@ -408,6 +408,62 @@ struct UserClientsTests {
         #expect(onBatch.likelihoodId == "targeted")
     }
 
+    private let reachOnly = """
+    system "Payments" {
+      threat_actor "insider" {
+        name       = "Disgruntled operator"
+        capability = "targeted"
+        intent     = "sabotage"
+        performs   = ["credential-theft"]
+      }
+
+      component "api" {
+        technology = "aws-ec2"
+        name       = "API"
+        data       = "confidential"
+      }
+
+      component "batch" {
+        technology = "aws-ec2"
+        name       = "Batch"
+        data       = "confidential"
+      }
+
+      user "alice" {
+        name         = "Alice"
+        reaches      = ["api"]
+        threat_actor = "insider"
+      }
+    }
+
+    """
+
+    @Test func aUserThatStatesReachesAndNoClientNarrowsItsActorToWhatItReaches() throws {
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: reachOnly))
+
+        let onApi = try threat("credential-theft", on: "component:api")
+        #expect(onApi.likelihoodId == "targeted")
+        #expect(onApi.performedByLabels == ["Disgruntled operator"])
+
+        let onBatch = try threat("credential-theft", on: "component:batch")
+        #expect(onBatch.likelihoodId == "commodity")
+        #expect(onBatch.performedByLabels.isEmpty)
+    }
+
+    @Test func aUserThatStatesNoReachAndNoClientPerformsEverywhere() throws {
+        _ = app.importArchitecture().execute(
+            ImportArchitectureRequest(
+                text: reachOnly.replacingOccurrences(
+                    of: "    reaches      = [\"api\"]\n",
+                    with: ""
+                )
+            )
+        )
+
+        let onBatch = try threat("credential-theft", on: "component:batch")
+        #expect(onBatch.likelihoodId == "targeted")
+    }
+
     // MARK: the report
 
     @Test func theScopeLineNamesTheUserTheClientAndTheTarget() {

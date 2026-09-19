@@ -176,6 +176,71 @@ struct TextDiagramWriterTests {
         )
     }
 
+    /// One legitimate user and one adversary, each drawn with the actor
+    /// shape the model gives a person.
+    private func peopleModel() -> DiagramBuilder.Model {
+        DiagramBuilder.Model(
+            components: [
+                ViewedComponent(
+                    id: "alice",
+                    technologyId: "user",
+                    name: "Alice",
+                    customName: "Alice",
+                    providerId: "",
+                    categoryId: "",
+                    x: 0,
+                    y: 0,
+                    sensitivityId: "internal",
+                    threatsDisabled: false,
+                    isUnknownTechnology: false,
+                    zoneId: nil,
+                    shapeId: "actor",
+                    isUser: true
+                ),
+                ViewedComponent(
+                    id: "phisher",
+                    technologyId: "user",
+                    name: "Phisher",
+                    customName: "Phisher",
+                    providerId: "",
+                    categoryId: "",
+                    x: 100,
+                    y: 0,
+                    sensitivityId: "internal",
+                    threatsDisabled: false,
+                    isUnknownTechnology: false,
+                    zoneId: nil,
+                    shapeId: "actor",
+                    isUser: true,
+                    isAdversary: true
+                )
+            ],
+            connections: [],
+            zones: []
+        )
+    }
+
+    @Test func mermaidDrawsAnAdversaryApartFromALegitimateUser() {
+        let text = TextDiagramWriter.mermaid(of: peopleModel())
+
+        #expect(text.contains("alice([\"Alice\"])"))
+        #expect(text.contains("phisher{{\"Phisher\"}}"))
+    }
+
+    @Test func dotDrawsAnAdversaryApartFromALegitimateUser() {
+        let text = TextDiagramWriter.dot(of: peopleModel())
+
+        #expect(text.contains("alice [label=\"Alice\", shape=ellipse];"))
+        #expect(text.contains("phisher [label=\"Phisher\", shape=octagon];"))
+    }
+
+    @Test func d2DrawsAnAdversaryApartFromALegitimateUser() {
+        let text = TextDiagramWriter.d2(of: peopleModel())
+
+        #expect(text.contains("alice: \"Alice\" { shape: person }"))
+        #expect(text.contains("phisher: \"Phisher\" { shape: hexagon }"))
+    }
+
     @Test func mermaidLabelsTheUseLinkAndTheReachApart() {
         let text = TextDiagramWriter.mermaid(of: pathModel())
 

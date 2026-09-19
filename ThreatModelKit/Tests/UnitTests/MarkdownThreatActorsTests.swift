@@ -27,6 +27,21 @@ struct MarkdownThreatActorsTests {
         #expect(text.contains("| FIN7 (G0046) | Targeted | Financial | 22 |"))
     }
 
+    @Test func callsAFacedActorAThreatActorAndNotAnAdversary() {
+        let lines = MarkdownThreatActors.lines([
+            ReportThreatActor(
+                name: "Commodity crimeware",
+                capabilityLabel: "Commodity",
+                intent: "opportunistic",
+                threatsPerformed: 31
+            )
+        ])
+        let text = lines.joined(separator: "\n")
+
+        #expect(text.contains("This assessment is written against these threat actors."))
+        #expect(text.lowercased().contains("adversar") == false)
+    }
+
     @Test func writesNoSectionForAModelThatFacesNobody() {
         #expect(MarkdownThreatActors.lines([]).isEmpty)
     }

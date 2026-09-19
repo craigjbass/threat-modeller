@@ -256,4 +256,50 @@ struct ScopeTests {
         #expect(read.useCases == model.useCases)
         #expect(read.exclusions == model.exclusions)
     }
+
+    @Test func theScopeSectionHeadsAnAdversaryApartFromTheLegitimateUsers() throws {
+        let lines = MarkdownScope.lines(
+            useCases: [],
+            exclusions: [],
+            users: [
+                ReportUser(name: "Alice", role: "Operator", accessLabel: "Administrator"),
+                ReportUser(
+                    name: "Phisher",
+                    role: "Customer",
+                    accessLabel: "User",
+                    isAdversary: true
+                )
+            ]
+        )
+
+        let users = try #require(lines.firstIndex(of: "### Users"))
+        let adversaries = try #require(lines.firstIndex(of: "### Adversaries"))
+        let alice = try #require(lines.firstIndex { $0.hasPrefix("- Alice") })
+        let phisher = try #require(lines.firstIndex { $0.hasPrefix("- Phisher") })
+        #expect(users < alice)
+        #expect(alice < adversaries)
+        #expect(adversaries < phisher)
+    }
+
+    @Test func aModelWithNoAdversaryHeadsOnlyTheUsers() {
+        let lines = MarkdownScope.lines(
+            useCases: [],
+            exclusions: [],
+            users: [ReportUser(name: "Alice", accessLabel: "User")]
+        )
+
+        #expect(lines.contains("### Users"))
+        #expect(lines.contains("### Adversaries") == false)
+    }
+
+    @Test func aModelWithNoLegitimateUserHeadsOnlyTheAdversaries() {
+        let lines = MarkdownScope.lines(
+            useCases: [],
+            exclusions: [],
+            users: [ReportUser(name: "Phisher", accessLabel: "User", isAdversary: true)]
+        )
+
+        #expect(lines.contains("### Adversaries"))
+        #expect(lines.contains("### Users") == false)
+    }
 }

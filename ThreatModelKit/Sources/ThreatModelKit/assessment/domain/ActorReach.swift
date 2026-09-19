@@ -1,13 +1,13 @@
 /// Where each faced actor performs.
 ///
 /// Section 5 of the user-through-a-client design. An actor `faces` lists
-/// performs everywhere. An actor a user names performs everywhere when the
-/// user states no `uses`, because the user states no reach. A user with
-/// `uses` reaches each client it holds, each flow that leaves a client and
-/// the component that flow ends at, each component `reaches` names, and
-/// each flow that leaves the user itself with its end; the user's actor
-/// performs only on those sources. An actor two users name performs
-/// wherever either reaches.
+/// performs everywhere. An actor a user names performs everywhere only when
+/// the user states neither `uses` nor `reaches`, because the user then states
+/// no reach at all. A user that states either reaches each client it holds,
+/// each flow that leaves a client and the component that flow ends at, each
+/// component `reaches` names, and each flow that leaves the user itself with
+/// its end; the user's actor performs only on those sources. An actor two
+/// users name performs wherever either reaches.
 ///
 /// A pure value built once from the model. It reads no gateway.
 public struct ActorReach: Sendable {
@@ -22,7 +22,7 @@ public struct ActorReach: Sendable {
         for user in model.components {
             guard let facts = user.user, let actorId = facts.threatActorId else { continue }
             let actor = ThreatActorId(actorId)
-            guard facts.uses.isEmpty == false else {
+            guard facts.uses.isEmpty == false || facts.reaches.isEmpty == false else {
                 everywhere.insert(actor)
                 continue
             }

@@ -184,4 +184,23 @@ struct MarkdownExecutiveSummaryTests {
 
         #expect(text.contains("1. Pin every package to a hash \u{2014} answers Package substitution"))
     }
+
+    @Test func statesHowManyAdversariesTheModelDeclares() {
+        let one = MarkdownExecutiveSummary.lines(
+            ReportExecutiveSummary(adversaryCount: 1),
+            components: []
+        )
+        let two = MarkdownExecutiveSummary.lines(
+            ReportExecutiveSummary(adversaryCount: 2),
+            components: []
+        )
+        let none = MarkdownExecutiveSummary.lines(
+            ReportExecutiveSummary(),
+            components: []
+        )
+
+        #expect(one.contains("This model declares 1 adversary, listed under Scope."))
+        #expect(two.contains("This model declares 2 adversaries, listed under Scope."))
+        #expect(none.contains { $0.contains("adversar") } == false)
+    }
 }

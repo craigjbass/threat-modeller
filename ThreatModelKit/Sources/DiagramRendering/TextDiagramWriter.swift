@@ -8,7 +8,8 @@ import ThreatModelKit
 /// changed.
 ///
 /// Every writer walks the model in the order the model holds, so two runs on
-/// one model give the same bytes.
+/// one model give the same bytes. An adversary takes a shape of its own in
+/// each language, so a reader tells it from a legitimate user.
 public enum TextDiagramWriter {
     /// The languages this writes.
     public enum Language: String, CaseIterable, Sendable {
@@ -71,10 +72,10 @@ public enum TextDiagramWriter {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    /// A node, drawn in the shape Mermaid gives that kind of element: a stadium
-    /// for an actor, a cylinder for a store, a box for everything else.
+    /// A node, drawn in the shape Mermaid gives that kind of element.
     private static func mermaidNode(_ component: ViewedComponent) -> String {
         let name = mermaidText(component.name)
+        if component.isAdversary { return "\(identifier(component.id)){{\(name)}}" }
         switch component.shapeId {
         case "actor": return "\(identifier(component.id))([\(name)])"
         case "store": return "\(identifier(component.id))[(\(name))]"
@@ -133,13 +134,16 @@ public enum TextDiagramWriter {
     }
 
     private static func dotNode(_ component: ViewedComponent) -> String {
-        let shape: String
+        "\(identifier(component.id)) [label=\(dotText(component.name)), shape=\(dotShape(component))];"
+    }
+
+    private static func dotShape(_ component: ViewedComponent) -> String {
+        if component.isAdversary { return "octagon" }
         switch component.shapeId {
-        case "actor": shape = "ellipse"
-        case "store": shape = "cylinder"
-        default: shape = "box"
+        case "actor": return "ellipse"
+        case "store": return "cylinder"
+        default: return "box"
         }
-        return "\(identifier(component.id)) [label=\(dotText(component.name)), shape=\(shape)];"
     }
 
     /// DOT reads a quoted string, in which `"` and `\` are escaped.
@@ -199,13 +203,16 @@ public enum TextDiagramWriter {
     }
 
     private static func d2Node(_ component: ViewedComponent) -> String {
-        let shape: String
+        "\(identifier(component.id)): \(d2Text(component.name)) { shape: \(d2Shape(component)) }"
+    }
+
+    private static func d2Shape(_ component: ViewedComponent) -> String {
+        if component.isAdversary { return "hexagon" }
         switch component.shapeId {
-        case "actor": shape = "person"
-        case "store": shape = "cylinder"
-        default: shape = "rectangle"
+        case "actor": return "person"
+        case "store": return "cylinder"
+        default: return "rectangle"
         }
-        return "\(identifier(component.id)): \(d2Text(component.name)) { shape: \(shape) }"
     }
 
     /// D2 reads a quoted string, in which `"` and `\` are escaped.

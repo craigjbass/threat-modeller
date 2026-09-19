@@ -65,7 +65,7 @@ public struct Report: Equatable, Sendable {
     /// What a team could do, worst first by what it removes. Empty when the
     /// model declares no action.
     public let actions: [ReportAction]
-    /// The adversaries this assessment is written against, in the order the
+    /// The threat actors this assessment is written against, in the order the
     /// model faces them. Empty for a model that faces nobody.
     public let threatActors: [ReportThreatActor]
     /// What the model scored at each sampled commit, newest first. Empty when
@@ -208,7 +208,7 @@ public struct ReportKnownVulnerability: Equatable, Sendable {
     public var isSynchronised: Bool { priorityLabel != nil }
 }
 
-/// One adversary the assessment is written against.
+/// One threat actor the assessment is written against.
 public struct ReportThreatActor: Equatable, Sendable {
     public let name: String
     public let capabilityLabel: String
@@ -305,6 +305,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     /// How many third parties this system cannot run without. A reader of one
     /// page reads what stops the system as well as what threatens it.
     public let hardDependencyCount: Int
+    /// How many adversaries this model declares: users the model does not
+    /// trust. A reader of one page reads who the model is written against.
+    public let adversaryCount: Int
 
     public init(
         verdict: String = "",
@@ -322,8 +325,10 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         reviewedOn: String? = nil,
         openByImpact: [ReportCount] = [],
         exclusionCount: Int = 0,
-        hardDependencyCount: Int = 0
+        hardDependencyCount: Int = 0,
+        adversaryCount: Int = 0
     ) {
+        self.adversaryCount = adversaryCount
         self.verdict = verdict
         self.toleranceLabel = toleranceLabel
         self.topRisks = topRisks
@@ -355,7 +360,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         documentControl: DocumentControl? = nil,
         today: GovernanceDate? = nil,
         exclusionCount: Int = 0,
-        hardDependencyCount: Int = 0
+        hardDependencyCount: Int = 0,
+        adversaryCount: Int = 0
     ) -> ReportExecutiveSummary {
         // Counted once per distinct control key the way `SummariseRisk`
         // counts, so a control shared across links is one control.
@@ -422,7 +428,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
             reviewedOn: documentControl?.reviewed,
             openByImpact: openByImpact(threats.filter { isUnanswered($0) }),
             exclusionCount: exclusionCount,
-            hardDependencyCount: hardDependencyCount
+            hardDependencyCount: hardDependencyCount,
+            adversaryCount: adversaryCount
         )
     }
 

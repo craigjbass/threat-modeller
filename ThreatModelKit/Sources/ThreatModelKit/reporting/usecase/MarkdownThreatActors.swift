@@ -8,7 +8,7 @@ public enum MarkdownThreatActors {
 
         var lines = ["## Threat actors", ""]
         lines.append(
-            "This assessment is written against these adversaries. A threat no actor here "
+            "This assessment is written against these threat actors. A threat no actor here "
                 + "performs keeps the catalogue's own likelihood."
         )
         lines.append("")

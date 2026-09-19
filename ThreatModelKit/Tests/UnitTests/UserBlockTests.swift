@@ -1,4 +1,5 @@
 import ArchitectureDSL
+import DiagramRendering
 import FileGateways
 import Foundation
 import Testing
@@ -865,5 +866,62 @@ struct UserBlockTests {
                 for: ReportUser(name: "Phisher", accessLabel: "User", isAdversary: true)
             ) == "Phisher (adversary, User): reaches nothing"
         )
+    }
+
+    private let crowd = """
+    system "Payments" {
+      component "api" {
+        technology = "aws-ec2"
+        name       = "API"
+        data       = "confidential"
+      }
+
+      user "alice" {
+        name    = "Alice"
+        role    = "Operator"
+        access  = "admin"
+        reaches = ["api"]
+      }
+
+      adversary "phisher" {
+        name    = "Phisher"
+        role    = "Customer"
+        reaches = ["api"]
+      }
+    }
+
+    """
+
+    @Test func theReportHeadsAnAdversaryApartDrawsItApartAndCountsIt() throws {
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: crowd))
+
+        let report = app.buildThreatModelReport().execute(BuildThreatModelReportRequest()).report
+        let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
+        let canvas = app.viewThreatModel().execute(ViewThreatModelRequest())
+        let drawn = DiagramBuilder.Model(
+            components: canvas.components,
+            connections: canvas.connections,
+            zones: canvas.zones
+        )
+
+        let lines = markdown
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+        let users = try #require(lines.firstIndex(of: "### Users"))
+        let adversaries = try #require(lines.firstIndex(of: "### Adversaries"))
+        let alice = try #require(lines.firstIndex { $0.hasPrefix("- Alice") })
+        let phisher = try #require(lines.firstIndex { $0.hasPrefix("- Phisher") })
+        #expect(users < alice)
+        #expect(alice < adversaries)
+        #expect(adversaries < phisher)
+
+        let mermaid = TextDiagramWriter.mermaid(of: drawn)
+        #expect(mermaid.contains("alice([\"Alice\"])"))
+        #expect(mermaid.contains("phisher{{\"Phisher\"}}"))
+        #expect(TextDiagramWriter.dot(of: drawn).contains("phisher [label=\"Phisher\", shape=octagon];"))
+        #expect(TextDiagramWriter.d2(of: drawn).contains("phisher: \"Phisher\" { shape: hexagon }"))
+
+        #expect(report.executiveSummary.adversaryCount == 1)
+        #expect(markdown.contains("This model declares 1 adversary, listed under Scope."))
     }
 }

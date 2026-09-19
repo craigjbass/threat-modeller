@@ -121,6 +121,16 @@ public enum MarkdownExecutiveSummary {
             lines.append("")
         }
 
+        if summary.adversaryCount > 0 {
+            lines.append(
+                summary.adversaryCount == 1
+                    ? "This model declares 1 adversary, listed under Scope."
+                    : "This model declares \(summary.adversaryCount) adversaries, "
+                        + "listed under Scope."
+            )
+            lines.append("")
+        }
+
         if summary.hardDependencyCount > 0 {
             lines.append(
                 summary.hardDependencyCount == 1

@@ -256,4 +256,27 @@ struct ReportExecutiveSummaryTests {
         #expect(summary.topLeverageActions.isEmpty)
         #expect(summary.topActions.map { $0.text } == ["do the thing"])
     }
+
+    @Test func countsTheAdversariesTheModelDeclares() {
+        let summary = ReportExecutiveSummary.build(
+            threats: [],
+            recommendations: [],
+            tolerance: .low,
+            findings: ReportFindingsCut(),
+            adversaryCount: 2
+        )
+
+        #expect(summary.adversaryCount == 2)
+    }
+
+    @Test func countsNoAdversaryForAModelThatDeclaresNone() {
+        let summary = ReportExecutiveSummary.build(
+            threats: [],
+            recommendations: [],
+            tolerance: .low,
+            findings: ReportFindingsCut()
+        )
+
+        #expect(summary.adversaryCount == 0)
+    }
 }

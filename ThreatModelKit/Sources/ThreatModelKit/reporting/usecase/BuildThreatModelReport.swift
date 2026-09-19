@@ -516,7 +516,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     documentControl: control,
                     today: CheckGovernance.today(clock.now()),
                     exclusionCount: exclusions.count,
-                    hardDependencyCount: model.thirdParties.filter { $0.uptime == .hard }.count
+                    hardDependencyCount: model.thirdParties.filter { $0.uptime == .hard }.count,
+                    adversaryCount: model.components.filter { $0.user?.isAdversary == true }.count
                 ),
                 methodology: ReportMethodology.build(zones: zones, tolerance: tolerance),
                 actions: actions,
@@ -573,7 +574,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         }
     }
 
-    /// The adversaries this assessment is written against, and how many of
+    /// The threat actors this assessment is written against, and how many of
     /// this model's threats each one performs.
     static func threatActors(
         faced: [ThreatActor],

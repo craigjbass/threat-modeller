@@ -2,9 +2,8 @@
 ///
 /// A reader must be able to tell a flow that was modelled and found safe from
 /// a flow nobody modelled. The use cases say what the model covers, the users
-/// say who uses it, and the exclusions say what it leaves out and why. A
-/// system that states none of the three writes no section, so a reader never
-/// meets an empty heading.
+/// say who uses it, the adversaries say who the model does not trust, and the
+/// exclusions say what it leaves out and why.
 public enum MarkdownScope {
     public static func lines(
         useCases: [ReportUseCase],
@@ -25,11 +24,22 @@ public enum MarkdownScope {
             lines.append("")
         }
 
-        if users.isEmpty == false {
+        let legitimate = users.filter { $0.isAdversary == false }
+        if legitimate.isEmpty == false {
             lines.append("### Users")
             lines.append("")
-            for user in users {
+            for user in legitimate {
                 lines.append("- " + line(for: user))
+            }
+            lines.append("")
+        }
+
+        let adversaries = users.filter(\.isAdversary)
+        if adversaries.isEmpty == false {
+            lines.append("### Adversaries")
+            lines.append("")
+            for adversary in adversaries {
+                lines.append("- " + line(for: adversary))
             }
             lines.append("")
         }
@@ -47,11 +57,7 @@ public enum MarkdownScope {
         return lines
     }
 
-    /// One user on one line: the word adversary for an adversary, the role
-    /// and the access in brackets,
-    /// what the user reaches, each client the user holds with what it
-    /// reaches, and the actor the user is. A user that reaches nothing and
-    /// holds nothing reads `reaches nothing`.
+    /// One user on one line.
     public static func line(for user: ReportUser) -> String {
         var words: [String] = []
         if user.isAdversary { words.append("adversary") }
