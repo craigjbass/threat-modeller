@@ -1,15 +1,9 @@
 import Foundation
 
 /// Joins a burst of changes into one piece of work.
-///
-/// It holds no rule about what the work is: `ProjectSession` decides that, and
-/// this only says when to run it.
 @MainActor
 protocol ChangeCoalescing: AnyObject {
-    /// Restarts the wait. The work runs when the wait ends, and only the work
-    /// given last runs.
     func schedule(_ work: @escaping @MainActor () -> Void)
-    /// Drops the work that is waiting.
     func cancel()
 }
 

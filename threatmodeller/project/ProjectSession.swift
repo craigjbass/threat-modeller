@@ -376,7 +376,6 @@ final class ProjectSession {
     /// It draws the system named in `preferring` when the project still holds
     /// it, and the first system when it does not.
     func open(root: String, preferring wanted: String? = nil) async {
-        // A write waiting for the project being left must not land in it.
         coalescer.cancel()
         loading = .readingTheProject
         defer { loading = nil }

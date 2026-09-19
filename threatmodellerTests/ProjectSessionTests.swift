@@ -1262,6 +1262,32 @@ struct AutomaticSaveTests {
 
         #expect(coalescer.hasPendingWork == false)
     }
+
+    @Test func cancelsThePendingWriteWhenASecondRootWithNoSystemIsOpened() async {
+        let (session, useCases, coalescer) = await aProject()
+        useCases.project.put("a readme", at: "/empty/README.md")
+        session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
+        #expect(coalescer.hasPendingWork)
+        let cancelledBeforeOpen = coalescer.cancelledCount
+
+        await session.open(root: "/empty")
+
+        #expect(coalescer.hasPendingWork == false)
+        #expect(coalescer.cancelledCount == cancelledBeforeOpen + 1)
+    }
+
+    @Test func firingTheCoalescerAfterASecondRootIsOpenedWritesNeitherProjectsFiles() async {
+        let (session, useCases, coalescer) = await aProject()
+        useCases.project.put("a readme", at: "/empty/README.md")
+        session.model?.add(technologyId: "aws-rds", x: 900, y: 700)
+
+        await session.open(root: "/empty")
+        coalescer.fire()
+        await session.settle()
+
+        #expect(useCases.project.text(at: "/work/threatmodel/payments.controls") == nil)
+        #expect(useCases.project.text(at: "/empty/threatmodel/payments.controls") == nil)
+    }
 }
 
 /// A project that holds a shared library. Its technologies and its threats
