@@ -1,6 +1,8 @@
+import Foundation
 import Testing
 import ThreatModelKit
 import TestSupport
+import FileGateways
 
 @Suite("Starting from an example")
 struct SampleModelUseCaseTests {
@@ -66,4 +68,75 @@ struct SampleModelUseCaseTests {
 
         #expect(assessment.threats.isEmpty == false)
     }
+
+    @Test func drawsTheSamplesOwnPictureWithoutOpeningIt() {
+        let response = app.previewSampleModel().execute(
+            PreviewSampleModelRequest(sampleId: FakeSampleModels.sampleId)
+        )
+
+        guard case .drawn(let drawn) = response else {
+            Issue.record("Expected the sample to be drawn")
+            return
+        }
+        #expect(drawn.components.map(\.technologyId) == ["aws-ec2"])
+        #expect(drawn.connections.isEmpty)
+        #expect(drawn.zones.isEmpty)
+    }
+
+    @Test func leavesTheOpenModelAndItsRevisionAsTheyWere() {
+        let modelBefore = app.modelStore.current()
+        let revisionBefore = app.modelStore.revision
+
+        _ = app.previewSampleModel().execute(
+            PreviewSampleModelRequest(sampleId: FakeSampleModels.sampleId)
+        )
+
+        #expect(app.modelStore.current() == modelBefore)
+        #expect(app.modelStore.revision == revisionBefore)
+    }
+
+    @Test func leavesNothingToTakeBack() {
+        _ = app.previewSampleModel().execute(
+            PreviewSampleModelRequest(sampleId: FakeSampleModels.sampleId)
+        )
+
+        #expect(app.modelStore.undo() == nil)
+    }
+
+    @Test func anUnknownSampleAnswersUnknownSampleAndWritesNothing() {
+        let modelBefore = app.modelStore.current()
+        let revisionBefore = app.modelStore.revision
+
+        let response = app.previewSampleModel().execute(
+            PreviewSampleModelRequest(sampleId: "no-such-sample")
+        )
+
+        #expect(response == .unknownSample)
+        #expect(app.modelStore.current() == modelBefore)
+        #expect(app.modelStore.revision == revisionBefore)
+    }
+
+    @Test func anUnreadableDocumentAnswersUnreadableAndWritesNothing() {
+        let modelBefore = app.modelStore.current()
+        let revisionBefore = app.modelStore.revision
+        let useCase = PreviewSampleModel(
+            samples: UnreadableSample(),
+            files: ThreatModelCodec(),
+            catalogue: app.catalogueInUse
+        )
+
+        let response = useCase.execute(PreviewSampleModelRequest(sampleId: "anything"))
+
+        guard case .unreadable = response else {
+            Issue.record("Expected the document to be unreadable")
+            return
+        }
+        #expect(app.modelStore.current() == modelBefore)
+        #expect(app.modelStore.revision == revisionBefore)
+    }
+}
+
+private struct UnreadableSample: SampleModelGateway {
+    func all() -> [SampleModel] { [] }
+    func document(id: String) throws -> Data { Data("not a threat model".utf8) }
 }

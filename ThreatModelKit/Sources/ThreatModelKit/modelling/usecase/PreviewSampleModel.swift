@@ -16,13 +16,6 @@ public enum PreviewSampleModelResponse: Equatable, Sendable {
 }
 
 /// Draws a bundled example without opening it.
-///
-/// The browser shows the picture of the highlighted sample. The picture comes
-/// from the sample's own document, read here, so nothing stores an image and
-/// no picture can go stale against the model it shows.
-///
-/// WARNING: this writes nothing. The model on screen is untouched until a
-/// person presses Open, which is `LoadSampleModel`.
 public struct PreviewSampleModel: PreviewSampleModelUseCase {
     private let samples: SampleModelGateway
     private let files: ThreatModelFileGateway
@@ -48,8 +41,6 @@ public struct PreviewSampleModel: PreviewSampleModelUseCase {
             return .unreadable(reason: String(describing: error))
         }
 
-        // A store of its own, so reading a sample never touches the model in
-        // front of the person.
         let store = InMemoryThreatModelGateway(loaded)
         return .drawn(
             ViewThreatModel(models: store, catalogue: catalogue)
