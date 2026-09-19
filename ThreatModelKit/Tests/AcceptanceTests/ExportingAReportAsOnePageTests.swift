@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import ThreatModelKit
 import TestSupport
@@ -94,6 +95,51 @@ struct ExportingAReportAsOnePageTests {
         #expect(page.html.contains("<svg id=\"whole\"></svg>"))
         #expect(page.html.contains("<img") == false)
         #expect(page.html.contains("src=") == false)
+    }
+
+    /// `ExportModelAsHtml` reads the history, the banner and a control the
+    /// way `ExportModelAsMarkdown` reads them: the Risk over time section
+    /// holds the sampled history, the banner prints once, and a control
+    /// draws as a checkbox rather than the literal "[x]" the Markdown writes.
+    @Test func writesTheHistoryOneBannerAndARenderedCheckbox() {
+        aModelWorthReporting()
+        let rows = [
+            RiskHistoryRow(
+                commit: SourceCommit(
+                    hash: "bbbbbbbbbbbb", shortHash: "bbbbbbb", author: "Ada",
+                    date: Date(timeIntervalSince1970: 1_700_000_000), subject: "now"
+                ),
+                numbers: RiskHistoryNumbers(
+                    totalScore: 20, worstScore: 9, threatCount: 4,
+                    acceptedRisks: 0, openAttackTrees: 0, catalogueTag: nil
+                )
+            ),
+            RiskHistoryRow(
+                commit: SourceCommit(
+                    hash: "aaaaaaaaaaaa", shortHash: "aaaaaaa", author: "Ada",
+                    date: Date(timeIntervalSince1970: 1_600_000_000), subject: "then"
+                ),
+                numbers: RiskHistoryNumbers(
+                    totalScore: 30, worstScore: 9, threatCount: 6,
+                    acceptedRisks: 0, openAttackTrees: 0, catalogueTag: nil
+                )
+            )
+        ]
+        let template = ReportTemplate(
+            frontMatter: ReportTemplate.FrontMatter(banner: "OFFICIAL"),
+            pieces: ExportModelAsMarkdown.defaultTemplate.pieces
+        )
+
+        let page = app.exportModelAsHtml().execute(
+            ExportModelAsHtmlRequest(template: template, history: rows)
+        )
+
+        #expect(page.html.contains("<h2>Risk over time</h2>"))
+        // The banner text appears once: the fixed div, and nowhere else.
+        #expect(page.html.components(separatedBy: "OFFICIAL").count == 2)
+        #expect(page.html.contains("<input type=\"checkbox\""))
+        #expect(page.html.contains("[ ]") == false)
+        #expect(page.html.contains("[x]") == false)
     }
 
     @Test func linksAPictureItWasNotGiven() {

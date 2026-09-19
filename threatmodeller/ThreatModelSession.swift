@@ -1192,14 +1192,18 @@ final class ThreatModelSession {
         case .none: template = nil
         case .found(let found, _): template = found
         }
-        let drawn = reportPictureSet()
+        let drawn = reportPictureSet(history: sampledHistory.rows)
         let page = useCases.exportModelAsHtml().execute(
             ExportModelAsHtmlRequest(
                 threatPictures: drawn.threatPictures,
                 controlPictures: drawn.controlPictures,
                 pictureSources: drawn.sources,
                 wholePicture: drawn.wholePicture,
-                template: template
+                template: template,
+                riskOverTimePicture: drawn.riskOverTimePicture,
+                history: sampledHistory.rows,
+                historyTruncated: sampledHistory.truncated,
+                change: change(against: sampledHistory)
             )
         )
         return (Data(page.html.utf8), page.fileName)

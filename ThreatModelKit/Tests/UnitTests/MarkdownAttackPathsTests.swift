@@ -120,11 +120,11 @@ struct MarkdownAttackPathsTests {
         #expect(text.contains("### 2. Gateway B \u{2192} Store \u{2014} worst 9"))
     }
 
-    @Test func writesNoneWhenTheTraceFoundNothing() {
-        let text = MarkdownAttackPaths.lines([], prefix: []).joined(separator: "\n")
-
-        #expect(text.contains("## Attack paths"))
-        #expect(text.contains("None."))
+    /// Every other section of the report returns no lines for an empty
+    /// model, and this section now matches: a reader never meets an "Attack
+    /// paths" heading with nothing below it.
+    @Test func writesNoHeadingWhenTheTraceFoundNoPath() {
+        #expect(MarkdownAttackPaths.lines([], prefix: []).isEmpty)
     }
 
     @Test func writesTheDroppedPathsAsAnAppendix() {

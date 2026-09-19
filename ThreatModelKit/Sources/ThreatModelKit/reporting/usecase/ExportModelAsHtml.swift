@@ -15,23 +15,48 @@ public struct ExportModelAsHtmlRequest: Equatable, Sendable {
     public let pictureSources: [String: String]
     /// The whole system as SVG, written under the title. Nil draws none.
     public let wholePicture: String?
+    /// The diagram of each top residual threat, as text a wiki renders, keyed
+    /// the way `threatPictures` is keyed.
+    public let threatDiagrams: [String: String]
+    /// The diagram of each control, as text, by the control's protector id.
+    public let controlDiagrams: [String: String]
     /// The team's own shape for the report, or nil for the shape this
     /// application ships. The page reads its front matter for the banner and
     /// the cover.
     public let template: ReportTemplate?
+    /// The file the caller wrote the risk-over-time graph to, relative to the
+    /// report, or nil when it drew none.
+    public let riskOverTimePicture: String?
+    /// What the model scored at each sampled commit, and what changed since
+    /// the newest one. Empty when nobody asked for the history.
+    public let history: [RiskHistoryRow]
+    public let historyTruncated: Bool
+    public let change: RiskChange?
 
     public init(
         threatPictures: [String: String] = [:],
         controlPictures: [String: String] = [:],
         pictureSources: [String: String] = [:],
         wholePicture: String? = nil,
-        template: ReportTemplate? = nil
+        threatDiagrams: [String: String] = [:],
+        controlDiagrams: [String: String] = [:],
+        template: ReportTemplate? = nil,
+        riskOverTimePicture: String? = nil,
+        history: [RiskHistoryRow] = [],
+        historyTruncated: Bool = false,
+        change: RiskChange? = nil
     ) {
         self.template = template
         self.threatPictures = threatPictures
         self.controlPictures = controlPictures
         self.pictureSources = pictureSources
         self.wholePicture = wholePicture
+        self.threatDiagrams = threatDiagrams
+        self.controlDiagrams = controlDiagrams
+        self.riskOverTimePicture = riskOverTimePicture
+        self.history = history
+        self.historyTruncated = historyTruncated
+        self.change = change
     }
 }
 
@@ -66,7 +91,13 @@ public struct ExportModelAsHtml: ExportModelAsHtmlUseCase {
             ExportModelAsMarkdownRequest(
                 threatPictures: request.threatPictures,
                 controlPictures: request.controlPictures,
-                template: request.template
+                threatDiagrams: request.threatDiagrams,
+                controlDiagrams: request.controlDiagrams,
+                template: request.template,
+                riskOverTimePicture: request.riskOverTimePicture,
+                history: request.history,
+                historyTruncated: request.historyTruncated,
+                change: request.change
             )
         )
         let stem = String(written.fileName.dropLast(3))

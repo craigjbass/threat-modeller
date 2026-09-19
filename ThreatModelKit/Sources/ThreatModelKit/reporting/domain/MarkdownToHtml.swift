@@ -109,6 +109,11 @@ public enum MarkdownToHtml {
             }
             closeTable()
 
+            // The report writes the banner both as this blockquote line and
+            // as its own fixed div, drawn from the same text below. Drawing
+            // the line too would print the banner twice.
+            if line.hasPrefix("> ") { continue }
+
             if let picture = image(in: line) {
                 closeList()
                 body.append(figure(picture, pictures: pictures))
@@ -126,6 +131,15 @@ public enum MarkdownToHtml {
                 // An indented line under an item continues that item. Closing
                 // the list here would start the next item's list again at one.
                 addUnder(inline(line.trimmed()))
+                continue
+            }
+
+            if let checkbox = checkboxItem(in: line) {
+                if listIsNumbered { closeList() }
+                let checked = checkbox.checked ? " checked" : ""
+                list.append(
+                    "<li><input type=\"checkbox\"\(checked) disabled> \(inline(checkbox.text))</li>"
+                )
                 continue
             }
 
@@ -191,6 +205,14 @@ public enum MarkdownToHtml {
         let digits = line.prefix(while: \.isNumber).count
         guard digits > 0, line.dropFirst(digits).hasPrefix(". ") else { return nil }
         return digits + 2
+    }
+
+    /// Whether a control checkbox line is checked, and the text after it, or
+    /// nil for a line that is not one.
+    static func checkboxItem(in line: String) -> (checked: Bool, text: String)? {
+        if line.hasPrefix("- [x] ") { return (true, String(line.dropFirst(6))) }
+        if line.hasPrefix("- [ ] ") { return (false, String(line.dropFirst(6))) }
+        return nil
     }
 
     /// The alt text and the file name of an image line, or nil.

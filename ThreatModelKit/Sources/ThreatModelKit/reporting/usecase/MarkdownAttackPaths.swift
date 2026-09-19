@@ -8,11 +8,9 @@ public enum MarkdownAttackPaths {
         _ paths: [ReportAttackPath],
         prefix: [ReportAttackPathHop]
     ) -> [String] {
-        var lines = ["## Attack paths", ""]
+        guard paths.isEmpty == false else { return [] }
 
-        guard paths.isEmpty == false else {
-            return lines + ["None.", ""]
-        }
+        var lines = ["## Attack paths", ""]
 
         if prefix.isEmpty == false {
             lines.append(

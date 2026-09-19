@@ -124,6 +124,17 @@ struct MarkdownToHtmlTests {
         #expect(html.contains("<link") == false)
     }
 
+    /// The Markdown writer draws a control as `- [x] ` or `- [ ] `. The page
+    /// draws a checkbox a reader recognises, not the literal marker.
+    @Test func drawsAControlCheckboxAsACheckbox() {
+        let html = body("- [x] Done\n- [ ] Not done")
+
+        #expect(html.contains("<li><input type=\"checkbox\" checked disabled> Done</li>"))
+        #expect(html.contains("<li><input type=\"checkbox\" disabled> Not done</li>"))
+        #expect(html.contains("[x]") == false)
+        #expect(html.contains("[ ]") == false)
+    }
+
     @Test func writesANumberedListAsOneOrderedList() {
         let html = body("1. first\n2. second\n3. third\n")
 
@@ -157,6 +168,20 @@ struct MarkdownToHtmlTests {
 
         #expect(html.contains("<div class=\"banner\">OFFICIAL &lt;SECRET&gt;</div>"))
         #expect(html.contains("<SECRET>") == false)
+    }
+
+    /// The Markdown report writes the banner both as the blockquote line at
+    /// the top of the file and as the fixed `banner` text this call passes,
+    /// so the page must print it once, not twice.
+    @Test func writesTheBannerOnceWhenTheMarkdownAlsoQuotesIt() {
+        let html = MarkdownToHtml.html(
+            of: "> OFFICIAL\n\n# One",
+            title: "model",
+            banner: "OFFICIAL"
+        )
+
+        #expect(html.components(separatedBy: "OFFICIAL").count == 2)
+        #expect(html.contains("<p>&gt; OFFICIAL</p>") == false)
     }
 
     @Test func writesTheCoverBeforeTheFirstHeadingAndTheBannerBeforeTheCover() {

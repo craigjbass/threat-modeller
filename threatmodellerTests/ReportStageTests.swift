@@ -239,6 +239,94 @@ struct ReportStageTests {
         )
     }
 
+    /// A known exploited CVE raises a threat's tier to Commodity, which is
+    /// the tier every threat already carries by default, so the Likelihood
+    /// line must print by the CVE's reason, not by the tier changing.
+    /// `MarkdownThreatStanza` already reads this reason; the stage reads the
+    /// same one.
+    @Test func showsTheLikelihoodLineForAThreatAKnownExploitedCveSets() async throws {
+        let architecture = """
+        system "Payments" {
+          component "api" {
+            technology = "aws-ec2"
+            data       = "confidential"
+            cves       = ["CVE-2023-44487"]
+          }
+        }
+
+        """
+        let useCases = TestDependencies()
+        useCases.project.put(architecture, at: "/work/threatmodel/payments.arch")
+        let lock = VulnerabilityLock(
+            cves: [
+                "CVE-2023-44487": KnownVulnerability(
+                    id: "CVE-2023-44487", cvss: 7.5, epss: 0.94, isKnownExploited: true
+                )
+            ],
+            epssDate: "2026-09-15",
+            kevCatalogueVersion: "2026.09.15"
+        )
+        useCases.project.put(lock.text, at: "/work/threatmodel/\(VulnerabilityLock.fileName)")
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+
+        let registered = try section(.threatRegister, of: try page(of: session))
+        let bullets = registered.blocks.flatMap { block -> [ReportBullet] in
+            if case .bullets(let items) = block { return items }
+            return []
+        }
+
+        #expect(bullets.contains { $0.text.contains("set by CVE-2023-44487, known exploited") })
+    }
+
+    /// The window's tree reads the same ordered chain `MarkdownAttackTrees`
+    /// writes to the file, so a person who never generates a report still
+    /// sees which step comes first.
+    @Test func showsTheTreesOrderedChainTheMarkdownWrites() async throws {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        useCases.project.put(
+            """
+            attack_trees for "Payments" {
+              tree "phishing" {
+                goal "misconfiguration" on component "api"
+
+                then {
+                  step "credential-theft" on component "api"
+                  step "misconfiguration" on component "api"
+                }
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.attacktree"
+        )
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+        let model = try #require(session.model)
+        let report = model.builtReport()
+        let markdown = MarkdownAttackTrees.lines(report.attackTrees, routes: report.attackPathCount)
+        let chainLine = try #require(markdown.first { $0.hasPrefix("1. ") })
+
+        let treeSection = try section(.attackTrees, of: try page(of: session))
+        let numbered = treeSection.blocks.compactMap { block -> [ReportBullet]? in
+            if case .numbered(let bullets) = block { return bullets }
+            return nil
+        }
+        let firstChain = try #require(numbered.first)
+
+        #expect(treeSection.blocks.contains(.lead("The chain, in order:")))
+        #expect(firstChain.first?.text == String(chainLine.dropFirst(3)))
+    }
+
     // MARK: reaching the stage
 
     /// The View menu's Report item runs `showStage`, the way the other four

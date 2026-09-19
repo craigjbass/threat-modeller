@@ -748,11 +748,39 @@ struct ReportStagePage: Equatable {
                     [$0.threatName, $0.sourceName, $0.state.rawValue, $0.closedBy ?? "\u{2014}"]
                 }
             )))
+            blocks += chains(of: tree)
         }
         blocks.append(.paragraph(
             "This model states \(count(trees.count, "tree"))."
                 + " The walk found \(count(report.attackPathCount, "route"))."
         ))
+        return blocks
+    }
+
+    /// Every chain of the tree as an ordered route, one numbered list per
+    /// chain with its links in position order. A tree of branches alone adds
+    /// nothing here: the table above already holds it.
+    private static func chains(of tree: BoundAttackTree) -> [ReportBlock] {
+        let numbers = Array(Set(tree.steps.compactMap(\.chain))).sorted()
+        guard numbers.isEmpty == false else { return [] }
+
+        var blocks: [ReportBlock] = []
+        for number in numbers {
+            let links = tree.steps.filter { $0.chain == number }
+            blocks.append(.lead(numbers.count == 1 ? "The chain, in order:" : "Chain \(number), in order:"))
+            let positions = Array(Set(links.compactMap(\.position))).sorted()
+            blocks.append(.numbered(positions.map { position in
+                let said = links
+                    .filter { $0.position == position }
+                    .map { link -> String in
+                        var line = "\(link.threatName) on \(link.sourceName), \(link.state.rawValue)"
+                        if let closedBy = link.closedBy { line += " by \(closedBy)" }
+                        return line
+                    }
+                    .joined(separator: "; ")
+                return ReportBullet(text: said)
+            }))
+        }
         return blocks
     }
 
@@ -1234,7 +1262,8 @@ struct ReportStagePage: Equatable {
         ))
 
         if threat.likelihoodRationale != nil
-            || threat.likelihoodLabel != Likelihood.commodity.label {
+            || threat.likelihoodLabel != Likelihood.commodity.label
+            || threat.likelihoodReason.hasSuffix(LikelihoodSource.knownExploitedSuffix) {
             let scoreChanged = threat.scoreBeforeLikelihood != threat.riskScore
             let reason = threat.likelihoodRationale == nil ? ", \(threat.likelihoodReason)" : ""
             var notes: [String] = []
