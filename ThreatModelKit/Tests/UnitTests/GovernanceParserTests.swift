@@ -234,4 +234,18 @@ struct GovernanceDateTests {
         #expect(earlier < later)
         #expect(later > earlier)
     }
+
+    @Test func countsTheDaysFromOneDateToAnother() throws {
+        func date(_ raw: String) throws -> GovernanceDate {
+            try #require(try? GovernanceDate.read(raw).get())
+        }
+
+        #expect(try date("2026-01-01").daysUntil(date("2026-01-11")) == 10)
+        #expect(try date("2026-01-11").daysUntil(date("2026-01-01")) == -10)
+        #expect(try date("2026-01-01").daysUntil(date("2026-01-01")) == 0)
+        #expect(try date("2024-02-28").daysUntil(date("2024-03-01")) == 2)
+        #expect(try date("2023-02-28").daysUntil(date("2023-03-01")) == 1)
+        #expect(try date("1900-12-31").daysUntil(date("1901-01-01")) == 1)
+        #expect(try date("2000-12-31").daysUntil(date("2001-01-01")) == 1)
+    }
 }
