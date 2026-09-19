@@ -164,10 +164,7 @@ struct FlowClickTests {
     }
 
 
-    /// Zoomed out, a flow is thinner on screen, and the same model distance
-    /// is a smaller number of screen points. The click keeps the reach it has
-    /// on screen, so a flow stays as easy to hit at any zoom.
-    @Test func reachesFurtherInModelUnitsWhileTheDiagramIsZoomedOut() throws {
+    @Test func reachesFurtherInModelUnitsWhileTheDiagramIsZoomedOutForAFlow() throws {
         let world = aFlowThatGoesRoundANode()
         let curve = try #require(world.geometry.curves["k1"])
         let drawn = CGPoint(curve.point(at: 0.5))

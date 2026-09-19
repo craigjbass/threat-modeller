@@ -13,7 +13,7 @@ import ThreatModelKit
 ///
 /// Declared `nonisolated`: the app target defaults every type to the main
 /// actor, and this one is a pure value with no shared state.
-nonisolated struct MitigatesMark: Equatable {
+nonisolated struct MitigatesMark: Equatable, SampledCurve {
     /// The component that lowers the threat.
     let sourceComponentId: String
     /// The component the threat is lowered on.
@@ -25,7 +25,6 @@ nonisolated struct MitigatesMark: Equatable {
     /// The control point of the quadratic curve, off the straight line.
     let control: CGPoint
 
-    /// The point at `t`, where 0 is the start and 1 is the end.
     func point(at t: CGFloat) -> CGPoint {
         let rest = 1 - t
         return CGPoint(
@@ -84,23 +83,13 @@ nonisolated struct MitigatesMark: Equatable {
         return built
     }
 
-    /// The shortest distance from the point to the curve, sampled at 40
-    /// steps. The gap between two samples is far smaller than the tolerance
-    /// for any mark the canvas draws.
-    func distance(to modelPoint: CGPoint) -> CGFloat {
-        (0...40).reduce(CGFloat.infinity) { shortest, step in
-            let sample = point(at: CGFloat(step) / 40)
-            return min(shortest, hypot(sample.x - modelPoint.x, sample.y - modelPoint.y))
-        }
-    }
-
     /// True when a click at this point hits the mark. The shield is the part
     /// a reader aims at, so it counts as the mark as well.
     func containsClick(
         at modelPoint: CGPoint,
         within reach: CGFloat = MitigatesGeometry.hitTolerance
     ) -> Bool {
-        shieldRect.contains(modelPoint) || distance(to: modelPoint) <= reach
+        shieldRect.contains(modelPoint) || isWithin(reach, of: modelPoint)
     }
 }
 
@@ -114,8 +103,6 @@ nonisolated struct MitigatesMark: Equatable {
 nonisolated struct MitigatesGeometry {
     /// How far off the straight line the control point sits, in model units.
     static let bow: CGFloat = 34
-    /// How far a click may sit from the curve and still select the edge, in
-    /// model units.
     static let hitTolerance: CGFloat = 8
     /// How big the shield on the middle of the curve is.
     static let shieldSize = CGSize(width: 18, height: 20)
@@ -174,10 +161,6 @@ nonisolated struct MitigatesGeometry {
 
     /// The edge under the point, or nil. A later mark wins, because it is
     /// drawn on top.
-    ///
-    /// `within` is how far from the curve a click still counts, in model
-    /// units. A caller that draws at a zoom divides by that zoom, so the
-    /// reach on screen is the same however far out the diagram is.
     func mark(
         under modelPoint: CGPoint,
         within reach: CGFloat = hitTolerance

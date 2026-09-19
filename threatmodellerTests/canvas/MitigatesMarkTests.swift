@@ -190,9 +190,7 @@ struct MitigatesMarkTests {
         #expect(world.mark(under: CGPoint(x: 250, y: 900)) == nil)
     }
 
-    /// Zoomed out, the same model distance is a smaller number of screen
-    /// points, so the reach is stated in model units by the caller.
-    @Test func reachesFurtherInModelUnitsWhileTheDiagramIsZoomedOut() throws {
+    @Test func reachesFurtherInModelUnitsWhileTheDiagramIsZoomedOutForAMitigatesMark() throws {
         let world = geometry([edge("c1", "c2")], components: twoNodes())
         let mark = try #require(world.marks.first)
         let quarter = mark.point(at: 0.15)

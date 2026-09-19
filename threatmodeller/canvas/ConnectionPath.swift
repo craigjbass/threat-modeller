@@ -11,9 +11,7 @@ import ThreatModelKit
 ///
 /// Declared `nonisolated`: the app target defaults every type to the main
 /// actor, and this one is a pure value with no shared state.
-nonisolated struct ConnectionPath: Equatable {
-    /// How far a click may sit from the curve and still select the link, in
-    /// model units.
+nonisolated struct ConnectionPath: Equatable, SampledCurve {
     static let hitTolerance: CGFloat = 8
 
     let curve: FlowCurve
@@ -56,21 +54,10 @@ nonisolated struct ConnectionPath: Equatable {
     var control1: CGPoint { CGPoint(curve.control1) }
     var control2: CGPoint { CGPoint(curve.control2) }
 
-    /// The point at `t`, where 0 is the start and 1 is the end.
     func point(at t: CGFloat) -> CGPoint { CGPoint(curve.point(at: t)) }
 
-    /// The shortest distance from the point to the curve, sampled at 40 steps.
-    /// Sampling is enough here: the gap between two samples is far smaller than
-    /// `hitTolerance` for any link the canvas draws.
-    func distance(to modelPoint: CGPoint) -> CGFloat {
-        (0...40).reduce(CGFloat.infinity) { shortest, step in
-            let sample = point(at: CGFloat(step) / 40)
-            return min(shortest, hypot(sample.x - modelPoint.x, sample.y - modelPoint.y))
-        }
-    }
-
     func containsClick(at modelPoint: CGPoint) -> Bool {
-        distance(to: modelPoint) <= Self.hitTolerance
+        isWithin(Self.hitTolerance, of: modelPoint)
     }
 
     /// The three points of the arrowhead at `end`, pointing along the curve's

@@ -139,10 +139,6 @@ nonisolated struct FlowGeometry {
     /// A callout wins over a curve, because a callout is drawn over
     /// everything else; a later flow wins over an earlier one, because it is
     /// drawn on top.
-    ///
-    /// `within` is how far from the curve a click still counts, in model
-    /// units. A caller that draws at a zoom divides by that zoom, so the
-    /// reach on screen is the same however far out the diagram is.
     func connection(
         under modelPoint: CGPoint,
         within reach: CGFloat = ConnectionPath.hitTolerance
@@ -152,7 +148,7 @@ nonisolated struct FlowGeometry {
         }
         return order.last { id in
             guard useLinkIds.contains(id) == false, let curve = curves[id] else { return false }
-            return ConnectionPath(curve).distance(to: modelPoint) <= reach
+            return ConnectionPath(curve).isWithin(reach, of: modelPoint)
         }
     }
 
