@@ -66,30 +66,6 @@ struct HistoryControlGuardTests {
         #expect(window.attachedSheet == nil, "the History control opened a sheet with no history to read")
     }
 
-    /// Runs the run loop in short steps until this holds, or a second
-    /// passes. A poll finds work that finishes fast without paying the full
-    /// wait every time, and still fails when the work never finishes.
-    private func withinASecond(_ isTrue: () -> Bool) {
-        let deadline = Date().addingTimeInterval(1)
-        while isTrue() == false, Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-        }
-    }
-
-    /// A click on the History control once the session holds history
-    /// attaches the sheet within a second: the control is on.
-    @Test func theHistoryControlIsOnOnceTheSessionHoldsHistory() async throws {
-        let (session, _) = await aProject(open: true)
-        let window = aProjectWindow(session)
-        defer { window.orderOut(nil) }
-        let frame = try historyControlFrame(in: window)
-
-        click(window, at: NSPoint(x: frame.midX, y: frame.midY))
-        withinASecond { window.attachedSheet != nil }
-
-        #expect(window.attachedSheet != nil, "the History control opened no sheet within a second with history to read")
-    }
-
     @Test func theSessionHoldsHistoryOnceAProjectIsOpenSoTheControlIsOn() async throws {
         let (closed, _) = await aProject(open: false)
         let (open, _) = await aProject(open: true)

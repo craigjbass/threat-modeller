@@ -82,22 +82,8 @@ func click(_ window: NSWindow, at point: NSPoint, count: Int = 1) {
 /// A view in a window the way the application builds one: a hosting
 /// controller, so SwiftUI installs the toolbar and the titlebar accessories
 /// the sidebar's search field sits in.
-///
-/// The test runner starts with no active app. A window of a background app
-/// draws its content at a much lower priority, so a sheet on it can take
-/// far longer than a second to draw. This call activates the app the way a
-/// person opening the window always has one, so every window this function
-/// returns draws its content at full speed.
 @MainActor
 func hostedWindow(of view: some View, width: CGFloat = 1400, height: CGFloat = 900) -> NSWindow {
-    // The test host starts with the `.prohibited` activation policy, which
-    // holds no window key no matter how often a window asks. `.regular` is
-    // the policy the application itself carries, so it is the one that
-    // makes a hosted window behave the way the person's window does.
-    if NSApp.activationPolicy() != .regular {
-        NSApp.setActivationPolicy(.regular)
-    }
-    NSApp.activate(ignoringOtherApps: true)
     let controller = NSHostingController(rootView: view)
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: width, height: height),
