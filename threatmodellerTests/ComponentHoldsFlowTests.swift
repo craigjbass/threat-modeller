@@ -75,7 +75,7 @@ struct ComponentHoldsFlowTests {
 
         let field = panel.holdsField
         #expect(field.choices.isEmpty)
-        #expect(field.emptyMessage == ComponentPanel.noAssetMessage)
+        #expect(field.emptyMessage == IdTokenField.noAssetMessage)
     }
 
     // MARK: picking and removing
@@ -95,6 +95,25 @@ struct ComponentHoldsFlowTests {
         #expect(model.errorMessage == nil)
         let written = try #require(architecture(useCases))
         #expect(written.contains("holds      = [\"card-numbers\", \"session-tokens\"]"))
+    }
+
+    /// A pick writes through `session`, which builds the panel again with a
+    /// fresh component. The list a person has open stays open across that
+    /// rebuild.
+    @Test func theListStaysOpenWhenAPickRebuildsThePanel() async throws {
+        let (session, _) = await aProject(withAssets)
+        let model = try #require(session.model)
+
+        var panel = try componentPanel(model)
+        let field = panel.holdsField
+        field.open()
+
+        let choice = try #require(field.rows.first { $0.id == "session-tokens" })
+        field.pick(choice)
+
+        panel = try componentPanel(model)
+        #expect(panel.component.holds == ["card-numbers", "session-tokens"])
+        #expect(field.isOpen)
     }
 
     @Test func aTokenComesOffAndTheFileFollows() async throws {

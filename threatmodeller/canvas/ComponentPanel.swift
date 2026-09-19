@@ -33,12 +33,6 @@ struct ComponentPanel: View {
     @State private var assetName = ""
     @State private var assetClassification = ""
 
-    /// Whether `Holds`'s search list is open, and what is typed into it. See
-    /// `UserPanel`'s matching state for why this lives here, not inside
-    /// `IdTokenField`.
-    @State private var holdsOpen = false
-    @State private var holdsSearch = ""
-
     private static let privileges = [
         ("user", "User"),
         ("admin", "Administrator"),
@@ -289,19 +283,13 @@ struct ComponentPanel: View {
         write(cves: TagFilter.tags(from: text))
     }
 
-    /// What `Holds` says in place of the control while the system holds no
-    /// asset to pick. Issue #179.
-    static let noAssetMessage = "No asset to pick yet. Add one in Assets."
-
     /// The field that writes `holds`.
     var holdsField: IdTokenField {
         IdTokenField(
             identifier: "component-holds",
             ids: holdsBinding,
             choices: session.canvas.systemAssets.map { IdTokenField.choice(forAsset: $0) },
-            emptyMessage: Self.noAssetMessage,
-            isOpen: $holdsOpen,
-            search: $holdsSearch
+            emptyMessage: IdTokenField.noAssetMessage
         )
     }
 

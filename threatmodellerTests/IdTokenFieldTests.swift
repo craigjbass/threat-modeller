@@ -22,27 +22,6 @@ struct IdTokenFieldTests {
         }
     }
 
-    /// Whether the search list is open, and what is typed into it, held the
-    /// way `UserPanel` and `ComponentPanel` hold it in their own `@State`, so
-    /// a test reads a mutation back without a window.
-    final class Flag {
-        var isOpen: Bool
-        var search: String
-
-        init(isOpen: Bool = false, search: String = "") {
-            self.isOpen = isOpen
-            self.search = search
-        }
-
-        var isOpenBinding: Binding<Bool> {
-            Binding(get: { self.isOpen }, set: { self.isOpen = $0 })
-        }
-
-        var searchBinding: Binding<String> {
-            Binding(get: { self.search }, set: { self.search = $0 })
-        }
-    }
-
     private static let choices = [
         IdTokenField.Choice(id: "browser", name: "Web Browser", icon: "circle.fill"),
         IdTokenField.Choice(id: "mobile", name: "Mobile App", icon: "circle.fill"),
@@ -52,15 +31,14 @@ struct IdTokenFieldTests {
     private func aField(
         held: Held,
         choices: [IdTokenField.Choice] = choices,
-        flag: Flag = Flag()
+        search: IdTokenField.Search = IdTokenField.Search()
     ) -> IdTokenField {
         IdTokenField(
             identifier: "test-id-tokens",
             ids: held.binding,
             choices: choices,
             emptyMessage: "No choice to pick yet.",
-            isOpen: flag.isOpenBinding,
-            search: flag.searchBinding
+            search: search
         )
     }
 
@@ -73,13 +51,13 @@ struct IdTokenFieldTests {
     }
 
     @Test func narrowsTheRowsToWhatIsTyped() {
-        let field = aField(held: Held(), flag: Flag(search: "mob"))
+        let field = aField(held: Held(), search: IdTokenField.Search(text: "mob"))
 
         #expect(field.rows.map(\.id) == ["mobile"])
     }
 
     @Test func aRowTypedByIdIsOffered() {
-        let field = aField(held: Held(), flag: Flag(search: "terminal"))
+        let field = aField(held: Held(), search: IdTokenField.Search(text: "terminal"))
 
         #expect(field.rows.map(\.id) == ["terminal"])
     }
@@ -88,20 +66,19 @@ struct IdTokenFieldTests {
 
     @Test func picksThreeInOneOpenWithoutClosing() {
         let held = Held()
-        let flag = Flag()
-        let field = aField(held: held, flag: flag)
+        let field = aField(held: held)
 
         field.open()
-        #expect(flag.isOpen)
+        #expect(field.isOpen)
 
         field.pick(field.rows.first { $0.id == "browser" }!)
-        #expect(flag.isOpen)
+        #expect(field.isOpen)
         field.pick(field.rows.first { $0.id == "mobile" }!)
-        #expect(flag.isOpen)
+        #expect(field.isOpen)
         field.pick(field.rows.first { $0.id == "terminal" }!)
 
         #expect(held.ids == ["browser", "mobile", "terminal"])
-        #expect(flag.isOpen)
+        #expect(field.isOpen)
     }
 
     /// A choice already held is not offered again, so nobody picks one twice.
@@ -158,13 +135,12 @@ struct IdTokenFieldTests {
     // MARK: closing
 
     @Test func closingClearsWhatWasTypedAndShutsTheList() {
-        let flag = Flag(isOpen: true, search: "mob")
-        let field = aField(held: Held(), flag: flag)
+        let field = aField(held: Held(), search: IdTokenField.Search(isOpen: true, text: "mob"))
 
         field.close()
 
-        #expect(flag.isOpen == false)
-        #expect(flag.search == "")
+        #expect(field.isOpen == false)
+        #expect(field.typed == "")
     }
 
     // MARK: no choice at all

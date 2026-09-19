@@ -2246,9 +2246,8 @@ struct ViewRenderTests {
             identifier: "render-id-tokens",
             ids: .constant(ids),
             choices: choices,
-            emptyMessage: "No component to pick yet. Add one on the canvas.",
-            isOpen: .constant(isOpen),
-            search: .constant(search)
+            emptyMessage: IdTokenField.noComponentMessage,
+            search: IdTokenField.Search(isOpen: isOpen, text: search)
         )
     }
 

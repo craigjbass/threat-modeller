@@ -26,6 +26,25 @@ struct IdTokenField: View {
         let icon: String
     }
 
+    /// One field's search list: whether it is open, and what a person typed
+    /// into it.
+    @Observable
+    final class Search {
+        var isOpen: Bool
+        var text: String
+
+        init(isOpen: Bool = false, text: String = "") {
+            self.isOpen = isOpen
+            self.text = text
+        }
+    }
+
+    /// What a field says when the system holds no component to pick.
+    static let noComponentMessage = "No component to pick yet. Add one on the canvas."
+
+    /// What a field says when the system holds no asset to pick.
+    static let noAssetMessage = "No asset to pick yet. Add one in Assets."
+
     /// The accessibility identifier of the field. Every control this field
     /// draws builds its own identifier from this word.
     let identifier: String
@@ -34,32 +53,30 @@ struct IdTokenField: View {
     /// named things is empty, and the field says so instead of drawing a
     /// control with nothing to offer.
     let choices: [Choice]
-    /// What the field says in place of the control when `choices` is empty.
+    /// What the field says when `choices` is empty.
     let emptyMessage: String
 
-    /// True while the search list is open. Stays true across a pick, so a
-    /// person adds several choices before closing it. The caller owns this,
-    /// the way `UserPanel` and `ComponentPanel` own it in their own `@State`,
-    /// so it survives every re-render the way a person's own click does.
-    @Binding var isOpen: Bool
-    /// What a person has typed into the search box. The caller owns this too.
-    @Binding var search: String
+    @State private var search: Search
 
     init(
         identifier: String,
         ids: Binding<[String]>,
         choices: [Choice],
         emptyMessage: String,
-        isOpen: Binding<Bool>,
-        search: Binding<String>
+        search: Search = Search()
     ) {
         self.identifier = identifier
         _ids = ids
         self.choices = choices
         self.emptyMessage = emptyMessage
-        _isOpen = isOpen
-        _search = search
+        _search = State(initialValue: search)
     }
+
+    /// True while the search list is open.
+    var isOpen: Bool { search.isOpen }
+
+    /// What a person has typed into the search box.
+    var typed: String { search.text }
 
     // MARK: what the field reads
 
@@ -68,7 +85,7 @@ struct IdTokenField: View {
     var rows: [Choice] {
         let held = Set(ids)
         let unheld = choices.filter { held.contains($0.id) == false }
-        let wanted = search.trimmingCharacters(in: .whitespaces).lowercased()
+        let wanted = search.text.trimmingCharacters(in: .whitespaces).lowercased()
         guard wanted.isEmpty == false else { return unheld }
         return unheld.filter {
             $0.name.lowercased().contains(wanted) || $0.id.lowercased().contains(wanted)
@@ -102,12 +119,12 @@ struct IdTokenField: View {
     }
 
     /// Opens the search list.
-    func open() { isOpen = true }
+    func open() { search.isOpen = true }
 
     /// Closes the search list and clears what was typed.
     func close() {
-        isOpen = false
-        search = ""
+        search.isOpen = false
+        search.text = ""
     }
 
     // MARK: what the field draws
@@ -167,10 +184,14 @@ struct IdTokenField: View {
         .accessibilityIdentifier("\(identifier)-token-\(id)")
     }
 
+    private var typedBinding: Binding<String> {
+        Binding(get: { search.text }, set: { search.text = $0 })
+    }
+
     private var openControl: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                TextField("Search", text: $search)
+                TextField("Search", text: typedBinding)
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("\(identifier)-search")
                 Button("Close") { close() }

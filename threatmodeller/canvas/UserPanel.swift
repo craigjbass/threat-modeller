@@ -15,20 +15,6 @@ struct UserPanel: View {
     /// The empty id is nobody: the user is not a threat actor.
     static let noActor = ""
 
-    /// What `Uses` and `Reaches` say in place of the control while the
-    /// system holds no component to pick. Issue #179.
-    static let noComponentMessage = "No component to pick yet. Add one on the canvas."
-
-    /// Whether each field's search list is open, and what is typed into it.
-    /// Held here, not inside `IdTokenField`, so the state survives every
-    /// re-render the way a person's own click does: a pick writes through
-    /// `session`, which redraws this panel with a fresh `user`, and the list
-    /// a person had open stays open across that redraw.
-    @State private var usesOpen = false
-    @State private var usesSearch = ""
-    @State private var reachesOpen = false
-    @State private var reachesSearch = ""
-
     var body: some View {
         SelectionEditor(title: "This user", identifier: "user-panel") {
             controls
@@ -100,9 +86,7 @@ struct UserPanel: View {
             identifier: "user-uses",
             ids: usesBinding,
             choices: reachableChoices,
-            emptyMessage: Self.noComponentMessage,
-            isOpen: $usesOpen,
-            search: $usesSearch
+            emptyMessage: IdTokenField.noComponentMessage
         )
     }
 
@@ -112,9 +96,7 @@ struct UserPanel: View {
             identifier: "user-reaches",
             ids: reachesBinding,
             choices: reachableChoices,
-            emptyMessage: Self.noComponentMessage,
-            isOpen: $reachesOpen,
-            search: $reachesSearch
+            emptyMessage: IdTokenField.noComponentMessage
         )
     }
 

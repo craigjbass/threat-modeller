@@ -253,9 +253,9 @@ struct UserFlowTests {
 
         #expect(panel.reachable.isEmpty)
         #expect(panel.usesField.choices.isEmpty)
-        #expect(panel.usesField.emptyMessage == UserPanel.noComponentMessage)
+        #expect(panel.usesField.emptyMessage == IdTokenField.noComponentMessage)
         #expect(panel.reachesField.choices.isEmpty)
-        #expect(panel.reachesField.emptyMessage == UserPanel.noComponentMessage)
+        #expect(panel.reachesField.emptyMessage == IdTokenField.noComponentMessage)
     }
 
     @Test func thePanelWritesTheRoleTheAccessAndTheActorIntoTheFile() async throws {
