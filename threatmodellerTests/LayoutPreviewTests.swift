@@ -234,6 +234,27 @@ struct LayoutPreviewTests {
         #expect(counted.count() == 2)
     }
 
+    /// The search now reports every candidate it scores, far faster than the
+    /// interval on a real search. The sampler still redraws once an interval,
+    /// not once a report, and once more for the last.
+    @Test func redrawsOncePerIntervalWhenReportsArriveFasterThanTheInterval() {
+        let clock = FakeClock()
+        let sampler = LayoutPreviewSampler(now: { clock.reading() }, redraw: {})
+        let layout = LayOutModelResponse(components: [LaidOutComponent(id: "a", x: 1, y: 1)], zones: [])
+        let step = LayoutPreviewSampler.redrawInterval / 5
+
+        for _ in 0 ..< 20 {
+            sampler.receive(layout)
+            clock.advance(by: step)
+        }
+        let duringTheRun = sampler.redrawCount
+
+        sampler.drawTheLast()
+
+        #expect(duringTheRun == 4)
+        #expect(sampler.redrawCount == 5)
+    }
+
     // MARK: the window
 
     /// The preview replaces the canvas while the search runs, so there is no

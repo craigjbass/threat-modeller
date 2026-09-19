@@ -408,23 +408,35 @@ struct ZoneOrderTests {
     // MARK: saying how the search is going
 
     /// A large model takes long enough that a person wants to see it working.
-    /// The search reports the best plan so far, so what it reports is a
-    /// picture that never goes backwards, and the last report is the answer.
-    @Test func reportsTheBestPlanSoFarAndEndsOnTheAnswer() {
+    /// The search reports every plan it scores, including one that loses, so
+    /// the preview moves between the wins too, and the last report is the
+    /// answer.
+    @Test func reportsEveryScoredCandidateIncludingLosersAndEndsOnTheAnswer() {
         let progress = LayoutProgress()
         let heard = HeardLayouts()
         progress.listen { heard.add($0) }
+        // Nothing to place, so no candidate ever beats another: every report
+        // the search makes is a losing candidate.
+        let request = LayOutModelRequest(source: ArchitectureSource(systemName: "P"))
 
-        let response = LayOutModel(progress: progress).execute(
-            LayOutModelRequest(source: aSourceWorthOptimising())
+        let response = LayOutModel(progress: progress).execute(request)
+
+        let startingPlan = LayoutPlan(
+            spacing: LayoutSpacing(
+                columnGap: LayOutModel.columnGap,
+                rowGap: LayOutModel.rowGap,
+                zoneGap: LayOutModel.zoneGap
+            ),
+            rowWidth: LayOutModel.rowWidth
         )
-
+        let candidatesScored = LayOutModel.techniques.reduce(0) { $0 + $1.candidates(startingPlan).count }
         let seen = heard.all()
-        #expect(seen.isEmpty == false)
+
+        // One report for the starting plan, one for every candidate scored,
+        // and one more for the winner, so the last report always matches what
+        // `execute` returns.
+        #expect(seen.count == candidatesScored + 2)
         #expect(seen.last?.fitness.score == response.fitness.score)
-        for (earlier, later) in zip(seen, seen.dropFirst()) {
-            #expect(later.fitness.score <= earlier.fitness.score)
-        }
     }
 
     @Test func reportsNothingWhenNobodyIsListening() {

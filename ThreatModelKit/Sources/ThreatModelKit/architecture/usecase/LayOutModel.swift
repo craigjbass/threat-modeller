@@ -136,25 +136,13 @@ public struct LayOutModel: LayOutModelUseCase {
 
     /// Where this search says how it is going, or nil when nobody asked.
     private let progress: LayoutProgress?
-    /// The search's own clock, in seconds. A test states its own.
-    private let now: @Sendable () -> TimeInterval
 
-    public init(
-        progress: LayoutProgress? = nil,
-        now: @escaping @Sendable () -> TimeInterval = { Date().timeIntervalSinceReferenceDate }
-    ) {
+    public init(progress: LayoutProgress? = nil) {
         self.progress = progress
-        self.now = now
     }
 
     /// Places, measures its own picture, and tries one technique after
     /// another until each is exhausted.
-    ///
-    /// The search reports the best plan on two triggers: every candidate that
-    /// beats the best so far, and every `LayoutProgress.reportInterval` of
-    /// search time. A report carries the best plan, never the candidate, so a
-    /// listener never sees the picture go backwards. The clock is read once
-    /// for each candidate, and only while somebody listens.
     ///
     /// A flow that crosses a boundary it does not pass through, or runs over a
     /// zone it has nothing to do with, reads as a statement the model does not
@@ -183,7 +171,6 @@ public struct LayOutModel: LayOutModelUseCase {
 
         var best = score(plan)
         progress?.report(best)
-        var reportedAt = progress == nil ? 0 : now()
 
         // The list runs more than once, because one technique's gain can let
         // an earlier one improve again. A round that gains nothing ends the
@@ -197,19 +184,12 @@ public struct LayOutModel: LayOutModelUseCase {
 
                 for candidate in technique.candidates(plan) {
                     let result = score(candidate)
-                    let improved = result.fitness.score < chosenScore
-                    if improved {
+                    progress?.report(result)
+                    if result.fitness.score < chosenScore {
                         chosen = candidate
                         chosenScore = result.fitness.score
                         best = result
                     }
-
-                    guard let progress else { continue }
-                    let reading = now()
-                    let due = reading - reportedAt >= LayoutProgress.reportInterval
-                    guard improved || due else { continue }
-                    reportedAt = reading
-                    progress.report(best)
                 }
 
                 plan = chosen
@@ -218,6 +198,7 @@ public struct LayOutModel: LayOutModelUseCase {
             if best.fitness.score >= before { break }
         }
 
+        progress?.report(best)
         return best
     }
 

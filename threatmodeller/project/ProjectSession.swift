@@ -1177,9 +1177,8 @@ final class ProjectSession {
         // actor so the window keeps answering while it does. The store guards
         // itself with a lock, which is what lets this leave.
         loading = .drawingTheSystem
-        // The search reports every plan that beats the best so far, from
-        // whatever thread it runs on. The sampler stores each report and the
-        // window redraws on its own interval.
+        // The search reports from whatever thread it runs on. The sampler
+        // stores each report and the window redraws on its own interval.
         watchTheLayout()
         let outcome = await Task.detached { [useCases] in
             useCases.openSystem().execute(

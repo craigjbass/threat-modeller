@@ -28,7 +28,7 @@ coordinates through `CanvasPicture`.
 | `LayoutSubject` | `components: [ViewedComponent]`, `connections: [ViewedConnection]`, `zones: [ViewedZone]` |
 | `LayoutProgress.describe(_:)` | the search's caller states the subject |
 | `LayoutProgress.subject` | what a listener reads |
-| `LayoutProgress.reportInterval` | how much search time passes between two reports |
+| `LayoutProgress.reportInterval` | how often the window's sampler turns reports into a redraw, at most |
 
 A subject holds every field `CanvasPicture` draws: the name, the shape, the
 provider, the category, the sensitivity, the zone and the flows. The layout
@@ -76,8 +76,9 @@ sampler.
 
 The rule is a fixed interval: the preview redraws at most once every
 `LayoutPreviewSampler.redrawInterval`, and the last report is always drawn.
-The interval is `LayoutProgress.reportInterval`, the rate the search reports
-at, so the window draws every report and drops none.
+The interval is `LayoutProgress.reportInterval`. The search reports every
+plan it scores, which arrives far faster than the interval on a real search,
+so the sampler is what decides which reports become a redraw.
 
 A report the window has not drawn yet is replaced, not queued. `receive(_:)`
 writes the newest report over the one before it, and asks for a redraw only
@@ -99,39 +100,32 @@ than a value carried on the notification. Two redraws enqueued in either
 order then both read the newest report, so the final plan cannot be
 overtaken by an earlier one.
 
-### The two report triggers
+### Every scored plan is reported
 
-**Decided 18 September 2026. Issue #249.**
+**Decided 18 September 2026. Issue #249. Revised 19 September 2026. Issue
+#271.**
 
-The search reports the best plan on two triggers:
+The search reports every plan it scores, in the order it scores them: the
+first plan, then each candidate of each technique in each round, whether or
+not the candidate beats the best so far. A large model scores many candidates
+between two improvements, so reporting improvements alone left the preview
+still for most of the search, then jumping.
 
-| Trigger | When |
-| --- | --- |
-| an improvement | a candidate beats the best plan so far |
-| the clock | `LayoutProgress.reportInterval` of search time has passed since the last report |
+The search still returns the best plan. A reported candidate that loses does
+not change the result, and the search reports the winner once more as its
+last report, so the last report a listener hears always equals the plan
+`execute` returns.
 
-The first trigger alone leaves a large model still. The search spends most of
-its time scoring candidates that improve nothing, so seconds pass with no
-report and the preview holds one frame.
-
-A report carries the best plan, never the candidate that caused the report,
-so two reports in a row never show a worse picture than the one before.
-
-The search reads its clock once for each candidate, after the candidate is
-scored, and only while somebody listens. Scoring a candidate is the whole
-cost of the search, so one clock read beside it is nothing, and a search with
-no listener reads no clock at all.
-
-A candidate that takes longer to score than the interval sets the rate
-instead of the interval. So the preview draws at the interval or at the
-candidate rate, whichever is slower.
+The sampler, not the search, decides which reports become a redraw. Scoring a
+candidate is the whole cost of the search, so a report beside it costs
+nothing, and a search with no listener reports to nobody.
 
 ### The number
 
 `LayoutProgress.reportInterval` is 0.0625 seconds, one sixteenth of a
-second. `LayoutPreviewSampler.redrawInterval` reads it, so the rate the
-search reports at is the rate the preview draws at, and the window draws
-every report the search makes.
+second. `LayoutPreviewSampler.redrawInterval` reads it, so this one number
+sets both how often the search reported a report under the two-trigger rule
+and how often the sampler redraws under the every-plan rule that replaced it.
 
 The number is a whole binary fraction, so a clock that steps by the interval
 lands on the interval and the rate does not drift by a rounding error. 0.05
@@ -139,7 +133,11 @@ and 0.1 both fall a little short of themselves once a clock has added them
 up a few times.
 
 The measurement is `LayOutModel` over two samples, in an optimised build
-(`swift test -c release`):
+(`swift test -c release`), under the two-trigger rule the table's "Reports"
+column names. The every-plan rule reports far more than this column states,
+because it reports every candidate the search scores, not only an
+improvement or a clock tick. The "Frames" columns still hold: a redraw is the
+sampler's decision, sampled at the same interval either way.
 
 | Sample | Search | Reports | Improved plans | Frames before | Frames after |
 | --- | --- | --- | --- | --- | --- |
@@ -180,8 +178,8 @@ the person cannot read.
 The same measurement states the margin. On the sixty-component sample the
 search with a listener attached takes 0.6015 seconds; the search with no
 listener takes 0.6048 seconds. The difference is under one per cent, because
-a report is one clock read on the search's side, and `receive(_:)` is a lock
-and two comparisons on the window's side.
+a report is one call on the search's side, and `receive(_:)` is a lock and
+two comparisons on the window's side.
 
 `LayoutPreviewTimingTests` states the margin as twenty-five per cent of the
 search with no listener. The measured difference is under one per cent, and

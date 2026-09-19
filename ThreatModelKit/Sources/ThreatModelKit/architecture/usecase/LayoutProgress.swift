@@ -36,20 +36,15 @@ public struct LayoutSubject: Equatable, Sendable {
 /// Where the layout search says how it is going.
 ///
 /// A large model takes long enough that a person wants to see something. The
-/// search reports every plan that beats the best so far, and reports the best
-/// plan again on a clock, so the preview keeps re-routing while the search
-/// scores candidates that improve nothing. The caller that runs the search
-/// states the subject first, so a listener that hears a report always has a
-/// picture to draw it over.
+/// caller that runs the search states the subject first, so a listener that
+/// hears a report always has a picture to draw it over.
 ///
 /// Locked, because the search may run off the main actor and the listener is
 /// on it.
 public final class LayoutProgress: @unchecked Sendable {
     public typealias Listener = @Sendable (LayOutModelResponse) -> Void
 
-    /// How much search time passes between two reports of the same best plan.
-    /// The search reads it, and so does the window's sampler, so the rate the
-    /// search reports at is the rate the preview draws at.
+    /// How often the window's sampler turns reports into a redraw, at most.
     /// `docs/superpowers/specs/2026-09-17-layout-preview-design.md` states the
     /// measurement behind it.
     public static let reportInterval: TimeInterval = 1.0 / 16
