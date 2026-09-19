@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(Glibc)
+import Glibc
+#elseif canImport(Darwin)
+import Darwin
+#endif
 
 /// What one child process wrote and how it ended.
 public struct ChildProcessAnswer: Sendable, Equatable {
@@ -30,6 +35,8 @@ public enum ChildProcess {
 
         let output = Pipe()
         let errors = Pipe()
+        closeOnExec(output)
+        closeOnExec(errors)
         process.standardOutput = output
         process.standardError = errors
 
@@ -63,6 +70,14 @@ public enum ChildProcess {
             exitCode: process.terminationStatus,
             timerKilledIt: killed.value
         )
+    }
+}
+
+/// Keeps a pipe out of every other child spawned at the same moment.
+private func closeOnExec(_ pipe: Pipe) {
+    for handle in [pipe.fileHandleForReading, pipe.fileHandleForWriting] {
+        let descriptor = handle.fileDescriptor
+        _ = fcntl(descriptor, F_SETFD, fcntl(descriptor, F_GETFD) | FD_CLOEXEC)
     }
 }
 
