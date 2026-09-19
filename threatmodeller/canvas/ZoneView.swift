@@ -29,7 +29,7 @@ struct ZoneView: View {
     /// canvas edits nothing, so it takes the defaults.
     var isEditingName = false
     var onStartEditingName: () -> Void = {}
-    var onCommitName: (String) -> Void = { _ in }
+    var onWriteName: (String) -> Void = { _ in }
     var onCancelName: () -> Void = {}
     /// What a secondary click offers, and what selects the zone before the
     /// menu opens. Empty in a picture that takes no clicks.
@@ -86,7 +86,7 @@ struct ZoneView: View {
                     text: zone.name,
                     width: min(240, max(120, size.width - 40)),
                     identifier: "zone-name-field-\(zone.id)",
-                    commit: onCommitName,
+                    write: onWriteName,
                     cancel: onCancelName
                 )
                 .layoutPriority(1)

@@ -37,7 +37,7 @@ struct ZonePanel: View {
                 title: "Name",
                 text: zone.customName ?? "",
                 identifier: "zone-name",
-                commit: { write(name: $0) }
+                write: { write(name: $0) }
             )
         }
 
@@ -74,7 +74,7 @@ struct ZonePanel: View {
                 title: "Description",
                 text: zone.description,
                 identifier: "zone-description",
-                commit: { commitDescription($0) }
+                write: { commitDescription($0) }
             )
         }
 
@@ -85,7 +85,7 @@ struct ZonePanel: View {
                 title: "Tags",
                 text: tagsText,
                 identifier: "zone-tags",
-                commit: { commitTags($0) }
+                write: { commitTags($0) }
             )
         }
 

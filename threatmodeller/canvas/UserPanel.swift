@@ -28,7 +28,7 @@ struct UserPanel: View {
                 title: "Name",
                 text: user.customName ?? "",
                 identifier: "user-name",
-                commit: { write(name: $0) }
+                write: { write(name: $0) }
             )
         }
 
@@ -37,7 +37,7 @@ struct UserPanel: View {
                 title: "Role",
                 text: user.role,
                 identifier: "user-role",
-                commit: { write(role: $0) }
+                write: { write(role: $0) }
             )
         }
 

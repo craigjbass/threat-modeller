@@ -91,7 +91,7 @@ struct TreeSelectionPanel: View {
                 text: editor.name,
                 width: 200,
                 identifier: "attack-tree-name",
-                commit: { editor.setName($0) }
+                write: { editor.setName($0) }
             )
         }
 
@@ -101,7 +101,7 @@ struct TreeSelectionPanel: View {
                 text: editor.description,
                 width: 200,
                 identifier: "attack-tree-description",
-                commit: { editor.setDescription($0) }
+                write: { editor.setDescription($0) }
             )
         }
 
@@ -112,7 +112,7 @@ struct TreeSelectionPanel: View {
                     text: "\(editor.raisesRiskBy)",
                     width: 60,
                     identifier: "attack-tree-raises-risk-by",
-                    commit: { typed in
+                    write: { typed in
                         if let percent = Int(typed.trimmingCharacters(in: .whitespaces)) {
                             editor.setRaisesRiskBy(percent)
                         }
@@ -230,7 +230,7 @@ struct TreeSelectionPanel: View {
                     text: node.note ?? "",
                     width: 200,
                     identifier: "tree-step-note",
-                    commit: { editor.setNote($0, for: node.id) }
+                    write: { editor.setNote($0, for: node.id) }
                 )
             }
         }

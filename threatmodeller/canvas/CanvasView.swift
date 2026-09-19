@@ -275,7 +275,7 @@ struct CanvasView: View {
                     onDragEnded: { gestures.zoneDragEnded(zone.id, handle: $0, translation: $1) },
                     isEditingName: canvas.isEditingName(.zone(zone.id)),
                     onStartEditingName: { canvas.startEditingName(.zone(zone.id)) },
-                    onCommitName: { gestures.renameZone(zone.id, to: $0) },
+                    onWriteName: { gestures.renameZone(zone.id, to: $0) },
                     onCancelName: { canvas.stopEditingName() },
                     menu: { menus.zone(zone.id) },
                     onOpenMenu: { menus.selectBeforeMenu(zoneId: zone.id) }
@@ -330,7 +330,7 @@ struct CanvasView: View {
                     classificationColour: classificationColours[component.sensitivityId],
                     isEditingName: canvas.isEditingName(.component(component.id)),
                     onStartEditingName: { canvas.startEditingName(.component(component.id)) },
-                    onCommitName: { gestures.renameComponent(component.id, to: $0) },
+                    onWriteName: { gestures.renameComponent(component.id, to: $0) },
                     onCancelName: { canvas.stopEditingName() },
                     menu: { menus.component(component.id) },
                     onOpenMenu: { menus.selectBeforeMenu(componentId: component.id) }
@@ -359,7 +359,7 @@ struct CanvasView: View {
                 text: connection?.description ?? "",
                 width: max(160, rect.width),
                 identifier: "flow-label-field-\(connectionId)",
-                commit: { gestures.labelConnection(connectionId, to: $0) },
+                write: { gestures.labelConnection(connectionId, to: $0) },
                 cancel: { canvas.stopEditingName() }
             )
             .scaleEffect(canvas.transform.zoom, anchor: .topLeading)

@@ -54,7 +54,7 @@ struct ComponentPanel: View {
                 title: "Name",
                 text: component.customName ?? "",
                 identifier: "component-name",
-                commit: { write(name: $0) }
+                write: { write(name: $0) }
             )
         }
 
@@ -180,7 +180,7 @@ struct ComponentPanel: View {
                 title: "Tags",
                 text: tagsText,
                 identifier: "component-tags",
-                commit: { commitTags($0) }
+                write: { commitTags($0) }
             )
         }
 
@@ -192,7 +192,7 @@ struct ComponentPanel: View {
                 title: "Version",
                 text: component.version,
                 identifier: "component-version",
-                commit: { commitVersion($0) }
+                write: { commitVersion($0) }
             )
         }
 
@@ -201,7 +201,7 @@ struct ComponentPanel: View {
                 title: "CVEs",
                 text: cvesText,
                 identifier: "component-cves",
-                commit: { commitCves($0) }
+                write: { commitCves($0) }
             )
         }
 

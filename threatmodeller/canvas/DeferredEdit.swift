@@ -1,10 +1,7 @@
 /// One edit in flight, and what it writes when it ends.
 ///
-/// A control bound straight to a use case writes once per keystroke and once
-/// per slider step. That costs one rescore each time and fills the undo
-/// history with letters, so one undo takes back one letter rather than the
-/// edit. This value holds what the person has typed or dragged so far and
-/// answers one question: what does the end of the edit write?
+/// Return writes, Escape cancels, losing the focus writes, and one edit is one
+/// change.
 ///
 /// Declared `nonisolated`: the app target defaults every type to the main
 /// actor, and this one is a pure value with no shared state.

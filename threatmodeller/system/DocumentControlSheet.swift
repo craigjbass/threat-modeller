@@ -98,7 +98,7 @@ struct DocumentControlSheet: View {
             title: "Owner",
             text: facts.owner,
             identifier: "system-owner",
-            commit: { session.setSystemFacts(owner: $0) }
+            write: { session.setSystemFacts(owner: $0) }
         )
 
         DeferredTextField(
@@ -106,21 +106,21 @@ struct DocumentControlSheet: View {
             text: facts.description,
             identifier: "system-description",
             lines: 2 ... 4,
-            commit: { session.setSystemFacts(description: $0) }
+            write: { session.setSystemFacts(description: $0) }
         )
 
         DeferredTextField(
             title: "Authors, separated by commas",
             text: SystemSheetWriting.joined(facts.authors),
             identifier: "system-authors",
-            commit: { session.setSystemFacts(authors: SystemSheetWriting.split($0)) }
+            write: { session.setSystemFacts(authors: SystemSheetWriting.split($0)) }
         )
 
         DeferredTextField(
             title: "Version",
             text: facts.version,
             identifier: "system-version",
-            commit: { session.setSystemFacts(version: $0) }
+            write: { session.setSystemFacts(version: $0) }
         )
 
         SystemDateField(
@@ -141,14 +141,14 @@ struct DocumentControlSheet: View {
             title: "Links, separated by commas",
             text: SystemSheetWriting.joined(facts.links),
             identifier: "system-links",
-            commit: { session.setSystemFacts(links: SystemSheetWriting.split($0)) }
+            write: { session.setSystemFacts(links: SystemSheetWriting.split($0)) }
         )
 
         DeferredTextField(
             title: "Repositories, separated by commas",
             text: SystemSheetWriting.joined(facts.repositories),
             identifier: "system-repositories",
-            commit: { session.setSystemFacts(repositories: SystemSheetWriting.split($0)) }
+            write: { session.setSystemFacts(repositories: SystemSheetWriting.split($0)) }
         )
     }
 

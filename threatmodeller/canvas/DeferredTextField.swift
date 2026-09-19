@@ -1,24 +1,38 @@
 import SwiftUI
 
-/// A field in a panel that writes one change when the edit ends.
-///
-/// A field bound straight to a use case writes once per keystroke, which costs
-/// one rescore per letter and fills the undo history with letters. This field
-/// holds the edit in a `DeferredEdit`, writes on Return and on losing the
-/// focus, and follows the model while nobody is typing in it.
+/// A field in a panel that holds its edit in a `DeferredEdit` and follows the
+/// model while nobody is typing in it.
 struct DeferredTextField: View {
     let title: String
     let text: String
     /// Nil leaves the field as wide as the column it sits in. A panel that
     /// lays its controls out in a row states a width.
-    var width: CGFloat? = nil
+    let width: CGFloat?
     let identifier: String
     /// How many lines the field grows to. Nil keeps it on one line.
-    var lines: ClosedRange<Int>? = nil
-    let commit: (String) -> Void
+    let lines: ClosedRange<Int>?
+    let write: (String) -> Void
 
-    @State private var edit = DeferredEdit<String>()
+    @State private var edit: DeferredEdit<String>
     @FocusState private var isFocused: Bool
+
+    init(
+        title: String,
+        text: String,
+        width: CGFloat? = nil,
+        identifier: String,
+        lines: ClosedRange<Int>? = nil,
+        edit: DeferredEdit<String> = DeferredEdit(),
+        write: @escaping (String) -> Void
+    ) {
+        self.title = title
+        self.text = text
+        self.width = width
+        self.identifier = identifier
+        self.lines = lines
+        self.write = write
+        _edit = State(initialValue: edit)
+    }
 
     var body: some View {
         TextField(
@@ -34,16 +48,15 @@ struct DeferredTextField: View {
         .frame(width: width)
         .focused($isFocused)
         .accessibilityIdentifier(identifier)
-        .onSubmit { write() }
+        .onSubmit { endTheEdit() }
         .onChange(of: isFocused) { _, focused in
-            // Clicking elsewhere takes the focus away, and that writes: a
-            // person who typed a name and looked away means the name.
-            if focused == false { write() }
+            if focused == false { endTheEdit() }
         }
     }
 
-    private func write() {
+    /// Ends the edit and writes the one value the edit changed.
+    func endTheEdit() {
         guard let typed = edit.end(from: text) else { return }
-        commit(typed)
+        write(typed)
     }
 }

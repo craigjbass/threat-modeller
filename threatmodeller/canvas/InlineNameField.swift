@@ -2,37 +2,65 @@ import SwiftUI
 
 /// A name edited in place, on the element itself.
 ///
-/// Return commits, Escape cancels and changes nothing, and a click elsewhere
-/// commits: the field is where a person is looking, so leaving it is the same
-/// as pressing Return. One edit is one change, never one per keystroke, which
-/// is why the field holds its own text and writes once.
+/// It differs from `DeferredTextField` in two ways. It takes the focus as it
+/// appears. The end of the edit always calls `write`, because `write` closes
+/// the field, while a panel field stays open and writes only what the edit
+/// changed.
 struct InlineNameField: View {
     let text: String
     let width: CGFloat
     let identifier: String
-    let commit: (String) -> Void
+    let write: (String) -> Void
     let cancel: () -> Void
 
-    @State private var edited: String = ""
+    @State private var edit: DeferredEdit<String>
     @FocusState private var isFocused: Bool
 
+    init(
+        text: String,
+        width: CGFloat,
+        identifier: String,
+        edit: DeferredEdit<String> = DeferredEdit(),
+        write: @escaping (String) -> Void,
+        cancel: @escaping () -> Void
+    ) {
+        self.text = text
+        self.width = width
+        self.identifier = identifier
+        self.write = write
+        self.cancel = cancel
+        _edit = State(initialValue: edit)
+    }
+
     var body: some View {
-        TextField("Name", text: $edited)
-            .textFieldStyle(.roundedBorder)
-            .font(.headline)
-            .frame(width: width)
-            .focused($isFocused)
-            .accessibilityIdentifier(identifier)
-            .onAppear {
-                edited = text
-                isFocused = true
-            }
-            .onSubmit { commit(edited) }
-            .onExitCommand { cancel() }
-            .onChange(of: isFocused) { _, focused in
-                // Clicking elsewhere takes the focus away, and that commits:
-                // a person who typed a name and looked away means the name.
-                if focused == false { commit(edited) }
-            }
+        TextField(
+            "Name",
+            text: Binding(
+                get: { edit.shown(text) },
+                set: { edit.edit($0) }
+            )
+        )
+        .textFieldStyle(.roundedBorder)
+        .font(.headline)
+        .frame(width: width)
+        .focused($isFocused)
+        .accessibilityIdentifier(identifier)
+        .onAppear { isFocused = true }
+        .onSubmit { endTheEdit() }
+        .onExitCommand { cancelTheEdit() }
+        .onChange(of: isFocused) { _, focused in
+            if focused == false { endTheEdit() }
+        }
+    }
+
+    /// Ends the edit and writes the name the field shows.
+    func endTheEdit() {
+        write(edit.end(from: text) ?? text)
+    }
+
+    /// Drops the edit, writes nothing, and closes the field.
+    func cancelTheEdit() {
+        edit.cancel()
+        cancel()
     }
 }

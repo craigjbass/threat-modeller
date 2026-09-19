@@ -61,7 +61,7 @@ struct ConnectionPanel: View {
                 title: "Tags",
                 text: tagsText,
                 identifier: "connection-tags",
-                commit: { commitTags($0) }
+                write: { commitTags($0) }
             )
         }
 

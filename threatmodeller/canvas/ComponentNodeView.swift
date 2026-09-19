@@ -36,7 +36,7 @@ struct ComponentNodeView: View {
     /// canvas edits nothing, so it takes the defaults.
     var isEditingName = false
     var onStartEditingName: () -> Void = {}
-    var onCommitName: (String) -> Void = { _ in }
+    var onWriteName: (String) -> Void = { _ in }
     var onCancelName: () -> Void = {}
     /// What a secondary click offers, and what selects the node before the
     /// menu opens. Empty in a picture that takes no clicks.
@@ -129,7 +129,7 @@ struct ComponentNodeView: View {
                     text: component.name,
                     width: footprint.width - 16,
                     identifier: "node-name-field-\(component.id)",
-                    commit: onCommitName,
+                    write: onWriteName,
                     cancel: onCancelName
                 )
             } else {

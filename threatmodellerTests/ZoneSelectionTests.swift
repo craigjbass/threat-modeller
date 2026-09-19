@@ -292,3 +292,115 @@ struct ComponentTechnologyTests {
         #expect(session.canvas.components.first?.technologyId == "aws-ec2")
     }
 }
+
+/// The end of an edit writes once, in a panel field and in a name edited in
+/// place.
+@MainActor
+@Suite("A field at the end of an edit")
+struct FieldEndOfEditTests {
+    private func typed(_ text: String) -> DeferredEdit<String> {
+        var edit = DeferredEdit<String>()
+        edit.edit(text)
+        return edit
+    }
+
+    private func panelField(
+        text: String,
+        edit: DeferredEdit<String>,
+        write: @escaping (String) -> Void
+    ) -> DeferredTextField {
+        DeferredTextField(
+            title: "Name",
+            text: text,
+            identifier: "component-name",
+            edit: edit,
+            write: write
+        )
+    }
+
+    private func inlineField(
+        text: String,
+        edit: DeferredEdit<String>,
+        write: @escaping (String) -> Void,
+        cancel: @escaping () -> Void = {}
+    ) -> InlineNameField {
+        InlineNameField(
+            text: text,
+            width: 160,
+            identifier: "node-name-field-api",
+            edit: edit,
+            write: write,
+            cancel: cancel
+        )
+    }
+
+    @Test func losingTheFocusWritesTheTypedNameInAPanelField() {
+        var written: [String] = []
+        let field = panelField(
+            text: "Payments",
+            edit: typed("Payments API"),
+            write: { written.append($0) }
+        )
+
+        field.endTheEdit()
+
+        #expect(written == ["Payments API"])
+    }
+
+    @Test func losingTheFocusWritesTheTypedNameInAnInlineNameField() {
+        var written: [String] = []
+        let field = inlineField(
+            text: "Payments",
+            edit: typed("Payments API"),
+            write: { written.append($0) }
+        )
+
+        field.endTheEdit()
+
+        #expect(written == ["Payments API"])
+    }
+
+    @Test func aPanelFieldEditThatChangedNothingWritesNothing() {
+        var written: [String] = []
+        let field = panelField(
+            text: "Payments",
+            edit: typed("Payments"),
+            write: { written.append($0) }
+        )
+
+        field.endTheEdit()
+
+        #expect(written.isEmpty)
+    }
+
+    /// The in-place field closes at the end of the edit, so the end of the
+    /// edit calls the write with the name the field shows.
+    @Test func anInlineNameEditThatChangedNothingWritesTheNameItShows() {
+        var written: [String] = []
+        let field = inlineField(
+            text: "Payments",
+            edit: typed("Payments"),
+            write: { written.append($0) }
+        )
+
+        field.endTheEdit()
+
+        #expect(written == ["Payments"])
+    }
+
+    @Test func escapeOnAnInlineNameWritesNothing() {
+        var written: [String] = []
+        var cancels = 0
+        let field = inlineField(
+            text: "Payments",
+            edit: typed("Payments API"),
+            write: { written.append($0) },
+            cancel: { cancels += 1 }
+        )
+
+        field.cancelTheEdit()
+
+        #expect(written.isEmpty)
+        #expect(cancels == 1)
+    }
+}
