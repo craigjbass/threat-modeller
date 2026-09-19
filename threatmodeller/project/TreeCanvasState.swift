@@ -18,8 +18,7 @@ final class TreeCanvasState: CanvasViewport {
     var marquee: (start: CGPoint, end: CGPoint)?
 
     /// The selected nodes and pending elements, in the order they were
-    /// selected. The order states what Join joins: the first selected node
-    /// feeds the second.
+    /// selected.
     private(set) var selectedInOrder: [String] = []
 
     /// The selected joins, in the order they were selected.
@@ -92,15 +91,11 @@ final class TreeCanvasState: CanvasViewport {
         selectedEdges = []
     }
 
-    /// Drops the selected nodes and joins the tree no longer holds. Call
-    /// after any removal.
     func retainOnly(_ ids: Set<String>, edges: Set<TreeGraph.Edge> = []) {
         selectedInOrder.removeAll { ids.contains($0) == false }
         selectedEdges.removeAll { edges.contains($0) == false }
     }
 
-    /// Escape: cancel a join in flight, else clear the selection. Returns
-    /// true when it changed something.
     @discardableResult
     func cancel() -> Bool {
         if joining != nil {
