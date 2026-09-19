@@ -95,6 +95,24 @@ struct ReportRollupTests {
         ])
     }
 
+    /// The table reads its rows off the threats the resolver raised, not off
+    /// a written list of three words, so a source kind this application adds
+    /// later shows here with no change to `ReportRollups`.
+    @Test func theCountsBySourceKindNameAnyKindTheResolverRaises() {
+        let tables = ReportRollups.build(
+            threats: [
+                threat("a", source: "api", kind: "Component", score: 4),
+                threat("b", source: "the-mesh", kind: "Mesh", score: 4),
+                threat("c", source: "the-mesh", kind: "Mesh", score: 4)
+            ],
+            zones: []
+        )
+        #expect(tables.bySourceKind == [
+            ReportCount(label: "Component", count: 1),
+            ReportCount(label: "Mesh", count: 2)
+        ])
+    }
+
     @Test func theMarkdownWritesNothingForAnEmptyModel() {
         #expect(MarkdownRollups.lines(ReportRollupTables.empty, showsAssumed: false).isEmpty)
     }

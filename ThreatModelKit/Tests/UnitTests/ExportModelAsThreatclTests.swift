@@ -233,13 +233,31 @@ struct ExportModelAsThreatclTests {
         #expect(ExportModelAsThreatcl.stride(of: "Spoofing") == "Spoofing")
     }
 
-    /// An insider already holds access, so an attack an insider performs is
-    /// at least as likely as a targeted one.
-    @Test func anInsiderTierTravelsAsHigh() {
-        #expect(ExportModelAsThreatcl.likelihood(of: "Insider") == "high")
+    @Test func aTierTravelsByItsOwnFactorNotByASwitchOnItsWord() {
         #expect(ExportModelAsThreatcl.likelihood(of: "Commodity") == "high")
         #expect(ExportModelAsThreatcl.likelihood(of: "Targeted") == "medium")
+        #expect(ExportModelAsThreatcl.likelihood(of: "Insider") == "medium")
         #expect(ExportModelAsThreatcl.likelihood(of: "Research") == "low")
+    }
+
+    @Test func aFactorAtOrAboveNinetyPercentTravelsAsHigh() {
+        #expect(ExportModelAsThreatcl.likelihood(factor: 0.9) == "high")
+        #expect(ExportModelAsThreatcl.likelihood(factor: 1.0) == "high")
+    }
+
+    @Test func aFactorAtOrBelowThirtyPercentTravelsAsLow() {
+        #expect(ExportModelAsThreatcl.likelihood(factor: 0.3) == "low")
+        #expect(ExportModelAsThreatcl.likelihood(factor: 0.0) == "low")
+    }
+
+    @Test func aFactorBetweenThirtyAndNinetyPercentTravelsAsMedium() {
+        #expect(ExportModelAsThreatcl.likelihood(factor: 0.6) == "medium")
+    }
+
+    @Test func aNumericPriorOfNinetyPercentTravelsAsHighAndFivePercentAsLow() {
+        #expect(ExportModelAsThreatcl.likelihood(of: "90%") == "high")
+        #expect(ExportModelAsThreatcl.likelihood(of: "5%") == "low")
+        #expect(ExportModelAsThreatcl.likelihood(of: "60%") == "medium")
     }
 
     /// threatcl holds three classifications, and a project's own scheme may

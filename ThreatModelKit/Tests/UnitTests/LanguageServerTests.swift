@@ -1,3 +1,4 @@
+import ArchitectureDSL
 @testable import CommandLineApplication
 import Foundation
 import Testing
@@ -424,6 +425,30 @@ struct LanguageServerTests {
         #expect(labels.contains("zone"))
         #expect(labels.contains("version"))
         #expect(labels.contains("cves"))
+    }
+
+    // MARK: completion lists come from LanguageVocabulary
+
+    /// `LanguageServer.attributes` reads `LanguageVocabulary`, so a
+    /// completion list this test did not name still tracks the parser.
+    @Test func offersReferenceAndVerifiedOnOnAControlAndNeverSays() {
+        let attributes = LanguageServer.attributes(of: "control", language: .controls)
+
+        #expect(attributes.contains("reference"))
+        #expect(attributes.contains("verified_on"))
+        #expect(attributes.contains("says") == false)
+    }
+
+    @Test func offersTheArchTechnologyAttributesTheParserReads() {
+        let attributes = LanguageServer.attributes(of: "technology", language: .architecture)
+
+        #expect(attributes == LanguageBlockId.archTechnology.block.attributes)
+    }
+
+    @Test func offersControlOnALibraryTechnology() {
+        let attributes = LanguageServer.attributes(of: "technology", language: .library)
+
+        #expect(attributes.contains("control"))
     }
 
     @Test func completesTheWordsOfATreeBlock() {

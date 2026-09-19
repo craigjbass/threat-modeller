@@ -332,12 +332,27 @@ public struct ExportModelAsThreatcl: ExportModelAsThreatclUseCase {
         }
     }
 
-    /// A likelihood tier, in threatcl's own words.
+    /// A likelihood tier's threatcl word, from its own factor.
+    ///
+    /// This walks `Likelihood.allTiers` for a named tier and reads a
+    /// percentage for a numeric prior, so a tier or a prior this application
+    /// adds later needs no new case here.
     static func likelihood(of label: String) -> String {
-        switch label.lowercased() {
-        case "commodity", "insider": "high"
-        case "targeted": "medium"
-        case "research": "low"
+        if let tier = Likelihood.allTiers.first(where: { $0.label == label }) {
+            return likelihood(factor: tier.factor)
+        }
+        if label.hasSuffix("%"), let prior = Int(label.dropLast()) {
+            return likelihood(factor: Double(prior) / 100)
+        }
+        return "medium"
+    }
+
+    /// A factor at or above 90% travels as high, at or below 30% as low,
+    /// and every factor between travels as medium.
+    static func likelihood(factor: Double) -> String {
+        switch factor {
+        case 0.9...: "high"
+        case ...0.3: "low"
         default: "medium"
         }
     }

@@ -293,54 +293,46 @@ public final class LanguageServer: @unchecked Sendable {
 
     /// The attributes each block holds, so an editor offers the word rather
     /// than the person reading the language guide.
+    ///
+    /// `LanguageVocabulary` is the one place that spells a block's
+    /// attributes; this reads it, so a parser that gains an attribute offers
+    /// its completion with no change here.
     static func attributes(of block: String, language: Language?) -> [String] {
+        guard let id = blockId(of: block, language: language) else {
+            if language == .policy { return PolicySource.ruleNames + PolicySource.settingNames }
+            return []
+        }
+        return id.block.attributes
+    }
+
+    /// Which vocabulary entry a block keyword names, for the language it was
+    /// read in. A keyword shared by two blocks in one language, such as
+    /// `asset`, resolves to the one the editor meets first.
+    private static func blockId(of block: String, language: Language?) -> LanguageBlockId? {
         switch (language, block) {
-        case (.architecture, "system"):
-            [
-                "catalogue", "owner", "description", "authors", "links", "repositories",
-                "created", "reviewed", "version", "risk_tolerance",
-                "requires_evidence_above", "faces"
-            ]
-        case (.architecture, "component"):
-            ["technology", "name", "zone", "data", "status", "version", "cves", "holds",
-             "provided_by", "source", "threats", "runs_as", "shape", "tags"]
-        case (.architecture, "user"), (.architecture, "adversary"):
-            ["name", "role", "access", "uses", "reaches", "threat_actor"]
-        case (.architecture, "zone"):
-            ["kind", "network", "name", "reduces_risk", "reduces_risk_by", "boundary",
-             "description", "source", "tags"]
-        case (.architecture, "flow"):
-            ["kind", "description", "carries", "tags"]
-        case (.architecture, "asset"):
-            ["name", "classification", "description", "owner"]
-        case (.architecture, "third_party"):
-            ["name", "description", "kind", "paying_customer", "uptime", "uptime_notes",
-             "owner", "link"]
-        case (.architecture, "mitigates"):
-            ["threats", "reduces_risk_by", "status"]
-        case (.controls, "threat"):
-            ["severity", "score", "impacts"]
-        case (.controls, "control"):
-            ["status", "note", "evidence", "says"]
-        case (.library, "threat"):
-            ["name", "description", "severity", "stride", "impacts", "connection", "zone",
-             "zone_context", "applies_to", "boundary", "runs_as", "pathway", "likelihood"]
-        case (.library, "technology"):
-            ["name", "category", "description", "threats", "encrypts"]
-        case (.attackTree, "attack_trees"):
-            ["catalogue", "tree"]
-        case (.attackTree, "tree"):
-            ["name", "description", "raises_risk_by", "closed_by", "goal", "all_of", "any_of", "then", "step"]
-        case (.attackTree, "all_of"), (.attackTree, "any_of"), (.attackTree, "then"):
-            ["step", "all_of", "any_of", "then"]
-        case (.attackTree, "step"):
-            ["note"]
-        case (.governance, "accepted"), (.governance, "work"):
-            ["owner", "accepted_on", "review_by", "due_by", "rationale", "effort", "status"]
-        case (.policy, _):
-            PolicySource.ruleNames + PolicySource.settingNames
-        default:
-            []
+        case (.architecture, "system"): .archSystem
+        case (.architecture, "component"): .archComponent
+        case (.architecture, "user"): .archUser
+        case (.architecture, "adversary"): .archAdversary
+        case (.architecture, "zone"): .archZone
+        case (.architecture, "flow"): .archFlow
+        case (.architecture, "asset"): .archSystemAsset
+        case (.architecture, "third_party"): .archThirdParty
+        case (.architecture, "mitigates"): .archMitigates
+        case (.architecture, "technology"): .archTechnology
+        case (.controls, "threat"): .controlsThreat
+        case (.controls, "control"): .controlsControl
+        case (.library, "threat"): .libraryThreat
+        case (.library, "technology"): .libraryTechnology
+        case (.attackTree, "attack_trees"): .attackTreeDocument
+        case (.attackTree, "tree"): .attackTreeTree
+        case (.attackTree, "all_of"): .attackTreeAllOf
+        case (.attackTree, "any_of"): .attackTreeAnyOf
+        case (.attackTree, "then"): .attackTreeThen
+        case (.attackTree, "step"): .attackTreeStep
+        case (.governance, "accepted"): .governanceAccepted
+        case (.governance, "work"): .governanceWork
+        default: nil
         }
     }
 

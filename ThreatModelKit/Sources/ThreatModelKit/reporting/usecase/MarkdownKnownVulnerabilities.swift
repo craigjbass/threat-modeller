@@ -14,7 +14,7 @@ public enum MarkdownKnownVulnerabilities {
         lines.append(
             "The CVEs this system's components state, ranked by the CVE_Prioritizer rule with "
                 + "\(thresholds.described). A known exploited vulnerability raises every threat "
-                + "on its component to Commodity."
+                + "on its component to \(Likelihood.commodity.label)."
         )
         lines.append("")
         lines.append("| CVE | Component | Version | CVSS | EPSS | KEV | Priority |")

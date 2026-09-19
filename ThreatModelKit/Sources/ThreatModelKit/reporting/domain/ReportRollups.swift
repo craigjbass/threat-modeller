@@ -25,11 +25,22 @@ public enum ReportRollups {
                     return left.name < right.name
                 }.prefix(topCount)
             ),
-            bySourceKind: ["Component", "Connection", "Zone"].compactMap { kind in
-                let count = threats.filter { $0.sourceKind == kind }.count
-                return count > 0 ? ReportCount(label: kind, count: count) : nil
-            }
+            bySourceKind: bySourceKind(of: threats)
         )
+    }
+
+    /// One row per source kind the resolver raised a threat under, in the
+    /// order each first appears. A source kind this application adds later
+    /// needs no new word here: it shows because a threat carries it.
+    private static func bySourceKind(of threats: [ReportThreat]) -> [ReportCount] {
+        var seen: Set<String> = []
+        var ordered: [String] = []
+        for threat in threats where seen.insert(threat.sourceKind).inserted {
+            ordered.append(threat.sourceKind)
+        }
+        return ordered.map { kind in
+            ReportCount(label: kind, count: threats.filter { $0.sourceKind == kind }.count)
+        }
     }
 
     /// Worst level first, which is the order the risk ladder runs in.
