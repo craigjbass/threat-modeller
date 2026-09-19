@@ -342,10 +342,10 @@ struct ThreatActorsSheet: View {
             id: draft.id,
             name: draft.name,
             description: draft.description,
-            aliases: Self.list(draft.aliases),
+            aliases: SystemSheetWriting.split(draft.aliases),
             capability: draft.capability,
             intent: draft.intent,
-            performs: Self.list(draft.performs),
+            performs: SystemSheetWriting.split(draft.performs),
             techniques: draft.techniques,
             performsCatalogueTier: draft.catalogueTier.isEmpty ? nil : draft.catalogueTier
         )
@@ -359,20 +359,12 @@ struct ThreatActorsSheet: View {
             id: actor.id,
             name: actor.name,
             description: actor.description,
-            aliases: actor.aliases.joined(separator: ", "),
+            aliases: SystemSheetWriting.joined(actor.aliases),
             capability: actor.capabilityId,
             intent: actor.intent,
-            performs: actor.performsThreatIds.joined(separator: ", "),
+            performs: SystemSheetWriting.joined(actor.performsThreatIds),
             techniques: actor.techniques,
             catalogueTier: actor.performsCatalogueTierId ?? Self.noTier
         )
-    }
-
-    /// A comma-separated field, as a list. Empty entries are dropped, because
-    /// a trailing comma must not write an empty id.
-    private static func list(_ text: String) -> [String] {
-        text.split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { $0.isEmpty == false }
     }
 }

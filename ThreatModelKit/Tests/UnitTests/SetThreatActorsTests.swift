@@ -99,6 +99,28 @@ struct SetThreatActorsTests {
         #expect(app.modelStore.current().localActors.isEmpty)
     }
 
+    @Test func dropsEmptyItemsAndTrimsWhitespaceFromEveryList() throws {
+        let app = app()
+
+        let response = app.setLocalThreatActor().execute(
+            SetLocalThreatActorRequest(
+                id: "contractor",
+                name: "Third-party contractor",
+                aliases: [" supplier ", "", "vendor"],
+                capability: "targeted",
+                intent: "financial",
+                performs: ["credential-theft", " ", ""],
+                techniques: ["T1552", " ", ""]
+            )
+        )
+
+        #expect(response == .recorded)
+        let actor = try #require(app.modelStore.current().localActors.first)
+        #expect(actor.aliases == ["supplier", "vendor"])
+        #expect(actor.performs == [ThreatId("credential-theft")])
+        #expect(actor.techniques == ["T1552"])
+    }
+
     @Test func refusesACapabilityOutsideTheThreeTiers() {
         let app = app()
 

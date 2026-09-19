@@ -118,8 +118,7 @@ public struct SetLocalThreatActor: SetLocalThreatActorUseCase {
         }
     }
 
-    /// Trimmed, with the empty entries dropped. A person types a list as text,
-    /// and a trailing comma must not write an empty id.
+    /// Every list this actor writes, cleaned before it is stored.
     private static func cleaned(_ words: [String]) -> [String] {
         words.map { $0.trimmingWhitespace() }.filter { $0.isEmpty == false }
     }

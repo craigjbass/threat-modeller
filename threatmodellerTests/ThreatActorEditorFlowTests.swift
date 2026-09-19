@@ -252,6 +252,111 @@ struct ThreatActorEditorFlowTests {
         #expect(contractor.aliases == ["supplier", "vendor"])
     }
 
+    // MARK: a trailing comma writes no empty id
+
+    /// #232: `ThreatActorsSheet` reads its comma-separated fields through
+    /// `SystemSheetWriting.split(_:)`, so a trailing comma drops the empty
+    /// item it would otherwise leave.
+    @Test func aTrailingCommaInTheAliasesFieldWritesNoEmptyId() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+
+        let sheet = ThreatActorsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: "contractor",
+                name: "Third-party contractor",
+                aliases: "supplier, vendor,",
+                capability: "targeted",
+                intent: "financial",
+                performs: "credential-theft"
+            )
+        )
+        sheet.write()
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        let source = try #require(HclArchitectureSource().read(written).source)
+        let contractor = try #require(source.threatActors.first { $0.id == "contractor" })
+        #expect(contractor.aliases == ["supplier", "vendor"])
+        #expect(contractor.aliases.contains("") == false)
+    }
+
+    @Test func aTrailingCommaInThePerformsFieldWritesNoEmptyId() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+
+        let sheet = ThreatActorsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: "contractor",
+                name: "Third-party contractor",
+                capability: "targeted",
+                intent: "financial",
+                performs: "credential-theft, malware-deployment,"
+            )
+        )
+        sheet.write()
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        let source = try #require(HclArchitectureSource().read(written).source)
+        let contractor = try #require(source.threatActors.first { $0.id == "contractor" })
+        #expect(contractor.performs == ["credential-theft", "malware-deployment"])
+        #expect(contractor.performs.contains("") == false)
+    }
+
+    /// The technique ids come from a search-and-pick control, not a
+    /// comma-separated line, but the file still holds no empty id: a commit
+    /// with nothing typed adds nothing.
+    @Test func theTechniquesFieldWritesNoEmptyId() async throws {
+        let useCases = TestDependencies()
+        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        useCases.attackData.put(
+            Self.techniques,
+            fileName: AttackDataLocation.techniquesFileName
+        )
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+        let model = try #require(session.model)
+
+        let held = MitreIdFieldTests.Held()
+        let field = ThreatActorsSheet(session: model, dismiss: {})
+            .techniqueField(held.binding)
+        field.pick(try #require(field.rows(for: "exploit pub").first))
+        field.pick(try #require(field.rows(for: "valid acc").first))
+        field.commitTyped()
+        #expect(held.ids == ["T1190", "T1078"])
+
+        let sheet = ThreatActorsSheet(
+            session: model,
+            dismiss: {},
+            draft: .init(
+                id: "contractor",
+                name: "Third-party contractor",
+                capability: "targeted",
+                techniques: held.ids
+            )
+        )
+        sheet.write()
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let written = try #require(architecture(useCases))
+        let source = try #require(HclArchitectureSource().read(written).source)
+        let actor = try #require(source.threatActors.first { $0.id == "contractor" })
+        #expect(actor.techniques == ["T1190", "T1078"])
+        #expect(actor.techniques.contains("") == false)
+    }
+
     // MARK: the techniques picked through the MITRE id field
 
     /// The ATT&CK data this machine holds, for the field to search.

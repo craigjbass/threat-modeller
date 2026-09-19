@@ -12,13 +12,12 @@ enum SystemSheetWriting {
         text.trimmingCharacters(in: .whitespaces).isEmpty == false
     }
 
-    /// One list, as one line a person edits.
+    /// One list, as one comma-separated line.
     static func joined(_ items: [String]) -> String {
         items.joined(separator: ", ")
     }
 
-    /// The items of one such line, without the whitespace around each and
-    /// without the items that hold nothing.
+    /// One comma-separated line, as a list.
     static func split(_ text: String) -> [String] {
         text.split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespaces) }
