@@ -11,14 +11,8 @@ struct ProjectWindow: View {
     @State private var isShowingDiagnostics = false
     /// True while the question about downloading ATT&CK is on screen.
     @State private var isAskingAboutAttack = false
-    @State private var isShowingLibraries = false
-    /// True while the planned-work list is on screen.
-    @State private var isShowingPlannedWork = false
-    @State private var isShowingHistory = false
     /// True while the check summary is on screen.
     @State private var isShowingCheckSummary = false
-    /// True while the Terraform import result is on screen.
-    @State private var isShowingTerraformImport = false
     @State private var canvas = CanvasState()
     /// The tree in front on the Attack Trees stage, and its canvas. The
     /// window owns them, so the tree survives a change of stage.
@@ -112,84 +106,43 @@ struct ProjectWindow: View {
                 dismiss: { isShowingCheckSummary = false }
             )
         }
-        .sheet(isPresented: $isShowingTerraformImport) {
-            if let result = session.terraformImportResult {
-                TerraformImportSheet(
-                    result: result,
-                    dismiss: {
-                        isShowingTerraformImport = false
-                        session.dismissTerraformImportResult()
-                    }
-                )
-            } else {
-                NothingToShowSheet(
-                    says: "The Terraform import result has gone.",
-                    dismiss: { isShowingTerraformImport = false }
-                )
-            }
+        .sheet(isPresented: isShowingTerraformImport) {
+            Self.terraformImportSheetContent(
+                result: session.terraformImportResult,
+                dismiss: {
+                    session.isShowingTerraformImport = false
+                    session.dismissTerraformImportResult()
+                }
+            )
         }
-        .sheet(isPresented: $isShowingHistory) {
+        .sheet(isPresented: isShowingHistory) {
             // The window's own history, so a sampling done here shows on the
             // Report stage and a sampling done there shows here.
-            if let history = session.history {
-                HistorySheet(
-                    session: history,
-                    dismiss: { isShowingHistory = false }
-                )
-            } else {
-                NothingToShowSheet(
-                    says: "This window has no history to read. Open a project first.",
-                    dismiss: { isShowingHistory = false }
-                )
-            }
+            Self.historySheetContent(
+                history: session.history,
+                dismiss: { session.isShowingHistory = false }
+            )
         }
         .sheet(item: systemSheet) { kind in
-            if let model = session.model {
-                SystemSheetView(
-                    kind: kind,
-                    session: model,
-                    dismiss: { session.systemSheet = nil }
-                )
-            } else {
-                NothingToShowSheet(
-                    says: "No system is drawn, so there is no \(kind.title) to read.",
-                    dismiss: { session.systemSheet = nil }
-                )
-            }
+            Self.systemSheetContent(
+                kind: kind,
+                model: session.model,
+                dismiss: { session.systemSheet = nil }
+            )
         }
-        .sheet(isPresented: $isShowingPlannedWork) {
-            if let model = session.model {
-                PlannedWorkSheet(
-                    project: session,
-                    threats: model.threats,
-                    dismiss: { isShowingPlannedWork = false }
-                )
-            } else {
-                NothingToShowSheet(
-                    says: "No system is drawn, so there is no planned work to read.",
-                    dismiss: { isShowingPlannedWork = false }
-                )
-            }
+        .sheet(isPresented: isShowingPlannedWork) {
+            Self.plannedWorkSheetContent(
+                project: session,
+                model: session.model,
+                dismiss: { session.isShowingPlannedWork = false }
+            )
         }
-        .sheet(isPresented: $isShowingLibraries) {
-            if let root = session.root {
-                LibrariesSheet(
-                    // A change reloads the project, so the palette shows a
-                    // library that has just arrived.
-                    session: LibrarySession(
-                        useCases: session.useCases,
-                        root: root,
-                        onChange: { session.reload() },
-                        fetcher: session.useCases.fetcher
-                    ),
-                    dismiss: { isShowingLibraries = false }
-                )
-            } else {
-                NothingToShowSheet(
-                    says: "No project is open, so there are no libraries to read.",
-                    dismiss: { isShowingLibraries = false }
-                )
-            }
+        .sheet(isPresented: isShowingLibraries) {
+            Self.librariesSheetContent(
+                session: session,
+                root: session.root,
+                dismiss: { session.isShowingLibraries = false }
+            )
         }
         .onChange(of: session.diagnostics.count) {
             // Errors stop the picture, so they interrupt. Warnings sit in the
@@ -197,7 +150,7 @@ struct ProjectWindow: View {
             if session.hasErrors { isShowingDiagnostics = true }
         }
         .onChange(of: session.terraformImportResult) {
-            if session.terraformImportResult != nil { isShowingTerraformImport = true }
+            if session.terraformImportResult != nil { session.isShowingTerraformImport = true }
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -286,7 +239,7 @@ struct ProjectWindow: View {
 
             ToolbarItem {
                 Button("History", systemImage: "chart.line.uptrend.xyaxis") {
-                    isShowingHistory = true
+                    session.isShowingHistory = true
                 }
                 .disabled(session.history == nil)
                 .accessibilityIdentifier("show-history")
@@ -308,7 +261,7 @@ struct ProjectWindow: View {
 
             ToolbarItem {
                 Button("Planned Work", systemImage: "checklist") {
-                    isShowingPlannedWork = true
+                    session.isShowingPlannedWork = true
                 }
                 .disabled(session.model == nil)
                 .help("Who does each recommendation and each action, and by when.")
@@ -317,7 +270,7 @@ struct ProjectWindow: View {
 
             ToolbarItem {
                 Button("Libraries", systemImage: "books.vertical") {
-                    isShowingLibraries = true
+                    session.isShowingLibraries = true
                 }
                 .disabled(session.root == nil)
                 .accessibilityIdentifier("libraries")
@@ -343,12 +296,151 @@ struct ProjectWindow: View {
         SystemMenu(project: project).rows
     }
 
+    /// What the Terraform import sheet draws: the result, or the words for a
+    /// result that has gone. A test calls this directly, so it draws the
+    /// same words the window draws.
+    @ViewBuilder
+    static func terraformImportSheetContent(
+        result: TerraformImportResult?,
+        dismiss: @escaping () -> Void
+    ) -> some View {
+        if let result {
+            TerraformImportSheet(result: result, dismiss: dismiss)
+        } else {
+            NothingToShowSheet(
+                says: "The Terraform import result has gone.",
+                dismiss: dismiss
+            )
+        }
+    }
+
+    /// What the History sheet draws: the history, or the words for a window
+    /// with none. A test calls this directly, so it draws the same words the
+    /// window draws.
+    @ViewBuilder
+    static func historySheetContent(
+        history: HistorySession?,
+        dismiss: @escaping () -> Void
+    ) -> some View {
+        if let history {
+            HistorySheet(session: history, dismiss: dismiss)
+        } else {
+            NothingToShowSheet(
+                says: "This window has no history to read. Open a project first.",
+                dismiss: dismiss
+            )
+        }
+    }
+
+    /// What a System sheet draws: the model's answer, or the words for no
+    /// model drawn. A test calls this directly, so it draws the same words
+    /// the window draws.
+    @ViewBuilder
+    static func systemSheetContent(
+        kind: SystemSheetKind,
+        model: ThreatModelSession?,
+        dismiss: @escaping () -> Void
+    ) -> some View {
+        if let model {
+            SystemSheetView(kind: kind, session: model, dismiss: dismiss)
+        } else {
+            NothingToShowSheet(
+                says: "No system is drawn, so there is no \(kind.title) to read.",
+                dismiss: dismiss
+            )
+        }
+    }
+
+    /// What the Planned Work sheet draws: the model's threats, or the words
+    /// for no model drawn. A test calls this directly, so it draws the same
+    /// words the window draws.
+    @ViewBuilder
+    static func plannedWorkSheetContent(
+        project: ProjectSession,
+        model: ThreatModelSession?,
+        dismiss: @escaping () -> Void
+    ) -> some View {
+        if let model {
+            PlannedWorkSheet(project: project, threats: model.threats, dismiss: dismiss)
+        } else {
+            NothingToShowSheet(
+                says: "No system is drawn, so there is no planned work to read.",
+                dismiss: dismiss
+            )
+        }
+    }
+
+    /// What the Libraries sheet draws: the project's libraries, or the words
+    /// for no project open. A test calls this directly, so it draws the same
+    /// words the window draws.
+    @ViewBuilder
+    static func librariesSheetContent(
+        session: ProjectSession,
+        root: String?,
+        dismiss: @escaping () -> Void
+    ) -> some View {
+        if let root {
+            LibrariesSheet(
+                // A change reloads the project, so the palette shows a
+                // library that has just arrived.
+                session: LibrarySession(
+                    useCases: session.useCases,
+                    root: root,
+                    onChange: { session.reload() },
+                    fetcher: session.useCases.fetcher
+                ),
+                dismiss: dismiss
+            )
+        } else {
+            NothingToShowSheet(
+                says: "No project is open, so there are no libraries to read.",
+                dismiss: dismiss
+            )
+        }
+    }
+
     /// Which System sheet is on screen. The session holds it, so a test runs
     /// a menu row and reads which sheet opened.
     private var systemSheet: Binding<SystemSheetKind?> {
         Binding(
             get: { session.systemSheet },
             set: { session.systemSheet = $0 }
+        )
+    }
+
+    /// True while the History sheet is on screen. The session holds it, so a
+    /// test can open the sheet without a click.
+    private var isShowingHistory: Binding<Bool> {
+        Binding(
+            get: { session.isShowingHistory },
+            set: { session.isShowingHistory = $0 }
+        )
+    }
+
+    /// True while the Planned Work sheet is on screen. The session holds it,
+    /// so a test can open the sheet without a click.
+    private var isShowingPlannedWork: Binding<Bool> {
+        Binding(
+            get: { session.isShowingPlannedWork },
+            set: { session.isShowingPlannedWork = $0 }
+        )
+    }
+
+    /// True while the Libraries sheet is on screen. The session holds it, so
+    /// a test can open the sheet without a click.
+    private var isShowingLibraries: Binding<Bool> {
+        Binding(
+            get: { session.isShowingLibraries },
+            set: { session.isShowingLibraries = $0 }
+        )
+    }
+
+    /// True while the Terraform import result sheet is on screen. The
+    /// session holds it, so a test can open the sheet without a click.
+    private var isShowingTerraformImport: Binding<Bool> {
+        Binding(
+            get: { session.isShowingTerraformImport },
+            set: { session.isShowingTerraformImport = $0 }
         )
     }
 

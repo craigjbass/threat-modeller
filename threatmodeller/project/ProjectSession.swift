@@ -26,6 +26,18 @@ final class ProjectSession {
     /// and the toolbar control both write it, and the project window presents
     /// the sheet it names.
     var systemSheet: SystemSheetKind?
+    /// True while the History sheet is on screen. The toolbar control writes
+    /// it, so a test can drive the sheet without a click.
+    var isShowingHistory = false
+    /// True while the Planned Work sheet is on screen. The toolbar control
+    /// writes it, so a test can drive the sheet without a click.
+    var isShowingPlannedWork = false
+    /// True while the Libraries sheet is on screen. The toolbar control
+    /// writes it, so a test can drive the sheet without a click.
+    var isShowingLibraries = false
+    /// True while the Terraform import result sheet is on screen. The import
+    /// itself writes it true, and the sheet's own Close writes it false.
+    var isShowingTerraformImport = false
     private let watcher: ProjectWatching
     private let defaults: UserDefaults
     private let coalescer: ChangeCoalescing
