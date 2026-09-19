@@ -79,12 +79,44 @@ func click(_ window: NSWindow, at point: NSPoint, count: Int = 1) {
     RunLoop.current.run(until: Date().addingTimeInterval(0.2))
 }
 
+/// Sends a Return key press to this window: one `keyDown`, one `keyUp`.
+///
+/// AppKit runs the default button's action for a Return press, the same
+/// control `.keyboardShortcut(.defaultAction)` names. A sheet's own close
+/// button draws through SwiftUI's platform bridge, which answers no
+/// accessibility identifier and builds no plain `NSButton` a test can find
+/// and press, so a test presses Return instead.
+@MainActor
+func pressReturn(_ window: NSWindow) {
+    for type in [NSEvent.EventType.keyDown, .keyUp] {
+        guard let event = NSEvent.keyEvent(
+            with: type,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: "\r",
+            charactersIgnoringModifiers: "\r",
+            isARepeat: false,
+            keyCode: 36
+        ) else { continue }
+        window.sendEvent(event)
+    }
+    RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+}
+
 /// A view in a window the way the application builds one: a hosting
 /// controller, so SwiftUI installs the toolbar and the titlebar accessories
 /// the sidebar's search field sits in.
 @MainActor
 func hostedWindow(of view: some View, width: CGFloat = 1400, height: CGFloat = 900) -> NSWindow {
     let controller = NSHostingController(rootView: view)
+    // Without this, the controller re-asserts SwiftUI's own idea of the
+    // content's ideal size onto the window on a later layout pass, and a
+    // window this test just set back to its own requested size shrinks
+    // again on its own.
+    controller.sizingOptions = []
     let window = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: width, height: height),
         styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
@@ -94,6 +126,11 @@ func hostedWindow(of view: some View, width: CGFloat = 1400, height: CGFloat = 9
     window.contentViewController = controller
     window.setContentSize(NSSize(width: width, height: height))
     window.makeKeyAndOrderFront(nil)
+    // AppKit cascades a new window clear of the ones already on screen, and
+    // clips its size to what is left once enough windows crowd the display.
+    // A test that runs beside others needs the size it asked for, not what
+    // cascading left, so this puts the window back at its own corner.
+    window.setFrame(NSRect(x: 0, y: 0, width: width, height: height), display: true)
     window.contentView?.layoutSubtreeIfNeeded()
     RunLoop.current.run(until: Date().addingTimeInterval(1.2))
     window.contentView?.layoutSubtreeIfNeeded()

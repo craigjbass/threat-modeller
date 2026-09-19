@@ -11,8 +11,6 @@ struct ProjectWindow: View {
     @State private var isShowingDiagnostics = false
     /// True while the question about downloading ATT&CK is on screen.
     @State private var isAskingAboutAttack = false
-    /// True while the check summary is on screen.
-    @State private var isShowingCheckSummary = false
     @State private var canvas = CanvasState()
     /// The tree in front on the Attack Trees stage, and its canvas. The
     /// window owns them, so the tree survives a change of stage.
@@ -100,10 +98,10 @@ struct ProjectWindow: View {
                 policyRules: session.policyRules
             )
         }
-        .sheet(isPresented: $isShowingCheckSummary) {
+        .sheet(isPresented: isShowingCheckSummary) {
             CheckSummarySheet(
                 systems: session.checkedSystems,
-                dismiss: { isShowingCheckSummary = false }
+                dismiss: { session.isShowingCheckSummary = false }
             )
         }
         .sheet(isPresented: isShowingTerraformImport) {
@@ -205,7 +203,7 @@ struct ProjectWindow: View {
             // finding in the words the verb prints.
             ToolbarItem {
                 Button {
-                    isShowingCheckSummary = true
+                    session.isShowingCheckSummary = true
                 } label: {
                     HStack(spacing: 4) {
                         Image(
@@ -414,6 +412,15 @@ struct ProjectWindow: View {
         Binding(
             get: { session.isShowingHistory },
             set: { session.isShowingHistory = $0 }
+        )
+    }
+
+    /// True while the Check Summary sheet is on screen. The session holds
+    /// it, so a test can open the sheet without a click.
+    private var isShowingCheckSummary: Binding<Bool> {
+        Binding(
+            get: { session.isShowingCheckSummary },
+            set: { session.isShowingCheckSummary = $0 }
         )
     }
 

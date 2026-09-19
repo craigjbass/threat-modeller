@@ -35,6 +35,9 @@ final class ProjectSession {
     /// True while the Libraries sheet is on screen. The toolbar control
     /// writes it, so a test can drive the sheet without a click.
     var isShowingLibraries = false
+    /// True while the Check Summary sheet is on screen. The toolbar control
+    /// writes it, so a test can drive the sheet without a click.
+    var isShowingCheckSummary = false
     /// True while the Terraform import result sheet is on screen. The import
     /// itself writes it true, and the sheet's own Close writes it false.
     var isShowingTerraformImport = false
