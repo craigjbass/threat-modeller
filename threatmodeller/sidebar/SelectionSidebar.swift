@@ -7,11 +7,6 @@ import ThreatModelKit
 /// `docs/superpowers/specs/2026-09-16-selection-editor-in-the-sidebar-design.md`
 /// states the rule: the column holds the editor for what is selected, and its
 /// default content when nothing is selected.
-///
-/// Both views stay in the view tree. The one that is not in front is drawn at
-/// nought opacity and takes no click, so the default content keeps the scroll
-/// position it had and a person who deselects gets the row they were reading
-/// back. Removing the view and building it again loses that offset.
 struct SelectionSidebar: View {
     let session: ThreatModelSession
     let canvas: CanvasState
@@ -21,7 +16,6 @@ struct SelectionSidebar: View {
         CanvasSelection.of(session: session, canvas: canvas)
     }
 
-    /// True while an editor is in front of the default content.
     private var isEditing: Bool { selection != .nothing }
 
     var body: some View {

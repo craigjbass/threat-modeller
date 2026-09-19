@@ -179,4 +179,119 @@ struct SelectionSidebarTests {
             #expect(editor.fittingSize.width > 0, "the editor drew nothing at \(width)")
         }
     }
+
+    /// Every scroller under the sidebar, in the order the view tree stacks
+    /// them: the default content first, and the editor second while one is
+    /// in front.
+    private func sidebarScrollers(in window: NSWindow) throws -> [NSScrollView] {
+        let content = try #require(window.contentView)
+        return views(of: NSScrollView.self, in: content)
+    }
+
+    @Test func theDefaultContentStaysInTheViewTreeWhileAnEditorIsInFront() throws {
+        let session = aModel()
+        let canvas = CanvasState()
+        let component = try #require(session.canvas.components.first)
+        let window = hostedWindow(
+            of: SelectionSidebar(session: session, canvas: canvas),
+            width: 360,
+            height: 700
+        )
+        let before = try sidebarScrollers(in: window)
+        let defaultContent = try #require(before.first, "no default content in the sidebar")
+        #expect(before.count == 1, "the sidebar holds \(before.count) scrollers with nothing selected")
+
+        canvas.select(componentId: component.id, addingToSelection: false)
+        settle(window)
+        let after = try sidebarScrollers(in: window)
+
+        #expect(after.count == 2, "the sidebar holds \(after.count) scrollers with an editor in front")
+        #expect(
+            after.first === defaultContent,
+            "the default content left the view tree while the editor was in front"
+        )
+    }
+
+    @Test func theDefaultContentTakesNoClickWhileAnEditorIsInFront() throws {
+        let session = aModel()
+        let canvas = CanvasState()
+        let component = try #require(session.canvas.components.first)
+        canvas.select(componentId: component.id, addingToSelection: false)
+        let window = hostedWindow(
+            of: SelectionSidebar(session: session, canvas: canvas),
+            width: 360,
+            height: 700
+        )
+        let content = try #require(window.contentView)
+        let defaultContent = try #require(
+            try sidebarScrollers(in: window).first,
+            "no default content in the sidebar"
+        )
+        let point = defaultContent.convert(
+            NSPoint(x: defaultContent.bounds.midX, y: defaultContent.bounds.midY),
+            to: content
+        )
+
+        let answer = content.hitTest(point)
+
+        #expect(
+            answer.map { isInside($0, defaultContent) } != true,
+            "allowsHitTesting did not hold: a click over the default content answered \(viewChain(from: answer)) while an editor was in front"
+        )
+    }
+
+    /// The source path of the application's own code, from this file's path.
+    private static func sourcePath(of file: String) -> String {
+        let here = URL(fileURLWithPath: #filePath)
+        return here
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent(file)
+            .path
+    }
+
+    /// No fixture in this suite runs a real accessibility client, so this
+    /// test reads the source line instead of the accessibility tree.
+    @Test func theDefaultContentIsHiddenFromAccessibilityWhileAnEditorIsInFront() throws {
+        let path = Self.sourcePath(of: "threatmodeller/sidebar/SelectionSidebar.swift")
+        let source = try String(contentsOfFile: path, encoding: .utf8)
+
+        #expect(
+            source.contains(".accessibilityHidden(isEditing)"),
+            "the default content stays in the accessibility tree while an editor is in front"
+        )
+    }
+
+    @Test func aScrollOfTheDefaultContentSurvivesASelectionAndADeselection() throws {
+        let session = aModel()
+        let canvas = CanvasState()
+        let component = try #require(session.canvas.components.first)
+        let window = hostedWindow(
+            of: SelectionSidebar(session: session, canvas: canvas),
+            width: 360,
+            height: 700
+        )
+        let defaultContent = try #require(
+            try sidebarScrollers(in: window).first,
+            "no default content in the sidebar"
+        )
+        let clipView = defaultContent.contentView
+        let scrolled = NSPoint(x: 0, y: 40)
+        clipView.scroll(to: scrolled)
+        defaultContent.reflectScrolledClipView(clipView)
+
+        canvas.select(componentId: component.id, addingToSelection: false)
+        settle(window)
+        canvas.clearSelection()
+        settle(window)
+
+        let after = try #require(
+            try sidebarScrollers(in: window).first,
+            "no default content in the sidebar after the deselection"
+        )
+        #expect(
+            after.contentView.bounds.origin.y == scrolled.y,
+            "the default content sits at \(after.contentView.bounds.origin.y), not \(scrolled.y)"
+        )
+    }
 }
