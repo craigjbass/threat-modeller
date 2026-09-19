@@ -1,6 +1,7 @@
 import FileGateways
 import Foundation
 import Testing
+import TestSupport
 import ThreatModelKit
 
 /// The one runner every gateway starts a child process with.
@@ -14,8 +15,7 @@ struct ChildProcessTests {
             .appendingPathComponent("slow-tool-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let tool = directory.appendingPathComponent(name)
-        try "#!/bin/sh\nexec /bin/sleep 60\n".write(to: tool, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tool.path)
+        try ToolScript.write("#!/bin/sh\nexec /bin/sleep 60\n", to: tool.path)
         return directory.path
     }
 
@@ -39,13 +39,7 @@ struct ChildProcessTests {
         var refused = 0
         for index in 0..<600 {
             let tool = directory.appendingPathComponent("tool-\(index)")
-            FileManager.default.createFile(atPath: tool.path, contents: nil)
-            let writer = try FileHandle(forWritingTo: tool)
-            writer.write(Data("#!/bin/sh\n".utf8))
-            Thread.sleep(forTimeInterval: 0.002)
-            writer.write(Data("echo ok\n".utf8))
-            try writer.close()
-            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tool.path)
+            try ToolScript.write("#!/bin/sh\necho ok\n", to: tool.path)
             let answer = try ChildProcess.run("/usr/bin/env", [tool.path], environment: Self.environment, timeout: 5)
             if answer.exitCode != 0 || answer.output != "ok\n" { refused += 1 }
         }

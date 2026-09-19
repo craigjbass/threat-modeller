@@ -1,6 +1,7 @@
 import FileGateways
 import Foundation
 import Testing
+import TestSupport
 import ThreatModelKit
 
 /// The real lookup, over a `vulnx` the test writes. No test runs the real tool.
@@ -12,12 +13,11 @@ struct VulnxLookupTests {
             .appendingPathComponent("tool-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let tool = directory.appendingPathComponent("vulnx")
-        try """
+        try ToolScript.write("""
         #!/bin/sh
         echo '{"cve_id":"CVE-2023-44487","cvss_score":7.5,"epss_score":0.94,"is_kev":true,"description":"HTTP/2 flood"}'
 
-        """.write(to: tool, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tool.path)
+        """, to: tool.path)
         return directory.path
     }
 

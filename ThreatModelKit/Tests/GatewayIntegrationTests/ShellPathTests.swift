@@ -1,6 +1,7 @@
 import FileGateways
 import Foundation
 import Testing
+import TestSupport
 import ThreatModelKit
 
 /// The `PATH` a child process searches: this process's own entries, then the
@@ -15,8 +16,7 @@ struct ShellPathTests {
     private func aShell(printing script: String) throws -> String {
         let file = FileManager.default.temporaryDirectory
             .appendingPathComponent("shell-\(UUID().uuidString).sh")
-        try "#!/bin/sh\n\(script)\n".write(to: file, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
+        try ToolScript.write("#!/bin/sh\n\(script)\n", to: file.path)
         return file.path
     }
 

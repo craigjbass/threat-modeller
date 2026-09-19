@@ -135,15 +135,11 @@ struct GitHistoryContractTests {
     }
 
     private func run(_ arguments: [String], in directory: String) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git", "-C", directory] + arguments
-        let output = Pipe()
-        process.standardOutput = output
-        process.standardError = Pipe()
-        try process.run()
-        let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
-        return text
+        try ChildProcess.run(
+            "/usr/bin/env",
+            ["git", "-C", directory] + arguments,
+            environment: ProcessInfo.processInfo.environment,
+            timeout: 60
+        ).output
     }
 }

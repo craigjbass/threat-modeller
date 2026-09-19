@@ -32,21 +32,14 @@ struct GitLibraryFetcherTests {
              "commit", "-m", "one"],
             ["tag", "v1.0.0"]
         ] {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["git"] + arguments
-            process.currentDirectoryURL = directory
-            process.standardOutput = Pipe()
-            let errors = Pipe()
-            process.standardError = errors
-            try process.run()
-            let said = String(
-                decoding: errors.fileHandleForReading.readDataToEndOfFile(),
-                as: UTF8.self
+            let answer = try ChildProcess.run(
+                "/usr/bin/env",
+                ["git", "-C", directory.path] + arguments,
+                environment: ProcessInfo.processInfo.environment,
+                timeout: 60
             )
-            process.waitUntilExit()
-            if process.terminationStatus != 0 {
-                Issue.record("git \(arguments.joined(separator: " ")) said: \(said)")
+            if answer.exitCode != 0 {
+                Issue.record("git \(arguments.joined(separator: " ")) said: \(answer.errors)")
             }
         }
         return directory.path
@@ -94,14 +87,12 @@ struct GitLibraryFetcherTests {
              "commit", "-m", "two"],
             ["tag", "v2.0.0"]
         ] {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["git"] + arguments
-            process.currentDirectoryURL = URL(fileURLWithPath: repository)
-            process.standardOutput = Pipe()
-            process.standardError = Pipe()
-            try process.run()
-            process.waitUntilExit()
+            _ = try ChildProcess.run(
+                "/usr/bin/env",
+                ["git", "-C", repository] + arguments,
+                environment: ProcessInfo.processInfo.environment,
+                timeout: 60
+            )
         }
 
         #expect(throws: LibraryFetchFault.noLibraryFile) {
