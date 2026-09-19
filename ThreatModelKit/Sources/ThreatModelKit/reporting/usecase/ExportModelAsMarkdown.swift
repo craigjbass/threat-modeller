@@ -139,6 +139,8 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         sections[.executiveSummary] = MarkdownExecutiveSummary.lines(
             report.executiveSummary,
             components: report.components,
+            connections: report.connections,
+            zones: report.zones,
             direction: report.change?.direction
         )
         sections[.scope] = MarkdownScope.lines(
@@ -150,7 +152,8 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
         sections[.thirdParties] = MarkdownThirdParties.lines(report.thirdParties)
         sections[.knownVulnerabilities] = MarkdownKnownVulnerabilities.lines(
             report.knownVulnerabilities,
-            thresholds: report.vulnerabilityThresholds
+            thresholds: report.vulnerabilityThresholds,
+            threats: report.threats
         )
         sections[.policy] = MarkdownPolicy.lines(
             report.policy,

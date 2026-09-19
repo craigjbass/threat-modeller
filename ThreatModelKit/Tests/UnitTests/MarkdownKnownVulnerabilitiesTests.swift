@@ -144,6 +144,56 @@ struct MarkdownKnownVulnerabilitiesTests {
         #expect(json.contains("\"cveId\" : \"CVE-2024-7347\""))
     }
 
+    @Test func theSectionNamesTheThreatsAKnownExploitedCveMoved() {
+        let report = aReport()
+        let moved = report.threats.filter {
+            LikelihoodSource.knownExploitedCve(in: $0.likelihoodReason) == "CVE-2023-44487"
+                && $0.sourceName == "Application Server"
+        }
+
+        let text = MarkdownKnownVulnerabilities.lines(
+            report.knownVulnerabilities,
+            thresholds: report.vulnerabilityThresholds,
+            threats: report.threats
+        ).joined(separator: "\n")
+
+        #expect(moved.isEmpty == false)
+        #expect(
+            text.contains(
+                "CVE-2023-44487 raises \(moved.map(\.name).joined(separator: ", "))"
+                    + " on Application Server to Commodity."
+            )
+        )
+    }
+
+    @Test func theSectionNamesNoThreatWhenTheCallerStatesNone() {
+        let text = MarkdownKnownVulnerabilities.lines(rows, thresholds: .default)
+            .joined(separator: "\n")
+
+        #expect(text.contains("CVE-2023-44487 raises ") == false)
+    }
+
+    @Test func theMarkdownReportNamesTheThreatsAKnownExploitedCveMoved() {
+        _ = aReport()
+
+        let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
+
+        #expect(markdown.contains("CVE-2023-44487 raises "))
+        #expect(markdown.contains(" on Application Server to Commodity."))
+    }
+
+    @Test func theSummaryStatesHowManyKnownExploitedCvesTheModelHolds() {
+        _ = aReport()
+
+        let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
+
+        #expect(
+            markdown.contains(
+                "This model holds 1 known exploited CVE, listed under Known vulnerabilities."
+            )
+        )
+    }
+
     @Test func aTemplateNamesTheSlot() {
         #expect(ReportTemplate.Slot(rawValue: "known_vulnerabilities") == .knownVulnerabilities)
     }

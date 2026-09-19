@@ -9,7 +9,7 @@ public enum ReportRollups {
     public static func build(threats: [ReportThreat], zones: [ReportZone]) -> ReportRollupTables {
         ReportRollupTables(
             byZone: zones.map { zone in
-                let held = Set(zone.componentIds.map { "component:\($0)" })
+                let held = sourceIds(of: zone)
                 let raised = threats.filter { held.contains($0.sourceId) }
                 return ReportZoneRollup(
                     zoneName: zone.name,
@@ -27,6 +27,14 @@ public enum ReportRollups {
             ),
             bySourceKind: bySourceKind(of: threats)
         )
+    }
+
+    /// Every source a zone's rollup counts.
+    private static func sourceIds(of zone: ReportZone) -> Set<String> {
+        var held = Set(zone.componentIds.map { "component:\($0)" })
+        held.formUnion(zone.connectionIds.map { "connection:\($0)" })
+        if zone.zoneId.isEmpty == false { held.insert("zone:\(zone.zoneId)") }
+        return held
     }
 
     /// One row per source kind the resolver raised a threat under, in the

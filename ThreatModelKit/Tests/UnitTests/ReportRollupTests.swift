@@ -27,15 +27,82 @@ struct ReportRollupTests {
         )
     }
 
-    private func zone(_ name: String, _ holds: [String], ids: [String]? = nil) -> ReportZone {
+    private func zone(
+        _ name: String,
+        _ holds: [String],
+        ids: [String]? = nil,
+        zoneId: String = "",
+        connectionIds: [String] = []
+    ) -> ReportZone {
         ReportZone(
+            zoneId: zoneId,
             name: name,
             networkZoneLabel: "Private Zone",
             networkTypeLabel: "Generic Network",
             componentNames: holds,
             componentIds: ids ?? holds,
+            connectionIds: connectionIds,
             riskReductionPercent: 20
         )
+    }
+
+    @Test func aZoneRollupCountsAThreatOnAConnectionInsideIt() throws {
+        let tables = ReportRollups.build(
+            threats: [
+                threat(
+                    "in transit",
+                    source: "EC2 \u{2192} RDS",
+                    sourceId: "connection:link-1",
+                    kind: "Connection",
+                    score: 11,
+                    level: "critical"
+                )
+            ],
+            zones: [zone("App VPC", ["api"], zoneId: "z1", connectionIds: ["link-1"])]
+        )
+
+        let rollup = try #require(tables.byZone.first)
+        #expect(rollup.worstScore == 11)
+        #expect(rollup.byLevel.contains { $0.label == "critical" && $0.count == 1 })
+    }
+
+    @Test func aZoneRollupCountsAThreatOnTheZoneItself() throws {
+        let tables = ReportRollups.build(
+            threats: [
+                threat(
+                    "lateral movement",
+                    source: "App VPC",
+                    sourceId: "zone:z1",
+                    kind: "Zone",
+                    score: 7,
+                    level: "high"
+                )
+            ],
+            zones: [zone("App VPC", ["api"], zoneId: "z1")]
+        )
+
+        let rollup = try #require(tables.byZone.first)
+        #expect(rollup.worstScore == 7)
+        #expect(rollup.byLevel.contains { $0.label == "high" && $0.count == 1 })
+    }
+
+    @Test func aZoneRollupLeavesOutAConnectionOutsideIt() throws {
+        let tables = ReportRollups.build(
+            threats: [
+                threat(
+                    "in transit",
+                    source: "EC2 \u{2192} RDS",
+                    sourceId: "connection:link-9",
+                    kind: "Connection",
+                    score: 11,
+                    level: "critical"
+                )
+            ],
+            zones: [zone("App VPC", ["api"], zoneId: "z1", connectionIds: ["link-1"])]
+        )
+
+        let rollup = try #require(tables.byZone.first)
+        #expect(rollup.worstScore == 0)
     }
 
     @Test func aZoneRollupCountsWhatItHolds() throws {

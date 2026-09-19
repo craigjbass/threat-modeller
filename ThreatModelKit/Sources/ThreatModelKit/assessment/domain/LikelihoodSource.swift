@@ -22,12 +22,24 @@ public enum LikelihoodSource: Equatable, Sendable {
     /// text tells it from an actor's.
     public static let knownExploitedSuffix = ", known exploited"
 
+    /// What a vulnerability reason starts with.
+    private static let setBy = "set by "
+
+    /// The CVE a known exploited reason names, or nil when the reason names
+    /// none.
+    public static func knownExploitedCve(in reason: String) -> String? {
+        guard reason.hasSuffix(knownExploitedSuffix) else { return nil }
+        let named = String(reason.dropLast(knownExploitedSuffix.count))
+        guard named.hasPrefix(setBy) else { return nil }
+        return String(named.dropFirst(setBy.count))
+    }
+
     /// What the report and the threat card write after the tier.
     public var reason: String {
         switch self {
         case .catalogue: "from the catalogue"
         case .actor(_, _, let actorName): "set by \(actorName)"
-        case .vulnerability(_, let cveId): "set by \(cveId)\(Self.knownExploitedSuffix)"
+        case .vulnerability(_, let cveId): "\(Self.setBy)\(cveId)\(Self.knownExploitedSuffix)"
         case .finding(let finding): finding.label
         }
     }

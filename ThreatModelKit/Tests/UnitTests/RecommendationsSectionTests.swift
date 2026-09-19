@@ -305,7 +305,12 @@ struct RecommendationsSectionTests {
         #expect(built.first?.protectsElements.first?.threats.count == 2)
     }
 
-    private func threat(id: String, sourceId: String) -> ReportThreat {
+    private func threat(
+        id: String,
+        sourceId: String,
+        sourceName: String = "store",
+        sourceKind: String = "Component"
+    ) -> ReportThreat {
         ReportThreat(
             threatId: id,
             name: id,
@@ -315,12 +320,95 @@ struct RecommendationsSectionTests {
             riskLevel: "medium",
             strideLabels: [],
             mitreTechniqueIds: [],
-            sourceName: "store",
-            sourceKind: "Component",
+            sourceName: sourceName,
+            sourceKind: sourceKind,
             sourceId: sourceId,
             controls: [],
             pathwayMitigationLabels: []
         )
+    }
+
+    @Test func theDependencyTableHoldsAnEdgeThatAnswersAConnectionThreat() throws {
+        let built = ProtectionDependenciesReport.build(
+            [
+                ProtectionDependency(
+                    protectorId: "waf",
+                    protectorName: "WAF",
+                    protects: ["in-transit on link-1"],
+                    unanswered: []
+                )
+            ],
+            threats: [
+                threat(
+                    id: "in-transit",
+                    sourceId: "connection:link-1",
+                    sourceName: "EC2 \u{2192} RDS",
+                    sourceKind: "Connection"
+                )
+            ],
+            zones: [],
+            nameOfComponent: { $0 }
+        )
+
+        let element = try #require(built.first?.protectsElements.first)
+        #expect(element.elementName == "EC2 \u{2192} RDS")
+        #expect(element.threats.map(\.threatId) == ["in-transit"])
+        #expect(built.first?.answeredByElementId == ["link-1": 1])
+    }
+
+    @Test func theDependencyTableHoldsAnEdgeThatAnswersAZoneThreat() throws {
+        let built = ProtectionDependenciesReport.build(
+            [
+                ProtectionDependency(
+                    protectorId: "waf",
+                    protectorName: "WAF",
+                    protects: ["lateral-movement on z1"],
+                    unanswered: []
+                )
+            ],
+            threats: [
+                threat(
+                    id: "lateral-movement",
+                    sourceId: "zone:z1",
+                    sourceName: "App VPC",
+                    sourceKind: "Zone"
+                )
+            ],
+            zones: [],
+            nameOfComponent: { $0 }
+        )
+
+        let element = try #require(built.first?.protectsElements.first)
+        #expect(element.elementName == "App VPC")
+        #expect(element.threats.map(\.threatId) == ["lateral-movement"])
+    }
+
+    @Test func theDependencySectionNamesNoRawIdForAConnectionEdge() {
+        let built = ProtectionDependenciesReport.build(
+            [
+                ProtectionDependency(
+                    protectorId: "waf",
+                    protectorName: "WAF",
+                    protects: ["in-transit on link-1"],
+                    unanswered: []
+                )
+            ],
+            threats: [
+                threat(
+                    id: "in-transit",
+                    sourceId: "connection:link-1",
+                    sourceName: "EC2 \u{2192} RDS",
+                    sourceKind: "Connection"
+                )
+            ],
+            zones: [],
+            nameOfComponent: { $0 }
+        )
+
+        let lines = MarkdownProtectionDependencies.lines(built)
+
+        #expect(lines.contains { $0.hasPrefix("- Answers:") } == false)
+        #expect(lines.contains { $0.contains("EC2 \u{2192} RDS") })
     }
 
     /// The order rule of

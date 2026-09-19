@@ -308,6 +308,9 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     /// How many adversaries this model declares: users the model does not
     /// trust. A reader of one page reads who the model is written against.
     public let adversaryCount: Int
+    /// How many known exploited CVEs this model's components state. A reader
+    /// of one page reads what an attacker already exploits today.
+    public let knownExploitedCount: Int
 
     public init(
         verdict: String = "",
@@ -326,9 +329,11 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         openByImpact: [ReportCount] = [],
         exclusionCount: Int = 0,
         hardDependencyCount: Int = 0,
-        adversaryCount: Int = 0
+        adversaryCount: Int = 0,
+        knownExploitedCount: Int = 0
     ) {
         self.adversaryCount = adversaryCount
+        self.knownExploitedCount = knownExploitedCount
         self.verdict = verdict
         self.toleranceLabel = toleranceLabel
         self.topRisks = topRisks
@@ -361,7 +366,8 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
         today: GovernanceDate? = nil,
         exclusionCount: Int = 0,
         hardDependencyCount: Int = 0,
-        adversaryCount: Int = 0
+        adversaryCount: Int = 0,
+        knownExploitedCount: Int = 0
     ) -> ReportExecutiveSummary {
         // Counted once per distinct control key the way `SummariseRisk`
         // counts, so a control shared across links is one control.
@@ -429,8 +435,70 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
             openByImpact: openByImpact(threats.filter { isUnanswered($0) }),
             exclusionCount: exclusionCount,
             hardDependencyCount: hardDependencyCount,
-            adversaryCount: adversaryCount
+            adversaryCount: adversaryCount,
+            knownExploitedCount: knownExploitedCount
         )
+    }
+
+    /// Why one top risk is what it is, in the order a reader reads them. The
+    /// markdown report and the window both write these lines.
+    public static func reasons(
+        for threat: ReportThreat,
+        components: [ReportComponent] = [],
+        connections: [ReportConnection] = [],
+        zones: [ReportZone] = [],
+        withNoAction: Set<String> = []
+    ) -> [String] {
+        var reasons: [String] = []
+
+        if threat.sourceId.hasPrefix("connection:"),
+           let flow = connections.first(where: { threat.sourceId == "connection:\($0.id)" }) {
+            reasons.append(
+                "The flow is a \(flow.kindLabel) link from \(flow.sourceName)"
+                    + " to \(flow.targetName)."
+            )
+        } else if threat.sourceId.hasPrefix("zone:"),
+                  let zone = zones.first(where: { threat.sourceId == "zone:\($0.zoneId)" }) {
+            let held = zone.componentNames.count
+            reasons.append(
+                "The zone is a \(zone.boundaryLabel) and holds \(held)"
+                    + " \(held == 1 ? "component" : "components")."
+            )
+        } else if let element = components.first(where: { $0.name == threat.sourceName }) {
+            reasons.append(
+                "The element holds \(element.sensitivityLabel) data"
+                    + " and runs as \(element.privilegeLabel)."
+            )
+        }
+
+        if let raisedByTree = threat.raisedByTree {
+            reasons.append("The tree \(raisedByTree) raises this threat.")
+        }
+        if let library = threat.overriddenBy {
+            reasons.append(
+                threat.overrideChanges.isEmpty
+                    ? "The library \(library) changes this threat."
+                    : "The library \(library) changes this threat's"
+                        + " \(threat.overrideChanges.joined(separator: ", "))."
+            )
+        }
+        if let cveId = LikelihoodSource.knownExploitedCve(in: threat.likelihoodReason) {
+            reasons.append(
+                "The known exploited CVE \(cveId) raises this threat"
+                    + " to \(threat.likelihoodLabel)."
+            )
+        }
+        if let finding = threat.likelihoodFindingLabel {
+            reasons.append(
+                "The finding \(finding) sets the likelihood to \(threat.likelihoodLabel)."
+            )
+        }
+
+        let key = ReportRecommendation.key(threatId: threat.threatId, sourceId: threat.sourceId)
+        if withNoAction.contains(key) {
+            reasons.append("No recommendation names this threat, so none is listed below.")
+        }
+        return reasons
     }
 
     /// How many of these threats harm each impact, in the order
@@ -635,6 +703,9 @@ public struct ReportComponent: Equatable, Sendable {
 }
 
 public struct ReportConnection: Equatable, Sendable {
+    /// The identifier `ThreatResolver` mints the flow's threats under, with no
+    /// `connection:` prefix. Empty when a caller states none.
+    public let id: String
     public let sourceName: String
     public let targetName: String
     /// The flow's kind: Network, Local IPC, File, System Call or Human.
@@ -644,12 +715,14 @@ public struct ReportConnection: Equatable, Sendable {
     public let tags: [String]
 
     public init(
+        id: String = "",
         sourceName: String,
         targetName: String,
         kindLabel: String = FlowKind.default.label,
         description: String? = nil,
         tags: [String] = []
     ) {
+        self.id = id
         self.sourceName = sourceName
         self.targetName = targetName
         self.kindLabel = kindLabel
@@ -659,6 +732,9 @@ public struct ReportConnection: Equatable, Sendable {
 }
 
 public struct ReportZone: Equatable, Sendable {
+    /// The identifier `ThreatResolver` mints the zone's own threats under,
+    /// with no `zone:` prefix. Empty when a caller states none.
+    public let zoneId: String
     public let name: String
     public let networkZoneLabel: String
     public let networkTypeLabel: String
@@ -667,6 +743,8 @@ public struct ReportZone: Equatable, Sendable {
     /// `componentNames`. A rollup matches a threat to a zone by id, because
     /// a display name is not unique.
     public let componentIds: [String]
+    /// The ids of the flows that start and end inside this zone.
+    public let connectionIds: [String]
     public let riskReductionPercent: Int?
     /// What the zone is a boundary of: Network Boundary or Privilege Boundary.
     public let boundaryLabel: String
@@ -680,22 +758,26 @@ public struct ReportZone: Equatable, Sendable {
     public let description: String?
 
     public init(
+        zoneId: String = "",
         name: String,
         networkZoneLabel: String,
         networkTypeLabel: String,
         componentNames: [String],
         componentIds: [String] = [],
+        connectionIds: [String] = [],
         riskReductionPercent: Int?,
         boundaryLabel: String = ZoneBoundary.default.label,
         tags: [String] = [],
         source: String? = nil,
         description: String? = nil
     ) {
+        self.zoneId = zoneId
         self.name = name
         self.networkZoneLabel = networkZoneLabel
         self.networkTypeLabel = networkTypeLabel
         self.componentNames = componentNames
         self.componentIds = componentIds
+        self.connectionIds = connectionIds
         self.riskReductionPercent = riskReductionPercent
         self.boundaryLabel = boundaryLabel
         self.tags = tags

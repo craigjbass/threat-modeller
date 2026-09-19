@@ -10,6 +10,8 @@ public enum MarkdownExecutiveSummary {
     public static func lines(
         _ summary: ReportExecutiveSummary,
         components: [ReportComponent],
+        connections: [ReportConnection] = [],
+        zones: [ReportZone] = [],
         direction: String? = nil
     ) -> [String] {
         var lines = ["## Executive summary", "", summary.verdict, ""]
@@ -23,22 +25,13 @@ public enum MarkdownExecutiveSummary {
                     "\(index + 1). \(threat.name) \u{2014} \(threat.sourceName)"
                         + " \u{2014} \(level) (\(threat.riskScore) of \(ReportMethodology.highestScore))."
                 )
-                if let element = components.first(where: { $0.name == threat.sourceName }) {
-                    lines.append(
-                        "   The element holds \(element.sensitivityLabel) data"
-                            + " and runs as \(element.privilegeLabel)."
-                    )
-                }
-                if let raisedByTree = threat.raisedByTree {
-                    lines.append("   The tree \(raisedByTree) raises this threat.")
-                }
-                let key = ReportRecommendation.key(
-                    threatId: threat.threatId,
-                    sourceId: threat.sourceId
-                )
-                if summary.topRisksWithNoAction.contains(key) {
-                    lines.append("   No recommendation names this threat, so none is listed below.")
-                }
+                lines += ReportExecutiveSummary.reasons(
+                    for: threat,
+                    components: components,
+                    connections: connections,
+                    zones: zones,
+                    withNoAction: summary.topRisksWithNoAction
+                ).map { "   \($0)" }
             }
             lines.append("")
         }
@@ -127,6 +120,16 @@ public enum MarkdownExecutiveSummary {
                     ? "This model declares 1 adversary, listed under Scope."
                     : "This model declares \(summary.adversaryCount) adversaries, "
                         + "listed under Scope."
+            )
+            lines.append("")
+        }
+
+        if summary.knownExploitedCount > 0 {
+            lines.append(
+                summary.knownExploitedCount == 1
+                    ? "This model holds 1 known exploited CVE, listed under Known vulnerabilities."
+                    : "This model holds \(summary.knownExploitedCount) known exploited CVEs, "
+                        + "listed under Known vulnerabilities."
             )
             lines.append("")
         }

@@ -173,12 +173,17 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
 
         let zones = model.zones.map { zone in
             let held = model.components.filter { zoneByComponent[$0.id] ?? nil == zone }
+            let heldIds = Set(held.map(\.id))
             return ReportZone(
+                zoneId: zone.id.value,
                 name: zone.displayName,
                 networkZoneLabel: zone.networkZone.label,
                 networkTypeLabel: zone.networkType.label,
                 componentNames: held.compactMap { nameById[$0.id] },
                 componentIds: held.map(\.id.value),
+                connectionIds: model.connections
+                    .filter { heldIds.contains($0.source) && heldIds.contains($0.target) }
+                    .map(\.id.value),
                 riskReductionPercent: zone.networkZone == .privateZone && zone.riskReductionEnabled
                     ? zone.riskReductionPercent
                     : nil,
@@ -467,6 +472,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 },
                 connections: model.connections.map { connection in
                     ReportConnection(
+                        id: connection.id.value,
                         sourceName: nameById[connection.source] ?? connection.source.value,
                         targetName: nameById[connection.target] ?? connection.target.value,
                         kindLabel: connection.kind.label,
@@ -517,7 +523,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                     today: CheckGovernance.today(clock.now()),
                     exclusionCount: exclusions.count,
                     hardDependencyCount: model.thirdParties.filter { $0.uptime == .hard }.count,
-                    adversaryCount: model.components.filter { $0.user?.isAdversary == true }.count
+                    adversaryCount: model.components.filter { $0.user?.isAdversary == true }.count,
+                    knownExploitedCount: knownVulnerabilities.filter(\.isKnownExploited).count
                 ),
                 methodology: ReportMethodology.build(zones: zones, tolerance: tolerance),
                 actions: actions,

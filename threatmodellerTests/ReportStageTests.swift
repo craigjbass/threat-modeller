@@ -108,6 +108,88 @@ struct ReportStageTests {
         #expect(summary.totalThreats > 0, "the model raised no threat to report")
     }
 
+    /// The stage states how many known exploited CVEs the model holds, the
+    /// same count the report states.
+    @Test func statesHowManyKnownExploitedCvesTheModelHolds() async throws {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" {
+                technology = "aws-ec2"
+                data       = "confidential"
+                version    = "1.24.0"
+                cves       = ["CVE-2023-44487"]
+              }
+              component "store" {
+                technology = "aws-rds"
+                data       = "confidential"
+              }
+              flow api -> store
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        useCases.project.put(
+            VulnerabilityLock(
+                cves: [
+                    "CVE-2023-44487": KnownVulnerability(
+                        id: "CVE-2023-44487", cvss: 7.5, epss: 0.94, isKnownExploited: true
+                    )
+                ],
+                epssDate: "2026-09-15",
+                kevCatalogueVersion: "2026.09.15"
+            ).text,
+            at: "/work/threatmodel/\(VulnerabilityLock.fileName)"
+        )
+        let session = ProjectSession(
+            useCases: useCases,
+            watcher: FakeProjectWatcher(),
+            defaults: aTestDefaults()
+        )
+        await session.open(root: "/work")
+
+        let model = try #require(session.model)
+        let section = try section(.executiveSummary, of: model.reportStagePage())
+
+        #expect(model.builtReport().executiveSummary.knownExploitedCount == 1)
+        #expect(
+            paragraphs(of: section).contains(
+                "This model holds 1 known exploited CVE, listed under Known vulnerabilities."
+            )
+        )
+    }
+
+    /// Every note under a top risk in the stage is the reason the report
+    /// states for that threat.
+    @Test func statesTheSameReasonUnderATopRiskAsTheReport() async throws {
+        let (project, _) = await aProject()
+        let model = try #require(project.model)
+        let report = model.builtReport()
+
+        let section = try section(.executiveSummary, of: try page(of: project))
+        let bullets = try #require(
+            section.blocks.compactMap { block -> [ReportBullet]? in
+                if case .numbered(let bullets) = block { return bullets }
+                return nil
+            }.first
+        )
+
+        #expect(bullets.isEmpty == false)
+        for (bullet, threat) in zip(bullets, report.executiveSummary.topRisks) {
+            #expect(
+                bullet.notes == ReportExecutiveSummary.reasons(
+                    for: threat,
+                    components: report.components,
+                    connections: report.connections,
+                    zones: report.zones,
+                    withNoAction: report.executiveSummary.topRisksWithNoAction
+                )
+            )
+        }
+    }
+
     /// The three worst threats the report names are the three the stage lists
     /// first, with the same scores.
     @Test func listsTheTopRisksTheReportNames() async throws {

@@ -52,6 +52,75 @@ struct ReportExecutiveSummaryTests {
         )
     }
 
+    private func threat(_ name: String, on source: String, sourceId: String, kind: String) -> ReportThreat {
+        ReportThreat(
+            threatId: name,
+            name: name,
+            description: "",
+            severityLabel: "High",
+            riskScore: 9,
+            riskLevel: "high",
+            strideLabels: [],
+            mitreTechniqueIds: [],
+            sourceName: source,
+            sourceKind: kind,
+            sourceId: sourceId,
+            controls: [],
+            pathwayMitigationLabels: []
+        )
+    }
+
+    @Test func givesAReasonForATopRiskOnEachKindOfSource() {
+        let components = [
+            ReportComponent(
+                id: "api",
+                name: "EC2",
+                technologyId: "aws-ec2",
+                categoryId: "compute",
+                sensitivityLabel: "Restricted",
+                zoneName: "App VPC",
+                privilegeLabel: "Root"
+            )
+        ]
+        let connections = [
+            ReportConnection(id: "link-1", sourceName: "EC2", targetName: "RDS", kindLabel: "Network")
+        ]
+        let zones = [
+            ReportZone(
+                zoneId: "z1",
+                name: "App VPC",
+                networkZoneLabel: "Private Zone",
+                networkTypeLabel: "Generic Network",
+                componentNames: ["EC2", "RDS"],
+                riskReductionPercent: nil,
+                boundaryLabel: "Network Boundary"
+            )
+        ]
+
+        let onComponent = ReportExecutiveSummary.reasons(
+            for: threat("a", on: "EC2", sourceId: "component:api", kind: "Component"),
+            components: components,
+            connections: connections,
+            zones: zones
+        )
+        let onConnection = ReportExecutiveSummary.reasons(
+            for: threat("b", on: "EC2 \u{2192} RDS", sourceId: "connection:link-1", kind: "Connection"),
+            components: components,
+            connections: connections,
+            zones: zones
+        )
+        let onZone = ReportExecutiveSummary.reasons(
+            for: threat("c", on: "App VPC", sourceId: "zone:z1", kind: "Zone"),
+            components: components,
+            connections: connections,
+            zones: zones
+        )
+
+        #expect(onComponent == ["The element holds Restricted data and runs as Root."])
+        #expect(onConnection == ["The flow is a Network link from EC2 to RDS."])
+        #expect(onZone == ["The zone is a Network Boundary and holds 2 components."])
+    }
+
     @Test func statesNoExposureWhenNothingRanksAboveTheTolerance() {
         let summary = summary(
             threats: [threat("a", 5, "medium")],

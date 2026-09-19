@@ -2,7 +2,19 @@ import Testing
 import ThreatModelKit
 
 struct MarkdownExecutiveSummaryTests {
-    private func threat(_ name: String, _ score: Int, _ level: String, on element: String) -> ReportThreat {
+    private func threat(
+        _ name: String,
+        _ score: Int,
+        _ level: String,
+        on element: String,
+        sourceId: String = "",
+        kind: String = "Component",
+        overriddenBy: String? = nil,
+        overrideChanges: [String] = [],
+        likelihoodReason: String = LikelihoodSource.catalogue(.commodity).reason,
+        likelihoodLabel: String = Likelihood.commodity.label,
+        likelihoodFindingLabel: String? = nil
+    ) -> ReportThreat {
         ReportThreat(
             threatId: name,
             name: name,
@@ -12,11 +24,175 @@ struct MarkdownExecutiveSummaryTests {
             riskLevel: level,
             strideLabels: [],
             mitreTechniqueIds: [],
+            likelihoodReason: likelihoodReason,
+            overriddenBy: overriddenBy,
+            overrideChanges: overrideChanges,
             sourceName: element,
-            sourceKind: "Component",
+            sourceKind: kind,
+            sourceId: sourceId,
             controls: [],
-            pathwayMitigationLabels: []
+            pathwayMitigationLabels: [],
+            likelihoodLabel: likelihoodLabel,
+            likelihoodFindingLabel: likelihoodFindingLabel
         )
+    }
+
+    private let link = ReportConnection(
+        id: "link-1",
+        sourceName: "EC2",
+        targetName: "RDS",
+        kindLabel: "Network"
+    )
+
+    private let appZone = ReportZone(
+        zoneId: "z1",
+        name: "App VPC",
+        networkZoneLabel: "Private Zone",
+        networkTypeLabel: "Generic Network",
+        componentNames: ["EC2", "RDS"],
+        riskReductionPercent: nil,
+        boundaryLabel: "Network Boundary"
+    )
+
+    @Test func statesTheReasonForATopRiskOnAConnection() {
+        let summary = ReportExecutiveSummary(
+            verdict: "v",
+            topRisks: [
+                threat(
+                    "Data read in transit",
+                    11,
+                    "critical",
+                    on: "EC2 \u{2192} RDS",
+                    sourceId: "connection:link-1",
+                    kind: "Connection"
+                )
+            ],
+            totalThreats: 1
+        )
+
+        let text = MarkdownExecutiveSummary.lines(
+            summary,
+            components: [pipeline],
+            connections: [link]
+        ).joined(separator: "\n")
+
+        #expect(text.contains("   The flow is a Network link from EC2 to RDS."))
+    }
+
+    @Test func statesTheReasonForATopRiskOnAZone() {
+        let summary = ReportExecutiveSummary(
+            verdict: "v",
+            topRisks: [
+                threat("Lateral movement", 9, "high", on: "App VPC", sourceId: "zone:z1", kind: "Zone")
+            ],
+            totalThreats: 1
+        )
+
+        let text = MarkdownExecutiveSummary.lines(
+            summary,
+            components: [pipeline],
+            zones: [appZone]
+        ).joined(separator: "\n")
+
+        #expect(text.contains("   The zone is a Network Boundary and holds 2 components."))
+    }
+
+    @Test func namesTheLibraryBehindATopRisk() {
+        let summary = ReportExecutiveSummary(
+            verdict: "v",
+            topRisks: [
+                threat(
+                    "Package substitution",
+                    13,
+                    "critical",
+                    on: "Build pipeline",
+                    overriddenBy: "acme-platform",
+                    overrideChanges: ["severity", "likelihood"]
+                )
+            ],
+            totalThreats: 1
+        )
+
+        let text = MarkdownExecutiveSummary.lines(summary, components: [pipeline])
+            .joined(separator: "\n")
+
+        #expect(
+            text.contains("   The library acme-platform changes this threat's severity, likelihood.")
+        )
+    }
+
+    @Test func namesTheKnownExploitedCveBehindATopRisk() {
+        let summary = ReportExecutiveSummary(
+            verdict: "v",
+            topRisks: [
+                threat(
+                    "Package substitution",
+                    13,
+                    "critical",
+                    on: "Build pipeline",
+                    likelihoodReason: LikelihoodSource
+                        .vulnerability(.commodity, cveId: "CVE-2023-44487").reason
+                )
+            ],
+            totalThreats: 1
+        )
+
+        let text = MarkdownExecutiveSummary.lines(summary, components: [pipeline])
+            .joined(separator: "\n")
+
+        #expect(
+            text.contains(
+                "   The known exploited CVE CVE-2023-44487 raises this threat to Commodity."
+            )
+        )
+    }
+
+    @Test func namesTheLikelihoodFindingBehindATopRisk() {
+        let summary = ReportExecutiveSummary(
+            verdict: "v",
+            topRisks: [
+                threat(
+                    "Package substitution",
+                    13,
+                    "critical",
+                    on: "Build pipeline",
+                    likelihoodLabel: "Targeted",
+                    likelihoodFindingLabel: "Exploit code is published"
+                )
+            ],
+            totalThreats: 1
+        )
+
+        let text = MarkdownExecutiveSummary.lines(summary, components: [pipeline])
+            .joined(separator: "\n")
+
+        #expect(
+            text.contains(
+                "   The finding Exploit code is published sets the likelihood to Targeted."
+            )
+        )
+    }
+
+    @Test func statesHowManyKnownExploitedCvesTheModelHolds() {
+        let one = MarkdownExecutiveSummary.lines(
+            ReportExecutiveSummary(knownExploitedCount: 1),
+            components: []
+        )
+        let three = MarkdownExecutiveSummary.lines(
+            ReportExecutiveSummary(knownExploitedCount: 3),
+            components: []
+        )
+        let none = MarkdownExecutiveSummary.lines(ReportExecutiveSummary(), components: [])
+
+        #expect(
+            one.contains("This model holds 1 known exploited CVE, listed under Known vulnerabilities.")
+        )
+        #expect(
+            three.contains(
+                "This model holds 3 known exploited CVEs, listed under Known vulnerabilities."
+            )
+        )
+        #expect(none.contains { $0.contains("known exploited") } == false)
     }
 
     private let pipeline = ReportComponent(

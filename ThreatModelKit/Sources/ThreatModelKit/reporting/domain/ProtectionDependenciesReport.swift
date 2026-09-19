@@ -63,23 +63,27 @@ public enum ProtectionDependenciesReport {
     ) -> [ReportProtectedElement] {
         var order: [String] = []
         var answered: [String: [ReportAnsweredThreat]] = [:]
+        var named: [String: String] = [:]
 
         for line in protects {
             guard let at = line.range(of: " on ", options: .backwards) else { continue }
             let threatId = String(line[line.startIndex ..< at.lowerBound])
             let elementId = String(line[at.upperBound...])
-            guard let threat = byKey["\(threatId)@component:\(elementId)"] else { continue }
+            guard let found = raised(threatId: threatId, on: elementId, in: byKey) else { continue }
 
             if answered[elementId] == nil {
                 order.append(elementId)
                 answered[elementId] = []
+                named[elementId] = found.kind == "component"
+                    ? nameOfComponent(elementId)
+                    : found.threat.sourceName
             }
             answered[elementId]?.append(
                 ReportAnsweredThreat(
                     threatId: threatId,
-                    name: threat.name,
-                    riskScore: threat.riskScore,
-                    riskLevel: threat.riskLevel
+                    name: found.threat.name,
+                    riskScore: found.threat.riskScore,
+                    riskLevel: found.threat.riskLevel
                 )
             )
         }
@@ -87,11 +91,24 @@ public enum ProtectionDependenciesReport {
         return order.map { elementId in
             ReportProtectedElement(
                 elementId: elementId,
-                elementName: nameOfComponent(elementId),
+                elementName: named[elementId] ?? nameOfComponent(elementId),
                 zoneName: zoneOf[elementId],
                 threats: answered[elementId] ?? []
             )
         }
+    }
+
+    /// The threat an edge answers, and the kind of element it is raised on.
+    /// An edge names its target by bare id, under no kind of its own.
+    private static func raised(
+        threatId: String,
+        on elementId: String,
+        in byKey: [String: ReportThreat]
+    ) -> (kind: String, threat: ReportThreat)? {
+        for kind in ["component", "connection", "zone"] {
+            if let threat = byKey["\(threatId)@\(kind):\(elementId)"] { return (kind, threat) }
+        }
+        return nil
     }
 
     /// How many reductions each component gets, read from the

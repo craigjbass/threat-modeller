@@ -212,27 +212,16 @@ struct ReportStagePage: Equatable {
             blocks.append(.lead("Highest residual risk"))
             blocks.append(.numbered(summary.topRisks.map { threat in
                 let level = RiskLevel(rawValue: threat.riskLevel)?.label ?? threat.riskLevel
-                var notes: [String] = []
-                if let element = report.components.first(where: { $0.name == threat.sourceName }) {
-                    notes.append(
-                        "The element holds \(element.sensitivityLabel) data"
-                            + " and runs as \(element.privilegeLabel)."
-                    )
-                }
-                if let raisedByTree = threat.raisedByTree {
-                    notes.append("The tree \(raisedByTree) raises this threat.")
-                }
-                let key = ReportRecommendation.key(
-                    threatId: threat.threatId,
-                    sourceId: threat.sourceId
-                )
-                if summary.topRisksWithNoAction.contains(key) {
-                    notes.append("No recommendation names this threat, so none is listed below.")
-                }
                 return ReportBullet(
                     text: "\(threat.name) \u{2014} \(threat.sourceName) \u{2014} \(level)"
                         + " (\(threat.riskScore) of \(ReportMethodology.highestScore)).",
-                    notes: notes
+                    notes: ReportExecutiveSummary.reasons(
+                        for: threat,
+                        components: report.components,
+                        connections: report.connections,
+                        zones: report.zones,
+                        withNoAction: summary.topRisksWithNoAction
+                    )
                 )
             }))
         }
@@ -271,6 +260,15 @@ struct ReportStagePage: Equatable {
                 summary.exclusionCount == 1
                     ? "This model states 1 exclusion, listed under Scope."
                     : "This model states \(summary.exclusionCount) exclusions, listed under Scope."
+            ))
+        }
+
+        if summary.knownExploitedCount > 0 {
+            blocks.append(.paragraph(
+                summary.knownExploitedCount == 1
+                    ? "This model holds 1 known exploited CVE, listed under Known vulnerabilities."
+                    : "This model holds \(summary.knownExploitedCount) known exploited CVEs, "
+                        + "listed under Known vulnerabilities."
             ))
         }
 

@@ -6,7 +6,8 @@
 public enum MarkdownKnownVulnerabilities {
     public static func lines(
         _ rows: [ReportKnownVulnerability],
-        thresholds: VulnerabilityPriority.Thresholds
+        thresholds: VulnerabilityPriority.Thresholds,
+        threats: [ReportThreat] = []
     ) -> [String] {
         guard rows.isEmpty == false else { return [] }
 
@@ -32,6 +33,28 @@ public enum MarkdownKnownVulnerabilities {
             )
         }
         lines.append("")
+        lines += moved(rows: ordered(rows), threats: threats)
+        return lines
+    }
+
+    /// The threats each known exploited CVE raised, one sentence per CVE.
+    private static func moved(
+        rows: [ReportKnownVulnerability],
+        threats: [ReportThreat]
+    ) -> [String] {
+        var lines: [String] = []
+        for row in rows where row.isKnownExploited {
+            let raised = threats.filter {
+                LikelihoodSource.knownExploitedCve(in: $0.likelihoodReason) == row.cveId
+                    && $0.sourceName == row.componentName
+            }
+            guard raised.isEmpty == false else { continue }
+            lines.append(
+                "\(row.cveId) raises \(raised.map(\.name).joined(separator: ", "))"
+                    + " on \(row.componentName) to \(Likelihood.commodity.label)."
+            )
+            lines.append("")
+        }
         return lines
     }
 

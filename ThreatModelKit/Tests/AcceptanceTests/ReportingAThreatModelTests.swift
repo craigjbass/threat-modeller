@@ -41,6 +41,31 @@ struct ReportingAThreatModelTests {
         #expect(report.summary.totalThreats == assessment.threats.count)
     }
 
+    @Test func rollsUpEveryKindOfThreatIntoTheZoneAndGivesEachTopRiskAReason() throws {
+        _ = aModelWorthReporting()
+
+        let report = app.buildThreatModelReport().execute(BuildThreatModelReportRequest()).report
+
+        #expect(report.threats.contains { $0.sourceKind == "Component" })
+        #expect(report.threats.contains { $0.sourceKind == "Connection" })
+        #expect(report.threats.contains { $0.sourceKind == "Zone" })
+
+        let rollup = try #require(report.rollups.byZone.first)
+        let counted = rollup.byLevel.reduce(0) { $0 + $1.count }
+        #expect(counted == report.threats.count)
+
+        for kind in ["Component", "Connection", "Zone"] {
+            let threat = try #require(report.threats.first { $0.sourceKind == kind })
+            let reasons = ReportExecutiveSummary.reasons(
+                for: threat,
+                components: report.components,
+                connections: report.connections,
+                zones: report.zones
+            )
+            #expect(reasons.isEmpty == false)
+        }
+    }
+
     @Test func writesTheSameModelAsMarkdown() {
         _ = aModelWorthReporting()
 
