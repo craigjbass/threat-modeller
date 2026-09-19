@@ -1849,10 +1849,6 @@ public struct CommandLineApplication {
     }
 
     /// Writes the assessed model as data another program reads.
-    ///
-    /// `--stdout` writes one system to standard output, so a pipeline reads it
-    /// without a temporary directory. A project holding more than one system
-    /// then says so rather than running the two together.
     private func export(
         root: String,
         into: String?,
@@ -1870,6 +1866,7 @@ public struct CommandLineApplication {
         }
 
         var written = 0
+        var standardOutputText: String?
         let code = forEachSystem(root: root, output: output) { system, useCases in
             guard let architectureText = read(system.architecturePath, output) else {
                 return .fileFault
@@ -1935,7 +1932,7 @@ public struct CommandLineApplication {
                     )
                     return .didNotParse
                 }
-                output(text.hasSuffix("\n") ? String(text.dropLast()) : text)
+                standardOutputText = text.hasSuffix("\n") ? String(text.dropLast()) : text
                 return .success
             }
 
@@ -1952,6 +1949,9 @@ public struct CommandLineApplication {
             }
             if isQuiet == false { output("wrote \(path)") }
             return .success
+        }
+        if code == ExitCode.success.rawValue, let standardOutputText {
+            output(standardOutputText)
         }
         return code
     }

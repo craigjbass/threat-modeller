@@ -163,15 +163,29 @@ struct ExportModelAsDataTests {
         #expect((json["system"] as? [String: Any])?["name"] as? String == "Payments")
     }
 
-    @Test func standardOutputRefusesAProjectOfManySystems() {
+    @Test func standardOutputRefusesAProjectOfManySystems() throws {
         aProject()
         project.put(payments.replacingOccurrences(of: "Payments", with: "Ledger"),
                     at: "/work/threatmodel/ledger.arch")
 
-        let run = self.run("export", "/work", "--format", "json", "--stdout")
+        let refused = self.run("export", "/work", "--format", "json", "--stdout")
 
-        #expect(run.code != 0)
-        #expect(run.lines.contains { $0.contains("more than one system") })
+        #expect(refused.code == CommandLineApplication.ExitCode.didNotParse.rawValue)
+        #expect(refused.lines == [
+            "threatmodeller: this project holds more than one system,"
+                + " so --stdout writes none; name one root or drop the flag"
+        ])
+
+        project.put(payments, at: "/work/payments/threatmodel/payments.arch")
+        let named = self.run("export", "/work/payments", "--format", "json", "--stdout")
+
+        #expect(named.code == 0)
+        let json = try #require(
+            try JSONSerialization.jsonObject(
+                with: Data(named.lines.joined(separator: "\n").utf8)
+            ) as? [String: Any]
+        )
+        #expect((json["system"] as? [String: Any])?["name"] as? String == "Payments")
     }
 
     @Test func refusesAFormatItDoesNotWrite() {

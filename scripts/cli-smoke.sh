@@ -95,6 +95,20 @@ grep -q '"otmVersion"' "$work/sample/threatmodel/payments.otm.json"
 tm export "$work/sample" --stdout > "$work/sample/stdout.json"
 grep -q '"threats"' "$work/sample/stdout.json"
 
+step "export refuses --stdout over a project of many systems"
+mkdir -p "$work/multi/threatmodel"
+cp "$work/sample/threatmodel/payments.arch" "$work/multi/threatmodel/payments.arch"
+sed 's/Payments/Ledger/' "$work/sample/threatmodel/payments.arch" \
+    > "$work/multi/threatmodel/ledger.arch"
+expect_code 2 export "$work/multi" --stdout > "$work/multi-stdout.txt"
+grep -q "holds more than one system" "$work/multi-stdout.txt"
+
+step "export --stdout writes the one system a narrower root names"
+mkdir -p "$work/multi/payments/threatmodel"
+cp "$work/sample/threatmodel/payments.arch" "$work/multi/payments/threatmodel/payments.arch"
+tm export "$work/multi/payments" --stdout > "$work/multi/payments-stdout.json"
+grep -q '"threats"' "$work/multi/payments-stdout.json"
+
 step "a component sits in a zone another part file declares"
 mkdir -p "$work/split/threatmodel/payments/arch"
 printf 'system "Payments" {\n  catalogue = "v1.0.0"\n}\n' \
