@@ -38,6 +38,9 @@ public enum MarkdownThreatStanza {
                         : "")
             )
             if let rationale = threat.likelihoodRationale {
+                if let findingLabel = threat.likelihoodFindingLabel {
+                    lines.append("  - Finding: \(findingLabel)")
+                }
                 lines.append("  - Rationale: \(rationale)")
             }
             lines += Markdown.sourceLines(threat.likelihoodSources)
@@ -100,10 +103,11 @@ public enum MarkdownThreatStanza {
             )
         }
         if threat.mitigatedByComponentLabels.isEmpty == false {
-            lines.append(
-                "- Reduced by: "
-                    + threat.mitigatedByComponentLabels.joined(separator: ", ")
-            )
+            let named = threat.mitigatedByComponentLabels.enumerated().map { index, label -> String in
+                guard index < threat.mitigatedByComponentReductions.count else { return label }
+                return "\(label) (\(threat.mitigatedByComponentReductions[index])%)"
+            }
+            lines.append("- Reduced by: " + named.joined(separator: ", "))
         }
         if threat.controls.isEmpty == false {
             lines.append("")

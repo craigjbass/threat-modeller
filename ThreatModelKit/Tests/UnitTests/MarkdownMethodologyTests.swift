@@ -27,6 +27,24 @@ struct MarkdownMethodologyTests {
         #expect(text.contains("A score never falls below 1."))
     }
 
+    /// GAP audit #260: the stage list ended at the compensating control and
+    /// the floor of 1, and never named the stage that raises a goal's score.
+    @Test func namesTheAttackTreeStageThatRaisesAScore() throws {
+        let text = MarkdownMethodology.lines(methodology).joined(separator: "\n")
+
+        #expect(
+            text.contains(
+                "An attack tree raises the score of the threat it names as its"
+                    + " goal, by its `raises_risk_by` percentage scaled by how much"
+                    + " of the chain is still open."
+            )
+        )
+
+        let treeIndex = try #require(text.range(of: "An attack tree raises the score"))
+        let floorIndex = try #require(text.range(of: "A score never falls below 1."))
+        #expect(treeIndex.lowerBound < floorIndex.lowerBound)
+    }
+
     @Test func omitsTheZoneLineWhenNoZoneReducesRisk() {
         let text = MarkdownMethodology.lines(
             ReportMethodology(
@@ -87,7 +105,8 @@ struct MarkdownMethodologyTests {
         // and neither renumbered it.
         for (index, stage) in ["A private zone", "The implemented controls",
                                "A pathway mitigation", "The likelihood multiplies",
-                               "A compensating control", "A score never falls below 1."].enumerated() {
+                               "A compensating control", "An attack tree",
+                               "A score never falls below 1."].enumerated() {
             #expect(
                 text.contains("\(index + 1). \(stage)"),
                 "stage \(index + 1) is not numbered \(index + 1)"

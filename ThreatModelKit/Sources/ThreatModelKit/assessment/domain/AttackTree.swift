@@ -66,6 +66,18 @@ public enum SufficientControlState: String, Equatable, Sendable {
     case unknown
 }
 
+/// One node of a tree's shape: a step, or a gate over its children, keeping
+/// the nesting a `.attacktree` file states.
+public indirect enum BoundTreeNode: Equatable, Sendable {
+    case step(BoundStep)
+    /// Open while every child is open.
+    case all([BoundTreeNode])
+    /// Open while any child is open.
+    case any([BoundTreeNode])
+    /// A chain: the links in the order the attacker walks them.
+    case then([BoundTreeNode])
+}
+
 /// One control a tree names as sufficient to close the whole route, read
 /// against the answers the model holds for it.
 public struct BoundSufficientControl: Equatable, Sendable {
@@ -105,6 +117,9 @@ public struct BoundAttackTree: Equatable, Sendable {
     /// The first sufficient control that closes the tree, or nil while none
     /// does.
     public let closedBy: String?
+    /// The tree's shape, gate kind and nesting, for the report. Nil for a
+    /// tree a test builds with no shape of its own.
+    public let rootNode: BoundTreeNode?
 
     public init(
         id: String,
@@ -121,7 +136,8 @@ public struct BoundAttackTree: Equatable, Sendable {
         scoreBefore: Int,
         score: Int,
         sufficientControls: [BoundSufficientControl] = [],
-        closedBy: String? = nil
+        closedBy: String? = nil,
+        rootNode: BoundTreeNode? = nil
     ) {
         self.id = id
         self.name = name
@@ -138,6 +154,7 @@ public struct BoundAttackTree: Equatable, Sendable {
         self.score = score
         self.sufficientControls = sufficientControls
         self.closedBy = closedBy
+        self.rootNode = rootNode
     }
 
     /// The chain factor as a whole percentage, which is what the controls file
@@ -163,7 +180,8 @@ public extension BoundAttackTree {
             scoreBefore: scoreBefore,
             score: score,
             sufficientControls: sufficientControls,
-            closedBy: closedBy
+            closedBy: closedBy,
+            rootNode: rootNode
         )
     }
 }

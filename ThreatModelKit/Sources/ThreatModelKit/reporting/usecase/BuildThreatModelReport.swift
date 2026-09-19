@@ -496,6 +496,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 policy: policyRules.map {
                     ReportPolicyRule(name: $0.name, asks: $0.asks, breaches: $0.breaches)
                 },
+                evidenceRequiredAboveLabel: model.requiresEvidenceAbove?.label,
                 acceptedRisks: acceptedRisks,
                 attackTrees: assessment.attackTrees,
                 attackPathCount: attack.paths.count + attack.notListed.count + attack.beyond
@@ -625,8 +626,10 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             scoreBeforeCompensation: assessed.scoreBeforeCompensation,
             inherentScore: assessed.inherentScore,
             mitigatedByComponentLabels: assessed.mitigatedByComponentLabels,
+            mitigatedByComponentReductions: assessed.mitigatedByComponentReductions,
             likelihoodLabel: assessed.likelihoodLabel,
             likelihoodRationale: assessed.likelihoodRationale,
+            likelihoodFindingLabel: assessed.likelihoodFindingLabel,
             likelihoodSources: assessed.likelihoodSources,
             scoreBeforeLikelihood: assessed.scoreBeforeLikelihood,
             scoreIfAssumptionsHold: assessed.scoreIfAssumptionsHold,

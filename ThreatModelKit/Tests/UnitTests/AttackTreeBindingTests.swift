@@ -308,4 +308,48 @@ struct AttackTreeBindingTests {
 
         #expect(bound.closedBy == "Segment  the network ")
     }
+
+    // MARK: the tree's shape, for the report
+
+    @Test func theRootNodeKeepsTheGateKindAndTheNesting() throws {
+        let bound = try #require(AttackTreeBinding.bind(
+            trees: [tree(
+                goal: target("g", "db"),
+                root: .all([step("a", "api"), .any([step("b", "api"), step("c", "api")])])
+            )],
+            to: [resolved("g", "db"), resolved("a", "api"), resolved("b", "api"), resolved("c", "api")]
+        ).first)
+
+        guard case .all(let children) = try #require(bound.rootNode) else {
+            Issue.record("the root is not an all_of")
+            return
+        }
+        #expect(children.count == 2)
+        guard case .any(let nested) = children[1] else {
+            Issue.record("the nested child is not an any_of")
+            return
+        }
+        #expect(nested.count == 2)
+    }
+
+    @Test func theRootNodeNumbersAChainTheSameWayTheFlatStepsDo() throws {
+        let bound = try #require(AttackTreeBinding.bind(
+            trees: [tree(goal: target("g", "db"), root: .then([step("a", "api"), step("b", "api")]))],
+            to: [resolved("g", "db"), resolved("a", "api"), resolved("b", "api")]
+        ).first)
+
+        #expect(bound.steps.map(\.chain) == [1, 1])
+        #expect(bound.steps.map(\.position) == [1, 2])
+
+        guard case .then(let children) = try #require(bound.rootNode) else {
+            Issue.record("the root is not a then")
+            return
+        }
+        let chained: [(chain: Int?, position: Int?)] = children.map { child in
+            guard case .step(let step) = child else { return (nil, nil) }
+            return (step.chain, step.position)
+        }
+        #expect(chained.map(\.chain) == [1, 1])
+        #expect(chained.map(\.position) == [1, 2])
+    }
 }

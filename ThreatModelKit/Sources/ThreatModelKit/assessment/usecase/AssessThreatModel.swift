@@ -356,6 +356,9 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The components whose `mitigates` edges lowered this threat, by label.
     /// Empty when none did.
     public let mitigatedByComponentLabels: [String]
+    /// The percentage each component in `mitigatedByComponentLabels` takes
+    /// off, same order and same count.
+    public let mitigatedByComponentReductions: [Int]
     /// The likelihood tier the score used, and what a reader sees.
     public let likelihoodId: String
     public let likelihoodLabel: String
@@ -365,6 +368,9 @@ public struct AssessedThreat: Hashable, Sendable {
     /// Why the likelihood is what it is, from the controls file, or nil when
     /// the library's prior stands.
     public let likelihoodRationale: String?
+    /// The label a person writes on the likelihood block, beside its
+    /// rationale, or nil when the library's prior stands.
+    public let likelihoodFindingLabel: String?
     /// Where the likelihood finding comes from. Empty when the library's
     /// prior stands.
     public let likelihoodSources: [String]
@@ -429,10 +435,12 @@ public struct AssessedThreat: Hashable, Sendable {
         scoreBeforeCompensation: Int? = nil,
         inherentScore: Int? = nil,
         mitigatedByComponentLabels: [String] = [],
+        mitigatedByComponentReductions: [Int] = [],
         likelihoodId: String = Likelihood.commodity.id,
         likelihoodLabel: String = Likelihood.commodity.label,
         scoreBeforeLikelihood: Int? = nil,
         likelihoodRationale: String? = nil,
+        likelihoodFindingLabel: String? = nil,
         likelihoodSources: [String] = [],
         likelihoodReason: String = LikelihoodSource.catalogue(.commodity).reason,
         performedByLabels: [String] = [],
@@ -473,10 +481,12 @@ public struct AssessedThreat: Hashable, Sendable {
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
         self.inherentScore = inherentScore ?? riskScore
         self.mitigatedByComponentLabels = mitigatedByComponentLabels
+        self.mitigatedByComponentReductions = mitigatedByComponentReductions
         self.likelihoodId = likelihoodId
         self.likelihoodLabel = likelihoodLabel
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
         self.likelihoodRationale = likelihoodRationale
+        self.likelihoodFindingLabel = likelihoodFindingLabel
         self.likelihoodSources = likelihoodSources
         self.likelihoodReason = likelihoodReason
         self.performedByLabels = performedByLabels
@@ -686,10 +696,12 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     scoreBeforeCompensation: threat.scoreBeforeCompensation,
                     inherentScore: threat.scoreBeforeControls,
                     mitigatedByComponentLabels: threat.mitigatedByComponents.map(\.protectorName),
+                    mitigatedByComponentReductions: threat.mitigatedByComponents.map(\.reducesRiskBy),
                     likelihoodId: threat.likelihood.id,
                     likelihoodLabel: threat.likelihood.label,
                     scoreBeforeLikelihood: threat.scoreBeforeLikelihood,
                     likelihoodRationale: threat.likelihoodFinding?.rationale,
+                    likelihoodFindingLabel: threat.likelihoodFinding?.label,
                     likelihoodSources: threat.likelihoodFinding?.sources ?? [],
                     likelihoodReason: threat.likelihoodSource.reason,
                     performedByLabels: threat.performedBy.map(\.name),

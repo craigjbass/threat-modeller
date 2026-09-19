@@ -385,6 +385,30 @@ struct CommandLineApplicationTests {
         #expect(result.lines.contains { $0.contains("has no answer") })
     }
 
+    /// GAP audit #260 / issue #264: the bracket named `answer.severityLabel`
+    /// while the field it filled was called `riskLevel`. Credential theft's
+    /// severity is Critical, and a `public` component's sensitivity is the
+    /// lowest rank, so the computed risk level is Medium, not Critical.
+    @Test func namesTheComputedRiskLevelInTheBracketNotTheCatalogueSeverity() {
+        project.put(
+            """
+            system "Payments" {
+              component "api" {
+                technology = "aws-ec2"
+                data       = "public"
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+
+        let result = run("check", "/work")
+
+        #expect(result.lines.contains { $0.contains("credential-theft on component \"api\" (Medium)") })
+        #expect(result.lines.contains { $0.contains("(Critical)") } == false)
+    }
+
     @Test func passesWhenEveryThreatIsAnswered() throws {
         project.put(payments, at: "/work/threatmodel/payments.arch")
         _ = run("compile", "/work")

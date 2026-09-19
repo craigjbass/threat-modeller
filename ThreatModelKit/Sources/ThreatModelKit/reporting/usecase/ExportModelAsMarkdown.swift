@@ -152,7 +152,11 @@ public struct ExportModelAsMarkdown: ExportModelAsMarkdownUseCase {
             report.knownVulnerabilities,
             thresholds: report.vulnerabilityThresholds
         )
-        sections[.policy] = MarkdownPolicy.lines(report.policy)
+        sections[.policy] = MarkdownPolicy.lines(
+            report.policy,
+            vulnerabilityThresholds: report.vulnerabilityThresholds,
+            evidenceRequiredAboveLabel: report.evidenceRequiredAboveLabel
+        )
         sections[.riskOverTime] = MarkdownRiskOverTime.lines(
             report.history,
             picturePath: request.riskOverTimePicture,

@@ -387,4 +387,74 @@ struct MarkdownPolicyTests {
         #expect(text.contains("| assumptions_require_owner | every assumption names an owner"
             + " | no \u{2014} 1 breach |"))
     }
+
+    // MARK: each breach, not only how many there are
+
+    /// GAP audit #260: the Policy section stated a breach count and never
+    /// the breach text `PolicyRules` builds.
+    @Test func statesEachBreachTextNotOnlyTheCount() {
+        let lines = MarkdownPolicy.lines([
+            ReportPolicyRule(
+                name: "max_open_at_level",
+                asks: "no threat at low or worse is unanswered",
+                breaches: [
+                    "misconfiguration on component \"db\" (High) is open at or above low",
+                    "dos-attack on component \"api\" (Low) is open at or above low"
+                ]
+            )
+        ])
+        let text = lines.joined(separator: "\n")
+
+        #expect(text.contains("no \u{2014} 2 breaches"))
+        #expect(text.contains("misconfiguration on component \"db\" (High) is open at or above low"))
+        #expect(text.contains("dos-attack on component \"api\" (Low) is open at or above low"))
+    }
+
+    @Test func writesNoBreachListForARuleThisSystemKeeps() {
+        let lines = MarkdownPolicy.lines([
+            ReportPolicyRule(name: "system_requires_owner", asks: "the file states an owner", breaches: [])
+        ])
+
+        #expect(lines.contains { $0.contains("Breaches") } == false)
+    }
+
+    // MARK: the CVE thresholds in force
+
+    /// GAP audit #260: `cve_cvss_threshold` and `cve_epss_threshold` changed
+    /// which CVEs count as priority, and the Policy section never named them.
+    @Test func statesTheCveThresholdsInForce() {
+        let lines = MarkdownPolicy.lines(
+            [ReportPolicyRule(name: "system_requires_owner", asks: "the file states an owner", breaches: [])],
+            vulnerabilityThresholds: VulnerabilityPriority.Thresholds(cvss: 7.0, epss: 0.3)
+        )
+        let text = lines.joined(separator: "\n")
+
+        #expect(text.contains("CVSS at or above 7.0 and EPSS at or above 0.3"))
+    }
+
+    // MARK: the level that demands evidence
+
+    /// GAP audit #260: `system.requires_evidence_above` changed a `check`
+    /// verdict and no report section named the level.
+    @Test func statesTheRiskLevelThatDemandsEvidence() {
+        let lines = MarkdownPolicy.lines(
+            [ReportPolicyRule(name: "system_requires_owner", asks: "the file states an owner", breaches: [])],
+            evidenceRequiredAboveLabel: "High"
+        )
+        let text = lines.joined(separator: "\n")
+
+        #expect(
+            text.contains(
+                "This project demands evidence for every implemented control at High risk or worse."
+            )
+        )
+    }
+
+    @Test func writesNoEvidenceLevelSentenceWhenTheProjectStatesNone() {
+        let lines = MarkdownPolicy.lines(
+            [ReportPolicyRule(name: "system_requires_owner", asks: "the file states an owner", breaches: [])]
+        )
+
+        #expect(lines.contains { $0.contains("demands evidence") } == false)
+    }
 }

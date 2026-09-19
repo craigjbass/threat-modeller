@@ -149,4 +149,110 @@ struct ReportingAThreatModelTests {
                 == before
         )
     }
+
+    // MARK: issue #264 — the report states the numbers it already computes
+
+    /// Acceptance criterion: a model with a tree that raises risk, a
+    /// `mitigates` edge, a breached policy rule and two compensating
+    /// controls. The report holds the tree percentage, the edge percentage,
+    /// the breach text and both control dates.
+    @Test func statesTheNumbersTheReportAlreadyComputes() throws {
+        guard case .added(let serverId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-ec2", x: 0, y: 0, sensitivity: "restricted")
+        ), case .added(let databaseId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-rds", x: 400, y: 0, sensitivity: "restricted")
+        ), case .added(let guardId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-waf", x: -400, y: 0, sensitivity: "restricted")
+        ) else {
+            Issue.record("the components were not added")
+            return
+        }
+
+        app.modelStore.mutate { model in
+            model.attackTrees = [
+                SourceAttackTree(
+                    id: "read-every-record",
+                    name: "Read every record",
+                    raisesRiskBy: 40,
+                    goal: SourceTreeTarget(
+                        threatId: "misconfiguration", sourceKind: "component", sourceId: databaseId
+                    ),
+                    root: .step(SourceTreeStep(
+                        target: SourceTreeTarget(
+                            threatId: "credential-theft", sourceKind: "component", sourceId: serverId
+                        )
+                    ))
+                )
+            ]
+            model.mitigatesEdges = [
+                MitigatesEdge(
+                    source: ComponentId(guardId),
+                    target: ComponentId(serverId),
+                    threatIds: [ThreatId("credential-theft")],
+                    reducesRiskBy: 50
+                )
+            ]
+            model.compensatingControls[
+                ThreatKey(threatId: "dos-attack", sourceId: "component:\(serverId)")
+            ] = [
+                CompensatingControl(
+                    label: "Rate limiter",
+                    reducesRiskBy: 10,
+                    rationale: "a rate limiter throttles the flood",
+                    proof: ControlProof(
+                        evidence: .tested,
+                        reference: "test-a",
+                        verifiedOn: GovernanceDate(year: 2026, month: 1, day: 5)
+                    )
+                ),
+                CompensatingControl(
+                    label: "Autoscaling",
+                    reducesRiskBy: 20,
+                    rationale: "autoscaling absorbs the flood",
+                    proof: ControlProof(
+                        evidence: .audited,
+                        reference: "test-b",
+                        verifiedOn: GovernanceDate(year: 2026, month: 2, day: 10)
+                    )
+                )
+            ]
+            model.policy = PolicySource(maxOpenAtLevel: .low)
+        }
+
+        let report = app.buildThreatModelReport().execute(BuildThreatModelReportRequest()).report
+
+        // The tree percentage.
+        let tree = try #require(report.attackTrees.first { $0.id == "read-every-record" })
+        #expect(tree.raisesRiskBy == 40)
+
+        // The edge percentage.
+        let credentialTheft = try #require(
+            report.threats.first {
+                $0.threatId == "credential-theft" && $0.sourceId == "component:\(serverId)"
+            }
+        )
+        let edgeIndex = try #require(credentialTheft.mitigatedByComponentLabels.firstIndex(of: "WAF"))
+        #expect(credentialTheft.mitigatedByComponentReductions[edgeIndex] == 50)
+
+        // The breach text.
+        let policyRule = try #require(report.policy.first { $0.name == "max_open_at_level" })
+        #expect(policyRule.holds == false)
+        let breachText = try #require(policyRule.breaches.first { $0.contains("misconfiguration") })
+
+        // Both control dates.
+        let dosAttack = try #require(
+            report.threats.first { $0.threatId == "dos-attack" && $0.sourceId == "component:\(serverId)" }
+        )
+        #expect(dosAttack.compensating.count == 2)
+        let dates = dosAttack.compensating.compactMap(\.evidence)
+        #expect(dates.contains { $0.contains("2026-01-05") })
+        #expect(dates.contains { $0.contains("2026-02-10") })
+
+        let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
+        #expect(markdown.contains("Raises the goal by 40% when every step is open."))
+        #expect(markdown.contains("WAF (50%)"))
+        #expect(markdown.contains(breachText))
+        #expect(markdown.contains("verified 2026-01-05"))
+        #expect(markdown.contains("verified 2026-02-10"))
+    }
 }

@@ -86,6 +86,11 @@ public enum MarkdownMethodology {
             "A compensating control multiplies the score by the reduction it"
                 + " states. Two give the stronger reduction, never the sum."
         )
+        stages.append(
+            "An attack tree raises the score of the threat it names as its"
+                + " goal, by its `raises_risk_by` percentage scaled by how much"
+                + " of the chain is still open."
+        )
         stages.append("A score never falls below 1.")
         return stages
     }

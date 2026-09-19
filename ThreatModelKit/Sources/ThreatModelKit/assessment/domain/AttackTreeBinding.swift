@@ -33,6 +33,8 @@ public enum AttackTreeBinding {
         return trees.map { tree in
             var chains = 0
             let steps = links(of: tree.root, in: byKey, chain: nil, counting: &chains)
+            var structureChains = 0
+            let rootNode = node(of: tree.root, in: byKey, chain: nil, counting: &structureChains)
             let goal = byKey[tree.goal.key]
             let sufficient = tree.closedBy.map { description in
                 sufficientControl(
@@ -72,7 +74,8 @@ public enum AttackTreeBinding {
                 scoreBefore: scoreBefore,
                 score: scoreBefore,
                 sufficientControls: sufficient,
-                closedBy: closedBy
+                closedBy: closedBy,
+                rootNode: rootNode
             )
         }
     }
@@ -143,6 +146,38 @@ public enum AttackTreeBinding {
                 )
             }
             return steps
+        }
+    }
+
+    /// The tree's shape, for the report.
+    private static func node(
+        of node: SourceTreeNode,
+        in byKey: [ThreatKey: ResolvedThreat],
+        chain: (number: Int, position: Int)?,
+        counting chains: inout Int
+    ) -> BoundTreeNode {
+        switch node {
+        case .step(let step):
+            return .step(self.step(step, in: byKey, chain: chain?.number, position: chain?.position))
+        case .all(let children):
+            return .all(children.map { self.node(of: $0, in: byKey, chain: chain, counting: &chains) })
+        case .any(let children):
+            return .any(children.map { self.node(of: $0, in: byKey, chain: chain, counting: &chains) })
+        case .then(let chainLinks):
+            chains += 1
+            let number = chains
+            var mapped: [BoundTreeNode] = []
+            for (index, link) in chainLinks.enumerated() {
+                mapped.append(
+                    self.node(
+                        of: link,
+                        in: byKey,
+                        chain: (number: number, position: index + 1),
+                        counting: &chains
+                    )
+                )
+            }
+            return .then(mapped)
         }
     }
 

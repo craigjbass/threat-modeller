@@ -179,7 +179,7 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
                     threatId: answer.threatId,
                     sourceKind: answer.sourceKind,
                     sourceId: answer.sourceId,
-                    riskLevel: answer.severityLabel ?? "unknown"
+                    riskLevel: answer.score.map { RiskScore(value: $0).level.label } ?? "unknown"
                 )
             )
         }

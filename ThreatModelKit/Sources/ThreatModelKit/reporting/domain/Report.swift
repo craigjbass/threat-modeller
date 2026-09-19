@@ -79,6 +79,9 @@ public struct Report: Equatable, Sendable {
     /// The rules this project states for itself, and whether this system
     /// keeps them. Empty for a project with no policy file.
     public let policy: [ReportPolicyRule]
+    /// The risk level at and above which an implemented control must state
+    /// evidence, or nil when the project states no such rule.
+    public let evidenceRequiredAboveLabel: String?
     /// The risks the organisation decided to carry, worst first. Empty for a
     /// model that accepts nothing.
     public let acceptedRisks: [ReportAcceptedRisk]
@@ -124,6 +127,7 @@ public struct Report: Equatable, Sendable {
         historyTruncated: Bool = false,
         change: RiskChange? = nil,
         policy: [ReportPolicyRule] = [],
+        evidenceRequiredAboveLabel: String? = nil,
         acceptedRisks: [ReportAcceptedRisk] = [],
         attackTrees: [BoundAttackTree] = [],
         attackPathCount: Int = 0
@@ -163,6 +167,7 @@ public struct Report: Equatable, Sendable {
         self.historyTruncated = historyTruncated
         self.change = change
         self.policy = policy
+        self.evidenceRequiredAboveLabel = evidenceRequiredAboveLabel
         self.acceptedRisks = acceptedRisks
         self.attackTrees = attackTrees
         self.attackPathCount = attackPathCount
@@ -704,11 +709,17 @@ public struct ReportThreat: Equatable, Sendable {
     /// The components whose `mitigates` edges lowered this threat, by label.
     /// Empty when none did.
     public let mitigatedByComponentLabels: [String]
+    /// The percentage each component in `mitigatedByComponentLabels` takes
+    /// off, same order and same count.
+    public let mitigatedByComponentReductions: [Int]
     /// What a reader sees for the likelihood tier the score used.
     public let likelihoodLabel: String
     /// Why the likelihood is what it is, or nil when the library's prior
     /// stands.
     public let likelihoodRationale: String?
+    /// The label a person writes on the likelihood block, beside its
+    /// rationale, or nil when the library's prior stands.
+    public let likelihoodFindingLabel: String?
     /// Where the likelihood finding comes from. Empty when the library's
     /// prior stands.
     public let likelihoodSources: [String]
@@ -748,8 +759,10 @@ public struct ReportThreat: Equatable, Sendable {
         scoreBeforeCompensation: Int? = nil,
         inherentScore: Int? = nil,
         mitigatedByComponentLabels: [String] = [],
+        mitigatedByComponentReductions: [Int] = [],
         likelihoodLabel: String = Likelihood.commodity.label,
         likelihoodRationale: String? = nil,
+        likelihoodFindingLabel: String? = nil,
         likelihoodSources: [String] = [],
         scoreBeforeLikelihood: Int? = nil,
         scoreIfAssumptionsHold: Int? = nil,
@@ -760,6 +773,7 @@ public struct ReportThreat: Equatable, Sendable {
         self.scoreBeforeCompensation = scoreBeforeCompensation ?? riskScore
         self.inherentScore = inherentScore ?? riskScore
         self.mitigatedByComponentLabels = mitigatedByComponentLabels
+        self.mitigatedByComponentReductions = mitigatedByComponentReductions
         self.threatId = threatId
         self.name = name
         self.description = description
@@ -782,6 +796,7 @@ public struct ReportThreat: Equatable, Sendable {
         self.pathwayMitigationLabels = pathwayMitigationLabels
         self.likelihoodLabel = likelihoodLabel
         self.likelihoodRationale = likelihoodRationale
+        self.likelihoodFindingLabel = likelihoodFindingLabel
         self.likelihoodSources = likelihoodSources
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
         self.scoreIfAssumptionsHold = scoreIfAssumptionsHold ?? riskScore

@@ -28,7 +28,8 @@ struct MarkdownAttackTreesTests {
         isOpen: Bool = true,
         isStale: Bool = false,
         sufficientControls: [BoundSufficientControl] = [],
-        closedBy: String? = nil
+        closedBy: String? = nil,
+        rootNode: BoundTreeNode? = nil
     ) -> BoundAttackTree {
         BoundAttackTree(
             id: "read-every-customer-record",
@@ -45,8 +46,72 @@ struct MarkdownAttackTreesTests {
             scoreBefore: 5,
             score: 7,
             sufficientControls: sufficientControls,
-            closedBy: closedBy
+            closedBy: closedBy,
+            rootNode: rootNode
         )
+    }
+
+    /// GAP audit #260: `raises_risk_by` drove the boost and no section
+    /// stated the percentage.
+    @Test func statesTheTreesRaisesRiskByPercentage() {
+        let lines = MarkdownAttackTrees.lines([tree()], routes: 1)
+
+        #expect(lines.contains("Raises the goal by 40% when every step is open."))
+    }
+
+    @Test func statesTheRaisesRiskByPercentageEvenWhenTheTreeIsStale() {
+        let lines = MarkdownAttackTrees.lines([tree(isOpen: false, isStale: true)], routes: 1)
+
+        #expect(lines.contains("Raises the goal by 40% when every step is open."))
+    }
+
+    // MARK: the tree's shape
+
+    /// GAP audit #260: the checklist asks the section to state whether a
+    /// node is `all_of`, `any_of` or `then`, and to keep the nesting.
+    @Test func statesAnAllOfNodeAndItsSteps() {
+        let node = BoundTreeNode.all([
+            .step(step("Credential Theft", .open)),
+            .step(step("Privilege Escalation", .closed, closedBy: "Enforce IMDSv2"))
+        ])
+        let lines = MarkdownAttackTrees.lines([tree(rootNode: node)], routes: 1)
+        let text = lines.joined(separator: "\n")
+
+        #expect(text.contains("""
+        Structure:
+
+        - All of:
+          - Credential Theft on Application Server, open
+          - Privilege Escalation on Application Server, closed by Enforce IMDSv2
+        """))
+    }
+
+    @Test func statesAnAnyOfNodeNestedInsideAThen() {
+        let node = BoundTreeNode.then([
+            .step(step("Server-Side Request Forgery", .open)),
+            .any([
+                .step(step("Credential Theft", .open)),
+                .step(step("Privilege Escalation", .open))
+            ])
+        ])
+        let lines = MarkdownAttackTrees.lines([tree(rootNode: node)], routes: 1)
+        let text = lines.joined(separator: "\n")
+
+        #expect(text.contains("""
+        Structure:
+
+        - Then:
+          - Server-Side Request Forgery on Application Server, open
+          - Any of:
+            - Credential Theft on Application Server, open
+            - Privilege Escalation on Application Server, open
+        """))
+    }
+
+    @Test func writesNoStructureForATreeThatNamesNone() {
+        let lines = MarkdownAttackTrees.lines([tree()], routes: 1)
+
+        #expect(lines.contains("Structure:") == false)
     }
 
     @Test func writesNoSectionWhenAModelStatesNoTree() {

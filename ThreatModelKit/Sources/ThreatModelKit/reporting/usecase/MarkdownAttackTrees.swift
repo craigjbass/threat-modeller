@@ -18,7 +18,9 @@ public enum MarkdownAttackTrees {
                 lines.append("")
             }
             lines.append("Goal: \(tree.goalName) on \(tree.goalSourceName).")
+            lines.append("Raises the goal by \(tree.raisesRiskBy)% when every step is open.")
             lines.append("")
+            lines += structure(of: tree)
             lines += sufficientControls(of: tree)
             lines.append("| Step | Raised on | State | Closed by |")
             lines.append("| --- | --- | --- | --- |")
@@ -90,6 +92,34 @@ public enum MarkdownAttackTrees {
             lines.append("")
         }
         return lines
+    }
+
+    /// The tree's shape, one line per node, indented for the nesting a
+    /// `.attacktree` file states. Nothing for a tree a test builds with no
+    /// shape of its own.
+    private static func structure(of tree: BoundAttackTree) -> [String] {
+        guard let rootNode = tree.rootNode else { return [] }
+        var lines = ["Structure:", ""]
+        lines += render(rootNode, depth: 0)
+        lines.append("")
+        return lines
+    }
+
+    /// One node, and every node under it.
+    private static func render(_ node: BoundTreeNode, depth: Int) -> [String] {
+        let indent = String(repeating: "  ", count: depth)
+        switch node {
+        case .step(let step):
+            var line = "\(indent)- \(step.threatName) on \(step.sourceName), \(step.state.rawValue)"
+            if let closedBy = step.closedBy { line += " by \(closedBy)" }
+            return [line]
+        case .all(let children):
+            return ["\(indent)- All of:"] + children.flatMap { render($0, depth: depth + 1) }
+        case .any(let children):
+            return ["\(indent)- Any of:"] + children.flatMap { render($0, depth: depth + 1) }
+        case .then(let children):
+            return ["\(indent)- Then:"] + children.flatMap { render($0, depth: depth + 1) }
+        }
     }
 
     /// The controls the file names as each sufficient to close the whole
