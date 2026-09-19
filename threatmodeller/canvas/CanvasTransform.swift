@@ -5,8 +5,6 @@ import CoreGraphics
 /// The canvas draws its content with
 /// `.scaleEffect(zoom, anchor: .topLeading).offset(pan)`, so a model point
 /// lands at `modelPoint * zoom + pan`.
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated struct CanvasTransform: Equatable {
     static let minimumZoom: CGFloat = 0.25
     static let maximumZoom: CGFloat = 4.0

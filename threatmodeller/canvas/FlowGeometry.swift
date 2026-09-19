@@ -8,9 +8,6 @@ import ThreatModelKit
 /// its own straight line. The two disagreed: a flow that stepped round a node
 /// or aside from another flow was drawn in one place and clicked in another.
 /// Both now read the same value.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this is a pure value computation with no shared state.
 nonisolated struct FlowGeometry {
     static let guardsShown = 2
     static let guardLimit = 30

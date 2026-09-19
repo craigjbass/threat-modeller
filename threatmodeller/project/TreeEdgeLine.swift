@@ -14,9 +14,6 @@ import SwiftUI
 ///
 /// The canvas strokes `drawnPath` and takes `hitPath` as its content shape,
 /// so the picture and the hit region come from one place.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated struct TreeEdgeLine: Equatable, Identifiable {
     /// How long each barb of the head is.
     static let headLength: CGFloat = 10

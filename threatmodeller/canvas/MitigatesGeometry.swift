@@ -10,9 +10,6 @@ import ThreatModelKit
 /// reader tells one mark from the other. The bow moves the mark off the
 /// straight line between the two boxes, so a flow between the same pair and
 /// this mark never lie on each other.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated struct MitigatesMark: Equatable, SampledCurve {
     /// The component that lowers the threat.
     let sourceComponentId: String
@@ -97,9 +94,6 @@ nonisolated struct MitigatesMark: Equatable, SampledCurve {
 ///
 /// The layer and the hit test both read this, so the mark is drawn where it
 /// is clicked.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this is a pure value computation with no shared state.
 nonisolated struct MitigatesGeometry {
     /// How far off the straight line the control point sits, in model units.
     static let bow: CGFloat = 34

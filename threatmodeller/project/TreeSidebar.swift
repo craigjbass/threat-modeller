@@ -228,9 +228,6 @@ struct TreeElementRow: View {
 
 /// What the assessment says about one tree, for the row under its name and
 /// the line beside the canvas.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated enum TreeStanding {
     static func says(about treeId: String, in bound: [BoundAttackTree]) -> String {
         guard let scored = bound.first(where: { $0.id == treeId }) else {

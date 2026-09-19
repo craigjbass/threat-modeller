@@ -4,9 +4,7 @@ import ThreatModelKit
 /// What a point on the canvas landed on.
 ///
 /// Nothing here reads a view or a gesture, so every rule the canvas uses to
-/// decide what a click hit is tested without a window. Declared `nonisolated`:
-/// the app target defaults every type to the main actor, and this one holds no
-/// state at all.
+/// decide what a click hit is tested without a window.
 nonisolated enum CanvasHitTest {
     /// Where each component sits, with a drag in flight applied to the
     /// selected ones.

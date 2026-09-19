@@ -42,8 +42,6 @@ struct TreeGraph: Equatable {
     /// `from` feeds `to`: `from` sits under `to` in the file.
     ///
     /// The canvas selects an edge, so the type states an id and hashes.
-    /// Declared `nonisolated`: the app target defaults every type to the main
-    /// actor, and this one is a pure value with no shared state.
     nonisolated struct Edge: Hashable, Identifiable {
         let from: String
         let to: String

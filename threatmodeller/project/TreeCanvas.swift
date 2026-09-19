@@ -551,9 +551,6 @@ private struct PendingElementView: View {
 }
 
 /// What the assessment says about one step, in a colour and a sentence.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated enum TreeStepState {
     /// The state the assessment bound for one node, or nil for a junction
     /// or a step not written yet.

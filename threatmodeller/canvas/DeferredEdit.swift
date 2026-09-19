@@ -2,9 +2,6 @@
 ///
 /// Return writes, Escape cancels, losing the focus writes, and one edit is one
 /// change.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated struct DeferredEdit<Value: Equatable> {
     /// What the person has typed or dragged, or nil while no edit is in
     /// flight.

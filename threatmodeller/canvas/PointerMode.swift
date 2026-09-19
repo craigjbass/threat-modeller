@@ -4,9 +4,6 @@
 /// the pinch zooms. A mouse gives a wheel and no pinch, so the wheel zooms
 /// about the pointer, Shift-wheel pans left and right, and a middle-button
 /// drag or a Space-drag pans. Both canvases read this one setting.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a plain value.
 nonisolated enum PointerMode: String, CaseIterable, Identifiable, Sendable {
     case trackpad
     case mouse

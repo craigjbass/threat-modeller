@@ -3,8 +3,6 @@ import Foundation
 /// What the application opens at launch.
 ///
 /// A pure decision, so a test states each case and no test launches anything.
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated enum LaunchChoice: Equatable {
     /// The welcome window, which is what a first launch gets.
     case welcome

@@ -104,6 +104,7 @@ When starting any long-running background job — a subagent, a background shell
 ## Stack rules / how-to
 
 - Swift 6 / SwiftUI macOS app. Xcode project `threatmodeller.xcodeproj`, local package `ThreatModelKit`.
+- The app target defaults every type to the main actor, so a pure value type declares `nonisolated`.
 - `docs/superpowers/specs/` — design specs.
 - `docs/superpowers/plans/` — implementation plans.
 - `scripts/update-catalogue.sh` — refresh the vendored threat catalogue.

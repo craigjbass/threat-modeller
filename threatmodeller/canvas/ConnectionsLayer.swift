@@ -1,10 +1,7 @@
 import SwiftUI
 import ThreatModelKit
 
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this is a pure value computation with no shared state.
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this is a pure value computation with no shared state.
+/// The path a boundary run draws, avoiding the flows it must not cross.
 nonisolated extension BoundaryCrossings.BoundaryRun {
     /// The bow this boundary draws, in the stretches no unrelated flow crosses.
     func path(avoiding unrelated: [[Point]]) -> Path {

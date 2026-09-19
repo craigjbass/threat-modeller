@@ -1,9 +1,6 @@
 import ThreatModelKit
 
 /// What the palette shows while a person is searching it.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated enum PaletteSearch {
     /// The palette narrowed to what the words match.
     ///

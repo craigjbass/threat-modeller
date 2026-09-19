@@ -1,8 +1,6 @@
 import CoreGraphics
 
 /// Which components a marquee rectangle selects.
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated enum MarqueeSelection {
     /// A rectangle from the drag's two corners, whichever way the drag went.
     static func rect(from start: CGPoint, to end: CGPoint) -> CGRect {

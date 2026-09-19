@@ -5,9 +5,6 @@ import Foundation
 ///
 /// A flow draws one curve and a `mitigates` edge draws another. A click on
 /// either asks the same question, so both read the answer from here.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and a curve is a pure value with no shared state.
 nonisolated protocol SampledCurve {
     /// The point at `t`, where 0 is the start and 1 is the end.
     func point(at t: CGFloat) -> CGPoint

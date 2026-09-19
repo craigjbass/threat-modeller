@@ -6,8 +6,6 @@ import ThreatModelKit
 /// A threat is chosen by its key — `<threat id>@<source id>` — because that is
 /// what the assessment hands out, and a step naming anything else binds to
 /// nothing.
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated struct TreeDraft: Equatable {
     struct Step: Equatable {
         var key: String

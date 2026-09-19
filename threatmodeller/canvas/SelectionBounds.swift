@@ -1,9 +1,6 @@
 import CoreGraphics
 
 /// What area a picture of the selection covers.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated enum SelectionBounds {
     /// The room left around the selected elements in a copied picture.
     static let margin: CGFloat = 24

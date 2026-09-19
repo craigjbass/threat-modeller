@@ -10,9 +10,6 @@ import ThreatModelKit
 /// The drawn footprint is smaller or taller than the slot for a process and a
 /// store, and it centres on the same point, so a shape change never moves a
 /// component and never changes which zone holds it.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated struct ComponentBox: Equatable {
     /// The slot a component occupies, whatever shape it draws as.
     static let slotSize = CGSize(width: Component.size.width, height: Component.size.height)

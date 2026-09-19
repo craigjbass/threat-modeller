@@ -8,9 +8,6 @@ import ThreatModelKit
 /// The curve itself is `FlowCurve` in the core, because the generated layout
 /// measures the picture it drew. This wrapper adds what only a canvas needs:
 /// the arrowhead and how near a click has to be.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated struct ConnectionPath: Equatable, SampledCurve {
     static let hitTolerance: CGFloat = 8
 

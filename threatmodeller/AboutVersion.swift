@@ -7,9 +7,6 @@ import Foundation
 /// carries between releases. The release workflow passes the tag into the
 /// archive; a build from Xcode carries no release name and states the version
 /// alone.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated struct AboutVersion: Equatable {
     /// `CFBundleShortVersionString`, which the release sets from the tag.
     let version: String

@@ -6,9 +6,6 @@ import ThreatModelKit
 /// An actor is a rectangle. A process is a circle. A store is two horizontal
 /// lines with no side walls, so a store's path holds two subpaths and nothing
 /// closes.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one holds no state at all.
 nonisolated enum ComponentShapePath {
     /// The outline to stroke, in the view's own coordinates.
     static func path(for shape: DiagramShape, in rect: CGRect) -> Path {

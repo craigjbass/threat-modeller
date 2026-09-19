@@ -5,9 +5,6 @@ import ThreatModelKit
 /// A node is a name, a shape and a number. Nothing said what the number
 /// counted, what the technology was, or which zone held the node. This states
 /// each of those in one place, so a test reads the words.
-///
-/// Declared `nonisolated`: the app target defaults every type to the main
-/// actor, and this one is a pure value with no shared state.
 nonisolated enum HoverText {
     /// What hovering a node says: what it is, where it sits, and how much is
     /// open on it.
