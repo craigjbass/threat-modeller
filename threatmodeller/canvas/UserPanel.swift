@@ -63,6 +63,11 @@ struct UserPanel: View {
         SelectionField("Uses") {
             usesField
         }
+        ForEach(useRows, id: \.clientId) { row in
+            SelectionField("Through \(row.name)") {
+                useReachesField(for: row.clientId)
+            }
+        }
         SelectionField("Reaches") {
             reachesField
         }
@@ -122,6 +127,46 @@ struct UserPanel: View {
         )
     }
 
+    /// One client the user holds, by id and by name.
+    struct UseRow: Equatable {
+        let clientId: String
+        let name: String
+    }
+
+    /// The clients the user holds, in model order, each with the name the
+    /// canvas draws on it.
+    var useRows: [UseRow] {
+        user.usePaths.map { use in
+            UseRow(
+                clientId: use.clientId,
+                name: session.canvas.components.first { $0.id == use.clientId }?.name
+                    ?? use.clientId
+            )
+        }
+    }
+
+    /// The field that writes the components reached through one client.
+    func useReachesField(for clientId: String) -> IdTokenField {
+        IdTokenField(
+            identifier: "user-use-reaches-\(clientId)",
+            ids: Binding(
+                get: { user.usePaths.first { $0.clientId == clientId }?.reaches ?? [] },
+                set: { reached in
+                    write(
+                        uses: user.usePaths.map {
+                            UserUse(
+                                clientId: $0.clientId,
+                                reaches: $0.clientId == clientId ? reached : $0.reaches
+                            )
+                        }
+                    )
+                }
+            ),
+            choices: reachableChoices,
+            emptyMessage: IdTokenField.noComponentMessage
+        )
+    }
+
     /// The field that writes `reaches`.
     var reachesField: IdTokenField {
         IdTokenField(
@@ -138,8 +183,22 @@ struct UserPanel: View {
             + session.threatActorsInUse.map { (id: $0.id, label: $0.name) }
     }
 
+    /// The clients a user holds, read and written as ids.
     private var usesBinding: Binding<[String]> {
-        Binding(get: { user.uses }, set: { write(uses: $0) })
+        Binding(
+            get: { user.uses },
+            set: { clients in
+                let held = user.usePaths
+                write(
+                    uses: clients.map { client in
+                        UserUse(
+                            clientId: client,
+                            reaches: held.first { $0.clientId == client }?.reaches ?? []
+                        )
+                    }
+                )
+            }
+        )
     }
 
     private var reachesBinding: Binding<[String]> {
@@ -152,7 +211,7 @@ struct UserPanel: View {
         name newName: String? = nil,
         role newRole: String? = nil,
         access newAccess: String? = nil,
-        uses newUses: [String]? = nil,
+        uses newUses: [UserUse]? = nil,
         reaches newReaches: [String]? = nil,
         threatActorId newActor: String?? = nil,
         isAdversary newKind: Bool? = nil,
@@ -163,7 +222,7 @@ struct UserPanel: View {
             name: newName ?? user.customName,
             role: newRole ?? user.role,
             accessId: newAccess ?? user.runsAsId,
-            uses: newUses ?? user.uses,
+            uses: newUses ?? ThreatModelSession.paths(of: user),
             reaches: newReaches ?? user.reaches,
             threatActorId: newActor ?? user.threatActorId,
             isAdversary: newKind ?? user.isAdversary,

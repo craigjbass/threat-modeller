@@ -290,14 +290,15 @@ struct ArchitectureWriter {
             if user.access != SourceUser.defaultAccess {
                 attributes.append(("access", quoted(user.access)))
             }
-            if user.uses.isEmpty == false {
-                let rank: (String) -> Int = { declarationOrder[$0] ?? Int.max }
-                let declared = user.uses.enumerated().sorted { one, other in
-                    let first = rank(one.element)
-                    let second = rank(other.element)
-                    return first == second ? one.offset < other.offset : first < second
-                }
-                attributes.append(("uses", list(declared.map { $0.element })))
+            let rank: (String) -> Int = { declarationOrder[$0] ?? Int.max }
+            let declared = user.uses.enumerated().sorted { one, other in
+                let first = rank(one.element.clientId)
+                let second = rank(other.element.clientId)
+                return first == second ? one.offset < other.offset : first < second
+            }.map { $0.element }
+            let statesAPath = declared.contains { $0.reaches.isEmpty == false }
+            if statesAPath == false && declared.isEmpty == false {
+                attributes.append(("uses", list(declared.map(\.clientId))))
             }
             if user.reaches.isEmpty == false { attributes.append(("reaches", list(user.reaches))) }
             if let actorId = user.threatActorId {
@@ -307,6 +308,16 @@ struct ArchitectureWriter {
                 attributes.append(("clearance", quoted(clearanceId)))
             }
             body += indent(aligned(attributes))
+            if statesAPath {
+                for use in declared {
+                    body.append("")
+                    body.append("  uses \(quoted(use.clientId)) {")
+                    if use.reaches.isEmpty == false {
+                        body.append("    reaches = \(list(use.reaches))")
+                    }
+                    body.append("  }")
+                }
+            }
             body.append("}")
             body.append("")
         }

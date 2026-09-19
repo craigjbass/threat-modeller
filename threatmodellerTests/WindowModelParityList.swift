@@ -81,6 +81,9 @@ extension WindowModelParityTests {
             ("threat_actor", .writes("user-threat-actor")),
             ("clearance", .writes("user-clearance"))
         ])) { first, _ in first }
+        all.merge(rows("arch", "use", [
+            ("reaches", .writes("user-use-reaches-"))
+        ])) { first, _ in first }
         all.merge(rows("arch", "adversary", [
             ("name", .writes("user-name")),
             ("role", .writes("user-role")),

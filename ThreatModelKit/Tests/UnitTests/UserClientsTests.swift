@@ -83,6 +83,104 @@ struct UserClientsTests {
 
     """
 
+    /// Alice uses a web browser to reach the payments api, and a hardened
+    /// client to reach the admin console. Each technology carries a threat
+    /// of its own, so a reach through one scores unlike a reach through the
+    /// other.
+    private let paths = """
+    system "Payments" {
+      technology "web" {
+        name     = "Web Browser"
+        category = "client"
+        threats  = ["credential-theft"]
+      }
+
+      technology "hardened" {
+        name     = "Hardened Client"
+        category = "client"
+        threats  = ["dos-attack"]
+      }
+
+      component "payments-api" {
+        technology = "aws-ec2"
+        name       = "Payments API"
+        data       = "confidential"
+      }
+
+      component "admin-console" {
+        technology = "aws-ec2"
+        name       = "Admin console"
+        data       = "confidential"
+      }
+
+      component "web-browser" {
+        technology = "web"
+      }
+
+      component "hardened-client" {
+        technology = "hardened"
+      }
+
+      user "alice" {
+        name = "Alice"
+
+        uses "web-browser" {
+          reaches = ["payments-api"]
+        }
+
+        uses "hardened-client" {
+          reaches = ["admin-console"]
+        }
+      }
+    }
+
+    """
+
+    /// The same two technologies and the same two components, stated as the
+    /// two flat lists.
+    private let flatLists = """
+    system "Payments" {
+      technology "web" {
+        name     = "Web Browser"
+        category = "client"
+        threats  = ["credential-theft"]
+      }
+
+      technology "hardened" {
+        name     = "Hardened Client"
+        category = "client"
+        threats  = ["dos-attack"]
+      }
+
+      component "payments-api" {
+        technology = "aws-ec2"
+        name       = "Payments API"
+        data       = "confidential"
+      }
+
+      component "admin-console" {
+        technology = "aws-ec2"
+        name       = "Admin console"
+        data       = "confidential"
+      }
+
+      component "web-browser" {
+        technology = "web"
+      }
+
+      component "hardened-client" {
+        technology = "hardened"
+      }
+
+      user "alice" {
+        name    = "Alice"
+        uses    = ["web-browser", "hardened-client"]
+        reaches = ["payments-api", "admin-console"]
+      }
+    }
+
+    """
+
     private func threats() -> [AssessedThreat] {
         app.assessThreatModel().execute(AssessThreatModelRequest()).threats
     }
@@ -97,7 +195,7 @@ struct UserClientsTests {
         let source = try #require(architecture.read(payments).source)
 
         let alice = try #require(source.users.first)
-        #expect(alice.uses == ["browser", "mobile"])
+        #expect(alice.clientIds == ["browser", "mobile"])
         #expect(alice.reaches == [])
     }
 
@@ -237,7 +335,7 @@ struct UserClientsTests {
         )
 
         #expect(read.hasErrors == false)
-        #expect(read.source?.users.first?.uses == ["browser"])
+        #expect(read.source?.users.first?.clientIds == ["browser"])
     }
 
     // MARK: the model
@@ -368,7 +466,7 @@ struct UserClientsTests {
                 name: "Alice",
                 role: "Operator",
                 access: "admin",
-                uses: ["mobile"],
+                uses: [UserUse(clientId: "mobile")],
                 reaches: [],
                 threatActorId: "insider"
             )
@@ -389,13 +487,13 @@ struct UserClientsTests {
         let namesAUser = app.setUserProperties().execute(
             SetUserPropertiesRequest(
                 componentId: "alice", name: nil, role: "", access: "user",
-                uses: [bob], reaches: [], threatActorId: nil
+                uses: [UserUse(clientId: bob)], reaches: [], threatActorId: nil
             )
         )
         let namesNothing = app.setUserProperties().execute(
             SetUserPropertiesRequest(
                 componentId: "alice", name: nil, role: "", access: "user",
-                uses: ["ghost"], reaches: [], threatActorId: nil
+                uses: [UserUse(clientId: "ghost")], reaches: [], threatActorId: nil
             )
         )
 
@@ -426,7 +524,11 @@ struct UserClientsTests {
                     sensitivity: .internalData,
                     customName: "Alice",
                     statesOwnSensitivity: false,
-                    user: UserFacts(role: "Operator", uses: ["browser"], reaches: ["api"])
+                    user: UserFacts(
+                        role: "Operator",
+                        uses: [UserUse(clientId: "browser", reaches: ["api"])],
+                        reaches: []
+                    )
                 )
             ]
         )
@@ -435,5 +537,136 @@ struct UserClientsTests {
         let read = try codec.decode(try codec.encode(model))
 
         #expect(read.components == model.components)
+    }
+
+    // MARK: the path through a technology
+
+    @Test func theParserReadsTheComponentsReachedThroughEachTechnology() throws {
+        let source = try #require(architecture.read(paths).source)
+
+        let alice = try #require(source.users.first)
+        #expect(alice.uses.map(\.clientId) == ["web-browser", "hardened-client"])
+        #expect(alice.uses.map(\.reaches) == [["payments-api"], ["admin-console"]])
+        #expect(alice.reaches == [])
+    }
+
+    @Test func aPathFileReadsAndWritesTheSame() throws {
+        let source = try #require(architecture.read(paths).source)
+
+        #expect(architecture.write(source) == paths)
+    }
+
+    @Test func theFlatListsReadAsEveryTechnologyReachingEveryComponent() throws {
+        let read = architecture.read(flatLists)
+
+        let alice = try #require(read.source?.users.first)
+        #expect(read.hasErrors == false)
+        #expect(alice.uses.map(\.clientId) == ["web-browser", "hardened-client"])
+        #expect(
+            alice.uses.map(\.reaches) == [
+                ["payments-api", "admin-console"],
+                ["payments-api", "admin-console"]
+            ]
+        )
+        #expect(alice.reaches == [])
+        #expect(
+            read.diagnostics.contains {
+                $0.message == "the user \"alice\" states uses and reaches as two lists, so every "
+                    + "technology it uses reaches every component it reaches"
+            }
+        )
+    }
+
+    @Test func aReachThroughATechnologyIsAnErrorWhenNoComponentIsNamed() {
+        let read = architecture.read(
+            """
+            system "Payments" {
+              component "browser" {
+                technology = "actor-browser"
+              }
+
+              user "alice" {
+                uses "browser" {
+                  reaches = ["ghost"]
+                }
+              }
+            }
+
+            """
+        )
+
+        #expect(read.hasErrors)
+        #expect(
+            read.diagnostics.contains {
+                $0.message == "the user \"alice\" reaches \"ghost\", which this file does not declare"
+            }
+        )
+    }
+
+    @Test func aWordAUseBlockDoesNotHoldIsAnError() {
+        let read = architecture.read(
+            """
+            system "Payments" {
+              component "browser" {
+                technology = "actor-browser"
+              }
+
+              user "alice" {
+                uses "browser" {
+                  through = ["api"]
+                }
+              }
+            }
+
+            """
+        )
+
+        #expect(
+            read.diagnostics.contains {
+                $0.message == "a use holds reaches, not \"through\""
+            }
+        )
+    }
+
+    @Test func eachReachCarriesOnlyTheThreatsOfTheTechnologyItRunsThrough() {
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: paths))
+
+        let raised = threats()
+        let throughBrowser = raised
+            .filter { $0.source.id == "connection:reach:alice:web-browser:payments-api" }
+        let throughHardened = raised
+            .filter { $0.source.id == "connection:reach:alice:hardened-client:admin-console" }
+
+        #expect(throughBrowser.map(\.threatId) == ["credential-theft"])
+        #expect(throughHardened.map(\.threatId) == ["dos-attack"])
+        #expect(throughBrowser.first?.source.displayName == "Web Browser \u{2192} Payments API")
+    }
+
+    @Test func theModelDrawsTheReachFromTheClientToTheComponent() {
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: paths))
+
+        let view = app.viewThreatModel().execute(ViewThreatModelRequest())
+
+        let reaches = view.connections.filter(\.isReach)
+        #expect(reaches.map(\.id) == [
+            "reach:alice:web-browser:payments-api",
+            "reach:alice:hardened-client:admin-console"
+        ])
+        #expect(reaches.map(\.sourceComponentId) == ["web-browser", "hardened-client"])
+        #expect(reaches.map(\.targetComponentId) == ["payments-api", "admin-console"])
+        #expect(view.connections.filter(\.isUse).map(\.id).contains("use:alice:web-browser"))
+    }
+
+    @Test func theScopeLineNamesTheComponentsReachedThroughEachTechnology() {
+        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: paths))
+
+        let markdown = app.exportModelAsMarkdown().execute(ExportModelAsMarkdownRequest()).markdown
+
+        #expect(
+            markdown.contains(
+                "- Alice (User): through Web Browser reaches Payments API; "
+                    + "through Hardened Client reaches Admin console"
+            )
+        )
     }
 }

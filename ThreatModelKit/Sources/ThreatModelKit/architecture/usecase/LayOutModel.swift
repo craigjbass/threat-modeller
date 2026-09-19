@@ -33,7 +33,9 @@ public struct LayOutModelRequest: Equatable, Sendable {
                     )
                 },
                 flows: source.flows + source.users.flatMap { user in
-                    user.uses.map { SourceFlow(sourceId: user.id, targetId: $0, kind: "human") }
+                    user.clientIds.map {
+                        SourceFlow(sourceId: user.id, targetId: $0, kind: "human")
+                    }
                 },
                 mitigates: source.mitigates
             )

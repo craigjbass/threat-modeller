@@ -25,11 +25,11 @@ public enum ComponentStatus: String, CaseIterable, Equatable, Sendable {
 public struct UserFacts: Equatable, Sendable {
     /// What the person does with the system. Empty when the file states none.
     public var role: String
-    /// The component ids of the clients the user holds, in model order. The
-    /// user reaches the system through them; the user-through-a-client
-    /// design states the rule.
-    public var uses: [String]
-    /// The component ids the user reaches, in file order.
+    /// The clients the user holds, in model order, each with the components
+    /// the user reaches through it. The user reaches the system through
+    /// them; the user-through-a-client design states the rule.
+    public var uses: [UserUse]
+    /// The component ids the user reaches through no client, in model order.
     public var reaches: [String]
     /// The threat actor this user is, or nil. A user that names one is faced.
     public var threatActorId: String?
@@ -41,7 +41,7 @@ public struct UserFacts: Equatable, Sendable {
 
     public init(
         role: String = "",
-        uses: [String] = [],
+        uses: [UserUse] = [],
         reaches: [String] = [],
         threatActorId: String? = nil,
         isAdversary: Bool = false,
@@ -53,6 +53,36 @@ public struct UserFacts: Equatable, Sendable {
         self.threatActorId = threatActorId
         self.isAdversary = isAdversary
         self.clearanceId = clearanceId
+    }
+
+    /// The client ids alone, in model order.
+    public var clientIds: [String] { uses.map(\.clientId) }
+
+    /// Every component id this user reaches, through a client or not, in
+    /// model order and without a repeat.
+    public var everyReach: [String] {
+        var seen: Set<String> = []
+        return (reaches + uses.flatMap(\.reaches)).filter { seen.insert($0).inserted }
+    }
+}
+
+/// One client a user holds, and the components the user reaches through it.
+public struct UserUse: Equatable, Sendable {
+    /// The component id of the client: the technology the user goes through.
+    public var clientId: String
+    /// The component ids the user reaches through this client, in model
+    /// order.
+    public var reaches: [String]
+
+    public init(clientId: String, reaches: [String] = []) {
+        self.clientId = clientId
+        self.reaches = reaches
+    }
+
+    /// The id the reach through this client carries:
+    /// `reach:<user>:<client>:<component>`.
+    public static func reachId(user: String, client: String, reached: String) -> String {
+        "reach:\(user):\(client):\(reached)"
     }
 }
 

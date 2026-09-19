@@ -207,12 +207,21 @@ struct UserJSON: Codable {
     let role: String
     /// Absent in a file written before the user-through-a-client design.
     let uses: [String]?
+    /// The components the user reaches through each client. Absent in a file
+    /// written before a user stated the path through a technology, and in a
+    /// file whose users reach nothing through a client.
+    let usePaths: [UsePathJSON]?
     let reaches: [String]
     let threatActorId: String?
     /// Absent in a file written before the adversary alias.
     let isAdversary: Bool?
     /// Absent in a file written before the clearance block.
     let clearanceId: String?
+}
+
+struct UsePathJSON: Codable {
+    let client: String
+    let reaches: [String]
 }
 
 struct ConnectionJSON: Codable {

@@ -536,7 +536,17 @@ enum ComponentMerge {
             let reaches = model.components[index].user?.reaches ?? []
             model.components[index].user?.reaches = union([], reaches.map { end(ComponentId($0)).value })
             let uses = model.components[index].user?.uses ?? []
-            model.components[index].user?.uses = union([], uses.map { end(ComponentId($0)).value })
+            var kept: [UserUse] = []
+            for use in uses {
+                let client = end(ComponentId(use.clientId)).value
+                let reached = union([], use.reaches.map { end(ComponentId($0)).value })
+                if let at = kept.firstIndex(where: { $0.clientId == client }) {
+                    kept[at].reaches = union(kept[at].reaches, reached)
+                } else {
+                    kept.append(UserUse(clientId: client, reaches: reached))
+                }
+            }
+            model.components[index].user?.uses = kept
         }
 
         // The answers.

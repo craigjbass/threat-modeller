@@ -214,11 +214,17 @@ final class ThreatModelSession {
             name: user.customName,
             role: user.role,
             accessId: user.runsAsId,
-            uses: user.uses + [added.id],
+            uses: Self.paths(of: user) + [UserUse(clientId: added.id)],
             reaches: user.reaches,
             threatActorId: user.threatActorId,
             isAdversary: user.isAdversary
         )
+    }
+
+    /// The clients a user holds, in model order, each with the components
+    /// the user reaches through it.
+    static func paths(of user: ViewedComponent) -> [UserUse] {
+        user.usePaths.map { UserUse(clientId: $0.clientId, reaches: $0.reaches) }
     }
 
     /// The names of the clients a user holds, in model order.
@@ -240,7 +246,7 @@ final class ThreatModelSession {
                 name: user.customName,
                 role: user.role,
                 accessId: user.runsAsId,
-                uses: user.uses + [targetComponentId],
+                uses: Self.paths(of: user) + [UserUse(clientId: targetComponentId)],
                 reaches: user.reaches,
                 threatActorId: user.threatActorId,
                 isAdversary: user.isAdversary
@@ -1392,7 +1398,7 @@ final class ThreatModelSession {
         name: String?,
         role: String,
         accessId: String,
-        uses: [String],
+        uses: [UserUse],
         reaches: [String],
         threatActorId: String?,
         isAdversary: Bool,

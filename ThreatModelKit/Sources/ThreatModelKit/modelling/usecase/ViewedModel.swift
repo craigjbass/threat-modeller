@@ -45,7 +45,10 @@ public enum ViewedModel {
                 statusId: component.status.rawValue,
                 isUser: component.isUser,
                 role: component.user?.role ?? "",
-                uses: component.user?.uses ?? [],
+                uses: component.user?.clientIds ?? [],
+                usePaths: (component.user?.uses ?? []).map {
+                    ViewedUse(clientId: $0.clientId, reaches: $0.reaches)
+                },
                 reaches: component.user?.reaches ?? [],
                 threatActorId: component.user?.threatActorId,
                 isAdversary: component.isAdversary,
@@ -78,17 +81,35 @@ public enum ViewedModel {
             )
         }
         let uses = model.components.flatMap { user in
-            (user.user?.uses ?? []).map { client in
+            (user.user?.uses ?? []).map { use in
                 ViewedConnection(
-                    id: ViewedConnection.useLinkId(user: user.id.value, client: client),
+                    id: ViewedConnection.useLinkId(user: user.id.value, client: use.clientId),
                     sourceComponentId: user.id.value,
-                    targetComponentId: client,
+                    targetComponentId: use.clientId,
                     kindId: FlowKind.human.rawValue,
                     isUse: true
                 )
             }
         }
-        return flows + uses
+        let reaches = model.components.flatMap { user in
+            (user.user?.uses ?? []).flatMap { use in
+                use.reaches.map { reached in
+                    ViewedConnection(
+                        id: UserUse.reachId(
+                            user: user.id.value,
+                            client: use.clientId,
+                            reached: reached
+                        ),
+                        sourceComponentId: use.clientId,
+                        targetComponentId: reached,
+                        kindId: FlowKind.human.rawValue,
+                        isUse: true,
+                        isReach: true
+                    )
+                }
+            }
+        }
+        return flows + uses + reaches
     }
 
     public static func zones(of model: ThreatModel) -> [ViewedZone] {

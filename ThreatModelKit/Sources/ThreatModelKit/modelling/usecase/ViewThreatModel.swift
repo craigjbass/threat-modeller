@@ -19,6 +19,17 @@ public struct ViewedComponentAsset: Equatable, Sendable {
     }
 }
 
+/// One client a user holds, and the components the user reaches through it.
+public struct ViewedUse: Equatable, Sendable {
+    public let clientId: String
+    public let reaches: [String]
+
+    public init(clientId: String, reaches: [String] = []) {
+        self.clientId = clientId
+        self.reaches = reaches
+    }
+}
+
 public struct ViewedComponent: Equatable, Sendable {
     public let id: String
     public let technologyId: String
@@ -69,6 +80,9 @@ public struct ViewedComponent: Equatable, Sendable {
     /// The component ids of the clients the user holds, in model order.
     /// Empty for a technology component.
     public let uses: [String]
+    /// The clients the user holds, in model order, each with the components
+    /// the user reaches through it. Empty for a technology component.
+    public let usePaths: [ViewedUse]
     /// The component ids the user reaches, in model order. Empty for a
     /// technology component.
     public let reaches: [String]
@@ -111,6 +125,7 @@ public struct ViewedComponent: Equatable, Sendable {
         isUser: Bool = false,
         role: String = "",
         uses: [String] = [],
+        usePaths: [ViewedUse] = [],
         reaches: [String] = [],
         threatActorId: String? = nil,
         isAdversary: Bool = false,
@@ -125,6 +140,7 @@ public struct ViewedComponent: Equatable, Sendable {
         self.isUser = isUser
         self.role = role
         self.uses = uses
+        self.usePaths = usePaths
         self.reaches = reaches
         self.threatActorId = threatActorId
         self.isAdversary = isAdversary
@@ -179,6 +195,7 @@ public struct ViewedComponent: Equatable, Sendable {
             isUser: isUser,
             role: role,
             uses: uses,
+            usePaths: usePaths,
             reaches: reaches,
             threatActorId: threatActorId,
             isAdversary: isAdversary,
@@ -209,6 +226,10 @@ public struct ViewedConnection: Equatable, Sendable {
     /// threat and the canvas does not select it. The user-through-a-client
     /// design states it.
     public let isUse: Bool
+    /// True for a reach: the link from a client to a component the user
+    /// reaches through that client, derived from the user's `uses`. It is a
+    /// use link too, so the canvas draws it the way it draws a use link.
+    public let isReach: Bool
 
     /// The id a use link carries: `use:<user>:<client>`.
     public static func useLinkId(user: String, client: String) -> String {
@@ -223,11 +244,13 @@ public struct ViewedConnection: Equatable, Sendable {
         description: String? = nil,
         carries: [String] = [],
         tags: [String] = [],
-        isUse: Bool = false
+        isUse: Bool = false,
+        isReach: Bool = false
     ) {
         self.tags = tags
         self.carries = carries
         self.isUse = isUse
+        self.isReach = isReach
         self.id = id
         self.sourceComponentId = sourceComponentId
         self.targetComponentId = targetComponentId

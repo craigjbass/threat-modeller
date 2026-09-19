@@ -552,12 +552,14 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 role: facts.role,
                 accessLabel: component.runsAs.label,
                 reaches: facts.reaches.map { nameOf(ComponentId($0)) },
-                clients: facts.uses.map { client in
+                clients: facts.uses.map { use in
                     ReportClient(
-                        name: nameOf(ComponentId(client)),
-                        reaches: model.connections
-                            .filter { $0.source.value == client }
-                            .map { nameOf($0.target) }
+                        name: nameOf(ComponentId(use.clientId)),
+                        reaches: use.reaches.isEmpty
+                            ? model.connections
+                                .filter { $0.source.value == use.clientId }
+                                .map { nameOf($0.target) }
+                            : use.reaches.map { nameOf(ComponentId($0)) }
                     )
                 },
                 threatActorName: facts.threatActorId.flatMap {

@@ -11,8 +11,9 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
     public let role: String
     /// The privilege the user holds: user, admin, root, system or kernel.
     public let access: String
-    /// The component ids of the clients the user holds.
-    public let uses: [String]
+    /// The clients the user holds, each with the components the user reaches
+    /// through it.
+    public let uses: [UserUse]
     /// The component ids the user reaches.
     public let reaches: [String]
     /// The threat actor this user is, or nil.
@@ -28,7 +29,7 @@ public struct SetUserPropertiesRequest: Equatable, Sendable {
         name: String?,
         role: String,
         access: String,
-        uses: [String] = [],
+        uses: [UserUse] = [],
         reaches: [String],
         threatActorId: String?,
         isAdversary: Bool = false,
@@ -100,9 +101,20 @@ public struct SetUserProperties: SetUserPropertiesUseCase {
             return .unknownComponent(reached)
         }
         var held: Set<String> = []
-        let uses = request.uses.filter { held.insert($0).inserted }
-        for client in uses where reachable.contains(client) == false {
-            return .unknownComponent(client)
+        let uses = request.uses
+            .filter { held.insert($0.clientId).inserted }
+            .map { use -> UserUse in
+                var through: Set<String> = []
+                return UserUse(
+                    clientId: use.clientId,
+                    reaches: use.reaches.filter { through.insert($0).inserted }
+                )
+            }
+        for use in uses {
+            guard reachable.contains(use.clientId) else { return .unknownComponent(use.clientId) }
+            for reached in use.reaches where reachable.contains(reached) == false {
+                return .unknownComponent(reached)
+            }
         }
         let clearanceId = request.clearanceId?.trimmingWhitespace()
         if let clearanceId, clearanceId.isEmpty == false,

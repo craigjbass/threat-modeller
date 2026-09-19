@@ -240,9 +240,11 @@ public enum TextDiagramWriter {
         return built.isEmpty ? "unnamed" : built
     }
 
-    /// The word a reader sees on an arrow.
-    /// What an edge is labelled: `uses` for a use link, else the flow kind.
+    /// The word a reader sees on an arrow: `reaches` on a reach, `uses` on a
+    /// use link, else the flow kind.
     private static func edgeLabel(_ connection: ViewedConnection) -> String {
-        connection.isUse ? "uses" : (FlowKind(rawValue: connection.kindId)?.label ?? connection.kindId)
+        if connection.isReach { return "reaches" }
+        if connection.isUse { return "uses" }
+        return FlowKind(rawValue: connection.kindId)?.label ?? connection.kindId
     }
 }

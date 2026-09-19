@@ -51,7 +51,7 @@ public struct ClearanceCover: Sendable {
         for user in model.components {
             guard let facts = user.user, facts.isAdversary == false else { continue }
             let clearance = facts.clearanceId.flatMap { held[$0] }
-            for componentId in Set(facts.uses + facts.reaches).sorted() {
+            for componentId in Set(facts.clientIds + facts.everyReach).sorted() {
                 reached["component:\(componentId)", default: []]
                     .append((userId: user.id.value, clearance: clearance))
             }

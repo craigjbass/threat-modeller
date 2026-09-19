@@ -43,10 +43,12 @@ system "Payments" {
   }
 
   user "bob" {
-    name    = "Bob"
-    role    = "Customer"
-    uses    = ["browser"]
-    reaches = ["ledger"]
+    name = "Bob"
+    role = "Customer"
+
+    uses "browser" {
+      reaches = ["ledger"]
+    }
   }
 
   flow browser -> api

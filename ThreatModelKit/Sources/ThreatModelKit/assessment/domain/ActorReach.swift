@@ -48,9 +48,20 @@ public struct ActorReach: Sendable {
                 sources.insert("component:\(connection.target.value)")
             }
         }
-        for client in facts.uses {
-            sources.insert("component:\(client)")
-            leaving(client)
+        for use in facts.uses {
+            sources.insert("component:\(use.clientId)")
+            leaving(use.clientId)
+            for reached in use.reaches {
+                sources.insert("component:\(reached)")
+                sources.insert(
+                    "connection:"
+                        + UserUse.reachId(
+                            user: user.id.value,
+                            client: use.clientId,
+                            reached: reached
+                        )
+                )
+            }
         }
         for reached in facts.reaches { sources.insert("component:\(reached)") }
         leaving(user.id.value)

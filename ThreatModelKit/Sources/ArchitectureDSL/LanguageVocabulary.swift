@@ -61,6 +61,7 @@ public struct LanguageBlock: Equatable, Sendable {
 public enum LanguageBlockId: String, CaseIterable, Sendable {
     case archSystem
     case archUser
+    case archUse
     case archAdversary
     case archClearance
     case archAttribute
@@ -144,6 +145,13 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                 attributes: [
                     "name", "role", "access", "uses", "reaches", "threat_actor", "clearance"
                 ]
+            )
+        case .archUse:
+            LanguageBlock(
+                language: "arch",
+                name: "use",
+                phrase: "a use holds",
+                attributes: ["reaches"]
             )
         case .archAdversary:
             LanguageBlock(

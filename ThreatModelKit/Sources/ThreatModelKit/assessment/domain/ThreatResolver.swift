@@ -459,6 +459,90 @@ public struct ThreatResolver {
             }
         }
 
+        for user in model.components {
+            guard let facts = user.user else { continue }
+            for use in facts.uses {
+                guard let client = model.component(ComponentId(use.clientId)),
+                      client.threatsDisabled == false,
+                      let technology = lookup.findById(client.technologyId) else { continue }
+
+                for reachedId in use.reaches {
+                    guard let reached = model.component(ComponentId(reachedId)),
+                          reached.threatsDisabled == false else { continue }
+                    let reachId = ConnectionId(
+                        UserUse.reachId(
+                            user: user.id.value,
+                            client: client.id.value,
+                            reached: reached.id.value
+                        )
+                    )
+                    let multiplier = ZoneMultiplier.value(for: zonesByComponent[reached.id])
+
+                    for threat in lookup.threatsFor(technologyId: client.technologyId) {
+                        guard ThreatApplicability.appliesToComponent(
+                            threat: threat,
+                            runsAs: user.runsAs
+                        ) else { continue }
+                        let overrideKey = SeverityOverrideKey.forComponent(
+                            componentId: client.id,
+                            threatId: threat.id
+                        )
+                        let chosen = severity(
+                            for: threat,
+                            overrideKey: overrideKey,
+                            sourceId: "connection:\(reachId.value)"
+                        )
+                        let base = RiskScore(
+                            severity: chosen.severity,
+                            sensitivity: reached.effectiveSensitivity,
+                            classifications: classifications
+                        )
+                        let zoned = RiskScore(value: ZoneMultiplier.apply(multiplier, to: base.value))
+                        guard zoned.value > 0 else { continue }
+                        let controls = componentControls(
+                            for: threat,
+                            on: technology,
+                            componentId: client.id
+                        )
+                        let covered = ControlCoverage.apply(to: zoned.value, controls: controls)
+                        guard let mitigation = mitigated(
+                            threat: threat,
+                            score: covered,
+                            upstreamOf: client.id,
+                            graph: graph,
+                            technologyById: technologyById
+                        ) else { continue }
+
+                        raise(
+                            ResolvedThreat(
+                                threat: threat,
+                                severity: chosen.severity,
+                                source: .connection(
+                                    id: reachId,
+                                    sourceName: Self.name(of: client, as: technology),
+                                    targetName: Self.name(
+                                        of: reached,
+                                        as: lookup.findById(reached.technologyId)
+                                    )
+                                ),
+                                sensitivity: reached.effectiveSensitivity,
+                                score: RiskScore(value: mitigation.score),
+                                controls: controls,
+                                context: technology.threatContext[threat.id],
+                                isTlsMitigated: false,
+                                overrideKey: overrideKey,
+                                overriddenSeverityId: chosen.overriddenId,
+                                mitigatedBy: mitigation.by,
+                                scoreBeforePathwayMitigation: covered,
+                                scoreBeforeControls: zoned.value,
+                                severityDecision: chosen.decision
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
         // Spec section 5.3: raised once per private zone, scored against a
         // fixed internal sensitivity, and reduced by that zone's own
         // multiplier. A public zone raises none.

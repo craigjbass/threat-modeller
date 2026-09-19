@@ -272,7 +272,7 @@ public enum MergedArchitecture {
         // The checks that read two identifiers run here, over every file.
         let componentIds = Set(merged.everyComponent.map(\.id))
         for user in merged.users {
-            for client in user.uses where componentIds.contains(client) == false {
+            for client in user.clientIds where componentIds.contains(client) == false {
                 diagnostics.append(
                     fault(
                         "the user \"\(user.id)\" uses \"\(client)\", which this system does "
@@ -280,7 +280,7 @@ public enum MergedArchitecture {
                     )
                 )
             }
-            for reached in user.reaches where componentIds.contains(reached) == false {
+            for reached in user.everyReach where componentIds.contains(reached) == false {
                 diagnostics.append(
                     fault(
                         "the user \"\(user.id)\" reaches \"\(reached)\", which this system does "

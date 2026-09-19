@@ -173,9 +173,10 @@ public struct SourceUser: Equatable, Sendable {
     /// The privilege the user holds on what the user reaches, with the words
     /// `runs_as` takes.
     public let access: String
-    /// The component ids of the clients the user holds, in file order.
-    public let uses: [String]
-    /// The component ids the user reaches, in file order.
+    /// The clients the user holds, in file order, each with the components
+    /// the user reaches through it.
+    public let uses: [SourceUse]
+    /// The component ids the user reaches through no client, in file order.
     public let reaches: [String]
     /// The threat actor this user is, or nil.
     public let threatActorId: String?
@@ -189,7 +190,7 @@ public struct SourceUser: Equatable, Sendable {
         name: String? = nil,
         role: String = "",
         access: String = "user",
-        uses: [String] = [],
+        uses: [SourceUse] = [],
         reaches: [String] = [],
         threatActorId: String? = nil,
         isAdversary: Bool = false,
@@ -208,6 +209,30 @@ public struct SourceUser: Equatable, Sendable {
 
     /// The word a user with no stated access holds.
     public static let defaultAccess = "user"
+
+    /// The client ids alone, in file order.
+    public var clientIds: [String] { uses.map(\.clientId) }
+
+    /// Every component id this user reaches, through a client or not, in
+    /// file order and without a repeat.
+    public var everyReach: [String] {
+        var seen: Set<String> = []
+        return (reaches + uses.flatMap(\.reaches)).filter { seen.insert($0).inserted }
+    }
+}
+
+/// One client a user holds, and the components the user reaches through it.
+public struct SourceUse: Equatable, Sendable {
+    /// The component id of the client: the technology the user goes through.
+    public let clientId: String
+    /// The component ids the user reaches through this client, in file
+    /// order.
+    public let reaches: [String]
+
+    public init(clientId: String, reaches: [String] = []) {
+        self.clientId = clientId
+        self.reaches = reaches
+    }
 }
 
 /// One vetting level the file declares. A user names one of these.

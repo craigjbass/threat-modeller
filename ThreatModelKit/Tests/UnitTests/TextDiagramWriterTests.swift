@@ -104,6 +104,85 @@ struct TextDiagramWriterTests {
         )
     }
 
+    /// One user, one client and one component the user reaches through it.
+    private func pathModel() -> DiagramBuilder.Model {
+        DiagramBuilder.Model(
+            components: [
+                ViewedComponent(
+                    id: "alice",
+                    technologyId: "user",
+                    name: "Alice",
+                    customName: "Alice",
+                    providerId: "",
+                    categoryId: "",
+                    x: 0,
+                    y: 0,
+                    sensitivityId: "internal",
+                    threatsDisabled: false,
+                    isUnknownTechnology: false,
+                    zoneId: nil,
+                    shapeId: "actor",
+                    isUser: true
+                ),
+                ViewedComponent(
+                    id: "browser",
+                    technologyId: "web",
+                    name: "Web Browser",
+                    customName: nil,
+                    providerId: "",
+                    categoryId: "client",
+                    x: 100,
+                    y: 0,
+                    sensitivityId: "internal",
+                    threatsDisabled: false,
+                    isUnknownTechnology: false,
+                    zoneId: nil,
+                    shapeId: "process"
+                ),
+                ViewedComponent(
+                    id: "api",
+                    technologyId: "aws-ec2",
+                    name: "API",
+                    customName: "API",
+                    providerId: "aws",
+                    categoryId: "compute",
+                    x: 200,
+                    y: 0,
+                    sensitivityId: "confidential",
+                    threatsDisabled: false,
+                    isUnknownTechnology: false,
+                    zoneId: nil,
+                    shapeId: "process"
+                )
+            ],
+            connections: [
+                ViewedConnection(
+                    id: "use:alice:browser",
+                    sourceComponentId: "alice",
+                    targetComponentId: "browser",
+                    kindId: "human",
+                    isUse: true
+                ),
+                ViewedConnection(
+                    id: "reach:alice:browser:api",
+                    sourceComponentId: "browser",
+                    targetComponentId: "api",
+                    kindId: "human",
+                    isUse: true,
+                    isReach: true
+                )
+            ],
+            zones: []
+        )
+    }
+
+    @Test func mermaidLabelsTheUseLinkAndTheReachApart() {
+        let text = TextDiagramWriter.mermaid(of: pathModel())
+
+        #expect(text.contains("alice -->|\"uses\"| browser"))
+        #expect(text.contains("browser -->|\"reaches\"| api"))
+    }
+
     // MARK: Mermaid
 
     @Test func mermaidWritesTheZonesAsSubgraphs() {

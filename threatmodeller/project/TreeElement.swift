@@ -70,7 +70,8 @@ struct TreeElement: Identifiable, Equatable {
         }
         let reach = neighbours(components: components, connections: connections, zones: zones)
         let holders = Dictionary(
-            connections.filter(\.isUse).map { ($0.targetComponentId, [componentName($0.sourceComponentId)]) },
+            connections.filter { $0.isUse && $0.isReach == false }
+                .map { ($0.targetComponentId, [componentName($0.sourceComponentId)]) },
             uniquingKeysWith: +
         )
         return rows.map { row in

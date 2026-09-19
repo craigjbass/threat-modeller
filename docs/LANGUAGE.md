@@ -1072,9 +1072,11 @@ user "alice" {
   name         = "Alice"
   role         = "Operator"
   access       = "admin"
-  uses         = ["browser"]
-  reaches      = ["ledger"]
   threat_actor = "insider"
+
+  uses "browser" {
+    reaches = ["ledger"]
+  }
 }
 ```
 
@@ -1089,7 +1091,8 @@ zone.
 | `name` | string | the label | what the canvas and the report call the user |
 | `role` | string | empty | what the person does with the system |
 | `access` | string | `user` | the privilege the user holds: `user`, `admin`, `root`, `system` or `kernel`, the words `runs_as` takes |
-| `uses` | list of strings | empty | the component ids of the clients the user holds |
+| `uses "<client>"` | block | none | one client the user holds, with the components the user reaches through it |
+| `uses` | list of strings | empty | the component ids of the clients the user holds, reaching whatever `reaches` names |
 | `reaches` | list of strings | empty | the component ids the user reaches |
 | `threat_actor` | string | none | the id of a threat actor this user is |
 | `clearance` | string | none | the id of a clearance this user holds |
@@ -1119,6 +1122,40 @@ file does not declare, or naming a user, is the error `the user "<id>" uses
 "<component>", which this file does not declare`; in a split system the
 merge states `which this system does not declare`.
 
+A `uses "<client>"` block states the path the user takes: the client, and
+the components the user reaches through that client. It holds one attribute,
+`reaches`, a list of component ids. A word the block does not hold is the
+error `a use holds reaches, not "<word>"`.
+
+```hcl
+user "alice" {
+  name = "Alice"
+
+  uses "web-browser" {
+    reaches = ["payments-api"]
+  }
+
+  uses "hardened-client" {
+    reaches = ["admin-console"]
+  }
+}
+```
+
+A reach through a client carries the threats of that client's own
+technology, scored against what the reached component holds, so Alice
+reaching the payments api through a web browser and reaching the admin
+console through a hardened client score apart. The canvas draws the reach
+from the client to the component, dotted, and the mermaid, DOT and D2
+pictures label it `reaches`.
+
+The two flat lists still read. A user that states `uses` and `reaches` as
+two lists reads as every technology it uses reaching every component it
+reaches, and the read states the warning `the user "<id>" states uses and
+reaches as two lists, so every technology it uses reaches every component it
+reaches`. The writer writes that user back as one `uses` block per client,
+so the file states the path the next time it is saved. A user that states
+`uses` and no `reaches` writes the flat list back unchanged.
+
 When the user names a threat actor and states `uses`, the actor performs
 threats on the user's path and not beyond: on each client, on each flow
 that leaves a client, on the component that flow ends at, on each component
@@ -1127,10 +1164,13 @@ that leaves a client, on the component that flow ends at, on each component
 states. An actor `faces` lists performs everywhere whatever a user states.
 The report's Scope section states each user with each client and what it
 reaches: `Alice (Operator, Administrator): through Web Browser reaches API
-and Admin console`.
+and Admin console`. A client the block states a reach through names that
+reach in the block's own words; a client the block states none through names
+the flows that leave it.
 
-`reaches` states which components the user has access to. It draws no flow
-and changes no score; the report states it. An entry naming a component this
+`reaches` outside a `uses` block states which components the user reaches
+through no client. It draws no flow and changes no score; the report states
+it. An entry naming a component this
 file does not declare is the error `the user "<id>" reaches "<component>",
 which this file does not declare`; in a split system the merge states
 `which this system does not declare`.

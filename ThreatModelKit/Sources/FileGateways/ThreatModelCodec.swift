@@ -569,7 +569,10 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             user: component.user.map {
                 UserJSON(
                     role: $0.role,
-                    uses: $0.uses.isEmpty ? nil : $0.uses,
+                    uses: $0.uses.isEmpty ? nil : $0.clientIds,
+                    usePaths: $0.uses.contains { $0.reaches.isEmpty == false }
+                        ? $0.uses.map { UsePathJSON(client: $0.clientId, reaches: $0.reaches) }
+                        : nil,
                     reaches: $0.reaches,
                     threatActorId: $0.threatActorId,
                     isAdversary: $0.isAdversary ? true : nil,
@@ -658,7 +661,9 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             user: json.user.map {
                 UserFacts(
                     role: $0.role,
-                    uses: $0.uses ?? [],
+                    uses: $0.usePaths.map { paths in
+                        paths.map { UserUse(clientId: $0.client, reaches: $0.reaches) }
+                    } ?? ($0.uses ?? []).map { UserUse(clientId: $0) },
                     reaches: $0.reaches,
                     threatActorId: $0.threatActorId,
                     isAdversary: $0.isAdversary ?? false,

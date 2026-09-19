@@ -18,7 +18,9 @@ public enum ArchitectureSourceBuilder {
                             name: component.customName,
                             role: facts.role,
                             access: component.runsAs.rawValue,
-                            uses: facts.uses,
+                            uses: facts.uses.map {
+                                SourceUse(clientId: $0.clientId, reaches: $0.reaches)
+                            },
                             reaches: facts.reaches,
                             threatActorId: facts.threatActorId,
                             isAdversary: facts.isAdversary,

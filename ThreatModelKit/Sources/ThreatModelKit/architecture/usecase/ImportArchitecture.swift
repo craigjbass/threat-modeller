@@ -307,7 +307,9 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                     statesOwnSensitivity: false,
                     user: UserFacts(
                         role: user.role,
-                        uses: user.uses,
+                        uses: user.uses.map {
+                            UserUse(clientId: $0.clientId, reaches: $0.reaches)
+                        },
                         reaches: user.reaches,
                         threatActorId: user.threatActorId,
                         isAdversary: user.isAdversary,

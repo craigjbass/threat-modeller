@@ -126,7 +126,7 @@ struct MarkdownGlossaryTests {
             customName: "Operator",
             user: UserFacts(
                 role: "runs the deploy",
-                uses: [workstationId.value],
+                uses: [UserUse(clientId: workstationId.value)],
                 reaches: [workstationId.value],
                 threatActorId: "insider",
                 isAdversary: true

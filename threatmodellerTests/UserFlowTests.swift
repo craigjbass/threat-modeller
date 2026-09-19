@@ -587,4 +587,37 @@ struct UserFlowTests {
         let theft = try #require(model.threats.first { $0.threatId == "credential-theft" })
         #expect(theft.likelihoodId == "commodity")
     }
+
+    /// The panel writes the path: the client is picked in `Uses`, then the
+    /// components reached through that client are picked in the row the
+    /// client opens. The file holds the path on the next save.
+    @Test func thePanelWritesTheComponentsReachedThroughOneClient() async throws {
+        let (session, useCases) = await aProject(clients)
+        let model = try #require(session.model)
+
+        let panel = UserPanel(session: model, user: try user(of: model))
+        let field = panel.useReachesField(for: "browser")
+        let choice = try #require(field.rows.first { $0.id == "api" })
+        field.pick(choice)
+        await session.save()
+
+        #expect(model.errorMessage == nil)
+        let alice = try #require(users(useCases).first)
+        #expect(alice.uses.map(\.clientId) == ["browser", "mobile"])
+        #expect(alice.uses.map(\.reaches) == [["api"], []])
+        let written = try #require(architecture(useCases))
+        #expect(written.contains("uses \"browser\" {"))
+        #expect(written.contains("reaches = [\"api\"]"))
+    }
+
+    @Test func thePanelOpensOneReachesRowPerClientTheUserHolds() async throws {
+        let (session, _) = await aProject(clients)
+        let model = try #require(session.model)
+
+        let panel = UserPanel(session: model, user: try user(of: model))
+
+        #expect(panel.useRows.map(\.clientId) == ["browser", "mobile"])
+        #expect(panel.useRows.map(\.name) == ["Web Browser", "Mobile App"])
+        #expect(panel.useReachesField(for: "browser").identifier == "user-use-reaches-browser")
+    }
 }

@@ -328,7 +328,8 @@ struct ArchitectureParser {
         var name: String?
         var role = ""
         var access = SourceUser.defaultAccess
-        var uses: [String] = []
+        var paths: [SourceUse] = []
+        var flatUses: [String] = []
         var reaches: [String] = []
         var threatActorId: String?
         var clearanceId: String?
@@ -341,7 +342,12 @@ struct ArchitectureParser {
                 let token = current
                 access = parseTextAttribute() ?? access
                 expectVocabulary(access, Self.privilegeLevels, field: "access", at: token)
-            case "uses": uses = parseListAttribute()
+            case "uses":
+                if next.kind == .string {
+                    if let path = parseUse() { paths.append(path) }
+                } else {
+                    flatUses = parseListAttribute()
+                }
             case "reaches": reaches = parseListAttribute()
             case "threat_actor": threatActorId = parseTextAttribute()
             case "clearance": clearanceId = parseTextAttribute()
@@ -353,17 +359,51 @@ struct ArchitectureParser {
         }
         _ = expect(.rightBrace, "}")
 
+        if flatUses.isEmpty == false {
+            if reaches.isEmpty == false {
+                record(
+                    "the user \"\(id.text)\" states uses and reaches as two lists, so every "
+                        + "technology it uses reaches every component it reaches",
+                    at: id,
+                    severity: .warning
+                )
+            }
+            paths += flatUses.map { SourceUse(clientId: $0, reaches: reaches) }
+            reaches = []
+        }
+
         return SourceUser(
             id: id.text,
             name: name,
             role: role,
             access: access,
-            uses: uses,
+            uses: paths,
             reaches: reaches,
             threatActorId: threatActorId,
             isAdversary: isAdversary,
             clearanceId: clearanceId
         )
+    }
+
+    /// One `uses "<client>" { }` block: the client the user goes through,
+    /// and the components the user reaches through it.
+    private mutating func parseUse() -> SourceUse? {
+        advance()
+        guard let client = expect(.string, "the client's identifier") else { return nil }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var reaches: [String] = []
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "reaches": reaches = parseListAttribute()
+            default:
+                record(LanguageBlockId.archUse.unknownAttribute(current.text))
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        return SourceUse(clientId: client.text, reaches: reaches)
     }
 
     /// A date the file states, or nil when it states something that is not
@@ -1396,13 +1436,13 @@ struct ArchitectureParser {
         // client a user holds. A part file leaves that to the merge. A user
         // is not a component, so a user holding a user is refused here too.
         for user in source.users {
-            for client in user.uses where componentIds.contains(client) == false {
+            for client in user.clientIds where componentIds.contains(client) == false {
                 record(
                     "the user \"\(user.id)\" uses \"\(client)\", which this file does not declare",
                     at: tokens[0]
                 )
             }
-            for reached in user.reaches where componentIds.contains(reached) == false {
+            for reached in user.everyReach where componentIds.contains(reached) == false {
                 record(
                     "the user \"\(user.id)\" reaches \"\(reached)\", which this file does not declare",
                     at: tokens[0]
@@ -1470,6 +1510,8 @@ struct ArchitectureParser {
     // MARK: reading the token list
 
     private var current: Token { tokens[min(index, tokens.count - 1)] }
+
+    private var next: Token { tokens[min(index + 1, tokens.count - 1)] }
 
     private mutating func advance() {
         if index < tokens.count - 1 { index += 1 }
