@@ -125,6 +125,9 @@ func hostedWindow(of view: some View, width: CGFloat = 1400, height: CGFloat = 9
     )
     window.contentViewController = controller
     window.setContentSize(NSSize(width: width, height: height))
+    window.animationBehavior = .none
+    window.isReleasedWhenClosed = false
+    HostedWindows.keep(window)
     window.makeKeyAndOrderFront(nil)
     // AppKit cascades a new window clear of the ones already on screen, and
     // clips its size to what is left once enough windows crowd the display.
@@ -135,4 +138,15 @@ func hostedWindow(of view: some View, width: CGFloat = 1400, height: CGFloat = 9
     RunLoop.current.run(until: Date().addingTimeInterval(1.2))
     window.contentView?.layoutSubtreeIfNeeded()
     return window
+}
+
+/// Every window a test hosted, kept until the process ends, so no sheet or
+/// window transition animation outlives the window it animates.
+@MainActor
+enum HostedWindows {
+    private static var windows: [NSWindow] = []
+
+    static func keep(_ window: NSWindow) {
+        windows.append(window)
+    }
 }

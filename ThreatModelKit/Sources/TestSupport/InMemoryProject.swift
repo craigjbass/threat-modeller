@@ -4,6 +4,7 @@ import ThreatModelKit
 /// A project held in memory, so a test states what is on disk without touching
 /// a disk.
 public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
+    private let lock = NSLock()
     private var files: [String: String] = [:]
     private var directories: Set<String> = []
     /// How many times a save wrote each path, for a test that states which
@@ -16,6 +17,12 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
 
     /// Puts a file in the project, and every directory above it.
     public func put(_ text: String, at path: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        store(text, at: path)
+    }
+
+    private func store(_ text: String, at path: String) {
         files[path] = text
         var directory = (path as NSString).deletingLastPathComponent
         while directory.isEmpty == false && directory != "/" {
@@ -24,13 +31,23 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
         }
     }
 
-    public func text(at path: String) -> String? { files[path] }
+    public func text(at path: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return files[path]
+    }
 
     /// Every path this project holds, for a test that states what was
     /// written.
-    public var everyPath: [String] { Array(files.keys) }
+    public var everyPath: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return Array(files.keys)
+    }
 
     public func discover(root: String) throws -> ProjectLayout {
+        lock.lock()
+        defer { lock.unlock() }
         guard directories.contains(root) else {
             throw ProjectError.notADirectory(path: root)
         }
@@ -84,6 +101,8 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
     }
 
     public func read(path: String) throws -> String {
+        lock.lock()
+        defer { lock.unlock() }
         guard let text = files[path] else {
             throw ProjectError.cannotRead(path: path, reason: "there is no such file")
         }
@@ -91,34 +110,54 @@ public final class InMemoryProject: ProjectSourceGateway, @unchecked Sendable {
     }
 
     public func write(_ text: String, to path: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
         writeCounts[path, default: 0] += 1
-        put(text, at: path)
+        store(text, at: path)
     }
 
     /// A picture is bytes. This holds it as the text of its own byte count, so
     /// a test can say a file was written without holding a bitmap.
     public func write(bytes: Data, to path: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
         writeCounts[path, default: 0] += 1
-        put("<\(bytes.count) bytes>", at: path)
+        store("<\(bytes.count) bytes>", at: path)
     }
 
     /// How many times a save wrote this path, for a test that states which
     /// files a save touched.
-    public func writeCount(at path: String) -> Int { writeCounts[path] ?? 0 }
+    public func writeCount(at path: String) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return writeCounts[path] ?? 0
+    }
 
     /// How many writes every path saw together, for a test that states a
     /// save wrote no file at all.
-    public var totalWriteCount: Int { writeCounts.values.reduce(0, +) }
+    public var totalWriteCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return writeCounts.values.reduce(0, +)
+    }
 
     /// Clears the write counts, so a test can isolate the writes one save
     /// makes from the writes before it.
-    public func resetWriteCounts() { writeCounts = [:] }
+    public func resetWriteCounts() {
+        lock.lock()
+        defer { lock.unlock() }
+        writeCounts = [:]
+    }
 
     public func delete(path: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
         files.removeValue(forKey: path)
     }
 
     public func exists(path: String) -> Bool {
-        files[path] != nil || directories.contains(path)
+        lock.lock()
+        defer { lock.unlock() }
+        return files[path] != nil || directories.contains(path)
     }
 }

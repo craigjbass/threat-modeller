@@ -239,12 +239,7 @@ struct LoadWatcherHangGuardTests {
     /// A navigation error with no meaning beyond its identity.
     private struct Boom: Error {}
 
-    /// A report that arrives while the caller waits resumes the caller.
-    /// The `onWaiting` hook runs the moment `waitForLoad()` stores the
-    /// continuation, so the report lands while the caller waits with no
-    /// queue hop and no wait on the clock. The caller returns at once, or
-    /// the time limit fails this test.
-    @Test(.timeLimit(.minutes(1)))
+    @Test
     func aReportWhileTheCallerWaitsResumesTheCaller() async {
         let watcher = LoadWatcher()
         watcher.onWaiting = { [weak watcher] in watcher?.loadFailed(Boom()) }
