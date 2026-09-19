@@ -151,4 +151,42 @@ struct MarkdownToHtmlTests {
         #expect(html.contains("<ol>"))
         #expect(html.contains("<ul>"))
     }
+
+    @Test func writesTheBannerEscaped() {
+        let html = MarkdownToHtml.html(of: "# One", title: "model", banner: "OFFICIAL <SECRET>")
+
+        #expect(html.contains("<div class=\"banner\">OFFICIAL &lt;SECRET&gt;</div>"))
+        #expect(html.contains("<SECRET>") == false)
+    }
+
+    @Test func writesTheCoverBeforeTheFirstHeadingAndTheBannerBeforeTheCover() {
+        let html = MarkdownToHtml.html(
+            of: "# One",
+            title: "model",
+            banner: "OFFICIAL",
+            cover: MarkdownToHtml.Cover(title: "Model X")
+        )
+        let banner = try? #require(html.range(of: "<div class=\"banner\">"))
+        let cover = try? #require(html.range(of: "<section class=\"cover\">"))
+        let heading = try? #require(html.range(of: "<h1>One</h1>"))
+
+        #expect(banner != nil && cover != nil && heading != nil)
+        if let banner, let cover, let heading {
+            #expect(banner.upperBound <= cover.lowerBound)
+            #expect(cover.upperBound <= heading.lowerBound)
+        }
+    }
+
+    @Test func writesNeitherBannerNorCoverWhenNeitherIsGiven() {
+        let html = body("# One")
+
+        #expect(html.contains("class=\"banner\"") == false)
+        #expect(html.contains("class=\"cover\"") == false)
+    }
+
+    @Test func fixesTheBannerToEveryPrintedPageWithPositionFixed() {
+        let html = MarkdownToHtml.html(of: "# One", title: "model", banner: "OFFICIAL")
+
+        #expect(html.contains(".banner { position: fixed; top: 0; left: 0; right: 0;"))
+    }
 }

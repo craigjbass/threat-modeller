@@ -163,8 +163,6 @@ public enum MarkdownToHtml {
         closeList()
 
         var whole: [String] = []
-        // The banner is fixed to the top of every printed page, and the cover
-        // is the first page, so a reader of the paper sees both.
         if let banner {
             whole.append("<div class=\"banner\">\(escaped(banner))</div>")
         }
