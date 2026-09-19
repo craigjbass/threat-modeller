@@ -340,9 +340,6 @@ public struct ReportExecutiveSummary: Equatable, Sendable {
     /// How many of each the summary names.
     public static let topCount = 3
 
-    /// `findings` is the one cut `BuildThreatModelReport` computed for the
-    /// whole report. Reusing it here, rather than computing a second cut,
-    /// keeps this verdict and the Findings section unable to disagree.
     public static func build(
         threats: [ReportThreat],
         recommendations: [ReportRecommendation],

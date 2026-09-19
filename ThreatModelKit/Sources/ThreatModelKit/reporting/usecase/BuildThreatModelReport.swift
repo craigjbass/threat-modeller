@@ -328,12 +328,8 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             return left.control < right.control
         }
 
-        // Computed once so the verdict sentence and the Findings section
-        // can never disagree about which threats sit above tolerance.
         let findingsCut = ReportFindingsCut.build(from: threats, tolerance: tolerance)
 
-        // Built once so the Executive summary and the Actions section can
-        // never name a different list of actions.
         let actions = leverage.leverage.map {
             ReportAction(
                 label: $0.action.label,
