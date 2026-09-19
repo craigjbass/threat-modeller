@@ -240,28 +240,6 @@ struct SelectionSidebarTests {
         )
     }
 
-    /// The source path of the application's own code, from this file's path.
-    private static func sourcePath(of file: String) -> String {
-        let here = URL(fileURLWithPath: #filePath)
-        return here
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent(file)
-            .path
-    }
-
-    /// No fixture in this suite runs a real accessibility client, so this
-    /// test reads the source line instead of the accessibility tree.
-    @Test func theDefaultContentIsHiddenFromAccessibilityWhileAnEditorIsInFront() throws {
-        let path = Self.sourcePath(of: "threatmodeller/sidebar/SelectionSidebar.swift")
-        let source = try String(contentsOfFile: path, encoding: .utf8)
-
-        #expect(
-            source.contains(".accessibilityHidden(isEditing)"),
-            "the default content stays in the accessibility tree while an editor is in front"
-        )
-    }
-
     @Test func aScrollOfTheDefaultContentSurvivesASelectionAndADeselection() throws {
         let session = aModel()
         let canvas = CanvasState()

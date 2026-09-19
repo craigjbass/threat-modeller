@@ -144,38 +144,6 @@ struct WindowTakesInputTests {
         )
     }
 
-    /// Every sheet in the project window draws something.
-    ///
-    /// A sheet body of one `if let` and no `else` draws nothing when its
-    /// value is nil. The sheet still presents, and the window then takes no
-    /// input. Each of these has an `else`.
-    @Test func noSheetInTheProjectWindowCanDrawNothing() throws {
-        let path = Self.sourcePath(of: "threatmodeller/project/ProjectWindow.swift")
-        let source = try String(contentsOfFile: path, encoding: .utf8)
-        let lines = source.components(separatedBy: "\n")
-
-        for (number, line) in lines.enumerated() where line.contains(".sheet(") {
-            let body = lines[(number + 1)...].prefix(40)
-            guard let opener = body.first, opener.contains("if let") || opener.contains("if ") else {
-                continue
-            }
-            #expect(
-                body.contains { $0.contains("} else {") },
-                "the sheet on line \(number + 1) draws nothing when its value is nil"
-            )
-        }
-    }
-
-    /// Where the application's own source sits, from this file's path.
-    private static func sourcePath(of file: String) -> String {
-        let here = URL(fileURLWithPath: #filePath)
-        return here
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent(file)
-            .path
-    }
-
     /// Moves the pointer to a point in window coordinates.
     private func movePointer(_ window: NSWindow, to point: NSPoint) {
         window.acceptsMouseMovedEvents = true

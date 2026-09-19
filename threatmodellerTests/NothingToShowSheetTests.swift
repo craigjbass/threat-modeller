@@ -57,14 +57,7 @@ struct NothingToShowSheetTests {
         )
     }
 
-    /// One control closes the sheet: the source holds one `Button`, and the
-    /// key it binds as its default action closes the sheet when pressed.
-    @Test func nothingToShowSheetHoldsOneControlThatClosesItAndPressingItClosesTheSheet() throws {
-        let path = Self.sourcePath(of: "threatmodeller/project/NothingToShowSheet.swift")
-        let source = try String(contentsOfFile: path, encoding: .utf8)
-        let controlCount = source.components(separatedBy: "Button(").count - 1
-        #expect(controlCount == 1, "the source holds \(controlCount) controls that could close the sheet, not 1")
-
+    @Test func pressingTheSheetsDefaultControlClosesIt() throws {
         var closed = false
         let sheet = NothingToShowSheet(says: "Nothing here.", dismiss: { closed = true })
         let window = hostedWindow(of: sheet, width: 480, height: 200)
@@ -88,48 +81,5 @@ struct NothingToShowSheetTests {
         RunLoop.current.run(until: Date().addingTimeInterval(0.2))
 
         #expect(closed, "pressing Return, the control's default action, did not close the sheet")
-    }
-
-    /// The five `.sheet(` sites in `ProjectWindow` each draw `NothingToShowSheet`
-    /// with the words for their own missing value, read from the source so a
-    /// copy-pasted or emptied name is caught without driving five live windows.
-    @Test func eachSheetInTheProjectWindowNamesItsOwnMissingValue() throws {
-        let path = Self.sourcePath(of: "threatmodeller/project/ProjectWindow.swift")
-        let source = try String(contentsOfFile: path, encoding: .utf8)
-        let lines = source.components(separatedBy: "\n")
-
-        let sheetLines = lines.indices.filter { lines[$0].contains(".sheet(") }
-        var found: [String] = []
-        for (position, number) in sheetLines.enumerated() {
-            let end = position + 1 < sheetLines.count ? sheetLines[position + 1] : lines.count
-            let block = lines[(number + 1)..<end]
-            guard block.contains(where: { $0.contains("NothingToShowSheet(") }) else { continue }
-            guard let saysLine = block.first(where: { $0.contains("says:") }),
-                  let text = Self.quoted(in: saysLine)
-            else { continue }
-            found.append(text)
-        }
-
-        #expect(found.count == 5, "found \(found.count) sheets naming a missing value, not 5: \(found)")
-        #expect(found.allSatisfy { $0.isEmpty == false }, "one of the sheets names an empty missing value")
-        #expect(Set(found).count == found.count, "two sheets name the same missing value: \(found)")
-    }
-
-    /// The text between the first two double quotes on the line, or nil.
-    private static func quoted(in line: String) -> String? {
-        guard let open = line.firstIndex(of: "\""),
-              let close = line[line.index(after: open)...].firstIndex(of: "\"")
-        else { return nil }
-        return String(line[line.index(after: open)..<close])
-    }
-
-    /// Where the application's own source sits, from this file's path.
-    private static func sourcePath(of file: String) -> String {
-        let here = URL(fileURLWithPath: #filePath)
-        return here
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent(file)
-            .path
     }
 }

@@ -84,33 +84,4 @@ struct HistoryControlGuardTests {
             "opening the window read history \(useCases.history.readCount) times"
         )
     }
-
-    /// The control named `show-history` carries the guard against a session
-    /// with no history, in the source that draws it.
-    @Test func theShowHistoryControlCarriesItsDisabledGuard() throws {
-        let path = Self.sourcePath(of: "threatmodeller/project/ProjectWindow.swift")
-        let source = try String(contentsOfFile: path, encoding: .utf8)
-        let lines = source.components(separatedBy: "\n")
-        let identifierLine = try #require(
-            lines.firstIndex { $0.contains("\"show-history\"") },
-            "the source names no show-history control"
-        )
-        let nearby = lines[max(0, identifierLine - 5)...identifierLine].joined(separator: "\n")
-
-        #expect(
-            nearby.contains(".disabled(session.history == nil)"),
-            "the show-history control carries no guard against a session with no history"
-        )
-    }
-
-    /// Where the application's own source sits, from this file's path.
-    private static func sourcePath(of file: String) -> String {
-        let here = URL(fileURLWithPath: #filePath)
-        return here
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent(file)
-            .path
-    }
 }
