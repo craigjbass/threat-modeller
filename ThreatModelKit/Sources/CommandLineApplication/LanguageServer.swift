@@ -271,7 +271,16 @@ public final class LanguageServer: @unchecked Sendable {
 
         var items: [[String: Any]] = []
 
-        if before.contains("technology") {
+        if trimmedBefore.hasPrefix("mitigated_by") {
+            items += declaredEdges().map {
+                item(
+                    $0.id,
+                    kind: 6,
+                    detail: "\($0.protector) lowers \($0.body["threats"] ?? "")"
+                        + " on \($0.protected) by \($0.body["reduces_risk_by"] ?? "0")%"
+                )
+            }
+        } else if before.contains("technology") {
             items += every(technology: catalogueNow()).map {
                 item($0.id.value, kind: 6, detail: "\($0.name) — \($0.description)")
             }
@@ -412,6 +421,15 @@ public final class LanguageServer: @unchecked Sendable {
             )
         }
 
+        if let edge = declaredEdges().first(where: { $0.id == word }) {
+            let status = edge.body["status"] ?? MitigationStatus.adopted.rawValue
+            return Self.said(
+                "**\(edge.protector) \u{2192} \(edge.protected)** (`\(edge.id)`)\n\nLowers "
+                    + "\(edge.body["threats"] ?? "no threats") by "
+                    + "\(edge.body["reduces_risk_by"] ?? "0")%. This edge is \(status)."
+            )
+        }
+
         // A threat stanza in a `.controls` file states its own score.
         if line.trimmingCharacters(in: .whitespaces).hasPrefix("threat "),
            Language.of(uri) == .controls {
@@ -505,6 +523,10 @@ public final class LanguageServer: @unchecked Sendable {
             in: line
         ) as String? else { return NSNull() }
 
+        if let edge = declaredEdges().first(where: { $0.id == word }) {
+            return Self.location(uri: "file://\(edge.path)", line: edge.line)
+        }
+
         if let found = Self.line(declaring: "component", named: word, in: lines) {
             return Self.location(uri: uri, line: found)
         }
@@ -530,6 +552,86 @@ public final class LanguageServer: @unchecked Sendable {
         }
 
         return NSNull()
+    }
+
+    /// One `mitigates` edge an architecture file declares, as a `.controls`
+    /// file names it.
+    struct DeclaredEdge {
+        /// `<protector>-><protected>`, which is what `mitigated_by` holds.
+        let id: String
+        let protector: String
+        let protected: String
+        let path: String
+        let line: Int
+        /// The attributes the block states, by name, unquoted.
+        let body: [String: String]
+    }
+
+    /// Every `mitigates` edge the architecture files beside the open document
+    /// declare.
+    ///
+    /// A `.controls` file names an edge the `.arch` file declares, so the
+    /// completion, the hover and the jump read the architecture rather than
+    /// the document in front of the person.
+    func declaredEdges() -> [DeclaredEdge] {
+        architecturePaths().flatMap { path -> [DeclaredEdge] in
+            guard let text = try? projects.read(path: path) else { return [] }
+            let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+                .map(String.init)
+            return lines.indices.compactMap { Self.edge(at: $0, in: lines, path: path) }
+        }
+    }
+
+    /// The edge one line opens, or nil when the line opens something else.
+    private static func edge(at index: Int, in lines: [String], path: String) -> DeclaredEdge? {
+        let text = lines[index].trimmingCharacters(in: .whitespaces)
+        guard text.hasPrefix("mitigates "), text.hasSuffix("{") else { return nil }
+        let ends = text
+            .dropFirst("mitigates ".count)
+            .dropLast()
+            .components(separatedBy: "->")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        guard ends.count == 2, ends[0].isEmpty == false, ends[1].isEmpty == false else {
+            return nil
+        }
+
+        var body: [String: String] = [:]
+        var inner = index + 1
+        while inner < lines.count {
+            let attribute = lines[inner].trimmingCharacters(in: .whitespaces)
+            if attribute.hasPrefix("}") { break }
+            let parts = attribute.split(separator: "=", maxSplits: 1)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2 {
+                body[parts[0]] = firstQuoted(in: parts[1])
+                    ?? parts[1].trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+            }
+            inner += 1
+        }
+
+        return DeclaredEdge(
+            id: "\(ends[0])->\(ends[1])",
+            protector: ends[0],
+            protected: ends[1],
+            path: path,
+            line: index,
+            body: body
+        )
+    }
+
+    /// Every architecture file of the system the open document belongs to, or
+    /// of every system when the document belongs to none.
+    private func architecturePaths() -> [String] {
+        guard let uri = documents.keys.first,
+              let root = Self.root(of: uri),
+              let layout = try? projects.discover(root: root) else { return [] }
+        let path = uri.hasPrefix("file://") ? String(uri.dropFirst("file://".count)) : uri
+        if let system = layout.systems.first(where: {
+            $0.architecturePaths.contains(path) || $0.controlsPaths.contains(path)
+        }) {
+            return system.architecturePaths
+        }
+        return layout.systems.flatMap(\.architecturePaths)
     }
 
     private func libraryPaths() -> [String] {

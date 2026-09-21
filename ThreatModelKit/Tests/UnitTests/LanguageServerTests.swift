@@ -961,6 +961,93 @@ struct LanguageServerTests {
         #expect(line as? Int == 3)
     }
 
+    // MARK: what implements a control
+
+    private let guarded = """
+    system "Payments" {
+      component "guard" {
+        technology = "aws-waf"
+      }
+
+      component "api" {
+        technology = "aws-ec2"
+        data       = "confidential"
+      }
+
+      mitigates guard -> api {
+        threats         = ["credential-theft"]
+        reduces_risk_by = 80
+        status          = "adopted"
+      }
+    }
+
+    """
+
+    private let answered = """
+    controls for "Payments" {
+      threat "credential-theft" on component "api" {
+        control "Rotate credentials regularly" {
+          status       = "implemented"
+          mitigated_by = "guard->api"
+
+        }
+      }
+    }
+
+    """
+
+    private let controlsUri = "file:///work/threatmodel/payments.controls"
+
+    private func aGuardedProject() -> LanguageServer {
+        project.put(guarded, at: "/work/threatmodel/payments.arch")
+        project.put(answered, at: "/work/threatmodel/payments.controls")
+        return opened(answered, at: controlsUri)
+    }
+
+    @Test func offersTheEdgesTheArchitectureDeclares() {
+        let labels = completions(aGuardedProject(), line: 4, character: 21, at: controlsUri)
+        #expect(labels == ["guard->api"])
+    }
+
+    @Test func saysWhatTheEdgeAControlNamesDoes() throws {
+        let answers = ask(aGuardedProject(), [
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "textDocument/hover",
+            "params": [
+                "textDocument": ["uri": controlsUri],
+                "position": ["line": 4, "character": 25]
+            ]
+        ])
+        let contents = try #require(
+            (result(answers) as? [String: Any])?["contents"] as? [String: Any]
+        )
+        let said = try #require(contents["value"] as? String)
+
+        #expect(said.contains("guard"))
+        #expect(said.contains("api"))
+        #expect(said.contains("credential-theft"))
+        #expect(said.contains("80"))
+        #expect(said.contains("adopted"))
+    }
+
+    @Test func goesToTheMitigatesBlockAControlNames() throws {
+        let answers = ask(aGuardedProject(), [
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "textDocument/definition",
+            "params": [
+                "textDocument": ["uri": controlsUri],
+                "position": ["line": 4, "character": 25]
+            ]
+        ])
+        let location = try #require(result(answers) as? [String: Any])
+
+        #expect(location["uri"] as? String == "file:///work/threatmodel/payments.arch")
+        let line = ((location["range"] as? [String: Any])?["start"] as? [String: Any])?["line"]
+        #expect(line as? Int == 10)
+    }
+
     // MARK: formatting
 
     @Test func formatsTheDocumentTheWayFormatDoes() throws {
