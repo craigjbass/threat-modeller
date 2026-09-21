@@ -11,10 +11,11 @@ public struct ResolvedControl: Equatable, Sendable {
     public let status: ControlStatus
     /// What the user wrote beside the answer, or nil.
     public let note: String?
-    /// The `mitigates` edge a person says implements this control, or nil.
-    /// A control that names one leaves `ControlCoverage` on both sides: the
-    /// edge's own reduction is what lowers the score.
-    public let mitigatedByEdgeId: String?
+    /// The `mitigates` edges a person says implement this control, and how
+    /// much each takes off. An implemented control that names one leaves
+    /// `ControlCoverage` on both sides: the mapping's own reduction is what
+    /// lowers the score.
+    public let mitigations: [ControlMitigation]
 
     public init(
         description: String,
@@ -23,7 +24,7 @@ public struct ResolvedControl: Equatable, Sendable {
         isImplemented: Bool,
         status: ControlStatus? = nil,
         note: String? = nil,
-        mitigatedByEdgeId: String? = nil
+        mitigations: [ControlMitigation] = []
     ) {
         self.description = description
         self.isTechnologySpecific = isTechnologySpecific
@@ -31,7 +32,7 @@ public struct ResolvedControl: Equatable, Sendable {
         self.isImplemented = isImplemented
         self.status = status ?? (isImplemented ? .implemented : .notImplemented)
         self.note = note
-        self.mitigatedByEdgeId = mitigatedByEdgeId
+        self.mitigations = mitigations
     }
 }
 
@@ -346,16 +347,18 @@ public struct ThreatResolver {
                     score: mitigation.score,
                     threatId: threat.id,
                     target: component.id,
+                    controls: controls,
                     edges: model.mitigatesEdges,
-                    statuses: [.adopted],
+                    statuses: [.live],
                     nameOf: { nameById[$0] ?? $0.value }
                 )
-                let byAssumed = ComponentMitigations.apply(
+                let byProposed = ComponentMitigations.apply(
                     score: mitigation.score,
                     threatId: threat.id,
                     target: component.id,
+                    controls: controls,
                     edges: model.mitigatesEdges,
-                    statuses: [.adopted, .assumed],
+                    statuses: [.live, .proposed],
                     nameOf: { nameById[$0] ?? $0.value }
                 )
                 let score = RiskScore(value: byComponents.score)
@@ -381,8 +384,8 @@ public struct ThreatResolver {
                         scoreBeforeControls: zoned.value,
                         mitigatedByComponents: byComponents.by,
                         severityDecision: chosen.decision,
-                        scoreIfAssumptionsHold: byAssumed.score,
-                        assumedMitigations: byAssumed.by.filter { $0.status == .assumed }
+                        scoreIfAssumptionsHold: byProposed.score,
+                        assumedMitigations: byProposed.by.filter { $0.status == .proposed }
                     )
                 )
             }
@@ -850,7 +853,7 @@ public struct ThreatResolver {
                 key: key,
                 isImplemented: model.controlStatuses[key]?.isRecorded == true,
                 status: model.controlStatuses[key] ?? .notImplemented,
-                mitigatedByEdgeId: model.controlMitigatedBy[key]
+                mitigations: model.controlMitigatedBy[key] ?? []
             )
         }
     }
@@ -867,7 +870,7 @@ public struct ThreatResolver {
                 key: key,
                 isImplemented: model.controlStatuses[key]?.isRecorded == true,
                 status: model.controlStatuses[key] ?? .notImplemented,
-                mitigatedByEdgeId: model.controlMitigatedBy[key]
+                mitigations: model.controlMitigatedBy[key] ?? []
             )
         }
     }

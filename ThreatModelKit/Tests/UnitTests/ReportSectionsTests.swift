@@ -64,8 +64,7 @@ struct ReportSectionsTests {
                 source: ComponentId("guard"),
                 target: ComponentId("store\(index)"),
                 threatIds: [ThreatId("misconfiguration")],
-                reducesRiskBy: reductions[index - 1],
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(label: "action-\(index)", text: "Do thing \(index)")
             )
         }

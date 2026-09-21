@@ -1,7 +1,7 @@
 /// The report's Assumptions section.
 ///
 /// A model that takes nothing on trust and assumes no mitigation writes no
-/// section, so a reader never meets an empty heading. An assumed `mitigates`
+/// section, so a reader never meets an empty heading. A proposed `mitigates`
 /// edge names no assumption, so the section lists assumptions and assumed
 /// edges as two separate parts rather than nesting one inside the other.
 public enum MarkdownAssumptions {
@@ -22,7 +22,7 @@ public enum MarkdownAssumptions {
 
         if assumedMitigations.isEmpty == false {
             if assumptions.isEmpty == false { lines.append("") }
-            lines.append("### Assumed mitigations")
+            lines.append("### Proposed mitigations")
             lines.append("")
             for mitigation in assumedMitigations {
                 lines.append(

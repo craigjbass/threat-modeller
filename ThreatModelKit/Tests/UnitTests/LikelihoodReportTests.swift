@@ -20,7 +20,8 @@ private func endpointLibrary(severityLabel: String = "critical") -> Library {
             SourceLibraryThreat(
                 id: "sip-bypass",
                 name: "SIP Bypass",
-                severityLabel: severityLabel
+                severityLabel: severityLabel,
+                controlDescriptions: ["Keep SIP on"]
             )
         ]
     )
@@ -161,24 +162,37 @@ struct LikelihoodReportTests {
                     source: ComponentId(protectorId),
                     target: ComponentId(protectedId),
                     threatIds: [ThreatId("endpoint-sip-bypass")],
-                    reducesRiskBy: 40,
-                    status: .assumed
+                    status: .proposed
                 )
+            ]
+            // An edge is worth what the control that names it states.
+            model.controlMitigatedBy = [
+                ControlIdentity.componentControl(
+                    componentId: ComponentId(protectedId),
+                    threatId: ThreatId("endpoint-sip-bypass"),
+                    description: "Keep SIP on",
+                    isTechnologySpecific: false
+                ): [
+                    ControlMitigation(
+                        edgeId: "\(protectorId)->\(protectedId)",
+                        reducesRiskBy: 40
+                    )
+                ]
             ]
         }
 
         let text = markdown()
         let lines = text.components(separatedBy: "\n")
-        #expect(text.contains("### Assumed mitigations"))
+        #expect(text.contains("### Proposed mitigations"))
         #expect(
             text.contains(
                 "- ClearanceKit \u{2192} Store, mitigates endpoint-sip-bypass, \u{2212}40%"
             )
         )
         // The edge is not repeated under the assumption: nothing about the
-        // edge appears before the "### Assumed mitigations" heading.
+        // edge appears before the "### Proposed mitigations" heading.
         let assumptionLine = try #require(lines.firstIndex { $0.hasPrefix("- mdm-push:") })
-        let headingLine = try #require(lines.firstIndex(of: "### Assumed mitigations"))
+        let headingLine = try #require(lines.firstIndex(of: "### Proposed mitigations"))
         #expect(assumptionLine < headingLine)
         #expect(lines[(assumptionLine + 1)..<headingLine].contains { $0.contains("ClearanceKit") } == false)
     }

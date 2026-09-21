@@ -92,14 +92,12 @@ struct ArchitectureLanguageTests {
           component "guard" { technology = "t" }
           component "store" { technology = "t" }
           mitigates guard -> store {
-            threats         = ["credential-theft"]
-            reduces_risk_by = 80
+            threats = ["credential-theft"]
           }
         }
         """).source)
         #expect(source.mitigates.first?.id == "guard->store")
         #expect(source.mitigates.first?.threatIds == ["credential-theft"])
-        #expect(source.mitigates.first?.reducesRiskBy == 80)
     }
 
     @Test func aMitigatesEdgeWithNoThreatsIsAnError() {
@@ -119,8 +117,7 @@ struct ArchitectureLanguageTests {
         system "S" {
           component "guard" { technology = "t" }
           mitigates guard -> store {
-            threats         = ["credential-theft"]
-            reduces_risk_by = 80
+            threats = ["credential-theft"]
           }
         }
         """)
@@ -152,8 +149,7 @@ struct ArchitectureLanguageTests {
           }
 
           mitigates guard -> store {
-            threats         = ["credential-theft"]
-            reduces_risk_by = 80
+            threats = ["credential-theft"]
           }
         }
 

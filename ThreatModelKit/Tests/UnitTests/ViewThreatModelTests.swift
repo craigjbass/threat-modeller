@@ -196,8 +196,7 @@ struct ViewThreatModelTests {
                         source: ComponentId("guard"),
                         target: ComponentId("store"),
                         threatIds: [ThreatId("credential-theft")],
-                        reducesRiskBy: 80,
-                        status: .assumed
+                        status: .proposed
                     )
                 ]
             )
@@ -207,8 +206,7 @@ struct ViewThreatModelTests {
         #expect(response.mitigations.first?.sourceComponentId == "guard")
         #expect(response.mitigations.first?.targetComponentId == "store")
         #expect(response.mitigations.first?.threatIds == ["credential-theft"])
-        #expect(response.mitigations.first?.reducesRiskBy == 80)
-        #expect(response.mitigations.first?.status == "assumed")
+        #expect(response.mitigations.first?.status == "proposed")
     }
 
     @Test func showsNeitherForAModelThatHoldsNone() {

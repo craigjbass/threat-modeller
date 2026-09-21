@@ -14,8 +14,7 @@ struct DocumentFormatVersionSixTests {
                 source: ComponentId("guard"),
                 target: ComponentId("store"),
                 threatIds: [ThreatId("credential-theft")],
-                reducesRiskBy: 60,
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(
                     label: "adopt-the-guard",
                     text: "Adopt the guard",
@@ -28,8 +27,7 @@ struct DocumentFormatVersionSixTests {
                 source: ComponentId("guard"),
                 target: ComponentId("queue"),
                 threatIds: [ThreatId("credential-theft")],
-                reducesRiskBy: 40,
-                status: .assumed
+                status: .proposed
             )
         ]
         return model
@@ -55,7 +53,6 @@ struct DocumentFormatVersionSixTests {
         #expect(back.mitigatesEdges[0].action?.blockedBy == "guard-not-deployed")
         #expect(back.mitigatesEdges[0].action?.sources == ["https://example.com/ticket/1"])
         #expect(back.mitigatesEdges[1].action == nil)
-        #expect(back.mitigatesEdges[1].reducesRiskBy == 40)
     }
 
     @Test func readsBackAnActionWithNoSources() throws {
@@ -65,8 +62,7 @@ struct DocumentFormatVersionSixTests {
                 source: ComponentId("guard"),
                 target: ComponentId("store"),
                 threatIds: [ThreatId("credential-theft")],
-                reducesRiskBy: 60,
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(label: "adopt-the-guard", text: "Adopt the guard")
             )
         ]
@@ -98,7 +94,6 @@ struct DocumentFormatVersionSixTests {
               "source" : "guard",
               "target" : "store",
               "threatIds" : [ "credential-theft" ],
-              "reducesRiskBy" : 60,
               "status" : "assumed"
             }
           ]
@@ -107,6 +102,5 @@ struct DocumentFormatVersionSixTests {
         let read = try ThreatModelCodec().decode(Data(text.utf8))
         #expect(read.mitigatesEdges.count == 1)
         #expect(read.mitigatesEdges[0].action == nil)
-        #expect(read.mitigatesEdges[0].reducesRiskBy == 60)
     }
 }

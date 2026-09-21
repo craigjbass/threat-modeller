@@ -3,7 +3,7 @@ public protocol SetMitigatesEdgeUseCase {
 }
 
 public struct SetMitigatesEdgeRequest: Equatable, Sendable {
-    /// What a team would do to adopt an assumed edge.
+    /// What a team would do to put a proposed edge in place.
     public struct Action: Equatable, Sendable {
         public let label: String
         public let text: String?
@@ -30,8 +30,7 @@ public struct SetMitigatesEdgeRequest: Equatable, Sendable {
     public let sourceComponentId: String
     public let targetComponentId: String
     public let threatIds: [String]
-    public let reducesRiskBy: Int
-    /// `adopted` or `assumed`.
+    /// `live` or `proposed`.
     public let status: String
     public let action: Action?
 
@@ -39,14 +38,12 @@ public struct SetMitigatesEdgeRequest: Equatable, Sendable {
         sourceComponentId: String,
         targetComponentId: String,
         threatIds: [String],
-        reducesRiskBy: Int,
         status: String,
         action: Action? = nil
     ) {
         self.sourceComponentId = sourceComponentId
         self.targetComponentId = targetComponentId
         self.threatIds = threatIds
-        self.reducesRiskBy = reducesRiskBy
         self.status = status
         self.action = action
     }
@@ -54,11 +51,10 @@ public struct SetMitigatesEdgeRequest: Equatable, Sendable {
 
 public enum SetMitigatesEdgeResponse: Equatable, Sendable {
     case recorded
-    /// The edge stands, and the action it named does not: only an assumed
+    /// The edge stands, and the action it named does not: only a proposed
     /// edge carries one.
     case recordedWithoutTheAction
     case noThreats
-    case reductionOutOfRange
     case unknownStatus
     case unknownComponent
     case selfEdge
@@ -68,13 +64,11 @@ public enum SetMitigatesEdgeResponse: Equatable, Sendable {
         case .recorded:
             message = nil
         case .recordedWithoutTheAction:
-            message = "An adopted edge carries no recommendation, so that one was dropped."
+            message = "A live edge carries no recommendation, so that one was dropped."
         case .noThreats:
             message = "A mitigates edge names the threats it lowers."
-        case .reductionOutOfRange:
-            message = "A risk reduction runs from 0 to 100."
         case .unknownStatus:
-            message = "A mitigates edge is \"adopted\" or \"assumed\"."
+            message = "A mitigates edge is \"live\" or \"proposed\"."
         case .unknownComponent:
             message = "That component is no longer on the model."
         case .selfEdge:
@@ -109,10 +103,7 @@ public struct SetMitigatesEdge: SetMitigatesEdgeUseCase {
             .map { $0.trimmingWhitespace() }
             .filter { $0.isEmpty == false }
         guard threats.isEmpty == false else { return .noThreats }
-        guard request.reducesRiskBy >= 0, request.reducesRiskBy <= 100 else {
-            return .reductionOutOfRange
-        }
-        guard let status = MitigationStatus(rawValue: request.status) else {
+        guard let status = ComponentStatus(rawValue: request.status) else {
             return .unknownStatus
         }
 
@@ -122,12 +113,11 @@ public struct SetMitigatesEdge: SetMitigatesEdgeUseCase {
                 return .unknownComponent
             }
 
-            let carried = status == .assumed ? request.action : nil
+            let carried = status == .proposed ? request.action : nil
             let written = MitigatesEdge(
                 source: source,
                 target: target,
                 threatIds: threats.map(ThreatId.init),
-                reducesRiskBy: request.reducesRiskBy,
                 status: status,
                 action: carried.map {
                     EdgeAction(

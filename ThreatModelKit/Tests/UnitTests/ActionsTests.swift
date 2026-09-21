@@ -11,8 +11,7 @@ struct ActionsTests {
             source: ComponentId(source),
             target: ComponentId(target),
             threatIds: [ThreatId("credential-theft")],
-            reducesRiskBy: 60,
-            status: .assumed,
+            status: .proposed,
             action: action
         )
     }

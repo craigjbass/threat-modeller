@@ -39,7 +39,7 @@ struct MitigatesPanel: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if let existing {
-                Text("\(existing.status.capitalized) \u{00B7} \(existing.reducesRiskBy)% on \(existing.threatIds.count)")
+                Text("\(existing.status.capitalized) \u{00B7} \(existing.threatIds.count) threats")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

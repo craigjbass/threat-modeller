@@ -1517,11 +1517,16 @@ final class ThreatModelSession {
         refresh()
     }
 
-    /// Records which `mitigates` edge implements one control. Nil takes the
-    /// mapping off. An adopted edge also records the control as implemented.
-    func setControlMitigatedBy(key: String, edgeId: String?) {
+    /// Records how much one `mitigates` edge takes off one control's threat.
+    /// Nil takes the mapping off. A live edge also records the control as
+    /// implemented.
+    func setControlMitigatedBy(key: String, edgeId: String, reducesRiskBy: Int?) {
         useCases.setControlMitigatedBy().execute(
-            SetControlMitigatedByRequest(controlKey: key, edgeId: edgeId)
+            SetControlMitigatedByRequest(
+                controlKey: key,
+                edgeId: edgeId,
+                reducesRiskBy: reducesRiskBy
+            )
         ).describe(into: &errorMessage)
         refresh()
     }
@@ -1952,7 +1957,6 @@ final class ThreatModelSession {
         from sourceComponentId: String,
         to targetComponentId: String,
         threatIds: [String],
-        reducesRiskBy: Int,
         status: String,
         actionLabel: String? = nil,
         actionText: String? = nil,
@@ -1975,7 +1979,6 @@ final class ThreatModelSession {
                     sourceComponentId: sourceComponentId,
                     targetComponentId: targetComponentId,
                     threatIds: threatIds,
-                    reducesRiskBy: reducesRiskBy,
                     status: status,
                     action: action
                 )

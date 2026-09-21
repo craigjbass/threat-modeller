@@ -20,7 +20,7 @@ struct DocumentFormatVersionElevenTests {
 
         let read = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(read["formatVersion"] as? Int == ThreatModelCodec.formatVersion)
-        #expect(ThreatModelCodec.formatVersion == 11)
+        #expect(ThreatModelCodec.formatVersion == 12)
     }
 
     @Test func readsBackWhatWasWrittenAboutEachControl() throws {

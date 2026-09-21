@@ -213,9 +213,20 @@ struct ReportingAThreatModelTests {
                 MitigatesEdge(
                     source: ComponentId(guardId),
                     target: ComponentId(serverId),
-                    threatIds: [ThreatId("credential-theft")],
-                    reducesRiskBy: 50
+                    threatIds: [ThreatId("credential-theft")]
                 )
+            ]
+            // The edge lowers a score through the control a person says it
+            // implements, and that control states how much it takes off.
+            let guarded = ControlIdentity.componentControl(
+                componentId: ComponentId(serverId),
+                threatId: ThreatId("credential-theft"),
+                description: "Enforce IMDSv2 to block SSRF-based credential theft",
+                isTechnologySpecific: true
+            )
+            model.controlStatuses[guarded] = .implemented
+            model.controlMitigatedBy[guarded] = [
+                ControlMitigation(edgeId: "\(guardId)->\(serverId)", reducesRiskBy: 50)
             ]
             model.compensatingControls[
                 ThreatKey(threatId: "dos-attack", sourceId: "component:\(serverId)")

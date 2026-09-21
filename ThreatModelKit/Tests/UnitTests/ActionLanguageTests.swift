@@ -21,8 +21,7 @@ struct ActionLanguageTests {
       }
       mitigates guard -> store {
         threats         = ["credential-theft"]
-        reduces_risk_by = 60
-        status          = "assumed"
+        status          = "proposed"
 
         recommendation "adopt-the-guard" {
           text       = "Adopt the guard"
@@ -89,7 +88,6 @@ struct ActionLanguageTests {
           component "guard" { technology = "aws-ec2" }
           mitigates guard -> store {
             threats         = ["credential-theft"]
-            reduces_risk_by = 60
           }
         }
         """)
@@ -98,21 +96,20 @@ struct ActionLanguageTests {
         #expect(edge.action == nil)
     }
 
-    @Test func refusesAnActionOnAnAdoptedEdge() throws {
+    @Test func refusesAnActionOnALiveEdge() throws {
         let read = read(system.replacingOccurrences(
-            of: "status          = \"assumed\"",
-            with: "status          = \"adopted\""
+            of: "status          = \"proposed\"",
+            with: "status          = \"live\""
         ))
 
         #expect(
             read.diagnostics.contains {
-                $0.message == "the mitigates edge \"guard->store\" is adopted, so it carries no recommendation"
+                $0.message == "the mitigates edge \"guard->store\" is live, so it carries no recommendation"
             }
         )
         // The edge stands; only its action drops.
         let edge = try #require(read.source?.mitigates.first)
         #expect(edge.action == nil)
-        #expect(edge.reducesRiskBy == 60)
     }
 
     @Test func refusesTwoEdgesStatingOneActionsTextAndKeepsTheFirst() throws {
@@ -123,14 +120,12 @@ struct ActionLanguageTests {
           component "guard" { technology = "aws-ec2" }
           mitigates guard -> store {
             threats         = ["credential-theft"]
-            reduces_risk_by = 60
-            status          = "assumed"
+            status          = "proposed"
             recommendation "adopt" { text = "Adopt the guard" }
           }
           mitigates guard -> queue {
             threats         = ["credential-theft"]
-            reduces_risk_by = 40
-            status          = "assumed"
+            status          = "proposed"
             recommendation "adopt" { text = "Adopt it again" }
           }
         }
@@ -190,14 +185,12 @@ struct ActionLanguageTests {
           component "guard" { technology = "aws-ec2" }
           mitigates guard -> store {
             threats         = ["credential-theft"]
-            reduces_risk_by = 60
-            status          = "assumed"
+            status          = "proposed"
             recommendation "adopt" { text = "Adopt the guard" }
           }
           mitigates guard -> queue {
             threats         = ["credential-theft"]
-            reduces_risk_by = 40
-            status          = "assumed"
+            status          = "proposed"
             recommendation "adopt" {}
           }
         }
@@ -257,7 +250,6 @@ struct ActionLanguageTests {
           component "guard" { technology = "aws-ec2" }
           mitigates guard -> store {
             threats         = ["credential-theft"]
-            reduces_risk_by = 60
           }
         }
         """).source)

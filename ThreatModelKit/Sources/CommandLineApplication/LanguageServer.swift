@@ -277,7 +277,7 @@ public final class LanguageServer: @unchecked Sendable {
                     $0.id,
                     kind: 6,
                     detail: "\($0.protector) lowers \($0.body["threats"] ?? "")"
-                        + " on \($0.protected) by \($0.body["reduces_risk_by"] ?? "0")%"
+                        + " on \($0.protected)"
                 )
             }
         } else if before.contains("technology") {
@@ -422,11 +422,11 @@ public final class LanguageServer: @unchecked Sendable {
         }
 
         if let edge = declaredEdges().first(where: { $0.id == word }) {
-            let status = edge.body["status"] ?? MitigationStatus.adopted.rawValue
+            let status = edge.body["status"] ?? ComponentStatus.default.rawValue
             return Self.said(
                 "**\(edge.protector) \u{2192} \(edge.protected)** (`\(edge.id)`)\n\nLowers "
-                    + "\(edge.body["threats"] ?? "no threats") by "
-                    + "\(edge.body["reduces_risk_by"] ?? "0")%. This edge is \(status)."
+                    + "\(edge.body["threats"] ?? "no threats"). This edge is \(status). "
+                    + "How much it takes off is what each control that names it states."
             )
         }
 

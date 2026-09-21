@@ -976,8 +976,7 @@ struct LanguageServerTests {
 
       mitigates guard -> api {
         threats         = ["credential-theft"]
-        reduces_risk_by = 80
-        status          = "adopted"
+        status          = "live"
       }
     }
 
@@ -1027,8 +1026,8 @@ struct LanguageServerTests {
         #expect(said.contains("guard"))
         #expect(said.contains("api"))
         #expect(said.contains("credential-theft"))
-        #expect(said.contains("80"))
-        #expect(said.contains("adopted"))
+        #expect(said.contains("live"))
+        #expect(said.contains("each control that names it"))
     }
 
     @Test func goesToTheMitigatesBlockAControlNames() throws {

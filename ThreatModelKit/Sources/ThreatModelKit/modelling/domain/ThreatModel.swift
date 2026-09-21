@@ -91,10 +91,10 @@ public struct ThreatModel: Equatable, Sendable {
     /// What a person wrote about each control, by control key. Sparse: a
     /// control with no note is not in here.
     public var controlNotes: [ControlKey: String]
-    /// The `mitigates` edge a person says implements each control, by control
-    /// key. The value is the edge's identifier, `<protector>-><protected>`.
-    /// Sparse: a control nobody has mapped to an edge is not in here.
-    public var controlMitigatedBy: [ControlKey: String]
+    /// The `mitigates` edges a person says implement each control, and how
+    /// much each one takes off, by control key. Sparse: a control nobody has
+    /// mapped to an edge is not in here.
+    public var controlMitigatedBy: [ControlKey: [ControlMitigation]]
     /// The risk level at and above which an implemented control must state
     /// evidence, or nil when the project states no such rule.
     public var requiresEvidenceAbove: RiskLevel?
@@ -155,7 +155,7 @@ public struct ThreatModel: Equatable, Sendable {
         policy: PolicySource? = nil,
         controlProofs: [ControlKey: ControlProof] = [:],
         controlNotes: [ControlKey: String] = [:],
-        controlMitigatedBy: [ControlKey: String] = [:],
+        controlMitigatedBy: [ControlKey: [ControlMitigation]] = [:],
         requiresEvidenceAbove: RiskLevel? = nil,
         acceptedRisks: [ThreatKey: [RiskAcceptance]] = [:],
         plannedWork: [ThreatKey: [PlannedWork]] = [:],

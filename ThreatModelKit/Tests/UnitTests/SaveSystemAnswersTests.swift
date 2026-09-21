@@ -85,8 +85,7 @@ struct SaveSystemAnswersTests {
 
       mitigates guard -> c1 {
         threats         = ["credential-theft"]
-        reduces_risk_by = 80
-        status          = "assumed"
+        status          = "proposed"
 
         recommendation "Turn the guard on" {
           text = "Turn the guard on in every region."

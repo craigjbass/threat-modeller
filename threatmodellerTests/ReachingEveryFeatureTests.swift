@@ -56,13 +56,11 @@ struct ReachingEveryFeatureTests {
             from: guardId,
             to: storeId,
             threatIds: ["credential-theft"],
-            reducesRiskBy: 80,
-            status: "assumed"
+            status: "proposed"
         )
 
         #expect(session.canvas.mitigations.count == 1)
-        #expect(session.canvas.mitigations.first?.reducesRiskBy == 80)
-        #expect(session.canvas.mitigations.first?.status == "assumed")
+        #expect(session.canvas.mitigations.first?.status == "proposed")
         #expect(session.errorMessage == nil)
     }
 
@@ -79,8 +77,7 @@ struct ReachingEveryFeatureTests {
             from: guardId,
             to: storeId,
             threatIds: ["credential-theft"],
-            reducesRiskBy: 80,
-            status: "assumed",
+            status: "proposed",
             actionLabel: "adopt-the-guard",
             actionText: "Adopt the guard",
             actionNote: "The platform team owns it.",
@@ -105,8 +102,7 @@ struct ReachingEveryFeatureTests {
             from: try #require(ids.first),
             to: try #require(ids.last),
             threatIds: [],
-            reducesRiskBy: 80,
-            status: "assumed"
+            status: "proposed"
         )
 
         #expect(session.canvas.mitigations.isEmpty)
@@ -118,7 +114,10 @@ struct ReachingEveryFeatureTests {
         let ids = session.canvas.components.map(\.id)
         let (guardId, storeId) = (try #require(ids.first), try #require(ids.last))
         session.setMitigatesEdge(
-            from: guardId, to: storeId, threatIds: ["t"], reducesRiskBy: 10, status: "adopted"
+            from: guardId,
+            to: storeId,
+            threatIds: ["credential-theft"],
+            status: "proposed"
         )
 
         session.removeMitigatesEdge(from: guardId, to: storeId)

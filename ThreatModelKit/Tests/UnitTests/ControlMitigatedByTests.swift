@@ -8,12 +8,16 @@ struct ControlMitigatedByTests {
     private let app = TestDependencies()
     private let controls = HclControlsSource()
 
-    /// A guard that protects a store, so the store's credential theft threat
-    /// has both an edge and a pair of controls.
-    private func architecture(status: String = "adopted") -> String {
+    /// A guard and a vault that both protect a store, so the store's
+    /// credential theft threat has two edges and two controls.
+    private func architecture(status: String = "live") -> String {
         """
         system "Payments" {
           component "guard" {
+            technology = "aws-waf"
+          }
+
+          component "vault" {
             technology = "aws-waf"
           }
 
@@ -23,22 +27,25 @@ struct ControlMitigatedByTests {
           }
 
           mitigates guard -> store {
-            threats         = ["credential-theft"]
-            reduces_risk_by = 80
-            status          = "\(status)"
+            threats = ["credential-theft"]
+            status  = "\(status)"
+          }
+
+          mitigates vault -> store {
+            threats = ["credential-theft"]
           }
         }
 
         """
     }
 
-    private func drawTheModel(status: String = "adopted") {
+    private func drawTheModel(status: String = "live") {
         _ = app.importArchitecture().execute(
             ImportArchitectureRequest(text: architecture(status: status))
         )
     }
 
-    private func compiled(_ status: String = "adopted") -> String {
+    private func compiled(_ status: String = "live") -> String {
         guard case .compiled(let text, _, _, _, _, _, _) = app.compileControls().execute(
             CompileControlsRequest(architectureText: architecture(status: status), controlsText: nil)
         ) else {
@@ -46,24 +53,6 @@ struct ControlMitigatedByTests {
             return ""
         }
         return text
-    }
-
-    /// Writes `mitigated_by` onto the first control of the store's credential
-    /// theft answer, and leaves every other answer as it was.
-    private func mapped(
-        _ text: String,
-        to edgeId: String,
-        status: ControlStatus = .implemented
-    ) throws -> String {
-        try rewrite(text) { answer in
-            [
-                SourceControlAnswer(
-                    description: answer.controls[0].description,
-                    status: status,
-                    mitigatedBy: edgeId
-                )
-            ] + answer.controls.dropFirst()
-        }
     }
 
     /// Rewrites the controls of the store's credential theft answer.
@@ -97,29 +86,21 @@ struct ControlMitigatedByTests {
         )
     }
 
-    /// Answers the first control without naming an edge.
-    private func mappedNothing(_ text: String, status: ControlStatus) throws -> String {
-        try rewrite(text) { answer in
-            [
-                SourceControlAnswer(description: answer.controls[0].description, status: status)
-            ] + answer.controls.dropFirst()
-        }
-    }
-
-    /// Maps the first control to the edge and implements the second.
-    private func both(_ text: String, mapping edgeId: String) throws -> String {
+    /// Maps the first control to one edge.
+    private func mapped(
+        _ text: String,
+        to edgeId: String,
+        by percent: Int = 80,
+        status: ControlStatus = .implemented
+    ) throws -> String {
         try rewrite(text) { answer in
             [
                 SourceControlAnswer(
                     description: answer.controls[0].description,
-                    status: .implemented,
-                    mitigatedBy: edgeId
-                ),
-                SourceControlAnswer(
-                    description: answer.controls[1].description,
-                    status: .implemented
+                    status: status,
+                    mitigations: [ControlMitigation(edgeId: edgeId, reducesRiskBy: percent)]
                 )
-            ] + answer.controls.dropFirst(2)
+            ] + answer.controls.dropFirst()
         }
     }
 
@@ -135,50 +116,152 @@ struct ControlMitigatedByTests {
         )
     }
 
+    private func firstControl() throws -> AssessedControl {
+        try #require(credentialTheft().controls.first)
+    }
+
     // MARK: the file
 
-    @Test func writesTheEdgeAControlNamesAndReadsItBack() throws {
+    @Test func writesAMitigatedByBlockAndReadsItBack() throws {
         drawTheModel()
         let text = try mapped(compiled(), to: "guard->store")
 
-        #expect(text.contains("mitigated_by = \"guard->store\""))
+        #expect(text.contains("mitigated_by \"guard->store\" {"))
+        #expect(text.contains("reduces_risk_by = 80"))
 
         let read = try #require(controls.read(text).source)
         let answer = try #require(
             read.answers.first { $0.threatId == "credential-theft" && $0.sourceId == "store" }
         )
-        #expect(answer.controls[0].mitigatedBy == "guard->store")
+        #expect(
+            answer.controls[0].mitigations
+                == [ControlMitigation(edgeId: "guard->store", reducesRiskBy: 80)]
+        )
     }
 
-    @Test func refusesAnEdgeNameWithNoArrowInIt() throws {
+    @Test func readsEveryEdgeOneControlNames() throws {
         let read = controls.read("""
         controls for "Payments" {
           threat "credential-theft" on component "store" {
             control "Rotate credentials regularly" {
-              status       = "implemented"
-              mitigated_by = "guard"
+              status = "implemented"
+
+              mitigated_by "guard->store" {
+                reduces_risk_by = 80
+              }
+
+              mitigated_by "vault->store" {
+                reduces_risk_by = 40
+              }
+            }
+          }
+        }
+        """)
+        let source = try #require(read.source)
+
+        #expect(source.answers[0].controls[0].mitigations.map(\.edgeId)
+            == ["guard->store", "vault->store"])
+        #expect(source.answers[0].controls[0].mitigations.map(\.reducesRiskBy) == [80, 40])
+    }
+
+    @Test func refusesAnEdgeNameWithNoArrowInIt() {
+        let read = controls.read("""
+        controls for "Payments" {
+          threat "credential-theft" on component "store" {
+            control "Rotate credentials regularly" {
+              mitigated_by "guard" {
+                reduces_risk_by = 80
+              }
             }
           }
         }
         """)
         #expect(read.diagnostics.contains {
-            $0.message == "mitigated_by is \"guard\"; a mitigates edge is named \"<protector>-><protected>\""
+            $0.message == "mitigated_by names \"guard\"; a mitigates edge is named "
+                + "\"<protector>-><protected>\""
         })
     }
 
-    @Test func offersMitigatedByAsAnAttributeOfAControl() {
-        let block = LanguageBlockId.controlsControl.block
-        #expect(block.attributes.contains("mitigated_by"))
+    @Test func refusesAMappingThatSaysNothingAboutHowMuch() {
+        let read = controls.read("""
+        controls for "Payments" {
+          threat "credential-theft" on component "store" {
+            control "Rotate credentials regularly" {
+              mitigated_by "guard->store" {
+              }
+            }
+          }
+        }
+        """)
+        #expect(read.diagnostics.contains {
+            $0.message == "the mitigated_by block \"guard->store\" has no reduces_risk_by"
+        })
+    }
+
+    @Test func refusesAReductionOutsideItsRange() {
+        let read = controls.read("""
+        controls for "Payments" {
+          threat "credential-theft" on component "store" {
+            control "Rotate credentials regularly" {
+              mitigated_by "guard->store" {
+                reduces_risk_by = 120
+              }
+            }
+          }
+        }
+        """)
+        #expect(read.diagnostics.contains {
+            $0.message == "reduces_risk_by is 120; it runs from 0 to 100"
+        })
+    }
+
+    @Test func statesWhatAMitigatedByBlockHolds() {
         #expect(
-            LanguageBlockId.controlsControl.unknownAttribute("mitigates")
-                == "a control holds status, note, mitigated_by, evidence, reference and "
-                    + "verified_on, not \"mitigates\""
+            LanguageBlockId.controlsMitigatedBy.unknownAttribute("percent")
+                == "a mitigated_by block holds reduces_risk_by, not \"percent\""
         )
+    }
+
+    // MARK: what the architecture may no longer state
+
+    @Test func refusesAnEdgeThatStatesHowMuchItTakesOff() {
+        let read = HclArchitectureSource().read("""
+        system "Payments" {
+          component "guard" { technology = "aws-waf" }
+          component "store" { technology = "aws-ec2" }
+
+          mitigates guard -> store {
+            threats         = ["credential-theft"]
+            reduces_risk_by = 80
+          }
+        }
+        """)
+        #expect(read.diagnostics.contains {
+            $0.message == "a mitigates edge holds threats, status and recommendation, "
+                + "not \"reduces_risk_by\""
+        })
+    }
+
+    @Test func readsTheStatusWordsAComponentReads() {
+        let read = HclArchitectureSource().read("""
+        system "Payments" {
+          component "guard" { technology = "aws-waf" }
+          component "store" { technology = "aws-ec2" }
+
+          mitigates guard -> store {
+            threats = ["credential-theft"]
+            status  = "adopted"
+          }
+        }
+        """)
+        #expect(read.diagnostics.contains {
+            $0.message == "status is \"adopted\"; a mitigates edge is \"live\" or \"proposed\""
+        })
     }
 
     // MARK: what the model takes
 
-    @Test func takesTheMappingAnAdoptedEdgeCarries() throws {
+    @Test func takesTheMappingALiveEdgeCarries() throws {
         drawTheModel()
         let text = try mapped(compiled(), to: "guard->store")
 
@@ -188,14 +271,15 @@ struct ControlMitigatedByTests {
             return
         }
         #expect(warnings.isEmpty)
-
-        let threat = try credentialTheft()
-        #expect(threat.controls.first { $0.mitigatedByEdgeId == "guard->store" } != nil)
+        #expect(
+            try firstControl().mitigations
+                == [ControlMitigation(edgeId: "guard->store", reducesRiskBy: 80)]
+        )
     }
 
     @Test func warnsAboutAnEdgeTheSystemDoesNotDeclare() throws {
         drawTheModel()
-        let text = try mapped(compiled(), to: "vault->store")
+        let text = try mapped(compiled(), to: "nothing->store")
 
         let response = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
         guard case .applied(_, let warnings) = response else {
@@ -203,76 +287,17 @@ struct ControlMitigatedByTests {
             return
         }
         #expect(warnings.contains {
-            $0.message.contains("names the mitigates edge \"vault->store\", which this system does not declare")
-        })
-
-        let threat = try credentialTheft()
-        #expect(threat.controls.allSatisfy { $0.mitigatedByEdgeId == nil })
-        #expect(threat.controls.contains { $0.isImplemented })
-    }
-
-    @Test func warnsAboutAnEdgeThatAnswersAnotherThreat() throws {
-        _ = app.importArchitecture().execute(ImportArchitectureRequest(text: """
-        system "Payments" {
-          component "guard" {
-            technology = "aws-waf"
-          }
-
-          component "store" {
-            technology = "aws-ec2"
-            data       = "confidential"
-          }
-
-          mitigates guard -> store {
-            threats         = ["dos-attack"]
-            reduces_risk_by = 80
-          }
-        }
-
-        """))
-        guard case .compiled(let compiledText, _, _, _, _, _, _) = app.compileControls().execute(
-            CompileControlsRequest(
-                architectureText: """
-                system "Payments" {
-                  component "guard" {
-                    technology = "aws-waf"
-                  }
-
-                  component "store" {
-                    technology = "aws-ec2"
-                    data       = "confidential"
-                  }
-
-                  mitigates guard -> store {
-                    threats         = ["dos-attack"]
-                    reduces_risk_by = 80
-                  }
-                }
-
-                """,
-                controlsText: nil
+            $0.message.contains(
+                "names the mitigates edge \"nothing->store\", which this system does not declare"
             )
-        ) else {
-            Issue.record("the controls did not compile")
-            return
-        }
-        let text = try mapped(compiledText, to: "guard->store")
-
-        let response = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
-        guard case .applied(_, let warnings) = response else {
-            Issue.record("expected the answers to be applied, got \(response)")
-            return
-        }
-        #expect(warnings.contains {
-            $0.message == "the mitigates edge \"guard->store\" does not answer \"credential-theft\" "
-                + "on component \"store\", so the mapping is not applied"
         })
-        #expect(try credentialTheft().controls.allSatisfy { $0.mitigatedByEdgeId == nil })
+        #expect(try firstControl().mitigations.isEmpty)
+        #expect(try firstControl().isImplemented)
     }
 
-    @Test func refusesToImplementAControlAnAssumedEdgeNames() throws {
-        drawTheModel(status: "assumed")
-        let text = try mapped(compiled("assumed"), to: "guard->store")
+    @Test func refusesToImplementAControlAProposedEdgeNames() throws {
+        drawTheModel(status: "proposed")
+        let text = try mapped(compiled("proposed"), to: "guard->store")
 
         let response = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
         guard case .applied(_, let warnings) = response else {
@@ -280,9 +305,10 @@ struct ControlMitigatedByTests {
             return
         }
         #expect(warnings.contains {
-            $0.message.contains("the mitigates edge \"guard->store\" is assumed")
+            $0.message.contains("the mitigates edge \"guard->store\" is proposed")
         })
-        #expect(try credentialTheft().controls.allSatisfy { $0.isImplemented == false })
+        #expect(try firstControl().isImplemented == false)
+        #expect(try firstControl().mitigations.isEmpty == false)
     }
 
     @Test func dropsAMappingWhoseEdgeTheArchitectureNoLongerDeclares() throws {
@@ -290,7 +316,6 @@ struct ControlMitigatedByTests {
         let text = try mapped(compiled(), to: "guard->store")
         _ = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
 
-        // The same file, against an architecture with no edge at all.
         _ = app.importArchitecture().execute(ImportArchitectureRequest(text: """
         system "Payments" {
           component "guard" {
@@ -306,21 +331,28 @@ struct ControlMitigatedByTests {
         """))
         _ = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
 
-        let threat = try credentialTheft()
-        #expect(threat.controls.allSatisfy { $0.mitigatedByEdgeId == nil })
-        #expect(threat.controls.contains { $0.isImplemented })
+        #expect(try firstControl().mitigations.isEmpty)
+        #expect(try firstControl().isImplemented)
     }
 
     // MARK: the score and the open count
 
-    @Test func takesAMappedControlOutOfTheShareOnBothSides() {
+    @Test func takesAnImplementedMappedControlOutOfTheShareOnBothSides() {
         let mapped = ResolvedControl(
             description: "Enforce IMDSv2",
             isTechnologySpecific: true,
             key: ControlKey("a"),
             isImplemented: true,
             status: .implemented,
-            mitigatedByEdgeId: "guard->store"
+            mitigations: [ControlMitigation(edgeId: "guard->store", reducesRiskBy: 80)]
+        )
+        let unimplemented = ResolvedControl(
+            description: "Enforce IMDSv2",
+            isTechnologySpecific: true,
+            key: ControlKey("a"),
+            isImplemented: false,
+            status: .notImplemented,
+            mitigations: [ControlMitigation(edgeId: "guard->store", reducesRiskBy: 80)]
         )
         let open = ResolvedControl(
             description: "Use IAM roles",
@@ -329,68 +361,71 @@ struct ControlMitigatedByTests {
             isImplemented: false,
             status: .notImplemented
         )
-        let ticked = ResolvedControl(
-            description: "Use IAM roles",
-            isTechnologySpecific: true,
-            key: ControlKey("b"),
-            isImplemented: true,
-            status: .implemented
-        )
 
-        // The mapped control counts on neither side, so one open control is
-        // the whole divisor and nothing is implemented.
         #expect(ControlCoverage.coverage(of: [mapped, open]) == 0)
-        // The same pair without the mapping gives the mapped control its
-        // share, which is the double count this rule takes out.
-        #expect(
-            ControlCoverage.coverage(of: [
-                ResolvedControl(
-                    description: "Enforce IMDSv2",
-                    isTechnologySpecific: true,
-                    key: ControlKey("a"),
-                    isImplemented: true,
-                    status: .implemented
-                ),
-                open
-            ]) == 0.5
-        )
-        // A mapped control leaves the divisor, so the one control a person
-        // ticked is the whole share.
-        #expect(ControlCoverage.coverage(of: [mapped, ticked]) == 1)
+        // A mapping nobody has put in place is work still undone, so it stays
+        // in the divisor.
+        #expect(ControlCoverage.coverage(of: [unimplemented, open]) == 0)
+        #expect(ControlCoverage.coverage(of: [unimplemented]) == 0)
     }
 
-    @Test func scoresAThreatWhoseControlsAreMappedAndTicked() throws {
+    @Test func lowersTheScoreByTheStrongestMappingAndNotTheSum() throws {
         drawTheModel()
-        #expect(try credentialTheft().riskScore == 2)
+        let unanswered = try credentialTheft().riskScore
 
-        let text = try both(compiled(), mapping: "guard->store")
+        let text = try rewrite(compiled()) { answer in
+            [
+                SourceControlAnswer(
+                    description: answer.controls[0].description,
+                    status: .implemented,
+                    mitigations: [
+                        ControlMitigation(edgeId: "guard->store", reducesRiskBy: 80),
+                        ControlMitigation(edgeId: "vault->store", reducesRiskBy: 40)
+                    ]
+                )
+            ] + answer.controls.dropFirst()
+        }
         _ = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
 
-        // One control mapped and one ticked: the share is one of one, so the
-        // controls take the whole cap and the edge takes its 80% after them.
         let threat = try credentialTheft()
-        #expect(threat.inherentScore == 12)
-        #expect(threat.riskScore == 1)
+        #expect(threat.inherentScore == unanswered)
+        #expect(threat.riskScore == 2)
+        #expect(threat.mitigatedByComponentReductions == [80, 40])
+    }
+
+    @Test func lowersNoScoreWhileNobodyNamesTheEdge() throws {
+        drawTheModel()
+        let threat = try credentialTheft()
+
+        #expect(threat.riskScore == threat.inherentScore)
+        #expect(threat.mitigatedByComponentLabels.isEmpty)
     }
 
     @Test func takesTheThreatOutOfTheOpenCountOnTheElement() throws {
         drawTheModel()
-        let open = ElementRiskRollup.byElement(threats(), levelOrder: [])
-        #expect(open["component:store"]?.openCount ?? 0 > 0)
+        #expect(ElementRiskRollup.isOpen(try credentialTheft()))
 
         let text = try mapped(compiled(), to: "guard->store")
         _ = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
 
-        let threat = try credentialTheft()
-        #expect(ElementRiskRollup.isOpen(threat) == false)
+        #expect(ElementRiskRollup.isOpen(try credentialTheft()) == false)
     }
 
-    @Test func leavesTheThreatOpenWhileTheEdgeIsAssumed() throws {
-        drawTheModel(status: "assumed")
-        let text = try mapped(compiled("assumed"), to: "guard->store")
+    @Test func leavesTheThreatOpenWhileTheEdgeIsProposed() throws {
+        drawTheModel(status: "proposed")
+        let text = try mapped(compiled("proposed"), to: "guard->store")
         _ = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
 
         #expect(ElementRiskRollup.isOpen(try credentialTheft()))
+    }
+
+    @Test func statesTheScoreAProposedEdgeWouldReach() throws {
+        drawTheModel(status: "proposed")
+        let text = try mapped(compiled("proposed"), to: "guard->store")
+        _ = app.applyControlAnswers().execute(ApplyControlAnswersRequest(text: text))
+
+        let threat = try credentialTheft()
+        #expect(threat.scoreIfAssumptionsHold < threat.riskScore)
     }
 
     // MARK: the window's writer
@@ -398,58 +433,122 @@ struct ControlMitigatedByTests {
     @Test func offersEveryEdgeThatAnswersTheThreatOnTheElement() throws {
         drawTheModel()
         let threat = try credentialTheft()
-        #expect(threat.mitigatesEdgeChoices.map(\.id) == ["guard->store"])
-        #expect(threat.mitigatesEdgeChoices.first?.label == "WAF (80%)")
+
+        #expect(threat.mitigatesEdgeChoices.map(\.id).sorted()
+            == ["guard->store", "vault->store"])
+        #expect(threat.mitigatesEdgeChoices.first { $0.id == "guard->store" }?.label == "WAF")
     }
 
-    @Test func recordsTheControlAsImplementedWhenAPersonPicksAnAdoptedEdge() throws {
+    @Test func recordsTheControlAsImplementedWhenAPersonNamesALiveEdge() throws {
         drawTheModel()
-        let key = try #require(credentialTheft().controls.first?.key)
-
-        let response = app.setControlMitigatedBy().execute(
-            SetControlMitigatedByRequest(controlKey: key, edgeId: "guard->store")
-        )
-        #expect(response == .recorded)
-
-        let control = try #require(credentialTheft().controls.first { $0.key == key })
-        #expect(control.mitigatedByEdgeId == "guard->store")
-        #expect(control.isImplemented)
-    }
-
-    @Test func takesTheMappingOffAgain() throws {
-        drawTheModel()
-        let key = try #require(credentialTheft().controls.first?.key)
-        _ = app.setControlMitigatedBy().execute(
-            SetControlMitigatedByRequest(controlKey: key, edgeId: "guard->store")
-        )
+        let key = try firstControl().key
 
         #expect(
             app.setControlMitigatedBy().execute(
-                SetControlMitigatedByRequest(controlKey: key, edgeId: nil)
+                SetControlMitigatedByRequest(
+                    controlKey: key,
+                    edgeId: "guard->store",
+                    reducesRiskBy: 80
+                )
             ) == .recorded
         )
+
         let control = try #require(credentialTheft().controls.first { $0.key == key })
-        #expect(control.mitigatedByEdgeId == nil)
+        #expect(control.mitigations == [ControlMitigation(edgeId: "guard->store", reducesRiskBy: 80)])
+        #expect(control.isImplemented)
+    }
+
+    @Test func holdsEveryEdgeAPersonNames() throws {
+        drawTheModel()
+        let key = try firstControl().key
+
+        _ = app.setControlMitigatedBy().execute(
+            SetControlMitigatedByRequest(controlKey: key, edgeId: "guard->store", reducesRiskBy: 80)
+        )
+        _ = app.setControlMitigatedBy().execute(
+            SetControlMitigatedByRequest(controlKey: key, edgeId: "vault->store", reducesRiskBy: 40)
+        )
+
+        let control = try #require(credentialTheft().controls.first { $0.key == key })
+        #expect(control.mitigations.map(\.edgeId) == ["guard->store", "vault->store"])
+    }
+
+    @Test func changesHowMuchOneEdgeTakesOff() throws {
+        drawTheModel()
+        let key = try firstControl().key
+        _ = app.setControlMitigatedBy().execute(
+            SetControlMitigatedByRequest(controlKey: key, edgeId: "guard->store", reducesRiskBy: 80)
+        )
+
+        _ = app.setControlMitigatedBy().execute(
+            SetControlMitigatedByRequest(controlKey: key, edgeId: "guard->store", reducesRiskBy: 20)
+        )
+
+        let control = try #require(credentialTheft().controls.first { $0.key == key })
+        #expect(control.mitigations == [ControlMitigation(edgeId: "guard->store", reducesRiskBy: 20)])
+    }
+
+    @Test func takesOneMappingOffAndKeepsTheOther() throws {
+        drawTheModel()
+        let key = try firstControl().key
+        _ = app.setControlMitigatedBy().execute(
+            SetControlMitigatedByRequest(controlKey: key, edgeId: "guard->store", reducesRiskBy: 80)
+        )
+        _ = app.setControlMitigatedBy().execute(
+            SetControlMitigatedByRequest(controlKey: key, edgeId: "vault->store", reducesRiskBy: 40)
+        )
+
+        _ = app.setControlMitigatedBy().execute(
+            SetControlMitigatedByRequest(controlKey: key, edgeId: "guard->store", reducesRiskBy: nil)
+        )
+
+        let control = try #require(credentialTheft().controls.first { $0.key == key })
+        #expect(control.mitigations.map(\.edgeId) == ["vault->store"])
     }
 
     @Test func refusesAnEdgeTheModelDoesNotHold() throws {
         drawTheModel()
-        let key = try #require(credentialTheft().controls.first?.key)
         #expect(
             app.setControlMitigatedBy().execute(
-                SetControlMitigatedByRequest(controlKey: key, edgeId: "vault->store")
+                SetControlMitigatedByRequest(
+                    controlKey: try firstControl().key,
+                    edgeId: "nothing->store",
+                    reducesRiskBy: 80
+                )
             ) == .unknownEdge
         )
     }
 
-    @Test func refusesAnAssumedEdge() throws {
-        drawTheModel(status: "assumed")
-        let key = try #require(credentialTheft().controls.first?.key)
+    @Test func refusesAReductionTheLanguageDoesNotRead() throws {
+        drawTheModel()
         #expect(
             app.setControlMitigatedBy().execute(
-                SetControlMitigatedByRequest(controlKey: key, edgeId: "guard->store")
-            ) == .edgeIsAssumed
+                SetControlMitigatedByRequest(
+                    controlKey: try firstControl().key,
+                    edgeId: "guard->store",
+                    reducesRiskBy: 101
+                )
+            ) == .outOfRange
         )
+    }
+
+    @Test func leavesAControlOpenWhileTheEdgeItNamesIsProposed() throws {
+        drawTheModel(status: "proposed")
+        let key = try firstControl().key
+
+        #expect(
+            app.setControlMitigatedBy().execute(
+                SetControlMitigatedByRequest(
+                    controlKey: key,
+                    edgeId: "guard->store",
+                    reducesRiskBy: 80
+                )
+            ) == .recorded
+        )
+
+        let control = try #require(credentialTheft().controls.first { $0.key == key })
+        #expect(control.isImplemented == false)
+        #expect(control.mitigations.isEmpty == false)
     }
 
     // MARK: the report
@@ -463,6 +562,6 @@ struct ControlMitigatedByTests {
         let threat = try #require(
             report.threats.first { $0.threatId == "credential-theft" && $0.sourceName == "EC2" }
         )
-        #expect(threat.controls.contains { $0.mitigatedBy == "WAF" })
+        #expect(threat.controls.contains { $0.mitigatedBy == ["WAF (80%)"] })
     }
 }

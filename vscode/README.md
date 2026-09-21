@@ -14,9 +14,9 @@ language server the `threatmodeller` executable holds.
   block of every language, read from the block the cursor sits in, and the
   values a value attribute takes: a technology id, a component, a threat, a
   control, a zone, and the `mitigates` edges the architecture declares.
-  Hover on a `mitigated_by` value states what the edge lowers and by how
-  much, and go to definition opens the `mitigates` block in the `.arch`
-  file.
+  Hover on a `mitigated_by` label states what the edge lowers and whether
+  it is in place, and go to definition opens the `mitigates` block in the
+  `.arch` file.
 - Three commands in the command palette: **Threat Modeller: Check**,
   **Threat Modeller: Compile** and **Threat Modeller: Draw**. Each command
   runs the executable over the first folder of the workspace and writes what

@@ -142,14 +142,13 @@ struct CanvasGestureTests {
     /// Two nodes and the edge that states the first lowers a threat on the
     /// second.
     private func twoNodesAndAnEdge(
-        status: String = "adopted"
+        status: String = "live"
     ) -> (ThreatModelSession, CanvasState, CanvasGestures, String, String) {
         let (session, canvas, gestures, api, db) = twoNodes()
         session.setMitigatesEdge(
             from: api,
             to: db,
             threatIds: ["t1"],
-            reducesRiskBy: 40,
             status: status
         )
         return (session, canvas, gestures, api, db)

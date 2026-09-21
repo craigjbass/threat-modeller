@@ -13,7 +13,12 @@ private func twoComponentLibrary() -> Library {
             SourceTechnology(id: "es-client", name: "ES Client", category: "compute", threatIds: [])
         ],
         threats: [
-            SourceLibraryThreat(id: "persistence", name: "Persistence", severityLabel: "critical")
+            SourceLibraryThreat(
+                id: "persistence",
+                name: "Persistence",
+                severityLabel: "critical",
+                controlDescriptions: ["Lock the login items"]
+            )
         ]
     )
     let (library, faults) = Library.build(from: source, taxonomy: CatalogueFixture.taxonomy())
@@ -30,7 +35,7 @@ struct AssumedMitigationTests {
     }
 
     @Test func anAdoptedEdgeLowersBothNumbers() throws {
-        let (protector, target, threatId) = twoComponents(status: .adopted)
+        let (protector, target, threatId) = twoComponents(status: .live)
         _ = protector
         _ = threatId
 
@@ -41,7 +46,7 @@ struct AssumedMitigationTests {
     }
 
     @Test func anAssumedEdgeLowersTheTargetPostureOnly() throws {
-        let (_, target, _) = twoComponents(status: .assumed)
+        let (_, target, _) = twoComponents(status: .proposed)
 
         let threat = try #require(threats().first { $0.source.id == "component:\(target)" })
         #expect(threat.riskScore == 16)
@@ -73,9 +78,18 @@ struct AssumedMitigationTests {
                     source: ComponentId(protector),
                     target: ComponentId(target),
                     threatIds: [ThreatId("endpoint-persistence")],
-                    reducesRiskBy: 40,
-                    status: .assumed
+                    status: .proposed
                 )
+            ]
+            model.controlMitigatedBy = [
+                ControlIdentity.componentControl(
+                    componentId: ComponentId(target),
+                    threatId: ThreatId("endpoint-persistence"),
+                    description: "Lock the login items",
+                    isTechnologySpecific: false
+                ): [
+                    ControlMitigation(edgeId: "\(protector)->\(target)", reducesRiskBy: 40)
+                ]
             ]
             model.likelihoodFindings[
                 ThreatKey(threatId: "endpoint-persistence", sourceId: "component:\(target)")
@@ -95,53 +109,8 @@ struct AssumedMitigationTests {
         #expect(threat.scoreIfAssumptionsHold == 3)
     }
 
-    /// Two edges from one protector to one target can name the same threat
-    /// with different statuses; nothing in the parser, the import or the
-    /// domain rejects that pair. The residual counts only the adopted edge.
-    /// The target posture counts both and keeps the stronger. The assumed
-    /// label names only the edge whose own status is assumed, not every edge
-    /// the stronger reduction happens to share a protector with.
-    @Test func twoEdgesFromOneProtectorWithDifferentStatusesNameOnlyTheAssumedOne() throws {
-        app.useLibraries([twoComponentLibrary()])
-
-        guard case .added(let target) = app.addComponent().execute(
-            AddComponentRequest(technologyId: "endpoint-laptop", x: 0, y: 0, sensitivity: "restricted")
-        ),
-        case .added(let protector) = app.addComponent().execute(
-            AddComponentRequest(technologyId: "endpoint-es-client", x: 200, y: 0, sensitivity: "internal")
-        ) else {
-            Issue.record("the components were not added")
-            return
-        }
-
-        app.modelStore.mutate { model in
-            model.mitigatesEdges = [
-                MitigatesEdge(
-                    source: ComponentId(protector),
-                    target: ComponentId(target),
-                    threatIds: [ThreatId("endpoint-persistence")],
-                    reducesRiskBy: 40,
-                    status: .adopted
-                ),
-                MitigatesEdge(
-                    source: ComponentId(protector),
-                    target: ComponentId(target),
-                    threatIds: [ThreatId("endpoint-persistence")],
-                    reducesRiskBy: 60,
-                    status: .assumed
-                )
-            ]
-        }
-
-        let threat = try #require(threats().first { $0.source.id == "component:\(target)" })
-        #expect(threat.riskScore == 10)
-        #expect(threat.scoreIfAssumptionsHold == 6)
-        #expect(threat.mitigatedByComponentLabels == ["ES Client"])
-        #expect(threat.assumedByComponentLabels == ["ES Client"])
-    }
-
     /// Draws a protector, a protected component and one edge between them.
-    private func twoComponents(status: MitigationStatus) -> (String, String, String) {
+    private func twoComponents(status: ComponentStatus) -> (String, String, String) {
         app.useLibraries([twoComponentLibrary()])
 
         guard case .added(let target) = app.addComponent().execute(
@@ -151,16 +120,29 @@ struct AssumedMitigationTests {
             AddComponentRequest(technologyId: "endpoint-es-client", x: 200, y: 0, sensitivity: "internal")
         ) else { return ("", "", "") }
 
+        // An edge lowers a score through the control a person says it
+        // implements, and that control states how much it takes off.
+        let control = ControlIdentity.componentControl(
+            componentId: ComponentId(target),
+            threatId: ThreatId("endpoint-persistence"),
+            description: "Lock the login items",
+            isTechnologySpecific: false
+        )
         app.modelStore.mutate { model in
             model.mitigatesEdges = [
                 MitigatesEdge(
                     source: ComponentId(protector),
                     target: ComponentId(target),
                     threatIds: [ThreatId("endpoint-persistence")],
-                    reducesRiskBy: 60,
                     status: status
                 )
             ]
+            model.controlMitigatedBy = [
+                control: [
+                    ControlMitigation(edgeId: "\(protector)->\(target)", reducesRiskBy: 60)
+                ]
+            ]
+            if status == .live { model.controlStatuses[control] = .implemented }
         }
         return (protector, target, "endpoint-persistence")
     }

@@ -781,8 +781,7 @@ struct WindowLayoutTests {
 
               mitigates guard -> api {
                 threats         = ["credential-theft"]
-                reduces_risk_by = 80
-                status          = "assumed"
+                status          = "proposed"
               }
 
               assumption "network-segmented" {

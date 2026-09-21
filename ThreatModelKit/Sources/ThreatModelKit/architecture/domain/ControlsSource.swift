@@ -147,22 +147,22 @@ public struct SourceControlAnswer: Equatable, Sendable {
     /// none of the three attributes, which is every control written before
     /// they existed.
     public let proof: ControlProof
-    /// The `mitigates` edge a person says implements this control, written
-    /// `<protector>-><protected>`, or nil when the file names none.
-    public let mitigatedBy: String?
+    /// The `mitigates` edges a person says implement this control, in file
+    /// order, each with what it takes off. Empty when the file names none.
+    public let mitigations: [ControlMitigation]
 
     public init(
         description: String,
         status: ControlStatus,
         note: String? = nil,
         proof: ControlProof = ControlProof(),
-        mitigatedBy: String? = nil
+        mitigations: [ControlMitigation] = []
     ) {
         self.description = description
         self.status = status
         self.note = note
         self.proof = proof
-        self.mitigatedBy = mitigatedBy
+        self.mitigations = mitigations
     }
 }
 

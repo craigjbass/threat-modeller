@@ -7,7 +7,6 @@ struct EdgeActionTests {
             source: ComponentId("guard"),
             target: ComponentId("store"),
             threatIds: [ThreatId("credential-theft")],
-            reducesRiskBy: 60
         )
 
         #expect(edge.action == nil)
@@ -18,8 +17,7 @@ struct EdgeActionTests {
             source: ComponentId("guard"),
             target: ComponentId("store"),
             threatIds: [ThreatId("credential-theft")],
-            reducesRiskBy: 60,
-            status: .assumed,
+            status: .proposed,
             action: EdgeAction(
                 label: "adopt-the-guard",
                 text: "Adopt the guard",

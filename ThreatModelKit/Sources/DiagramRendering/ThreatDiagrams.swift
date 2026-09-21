@@ -349,8 +349,7 @@ public enum ThreatDiagrams {
                         sourceId: held.label,
                         targetId: component.id,
                         threatIds: [],
-                        reducesRiskBy: 0,
-                        status: held.isAssumed ? "assumed" : "adopted"
+                        status: held.isAssumed ? "proposed" : "live"
                     )
                 }
             }

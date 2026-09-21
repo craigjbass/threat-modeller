@@ -392,8 +392,8 @@ struct ThreatSidebar: View {
             onSetControlStatus: { key, statusId in
                 session.setControlStatus(key: key, statusId: statusId)
             },
-            onSetControlMitigatedBy: { key, edgeId in
-                session.setControlMitigatedBy(key: key, edgeId: edgeId)
+            onSetControlMitigatedBy: { key, edgeId, percent in
+                session.setControlMitigatedBy(key: key, edgeId: edgeId, reducesRiskBy: percent)
             },
             onEvidence: { control in
                 evidencing = GovernedControl(

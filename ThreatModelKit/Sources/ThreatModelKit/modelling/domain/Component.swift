@@ -1,7 +1,8 @@
-/// Whether a component runs in Production today or is a planned change.
+/// Whether a thing the architecture declares runs in Production today or is a
+/// planned change. A component states it, and so does a `mitigates` edge.
 ///
 /// Application-owned, as `DiagramShape` is: the catalogue carries no status
-/// vocabulary. A component that states nothing is live, so every file written
+/// vocabulary. A block that states nothing is live, so every file written
 /// before this attribute reads and writes unchanged.
 public enum ComponentStatus: String, CaseIterable, Equatable, Sendable {
     /// Deployed to Production.

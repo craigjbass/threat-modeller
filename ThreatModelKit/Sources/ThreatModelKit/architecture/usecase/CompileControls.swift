@@ -200,10 +200,10 @@ public struct CompileControls: CompileControlsUseCase {
                     // What proves the control is in place is the person's, so
                     // the merge keeps it whole.
                     proof: answered?.proof ?? ControlProof(),
-                    // The model holds the mapping only while the architecture
+                    // The model holds a mapping only while the architecture
                     // still declares the edge, so an edge a person deleted
                     // leaves the file on the next compile.
-                    mitigatedBy: control.mitigatedByEdgeId
+                    mitigations: control.mitigations
                 )
             }
 

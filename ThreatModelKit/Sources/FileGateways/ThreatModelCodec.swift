@@ -33,15 +33,265 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// Version 11 adds what a person wrote about a control, beside its
     /// evidence. A file at version 10 or below states none and reads back
     /// with none.
-    public static let formatVersion = 11
-    private static let readableFormatVersions: Set<Int> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    ///
+    /// WARNING: version 12 moves what a `mitigates` edge takes off onto the
+    /// control that names the edge, and renames the edge's status to the
+    /// words a component uses. A file at version 11 or below names no control
+    /// for its edges, so the number it states has nowhere to go and is
+    /// dropped: the scores rise until a person says which control each edge
+    /// implements. `adopted` reads as `live` and `assumed` reads as
+    /// `proposed`.
+    public static let formatVersion = 12
+    private static let readableFormatVersions: Set<Int> = [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+    ]
 
     public init() {}
+
+    /// Version 11 and below name an edge's status `adopted` or `assumed`.
+    /// Version 12 names it the way a component names its own.
+    private static func statusWord(of raw: String) -> String {
+        switch raw {
+        case "adopted": ComponentStatus.live.rawValue
+        case "assumed": ComponentStatus.proposed.rawValue
+        default: raw
+        }
+    }
+
+    /// What a person says should be done about each threat, as the file
+    /// writes it.
+    private static func written(
+        _ recommendations: [ThreatKey: [Recommendation]]
+    ) -> [String: [RecommendationJSON]] {
+        var written: [String: [RecommendationJSON]] = [:]
+        for (key, held) in recommendations {
+            written[key.value] = held.map {
+                RecommendationJSON(text: $0.text, note: $0.note, sources: $0.sources)
+            }
+        }
+        return written
+    }
+
+    /// What a person found out about how often each threat happens, as the
+    /// file writes it.
+    private static func written(
+        _ findings: [ThreatKey: LikelihoodFinding]
+    ) -> [String: LikelihoodFindingJSON] {
+        var written: [String: LikelihoodFindingJSON] = [:]
+        for (key, finding) in findings {
+            written[key.value] = LikelihoodFindingJSON(
+                label: finding.label,
+                likelihood: finding.likelihood.id,
+                rationale: finding.rationale,
+                sources: finding.sources
+            )
+        }
+        return written
+    }
+
+    /// What an assessor decided each threat's severity is, as the file writes
+    /// it.
+    private static func written(
+        _ decisions: [ThreatKey: SeverityDecision]
+    ) -> [String: SeverityDecisionJSON] {
+        var written: [String: SeverityDecisionJSON] = [:]
+        for (key, decision) in decisions {
+            written[key.value] = SeverityDecisionJSON(
+                severityId: decision.severityId,
+                rationale: decision.rationale,
+                sources: decision.sources
+            )
+        }
+        return written
+    }
+
+    /// How the pathway mitigations are set, as the file writes them.
+    private static func written(
+        _ settings: PathwayMitigationSettings
+    ) -> PathwayMitigationsJSON {
+        var configs: [String: PathwayMitigationConfigJSON] = [:]
+        for (id, config) in settings.configs {
+            configs[id.value] = PathwayMitigationConfigJSON(
+                isEnabled: config.isEnabled,
+                mode: config.mode.rawValue,
+                reductionPercent: config.reductionPercent
+            )
+        }
+        return PathwayMitigationsJSON(
+            isMasterEnabled: settings.isMasterEnabled,
+            configs: configs
+        )
+    }
+
+    /// One `mitigates` edge, as the file writes it.
+    private static func json(from edge: MitigatesEdge) -> MitigatesEdgeJSON {
+        MitigatesEdgeJSON(
+            source: edge.source.value,
+            target: edge.target.value,
+            threatIds: edge.threatIds.map(\.value),
+            reducesRiskBy: nil,
+            status: edge.status?.rawValue,
+            action: edge.action.map {
+                EdgeActionJSON(
+                    label: $0.label,
+                    text: $0.text,
+                    note: $0.note,
+                    blockedBy: $0.blockedBy,
+                    sources: $0.sources.isEmpty ? nil : $0.sources
+                )
+            }
+        )
+    }
+
+    /// What compensates each threat, as the file writes it.
+    private static func written(
+        _ compensating: [ThreatKey: [CompensatingControl]]
+    ) -> [String: [CompensatingControlJSON]] {
+        var written: [String: [CompensatingControlJSON]] = [:]
+        for (key, controls) in compensating {
+            written[key.value] = controls.map {
+                CompensatingControlJSON(
+                    label: $0.label,
+                    reducesRiskBy: $0.reducesRiskBy,
+                    rationale: $0.rationale,
+                    sources: $0.sources,
+                    evidence: $0.proof.evidence?.rawValue,
+                    reference: $0.proof.reference.isEmpty ? nil : $0.proof.reference,
+                    verifiedOn: $0.proof.verifiedOn?.description
+                )
+            }
+        }
+        return written
+    }
+
+    /// What proves each control is in place, as the file writes it.
+    private static func written(
+        _ proofs: [ControlKey: ControlProof]
+    ) -> [String: ControlProofJSON] {
+        var written: [String: ControlProofJSON] = [:]
+        for (key, proof) in proofs {
+            written[key.value] = ControlProofJSON(
+                evidence: proof.evidence?.rawValue,
+                reference: proof.reference.isEmpty ? nil : proof.reference,
+                verifiedOn: proof.verifiedOn?.description
+            )
+        }
+        return written
+    }
+
+    /// What each control's mapping looks like in the file.
+    private static func written(
+        _ mitigations: [ControlKey: [ControlMitigation]]
+    ) -> [String: [ControlMitigationJSON]] {
+        var written: [String: [ControlMitigationJSON]] = [:]
+        for (key, held) in mitigations {
+            written[key.value] = held.map {
+                ControlMitigationJSON(edgeId: $0.edgeId, reducesRiskBy: $0.reducesRiskBy)
+            }
+        }
+        return written
+    }
+
+    /// What each control's mapping looks like on the model. A file at version
+    /// 11 or below states none.
+    private static func mitigations(of document: DocumentJSON) -> [ControlKey: [ControlMitigation]] {
+        var read: [ControlKey: [ControlMitigation]] = [:]
+        for (key, held) in document.controlMitigatedBy ?? [:] {
+            read[ControlKey(key)] = held.map {
+                ControlMitigation(edgeId: $0.edgeId, reducesRiskBy: $0.reducesRiskBy)
+            }
+        }
+        return read
+    }
 
     public func encode(_ model: ThreatModel) throws -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+        let catalogue: CatalogueStampJSON? = model.catalogueVersion.map {
+            CatalogueStampJSON(repository: $0.repository, tag: $0.tag)
+        }
+        let components: [ComponentJSON] = model.components.map(Self.json(from:))
+        let connections: [ConnectionJSON] = model.connections.map(Self.json(from:))
+        let zones: [ZoneJSON] = model.zones.map(Self.json(from:))
+        let customTechnologies: [CustomTechnologyJSON] =
+            model.customTechnologies.map(Self.json(from:))
+        let implementedControls: [String] = model.implementedControls.map(\.value).sorted()
+        let mitigatesEdges: [MitigatesEdgeJSON] = model.mitigatesEdges.map(Self.json(from:))
+        let assumptions: [SystemAssumptionJSON] = model.assumptions.map {
+            SystemAssumptionJSON(label: $0.label, text: $0.text, owner: $0.owner)
+        }
+        let owner: String? = model.owner.isEmpty ? nil : model.owner
+        let severityOverrides: [String: String] = Dictionary(
+            uniqueKeysWithValues: model.severityOverrides.map { ($0.key.value, $0.value) }
+        )
+        let controlStatuses: [String: String] = Dictionary(
+            uniqueKeysWithValues: model.controlStatuses.map { ($0.key.value, $0.value.rawValue) }
+        )
+        let controlNotes: [String: String] = Dictionary(
+            uniqueKeysWithValues: model.controlNotes.map { ($0.key.value, $0.value) }
+        )
+        let facts: DocumentFactsJSON? = model.documentFacts.isEmpty
+            ? nil
+            : DocumentFactsJSON(
+                description: model.documentFacts.description,
+                authors: model.documentFacts.authors,
+                links: model.documentFacts.links,
+                repositories: model.documentFacts.repositories,
+                created: model.documentFacts.created,
+                reviewed: model.documentFacts.reviewed,
+                version: model.documentFacts.version,
+                attributes: model.documentFacts.attributes.map {
+                    DocumentFactsJSON.AttributeJSON(name: $0.name, value: $0.value)
+                }
+            )
+        let useCases: [SystemUseCaseJSON]? = model.useCases.isEmpty
+            ? nil
+            : model.useCases.map { SystemUseCaseJSON(label: $0.label, text: $0.text) }
+        let exclusions: [SystemExclusionJSON]? = model.exclusions.isEmpty
+            ? nil
+            : model.exclusions.map {
+                SystemExclusionJSON(label: $0.label, text: $0.text, rationale: $0.rationale)
+            }
+        let systemAssets: [SystemAssetJSON]? = model.systemAssets.isEmpty
+            ? nil
+            : model.systemAssets.map {
+                SystemAssetJSON(
+                    id: $0.id,
+                    name: $0.name,
+                    classification: $0.classification.rawValue,
+                    description: $0.description,
+                    owner: $0.owner
+                )
+            }
+        let thirdParties: [ThirdPartyJSON]? = model.thirdParties.isEmpty
+            ? nil
+            : model.thirdParties.map {
+                ThirdPartyJSON(
+                    id: $0.id,
+                    name: $0.name,
+                    description: $0.description,
+                    kind: $0.kind.rawValue,
+                    payingCustomer: $0.payingCustomer,
+                    uptime: $0.uptime.rawValue,
+                    uptimeNotes: $0.uptimeNotes,
+                    owner: $0.owner,
+                    link: $0.link
+                )
+            }
+        let diagrams: [SystemDiagramJSON]? = model.diagrams.isEmpty
+            ? nil
+            : model.diagrams.map {
+                SystemDiagramJSON(label: $0.label, kind: $0.kind, text: $0.text)
+            }
+        let impactOverrides: [String: [String]]? = model.impactOverrides.isEmpty
+            ? nil
+            : Dictionary(
+                uniqueKeysWithValues: model.impactOverrides.map { key, impacts in
+                    (key.value, impacts.map(\.rawValue))
+                }
+            )
 
         return try encoder.encode(
             DocumentJSON(
@@ -49,190 +299,33 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 name: model.name,
                 createdAt: model.createdAt,
                 updatedAt: model.updatedAt,
-                catalogue: model.catalogueVersion.map {
-                    CatalogueStampJSON(repository: $0.repository, tag: $0.tag)
-                },
-                components: model.components.map(Self.json(from:)),
-                connections: model.connections.map(Self.json(from:)),
-                zones: model.zones.map(Self.json(from:)),
-                customTechnologies: model.customTechnologies.map(Self.json(from:)),
-                severityOverrides: Dictionary(
-                    uniqueKeysWithValues: model.severityOverrides.map { ($0.key.value, $0.value) }
-                ),
-                implementedControls: model.implementedControls.map(\.value).sorted(),
-                controlStatuses: Dictionary(
-                    uniqueKeysWithValues: model.controlStatuses.map { ($0.key.value, $0.value.rawValue) }
-                ),
-                compensatingControls: Dictionary(
-                    uniqueKeysWithValues: model.compensatingControls.map { key, controls in
-                        (
-                            key.value,
-                            controls.map {
-                                CompensatingControlJSON(
-                                    label: $0.label,
-                                    reducesRiskBy: $0.reducesRiskBy,
-                                    rationale: $0.rationale,
-                                    sources: $0.sources,
-                                    evidence: $0.proof.evidence?.rawValue,
-                                    reference: $0.proof.reference.isEmpty ? nil : $0.proof.reference,
-                                    verifiedOn: $0.proof.verifiedOn?.description
-                                )
-                            }
-                        )
-                    }
-                ),
-                controlProofs: Dictionary(
-                    uniqueKeysWithValues: model.controlProofs.map { key, proof in
-                        (
-                            key.value,
-                            ControlProofJSON(
-                                evidence: proof.evidence?.rawValue,
-                                reference: proof.reference.isEmpty ? nil : proof.reference,
-                                verifiedOn: proof.verifiedOn?.description
-                            )
-                        )
-                    }
-                ),
-                controlNotes: Dictionary(
-                    uniqueKeysWithValues: model.controlNotes.map { ($0.key.value, $0.value) }
-                ),
-                pathwayMitigations: PathwayMitigationsJSON(
-                    isMasterEnabled: model.pathwayMitigations.isMasterEnabled,
-                    configs: Dictionary(
-                        uniqueKeysWithValues: model.pathwayMitigations.configs.map {
-                            (
-                                $0.key.value,
-                                PathwayMitigationConfigJSON(
-                                    isEnabled: $0.value.isEnabled,
-                                    mode: $0.value.mode.rawValue,
-                                    reductionPercent: $0.value.reductionPercent
-                                )
-                            )
-                        }
-                    )
-                ),
-                mitigatesEdges: model.mitigatesEdges.map {
-                    MitigatesEdgeJSON(
-                        source: $0.source.value,
-                        target: $0.target.value,
-                        threatIds: $0.threatIds.map(\.value),
-                        reducesRiskBy: $0.reducesRiskBy,
-                        status: $0.status?.rawValue,
-                        action: $0.action.map {
-                            EdgeActionJSON(
-                                label: $0.label,
-                                text: $0.text,
-                                note: $0.note,
-                                blockedBy: $0.blockedBy,
-                                sources: $0.sources.isEmpty ? nil : $0.sources
-                            )
-                        }
-                    )
-                },
-                recommendations: Dictionary(
-                    uniqueKeysWithValues: model.recommendations.map { key, recommendations in
-                        (
-                            key.value,
-                            recommendations.map {
-                                RecommendationJSON(text: $0.text, note: $0.note, sources: $0.sources)
-                            }
-                        )
-                    }
-                ),
-                likelihoodFindings: Dictionary(
-                    uniqueKeysWithValues: model.likelihoodFindings.map { key, finding in
-                        (
-                            key.value,
-                            LikelihoodFindingJSON(
-                                label: finding.label,
-                                likelihood: finding.likelihood.id,
-                                rationale: finding.rationale,
-                                sources: finding.sources
-                            )
-                        )
-                    }
-                ),
-                severityDecisions: Dictionary(
-                    uniqueKeysWithValues: model.severityDecisions.map { key, decision in
-                        (
-                            key.value,
-                            SeverityDecisionJSON(
-                                severityId: decision.severityId,
-                                rationale: decision.rationale,
-                                sources: decision.sources
-                            )
-                        )
-                    }
-                ),
-                assumptions: model.assumptions.map {
-                    SystemAssumptionJSON(label: $0.label, text: $0.text, owner: $0.owner)
-                },
+                catalogue: catalogue,
+                components: components,
+                connections: connections,
+                zones: zones,
+                customTechnologies: customTechnologies,
+                severityOverrides: severityOverrides,
+                implementedControls: implementedControls,
+                controlStatuses: controlStatuses,
+                compensatingControls: Self.written(model.compensatingControls),
+                controlProofs: Self.written(model.controlProofs),
+                controlNotes: controlNotes,
+                controlMitigatedBy: Self.written(model.controlMitigatedBy),
+                pathwayMitigations: Self.written(model.pathwayMitigations),
+                mitigatesEdges: mitigatesEdges,
+                recommendations: Self.written(model.recommendations),
+                likelihoodFindings: Self.written(model.likelihoodFindings),
+                severityDecisions: Self.written(model.severityDecisions),
+                assumptions: assumptions,
                 riskTolerance: model.riskTolerance?.rawValue,
-                owner: model.owner.isEmpty ? nil : model.owner,
-                documentFacts: model.documentFacts.isEmpty
-                    ? nil
-                    : DocumentFactsJSON(
-                        description: model.documentFacts.description,
-                        authors: model.documentFacts.authors,
-                        links: model.documentFacts.links,
-                        repositories: model.documentFacts.repositories,
-                        created: model.documentFacts.created,
-                        reviewed: model.documentFacts.reviewed,
-                        version: model.documentFacts.version,
-                        attributes: model.documentFacts.attributes.map {
-                            DocumentFactsJSON.AttributeJSON(name: $0.name, value: $0.value)
-                        }
-                    ),
-                impactOverrides: model.impactOverrides.isEmpty
-                    ? nil
-                    : Dictionary(
-                        uniqueKeysWithValues: model.impactOverrides.map { key, impacts in
-                            (key.value, impacts.map(\.rawValue))
-                        }
-                    ),
-                useCases: model.useCases.isEmpty
-                    ? nil
-                    : model.useCases.map { SystemUseCaseJSON(label: $0.label, text: $0.text) },
-                exclusions: model.exclusions.isEmpty
-                    ? nil
-                    : model.exclusions.map {
-                        SystemExclusionJSON(
-                            label: $0.label,
-                            text: $0.text,
-                            rationale: $0.rationale
-                        )
-                    },
-                systemAssets: model.systemAssets.isEmpty
-                    ? nil
-                    : model.systemAssets.map {
-                        SystemAssetJSON(
-                            id: $0.id,
-                            name: $0.name,
-                            classification: $0.classification.rawValue,
-                            description: $0.description,
-                            owner: $0.owner
-                        )
-                    },
-                thirdParties: model.thirdParties.isEmpty
-                    ? nil
-                    : model.thirdParties.map {
-                        ThirdPartyJSON(
-                            id: $0.id,
-                            name: $0.name,
-                            description: $0.description,
-                            kind: $0.kind.rawValue,
-                            payingCustomer: $0.payingCustomer,
-                            uptime: $0.uptime.rawValue,
-                            uptimeNotes: $0.uptimeNotes,
-                            owner: $0.owner,
-                            link: $0.link
-                        )
-                    },
-                diagrams: model.diagrams.isEmpty
-                    ? nil
-                    : model.diagrams.map {
-                        SystemDiagramJSON(label: $0.label, kind: $0.kind, text: $0.text)
-                    }
+                owner: owner,
+                documentFacts: facts,
+                impactOverrides: impactOverrides,
+                useCases: useCases,
+                exclusions: exclusions,
+                systemAssets: systemAssets,
+                thirdParties: thirdParties,
+                diagrams: diagrams
             )
         )
     }
@@ -312,9 +405,12 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                     source: ComponentId($0.source),
                     target: ComponentId($0.target),
                     threatIds: $0.threatIds.map(ThreatId.init),
-                    reducesRiskBy: $0.reducesRiskBy,
                     status: try $0.status.map { raw in
-                        try Self.value(MitigationStatus(rawValue: raw), field: "status", raw: raw)
+                        try Self.value(
+                            ComponentStatus(rawValue: Self.statusWord(of: raw)),
+                            field: "status",
+                            raw: raw
+                        )
                     },
                     action: $0.action.map {
                         EdgeAction(
@@ -456,6 +552,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
             controlNotes: Dictionary(
                 uniqueKeysWithValues: (document.controlNotes ?? [:]).map { (ControlKey($0.key), $0.value) }
             ),
+            controlMitigatedBy: Self.mitigations(of: document),
             createdAt: document.createdAt,
             updatedAt: document.updatedAt,
             catalogueVersion: document.catalogue.map {

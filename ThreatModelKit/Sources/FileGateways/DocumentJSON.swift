@@ -25,6 +25,9 @@ struct DocumentJSON: Codable {
     /// Version 11 adds what a person wrote about a control, beside its
     /// evidence. A file at version 10 or below states none.
     let controlNotes: [String: String]?
+    /// Version 12 adds this: the `mitigates` edges a person says implement
+    /// each control, and how much each one takes off.
+    let controlMitigatedBy: [String: [ControlMitigationJSON]]?
     let pathwayMitigations: PathwayMitigationsJSON
     /// Version 4 adds these two. A version 1, 2 or 3 file has neither.
     let mitigatesEdges: [MitigatesEdgeJSON]?
@@ -114,13 +117,22 @@ struct AssetJSON: Codable {
     let sensitivity: String
 }
 
+/// Version 12 adds this.
+struct ControlMitigationJSON: Codable {
+    let edgeId: String
+    let reducesRiskBy: Int
+}
+
 struct MitigatesEdgeJSON: Codable {
     let source: String
     let target: String
     let threatIds: [String]
-    let reducesRiskBy: Int
-    /// Absent means `adopted`, so a file written before this field existed
-    /// keeps its numbers.
+    /// Version 11 and below state what the edge takes off. Version 12 moves
+    /// that number onto the control that names the edge, and a file at 12 or
+    /// above states none.
+    let reducesRiskBy: Int?
+    /// Absent means `live`. Version 11 and below write `adopted` and
+    /// `assumed`, which read as `live` and `proposed`.
     let status: String?
     /// Version 6 adds this.
     let action: EdgeActionJSON?

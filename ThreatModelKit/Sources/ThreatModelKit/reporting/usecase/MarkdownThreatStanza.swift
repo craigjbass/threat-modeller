@@ -60,7 +60,7 @@ public enum MarkdownThreatStanza {
             lines.append("- Raised by the tree: \(raisedByTree)")
         }
         if threat.scoreIfAssumptionsHold != threat.riskScore {
-            lines.append("- If the assumptions hold: \(threat.scoreIfAssumptionsHold)")
+            lines.append("- If the proposed are in place: \(threat.scoreIfAssumptionsHold)")
         }
         if threat.assetsAtRisk.isEmpty == false {
             lines.append("- Assets at risk: \(threat.assetsAtRisk.joined(separator: ", "))")
@@ -124,7 +124,10 @@ public enum MarkdownThreatStanza {
                 lines.append(
                     "- [\(control.isImplemented ? "x" : " ")] \(control.description)"
                         + " \u{2014} \(control.statusLabel)"
-                        + (control.mitigatedBy.map { " \u{2014} mitigated by \($0)" } ?? "")
+                        + (control.mitigatedBy.isEmpty
+                            ? ""
+                            : " \u{2014} mitigated by "
+                                + control.mitigatedBy.joined(separator: ", "))
                         + (control.evidence.map { " \u{2014} \($0)" } ?? "")
                         + (control.note.map { " \u{2014} \($0)" } ?? "")
                 )

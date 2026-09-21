@@ -482,8 +482,8 @@ struct ArchitectureParser {
             // An edge can trip more than one of these at once. Report the
             // first one this order finds, not every one it trips.
             var fault: String?
-            if (edge.status ?? "adopted") != "assumed" {
-                fault = "the mitigates edge \"\(edge.id)\" is adopted, so it carries no recommendation"
+            if (edge.status ?? ComponentStatus.default.rawValue) != ComponentStatus.proposed.rawValue {
+                fault = "the mitigates edge \"\(edge.id)\" is live, so it carries no recommendation"
             } else if let text = action.text, text.allSatisfy(\.isWhitespace) {
                 fault = "the action \"\(action.label)\" has no text"
             } else if let blocker = action.blockedBy, declared.contains(blocker) == false {
@@ -1226,7 +1226,6 @@ struct ArchitectureParser {
         guard expect(.leftBrace, "{") != nil else { return nil }
 
         var threatIds: [String] = []
-        var reducesRiskBy: Int?
         var status: String?
         var action: SourceEdgeAction?
 
@@ -1234,18 +1233,12 @@ struct ArchitectureParser {
             switch current.text {
             case "threats":
                 threatIds = parseListAttribute()
-            case "reduces_risk_by":
-                let token = current
-                reducesRiskBy = parseNumberAttribute()
-                if let percent = reducesRiskBy, percent < 0 || percent > 100 {
-                    record("reduces_risk_by is \(percent); it runs from 0 to 100", at: token)
-                }
             case "status":
                 let token = current
                 let raw = parseTextAttribute() ?? ""
-                if MitigationStatus(rawValue: raw) == nil {
+                if ComponentStatus(rawValue: raw) == nil {
                     record(
-                        "status is \"\(raw)\"; a mitigates edge is \"adopted\" or \"assumed\"",
+                        "status is \"\(raw)\"; a mitigates edge is \"live\" or \"proposed\"",
                         at: token
                     )
                 } else {
@@ -1264,15 +1257,10 @@ struct ArchitectureParser {
             record("the mitigates edge \"\(name)\" names no threats", at: source)
             return nil
         }
-        guard let reducesRiskBy else {
-            record("the mitigates edge \"\(name)\" has no reduces_risk_by", at: source)
-            return nil
-        }
         return SourceMitigates(
             sourceId: source.text,
             targetId: target.text,
             threatIds: threatIds,
-            reducesRiskBy: reducesRiskBy,
             status: status,
             action: action
         )

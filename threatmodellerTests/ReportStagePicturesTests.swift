@@ -30,7 +30,6 @@ struct ReportStagePicturesTests {
 
       mitigates guard -> api {
         threats         = ["credential-theft"]
-        reduces_risk_by = 80
       }
     }
 

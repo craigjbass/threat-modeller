@@ -199,7 +199,6 @@ extension WindowModelParityTests {
         ])) { first, _ in first }
         all.merge(rows("arch", "mitigates", [
             ("threats", .writes("mitigates-threat-")),
-            ("reduces_risk_by", .writes("mitigates-percent")),
             ("status", .writes("mitigates-status")),
             ("recommendation", nested("recommendation (in mitigates)"))
         ])) { first, _ in first }
@@ -265,10 +264,13 @@ extension WindowModelParityTests {
         all.merge(rows("controls", "control", [
             ("status", .writes("control-status-")),
             ("note", .writes("control-note")),
-            ("mitigated_by", .writes("control-mitigated-by-")),
+            ("mitigated_by", nested("mitigated_by")),
             ("evidence", .writes("evidence-tier")),
             ("reference", .writes("evidence-reference")),
             ("verified_on", .writes("evidence-verified-on"))
+        ])) { first, _ in first }
+        all.merge(rows("controls", "mitigated_by", [
+            ("reduces_risk_by", .writes("control-mitigated-by-percent-"))
         ])) { first, _ in first }
         all.merge(rows("controls", "compensating", [
             ("reduces_risk_by", .writes("compensating-percent")),

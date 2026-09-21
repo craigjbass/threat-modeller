@@ -33,6 +33,23 @@ struct AssessLeverageTests {
         app.modelStore.save(model)
     }
 
+    /// Names one edge on the first control of every threat one component
+    /// raises, with what that edge takes off. An edge lowers a score only
+    /// through a control that names it, so leverage needs these mappings.
+    private func map(_ edgeId: String, onto componentId: String, by percent: Int) {
+        let assessment = app.assessThreatModel().execute(AssessThreatModelRequest())
+        var model = app.modelStore.current()
+        for threat in assessment.threats where threat.source.id == "component:\(componentId)" {
+            guard let control = threat.controls.first else { continue }
+            let key = ControlKey(control.key)
+            var held = model.controlMitigatedBy[key] ?? []
+            held.removeAll { $0.edgeId == edgeId }
+            held.append(ControlMitigation(edgeId: edgeId, reducesRiskBy: percent))
+            model.controlMitigatedBy[key] = held
+        }
+        app.modelStore.save(model)
+    }
+
     private func threatIdsOn(_ componentId: String) -> [ThreatId] {
         let assessment = app.assessThreatModel().execute(AssessThreatModelRequest())
         return assessment.threats
@@ -48,11 +65,11 @@ struct AssessLeverageTests {
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.storeId),
                 threatIds: threats,
-                reducesRiskBy: 50,
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(label: "adopt", text: "Adopt the guard")
             )
         ])
+        map("\(ids.guardId)->\(ids.storeId)", onto: ids.storeId, by: 80)
 
         let response = app.assessLeverage().execute(AssessLeverageRequest())
 
@@ -74,19 +91,19 @@ struct AssessLeverageTests {
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.storeId),
                 threatIds: onStore,
-                reducesRiskBy: 50,
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(label: "adopt", text: "Adopt the guard")
             ),
             MitigatesEdge(
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.queueId),
                 threatIds: onQueue,
-                reducesRiskBy: 50,
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(label: "adopt")
             )
         ])
+        map("\(ids.guardId)->\(ids.storeId)", onto: ids.storeId, by: 80)
+        map("\(ids.guardId)->\(ids.queueId)", onto: ids.queueId, by: 80)
 
         let both = app.assessLeverage().execute(AssessLeverageRequest()).leverage
 
@@ -101,19 +118,19 @@ struct AssessLeverageTests {
             source: ComponentId(ids.guardId),
             target: ComponentId(ids.storeId),
             threatIds: threats,
-            reducesRiskBy: 50,
-            status: .assumed,
+            status: .proposed,
             action: EdgeAction(label: "weaker", text: "The weaker guard")
         )
         let stronger = MitigatesEdge(
             source: ComponentId(ids.queueId),
             target: ComponentId(ids.storeId),
             threatIds: threats,
-            reducesRiskBy: 80,
-            status: .assumed,
+            status: .proposed,
             action: EdgeAction(label: "stronger", text: "The stronger guard")
         )
         setEdges([weaker, stronger])
+        map("\(ids.guardId)->\(ids.storeId)", onto: ids.storeId, by: 50)
+        map("\(ids.queueId)->\(ids.storeId)", onto: ids.storeId, by: 80)
 
         let measured = app.assessLeverage().execute(AssessLeverageRequest()).leverage
 
@@ -133,9 +150,9 @@ struct AssessLeverageTests {
         // the strongest answering edge. So the sum of the two rows overstates
         // what doing both actually removes.
         var bothWeakerAdopted = weaker
-        bothWeakerAdopted.status = .adopted
+        bothWeakerAdopted.status = .live
         var bothStrongerAdopted = stronger
-        bothStrongerAdopted.status = .adopted
+        bothStrongerAdopted.status = .live
         setEdges([bothWeakerAdopted, bothStrongerAdopted])
         let totalWithBothAdopted = app.assessThreatModel().execute(AssessThreatModelRequest())
             .threats.map(\.riskScore).reduce(0, +)
@@ -151,16 +168,14 @@ struct AssessLeverageTests {
             source: ComponentId(ids.queueId),
             target: ComponentId(ids.storeId),
             threatIds: threats,
-            reducesRiskBy: 50,
-            status: .assumed,
+            status: .proposed,
             action: EdgeAction(label: "alpha", text: "Do alpha")
         )
         let beta = MitigatesEdge(
             source: ComponentId(ids.guardId),
             target: ComponentId(ids.storeId),
             threatIds: threats,
-            reducesRiskBy: 50,
-            status: .assumed,
+            status: .proposed,
             action: EdgeAction(label: "beta", text: "Do beta")
         )
 
@@ -185,8 +200,7 @@ struct AssessLeverageTests {
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.storeId),
                 threatIds: [ThreatId("a-threat-this-model-does-not-raise")],
-                reducesRiskBy: 90,
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(label: "pointless", text: "Buy the wrong thing")
             )
         ])
@@ -216,18 +230,18 @@ struct AssessLeverageTests {
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.storeId),
                 threatIds: threats,
-                reducesRiskBy: 50,
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(label: "measured", text: "The one measured")
             ),
             MitigatesEdge(
                 source: ComponentId(ids.queueId),
                 target: ComponentId(ids.storeId),
                 threatIds: threats,
-                reducesRiskBy: 90,
-                status: .assumed
+                status: .proposed
             )
         ])
+        map("\(ids.guardId)->\(ids.storeId)", onto: ids.storeId, by: 50)
+        map("\(ids.queueId)->\(ids.storeId)", onto: ids.storeId, by: 90)
 
         let measured = app.assessLeverage().execute(AssessLeverageRequest()).leverage
 

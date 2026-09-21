@@ -156,15 +156,14 @@ struct ImportArchitectureTests {
 
           mitigates shield -> host {
             threats         = ["persistence"]
-            reduces_risk_by = 60
-            status          = "assumed"
+            status          = "proposed"
           }
         }
         """)
 
         let model = app.modelStore.current()
         let edge = try #require(model.mitigatesEdges.first)
-        #expect(edge.status == .assumed)
+        #expect(edge.status == .proposed)
     }
 
     @Test func anEdgeWithNoStatusArrivesWithNoStatusButEffectivelyAdopted() throws {
@@ -175,7 +174,6 @@ struct ImportArchitectureTests {
 
           mitigates shield -> host {
             threats         = ["persistence"]
-            reduces_risk_by = 60
           }
         }
         """)
@@ -183,7 +181,7 @@ struct ImportArchitectureTests {
         let model = app.modelStore.current()
         let edge = try #require(model.mitigatesEdges.first)
         #expect(edge.status == nil)
-        #expect(edge.effectiveStatus == .adopted)
+        #expect(edge.effectiveStatus == .live)
     }
 
     @Test func anEdgeThatStatesAdoptedCarriesTheStatedValue() throws {
@@ -194,16 +192,15 @@ struct ImportArchitectureTests {
 
           mitigates shield -> host {
             threats         = ["persistence"]
-            reduces_risk_by = 60
-            status          = "adopted"
+            status          = "live"
           }
         }
         """)
 
         let model = app.modelStore.current()
         let edge = try #require(model.mitigatesEdges.first)
-        #expect(edge.status == .adopted)
-        #expect(edge.effectiveStatus == .adopted)
+        #expect(edge.status == .live)
+        #expect(edge.effectiveStatus == .live)
     }
 
     @Test func carriesTheRiskToleranceTheFileStates() {

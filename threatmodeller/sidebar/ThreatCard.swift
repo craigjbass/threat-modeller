@@ -10,9 +10,11 @@ struct ThreatCard: View {
     let severityChoices: [AssessedSeverity]
     let onSetControl: (_ key: String, _ implemented: Bool) -> Void
     let onSetControlStatus: (_ key: String, _ statusId: String) -> Void
-    /// Records which `mitigates` edge implements one control, or nil to take
-    /// the mapping off. A window with no project writes nothing.
-    var onSetControlMitigatedBy: (_ key: String, _ edgeId: String?) -> Void = { _, _ in }
+    /// Records how much one `mitigates` edge takes off one control's threat,
+    /// or nil to take the mapping off. A window with no project writes
+    /// nothing.
+    var onSetControlMitigatedBy: (_ key: String, _ edgeId: String, _ percent: Int?) -> Void =
+        { _, _, _ in }
     /// Opens the evidence editor for one implemented control.
     var onEvidence: (AssessedControl) -> Void = { _ in }
     let onCompensate: () -> Void
@@ -254,30 +256,74 @@ struct ThreatCard: View {
         }
     }
 
-    /// Which `mitigates` edge implements this control. An edge lowers the
-    /// score on its own; it answers a control only when a person says it
-    /// does, and this picker is where they say it.
+    /// Which `mitigates` edges implement this control, and how much each one
+    /// takes off.
+    ///
+    /// An edge states what it answers and whether it is in place. What it is
+    /// worth is said here, because the same edge is worth a different amount
+    /// to each control it stands for.
     @ViewBuilder
     private func mitigatedBy(_ control: AssessedControl) -> some View {
         if threat.mitigatesEdgeChoices.isEmpty == false {
-            HStack(spacing: 4) {
-                Text("Implemented by")
-                Picker("Implemented by", selection: Binding(
-                    get: { control.mitigatedByEdgeId ?? "" },
-                    set: { onSetControlMitigatedBy(control.key, $0.isEmpty ? nil : $0) }
-                )) {
-                    Text("Nobody").tag("")
-                    ForEach(threat.mitigatesEdgeChoices, id: \.id) { edge in
-                        Text(edge.label).tag(edge.id)
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(control.mitigations, id: \.edgeId) { mitigation in
+                    let named = "\(control.key)-\(mitigation.edgeId)"
+                    HStack(spacing: 4) {
+                        Text(Self.protectorName(of: mitigation, on: threat))
+                        Stepper(
+                            "\(mitigation.reducesRiskBy)%",
+                            value: Binding(
+                                get: { mitigation.reducesRiskBy },
+                                set: {
+                                    onSetControlMitigatedBy(control.key, mitigation.edgeId, $0)
+                                }
+                            ),
+                            in: 0 ... 100,
+                            step: 5
+                        )
+                        .accessibilityIdentifier("control-mitigated-by-percent-\(named)")
+                        Button("Remove") {
+                            onSetControlMitigatedBy(control.key, mitigation.edgeId, nil)
+                        }
+                        .accessibilityIdentifier("control-mitigated-by-remove-\(named)")
                     }
                 }
-                .labelsHidden()
-                .frame(maxWidth: 220)
-                .accessibilityIdentifier("control-mitigated-by-\(control.key)")
+                if unmapped(control).isEmpty == false {
+                    Menu("Implemented by\u{2026}") {
+                        ForEach(unmapped(control), id: \.id) { edge in
+                            Button(edge.label) {
+                                onSetControlMitigatedBy(control.key, edge.id, Self.defaultPercent)
+                            }
+                        }
+                    }
+                    .menuStyle(.borderlessButton)
+                    .frame(maxWidth: 220, alignment: .leading)
+                    .accessibilityIdentifier("control-mitigated-by-\(control.key)")
+                }
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
         }
+    }
+
+    /// What a mapping starts at, so a person states the edge first and tunes
+    /// the number after.
+    static let defaultPercent = 50
+
+    /// The edges that answer this threat and that this control does not name
+    /// yet.
+    private func unmapped(_ control: AssessedControl) -> [AssessedMitigatesEdge] {
+        let held = Set(control.mitigations.map(\.edgeId))
+        return threat.mitigatesEdgeChoices.filter { held.contains($0.id) == false }
+    }
+
+    /// What the protecting component is called, or the edge's own name when
+    /// the model no longer offers the edge.
+    static func protectorName(of mitigation: ControlMitigation, on threat: AssessedThreat) -> String {
+        threat.mitigatesEdgeChoices
+            .first { $0.id == mitigation.edgeId }?
+            .label
+            ?? mitigation.edgeId
     }
 
     /// Which open tree this control closes a step on. The order rule puts

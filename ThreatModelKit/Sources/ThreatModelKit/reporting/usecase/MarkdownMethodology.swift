@@ -35,8 +35,8 @@ public enum MarkdownMethodology {
                 + " sits at or below that level."
         )
         lines.append(
-            "\"If the assumptions hold\" is the same arithmetic with every"
-                + " assumed `mitigates` edge counted as in place."
+            "\"If the proposed are in place\" is the same arithmetic with every"
+                + " proposed `mitigates` edge counted as in place."
         )
         lines.append("")
 

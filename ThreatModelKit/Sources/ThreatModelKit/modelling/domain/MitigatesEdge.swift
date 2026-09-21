@@ -32,30 +32,32 @@ public struct EdgeAction: Equatable, Sendable {
 /// This is the shape of the problem "a security product protects a host". The
 /// product is a component like any other, and what it answers is an edge, not
 /// prose repeated in every compensating control.
+///
+/// The edge states what it answers and whether it is in place. How much it
+/// takes off is the answer a person writes on a control, in the `.controls`
+/// file, because the same edge is worth a different amount to each control it
+/// stands for.
 public struct MitigatesEdge: Equatable, Sendable {
     public var source: ComponentId
     public var target: ComponentId
     public var threatIds: [ThreatId]
-    public var reducesRiskBy: Int
     /// What the file states, or nil when the file states none.
-    public var status: MitigationStatus?
-    /// What a team would do to adopt this edge, or nil when it names none.
-    /// Only an assumed edge carries one: an adopted edge has no leverage left
-    /// to claim, because its reduction is already in the residual score.
+    public var status: ComponentStatus?
+    /// What a team would do to put this edge in place, or nil when it names
+    /// none. Only a proposed edge carries one: an edge in place has no
+    /// leverage left to claim.
     public var action: EdgeAction?
 
     public init(
         source: ComponentId,
         target: ComponentId,
         threatIds: [ThreatId],
-        reducesRiskBy: Int,
-        status: MitigationStatus? = nil,
+        status: ComponentStatus? = nil,
         action: EdgeAction? = nil
     ) {
         self.source = source
         self.target = target
         self.threatIds = threatIds
-        self.reducesRiskBy = reducesRiskBy
         self.status = status
         self.action = action
     }
@@ -63,24 +65,26 @@ public struct MitigatesEdge: Equatable, Sendable {
     /// The identifier, minted the way a flow's is.
     public var id: String { "\(source.value)->\(target.value)" }
 
-    /// What a check uses: what the file states, or `.adopted` when the file
+    /// What a check uses: what the file states, or `.live` when the file
     /// states none.
-    public var effectiveStatus: MitigationStatus { status ?? .adopted }
+    public var effectiveStatus: ComponentStatus { status ?? ComponentStatus.default }
 
     public func answers(_ threatId: ThreatId) -> Bool {
         threatIds.contains(threatId)
     }
 }
 
-/// Whether a team has done the work an edge describes.
-public enum MitigationStatus: String, CaseIterable, Equatable, Sendable {
-    case adopted
-    case assumed
+/// How much one `mitigates` edge takes off one control's threat.
+///
+/// A control names the edges that implement it, and each one states its own
+/// reduction: the same guard is worth 80% to one control and 20% to another.
+public struct ControlMitigation: Hashable, Sendable {
+    /// `<protector>-><protected>`, the identifier `MitigatesEdge.id` mints.
+    public let edgeId: String
+    public let reducesRiskBy: Int
 
-    public var label: String {
-        switch self {
-        case .adopted: "Adopted"
-        case .assumed: "Assumed"
-        }
+    public init(edgeId: String, reducesRiskBy: Int) {
+        self.edgeId = edgeId
+        self.reducesRiskBy = reducesRiskBy
     }
 }

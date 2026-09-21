@@ -375,14 +375,14 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
 
         var statusWarnings: [Diagnostic] = []
         model.mitigatesEdges = source.mitigates.map { edge in
-            let status = edge.status.flatMap(MitigationStatus.init(rawValue:))
+            let status = edge.status.flatMap { ComponentStatus(rawValue: $0) }
             if let raw = edge.status, status == nil {
                 statusWarnings.append(
                     Diagnostic(
                         severity: .warning,
                         line: 1,
                         column: 1,
-                        message: "status is \"\(raw)\"; a mitigates edge is \"adopted\" or \"assumed\""
+                        message: "status is \"\(raw)\"; a mitigates edge is \"live\" or \"proposed\""
                     )
                 )
             }
@@ -390,7 +390,6 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
                 source: ComponentId(edge.sourceId),
                 target: ComponentId(edge.targetId),
                 threatIds: edge.threatIds.map(ThreatId.init),
-                reducesRiskBy: edge.reducesRiskBy,
                 status: status,
                 action: edge.action.map {
                     EdgeAction(

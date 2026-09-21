@@ -311,9 +311,21 @@ struct MergeComponentsTests {
             ThreatModel(
                 components: [Self.component("api"), Self.component("api2"), Self.component("waf")],
                 mitigatesEdges: [
-                    MitigatesEdge(source: ComponentId("waf"), target: ComponentId("api"), threatIds: [ThreatId("dos-attack")], reducesRiskBy: 30),
-                    MitigatesEdge(source: ComponentId("waf"), target: ComponentId("api2"), threatIds: [ThreatId("dos-attack"), ThreatId("credential-theft")], reducesRiskBy: 50),
-                    MitigatesEdge(source: ComponentId("api2"), target: ComponentId("api"), threatIds: [ThreatId("misconfiguration")], reducesRiskBy: 10)
+                    MitigatesEdge(
+                        source: ComponentId("waf"),
+                        target: ComponentId("api"),
+                        threatIds: [ThreatId("dos-attack")]
+                    ),
+                    MitigatesEdge(
+                        source: ComponentId("waf"),
+                        target: ComponentId("api2"),
+                        threatIds: [ThreatId("dos-attack"), ThreatId("credential-theft")]
+                    ),
+                    MitigatesEdge(
+                        source: ComponentId("api2"),
+                        target: ComponentId("api"),
+                        threatIds: [ThreatId("misconfiguration")]
+                    )
                 ]
             )
         )
@@ -325,7 +337,6 @@ struct MergeComponentsTests {
         #expect(edges.first?.source == ComponentId("waf"))
         #expect(edges.first?.target == ComponentId("api"))
         #expect(edges.first?.threatIds == [ThreatId("dos-attack"), ThreatId("credential-theft")])
-        #expect(edges.first?.reducesRiskBy == 30)
     }
 
     @Test func aUsersReachesNameTheSurvivorOnce() throws {

@@ -25,8 +25,7 @@ struct AssumptionLanguageTests {
 
       mitigates hardening -> laptop {
         threats         = ["persistence"]
-        reduces_risk_by = 60
-        status          = "assumed"
+        status          = "proposed"
       }
     }
     """
@@ -41,17 +40,17 @@ struct AssumptionLanguageTests {
         #expect(source.riskTolerance == "medium")
         #expect(source.assumptions.first?.label == "mdm-push")
         #expect(source.assumptions.first?.owner == "platform team")
-        #expect(source.mitigates.first?.status == "assumed")
+        #expect(source.mitigates.first?.status == "proposed")
     }
 
-    @Test func anEdgeThatStatesNoStatusIsAdopted() throws {
-        let plain = text.replacingOccurrences(of: "    status          = \"assumed\"\n", with: "")
+    @Test func anEdgeThatStatesNoStatusIsLive() throws {
+        let plain = text.replacingOccurrences(of: "    status          = \"proposed\"\n", with: "")
         let source = try #require(gateway.read(plain).source)
         #expect(source.mitigates.first?.status == nil)
     }
 
     @Test func refusesAStatusTheApplicationDoesNotHold() throws {
-        let wrong = text.replacingOccurrences(of: "\"assumed\"", with: "\"hoped\"")
+        let wrong = text.replacingOccurrences(of: "\"proposed\"", with: "\"hoped\"")
         #expect(errors(wrong).count == 1)
     }
 

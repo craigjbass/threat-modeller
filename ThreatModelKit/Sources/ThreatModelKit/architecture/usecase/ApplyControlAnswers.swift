@@ -55,7 +55,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         var statuses: [ControlKey: ControlStatus] = [:]
         var proofs: [ControlKey: ControlProof] = [:]
         var notes: [ControlKey: String] = [:]
-        var mitigatedBy: [ControlKey: String] = [:]
+        var mitigatedBy: [ControlKey: [ControlMitigation]] = [:]
         var compensating: [ThreatKey: [CompensatingControl]] = [:]
         var recommendations: [ThreatKey: [Recommendation]] = [:]
         var likelihoods: [ThreatKey: LikelihoodFinding] = [:]
@@ -92,9 +92,10 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
                     continue
                 }
                 var status = control.status
-                if let edgeId = control.mitigatedBy {
+                var mapped: [ControlMitigation] = []
+                for mitigation in control.mitigations {
                     switch Self.read(
-                        edgeId: edgeId,
+                        edgeId: mitigation.edgeId,
                         answering: answer,
                         in: model.mitigatesEdges
                     ) {
@@ -105,8 +106,8 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
                                 line: 1,
                                 column: 1,
                                 message: "the control \"\(control.description)\" names the "
-                                    + "mitigates edge \"\(edgeId)\", which this system does not "
-                                    + "declare, so the mapping is not applied"
+                                    + "mitigates edge \"\(mitigation.edgeId)\", which this system "
+                                    + "does not declare, so the mapping is not applied"
                             )
                         )
                     case .answersSomethingElse:
@@ -115,13 +116,13 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
                                 severity: .warning,
                                 line: 1,
                                 column: 1,
-                                message: "the mitigates edge \"\(edgeId)\" does not answer "
-                                    + "\"\(answer.threatId)\" on \(answer.sourceKind) "
+                                message: "the mitigates edge \"\(mitigation.edgeId)\" does not "
+                                    + "answer \"\(answer.threatId)\" on \(answer.sourceKind) "
                                     + "\"\(answer.sourceId)\", so the mapping is not applied"
                             )
                         )
-                    case .assumed:
-                        mitigatedBy[key] = edgeId
+                    case .proposed:
+                        mapped.append(mitigation)
                         if status == .implemented {
                             status = .notImplemented
                             warnings.append(
@@ -129,16 +130,17 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
                                     severity: .warning,
                                     line: 1,
                                     column: 1,
-                                    message: "the mitigates edge \"\(edgeId)\" is assumed, so "
-                                        + "the control \"\(control.description)\" is not "
-                                        + "implemented"
+                                    message: "the mitigates edge \"\(mitigation.edgeId)\" is "
+                                        + "proposed, so the control "
+                                        + "\"\(control.description)\" is not implemented"
                                 )
                             )
                         }
-                    case .adopted:
-                        mitigatedBy[key] = edgeId
+                    case .live:
+                        mapped.append(mitigation)
                     }
                 }
+                if mapped.isEmpty == false { mitigatedBy[key] = mapped }
                 statuses[key] = status
                 if control.proof.isEmpty == false { proofs[key] = control.proof }
                 if let controlNote = control.note, controlNote.isEmpty == false {
@@ -216,8 +218,8 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         /// An edge carries the identifier and answers another threat, or
         /// protects another element.
         case answersSomethingElse
-        case adopted
-        case assumed
+        case live
+        case proposed
     }
 
     /// An edge answers a control only when it protects the element the answer
@@ -231,6 +233,6 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         guard answer.sourceKind == "component",
               edge.target.value == answer.sourceId,
               edge.answers(ThreatId(answer.threatId)) else { return .answersSomethingElse }
-        return edge.effectiveStatus == .assumed ? .assumed : .adopted
+        return edge.effectiveStatus == .proposed ? .proposed : .live
     }
 }

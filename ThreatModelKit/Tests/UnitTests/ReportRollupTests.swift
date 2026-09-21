@@ -210,7 +210,7 @@ struct ReportRollupTests {
             ),
             showsAssumed: true
         )
-        #expect(lines.contains("| Threat | Raised by | Residual | If assumed hold | Before controls | Level |"))
+        #expect(lines.contains("| Threat | Raised by | Residual | If proposed in place | Before controls | Level |"))
         #expect(lines.contains("| Raw device read | store | 12 | 12 | 12 | critical |"))
     }
 
@@ -224,7 +224,7 @@ struct ReportRollupTests {
             showsAssumed: false
         )
         #expect(lines.contains("| Threat | Raised by | Residual | Before controls | Level |"))
-        #expect(lines.contains { $0.contains("If assumed hold") } == false)
+        #expect(lines.contains { $0.contains("If proposed in place") } == false)
     }
 
     @Test func theByZoneTableGainsTheColumnWhenTheModelHasAnAssumedEdge() throws {
@@ -254,7 +254,7 @@ struct ReportRollupTests {
         #expect(rollup.worstScoreIfAssumptionsHold == 3)
 
         let lines = MarkdownRollups.lines(tables, showsAssumed: true)
-        #expect(lines.contains("| Zone | Components | Worst | If assumed hold | Levels |"))
+        #expect(lines.contains("| Zone | Components | Worst | If proposed in place | Levels |"))
         #expect(lines.contains { $0.contains("App VPC") && $0.contains("| 12 | 3 |") })
     }
 }

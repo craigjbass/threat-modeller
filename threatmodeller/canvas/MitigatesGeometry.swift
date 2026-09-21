@@ -128,7 +128,7 @@ nonisolated struct MitigatesGeometry {
                 MitigatesMark(
                     sourceComponentId: edge.sourceComponentId,
                     targetComponentId: edge.targetComponentId,
-                    isAssumed: edge.status == MitigationStatus.assumed.rawValue,
+                    isAssumed: edge.status == ComponentStatus.proposed.rawValue,
                     start: start,
                     end: end,
                     control: control

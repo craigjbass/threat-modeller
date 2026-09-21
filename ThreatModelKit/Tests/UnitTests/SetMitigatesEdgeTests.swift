@@ -22,8 +22,7 @@ struct SetMitigatesEdgeTests {
         from source: String,
         to target: String,
         threats: [String] = ["credential-theft"],
-        reducesRiskBy: Int = 80,
-        status: String = "assumed",
+        status: String = "proposed",
         action: SetMitigatesEdgeRequest.Action? = nil
     ) -> SetMitigatesEdgeResponse {
         app.setMitigatesEdge().execute(
@@ -31,7 +30,6 @@ struct SetMitigatesEdgeTests {
                 sourceComponentId: source,
                 targetComponentId: target,
                 threatIds: threats,
-                reducesRiskBy: reducesRiskBy,
                 status: status,
                 action: action
             )
@@ -49,19 +47,21 @@ struct SetMitigatesEdgeTests {
         #expect(edges.first?.source.value == guardId)
         #expect(edges.first?.target.value == storeId)
         #expect(edges.first?.threatIds.map(\.value) == ["credential-theft"])
-        #expect(edges.first?.reducesRiskBy == 80)
-        #expect(edges.first?.status == .assumed)
+        #expect(edges.first?.status == .proposed)
     }
 
     /// The two ends name the edge, the way they name a flow.
     @Test func changesTheEdgeBetweenTheSameTwoEnds() {
         let (guardId, storeId) = aModelOfTwoComponents()
-        _ = set(from: guardId, to: storeId, reducesRiskBy: 40)
+        _ = set(from: guardId, to: storeId, threats: ["credential-theft"])
 
-        #expect(set(from: guardId, to: storeId, reducesRiskBy: 90) == .recorded)
+        #expect(
+            set(from: guardId, to: storeId, threats: ["credential-theft", "dos-attack"])
+                == .recorded
+        )
 
         #expect(edges.count == 1)
-        #expect(edges.first?.reducesRiskBy == 90)
+        #expect(edges.first?.threatIds.map(\.value) == ["credential-theft", "dos-attack"])
     }
 
     @Test func refusesAnEdgeThatNamesNoThreats() {
@@ -71,18 +71,10 @@ struct SetMitigatesEdgeTests {
         #expect(edges.isEmpty)
     }
 
-    @Test func refusesAReductionOutsideItsRange() {
-        let (guardId, storeId) = aModelOfTwoComponents()
-
-        #expect(set(from: guardId, to: storeId, reducesRiskBy: 101) == .reductionOutOfRange)
-        #expect(set(from: guardId, to: storeId, reducesRiskBy: -1) == .reductionOutOfRange)
-        #expect(edges.isEmpty)
-    }
-
     @Test func refusesAStatusTheLanguageDoesNotRead() {
         let (guardId, storeId) = aModelOfTwoComponents()
 
-        #expect(set(from: guardId, to: storeId, status: "planned") == .unknownStatus)
+        #expect(set(from: guardId, to: storeId, status: "adopted") == .unknownStatus)
         #expect(edges.isEmpty)
     }
 
@@ -109,7 +101,7 @@ struct SetMitigatesEdgeTests {
         _ = set(
             from: guardId,
             to: storeId,
-            status: "assumed",
+            status: "proposed",
             action: .init(label: "adopt-the-guard", text: "Adopt the guard", note: nil, blockedBy: nil, sources: [])
         )
 
@@ -125,7 +117,7 @@ struct SetMitigatesEdgeTests {
         _ = set(
             from: guardId,
             to: storeId,
-            status: "assumed",
+            status: "proposed",
             action: .init(
                 label: "adopt-the-guard",
                 text: "Adopt the guard",
@@ -151,12 +143,12 @@ struct SetMitigatesEdgeTests {
         let response = set(
             from: guardId,
             to: storeId,
-            status: "adopted",
+            status: "live",
             action: .init(label: "adopt-the-guard", text: "Adopt the guard", note: nil, blockedBy: nil, sources: [])
         )
 
         #expect(response == .recordedWithoutTheAction)
-        #expect(edges.first?.status == .adopted)
+        #expect(edges.first?.status == .live)
         #expect(edges.first?.action == nil)
     }
 
@@ -199,18 +191,17 @@ struct SetMitigatesEdgeTests {
         _ = app.openProject().execute(OpenProjectRequest(root: "/work"))
         _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
 
-        #expect(set(from: "guard", to: "store", reducesRiskBy: 80, status: "assumed") == .recorded)
+        #expect(set(from: "guard", to: "store", status: "proposed") == .recorded)
         _ = app.saveSystem().execute(SaveSystemRequest(root: "/work", systemName: "payments"))
 
         let written = try #require(app.project.text(at: "/work/threatmodel/payments.arch"))
         #expect(written.contains("mitigates guard -> store"))
-        #expect(written.contains("reduces_risk_by = 80"))
-        #expect(written.contains("\"assumed\""))
+        #expect(written.contains("reduces_risk_by") == false)
+        #expect(written.contains("\"proposed\""))
 
         _ = app.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
 
         #expect(edges.count == 1)
-        #expect(edges.first?.reducesRiskBy == 80)
-        #expect(edges.first?.status == .assumed)
+        #expect(edges.first?.status == .proposed)
     }
 }

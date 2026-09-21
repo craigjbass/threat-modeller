@@ -28,6 +28,8 @@ struct LikelihoodEndToEndTests {
       threat "sip-bypass" {
         name     = "SIP Bypass"
         severity = "high"
+
+        control "Keep SIP on"
       }
     }
     """
@@ -57,9 +59,8 @@ struct LikelihoodEndToEndTests {
       }
 
       mitigates baseline -> laptop {
-        threats         = ["endpoint-sip-bypass"]
-        reduces_risk_by = 60
-        status          = "assumed"
+        threats = ["endpoint-sip-bypass"]
+        status  = "proposed"
       }
     }
     """
@@ -88,11 +89,9 @@ struct LikelihoodEndToEndTests {
             Issue.record("the library did not load")
             return
         }
-        // The threat states no control on purpose: this story answers it with
-        // a likelihood finding, never a control, so the library's own warning
-        // that nothing can answer it is expected, not a fault.
-        #expect(libraryWarnings.count == 1)
-        #expect(libraryWarnings.first?.message.contains("sip-bypass") == true)
+        // The threat states one control, which the proposed edge is mapped
+        // to further down, so the library warns about nothing.
+        #expect(libraryWarnings.isEmpty)
         store.set(libraries)
         let merged = MergedCatalogue(base: catalogue, store: store)
 
@@ -131,8 +130,8 @@ struct LikelihoodEndToEndTests {
 
         // A likelihood finding of "research" cuts the score of 12 to 3, which
         // sits inside the "low" tolerance.
-        let answered = stub.replacingOccurrences(
-            of: "score    = 12\n  }",
+        let withAFinding = stub.replacingOccurrences(
+            of: "score    = 12\n",
             with: """
             score    = 12
 
@@ -141,7 +140,25 @@ struct LikelihoodEndToEndTests {
                   rationale = "no known exploitation, per the vendor advisory"
                   sources   = ["https://example.test/advisory"]
                 }
-              }
+
+            """
+        )
+        // The control names the proposed edge and states what it would take
+        // off, which is what the "If the proposed are in place" score reads.
+        let answered = withAFinding.replacingOccurrences(
+            of: """
+                control "Keep SIP on" {
+                  status = "not_implemented"
+                }
+            """,
+            with: """
+                control "Keep SIP on" {
+                  status = "not_implemented"
+
+                  mitigated_by "baseline->laptop" {
+                    reduces_risk_by = 60
+                  }
+                }
             """
         )
         #expect(answered != stub, "the score line was not where the test expected it")
@@ -199,7 +216,7 @@ struct LikelihoodEndToEndTests {
             )
         )
         #expect(markdown.contains("- Likelihood: Research (12 \u{2192} 3)"))
-        #expect(markdown.contains("- If the assumptions hold: 1"))
+        #expect(markdown.contains("- If the proposed are in place: 1"))
 
         // The model's only `mitigates` edge is assumed. The Protection
         // dependencies section reports adopted edges only, so it must not

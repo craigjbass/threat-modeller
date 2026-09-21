@@ -13,7 +13,7 @@ struct MarkdownGlossaryTests {
             "Answered", "Implemented", "Not applicable", "Accepted",
             "Compensating control", "Pathway mitigation", "Mitigates edge",
             "Adopted", "Assumed", "Inherent score", "Residual score",
-            "If the assumptions hold", "Risk tolerance", "Prior", "Raised by"
+            "If the proposed are in place", "Risk tolerance", "Prior", "Raised by"
         ] {
             #expect(text.contains("| \(word) |"), "the glossary does not define \(word)")
         }
@@ -170,14 +170,12 @@ struct MarkdownGlossaryTests {
                 source: guardId,
                 target: serverId,
                 threatIds: [ThreatId("credential-theft")],
-                reducesRiskBy: 80
             ),
             MitigatesEdge(
                 source: guardId,
                 target: databaseId,
                 threatIds: [ThreatId("misconfiguration")],
-                reducesRiskBy: 50,
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(
                     label: "adopt-waf-on-database",
                     text: "Adopt the WAF rule on the database."

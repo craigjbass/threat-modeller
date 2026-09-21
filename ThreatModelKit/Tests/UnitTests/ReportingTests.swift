@@ -340,14 +340,23 @@ struct MarkdownExportTests {
             Issue.record("the components were not added")
             return
         }
+        let control = ControlIdentity.componentControl(
+            componentId: ComponentId(storeId),
+            threatId: ThreatId("credential-theft"),
+            description: "Enforce IMDSv2 to block SSRF-based credential theft",
+            isTechnologySpecific: true
+        )
         app.modelStore.mutate { model in
             model.mitigatesEdges = [
                 MitigatesEdge(
                     source: ComponentId(guardId),
                     target: ComponentId(storeId),
-                    threatIds: [ThreatId("credential-theft")],
-                    reducesRiskBy: 75
+                    threatIds: [ThreatId("credential-theft")]
                 )
+            ]
+            model.controlStatuses[control] = .implemented
+            model.controlMitigatedBy[control] = [
+                ControlMitigation(edgeId: "\(guardId)->\(storeId)", reducesRiskBy: 75)
             ]
         }
 

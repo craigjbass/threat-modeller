@@ -275,8 +275,7 @@ struct ModellingFromSourceTests {
 
           mitigates baseline -> laptop {
             threats         = ["credential-theft"]
-            reduces_risk_by = 60
-            status          = "assumed"
+            status          = "proposed"
           }
         }
         """
@@ -290,10 +289,10 @@ struct ModellingFromSourceTests {
         #expect(text.contains("assumption \"network-review\" {"))
         #expect(text.contains("\"network team\""))
         #expect(text.contains("mitigates baseline -> laptop {"))
-        #expect(text.contains("\"assumed\""))
+        #expect(text.contains("\"proposed\""))
     }
 
-    @Test func exportsAStatedLowToleranceAndAStatedAdoptedStatus() {
+    @Test func exportsAStatedLowToleranceAndAStatedLiveStatus() {
         let statingTheDefaults = """
         system "S" {
           risk_tolerance = "low"
@@ -303,8 +302,7 @@ struct ModellingFromSourceTests {
 
           mitigates baseline -> laptop {
             threats         = ["credential-theft"]
-            reduces_risk_by = 60
-            status          = "adopted"
+            status          = "live"
           }
         }
         """
@@ -313,10 +311,10 @@ struct ModellingFromSourceTests {
         let text = app.exportArchitecture().execute(ExportArchitectureRequest()).text
 
         #expect(text.contains("risk_tolerance = \"low\""))
-        #expect(text.contains("status          = \"adopted\""))
+        #expect(text.contains("status  = \"live\""))
     }
 
-    @Test func exportsAnAssumedEdgesRecommendationAndAnAdoptedEdgeWithNone() {
+    @Test func exportsAProposedEdgesRecommendationAndALiveEdgeWithNone() {
         let withARecommendation = """
         system "S" {
           assumption "guard-not-deployed" {
@@ -329,8 +327,7 @@ struct ModellingFromSourceTests {
 
           mitigates baseline -> laptop {
             threats         = ["credential-theft"]
-            reduces_risk_by = 60
-            status          = "assumed"
+            status          = "proposed"
 
             recommendation "adopt-the-guard" {
               text       = "Adopt the guard"
@@ -342,8 +339,7 @@ struct ModellingFromSourceTests {
 
           mitigates laptop -> store {
             threats         = ["credential-theft"]
-            reduces_risk_by = 40
-            status          = "adopted"
+            status          = "live"
           }
         }
         """
@@ -372,7 +368,6 @@ struct ModellingFromSourceTests {
 
           mitigates baseline -> laptop {
             threats         = ["credential-theft"]
-            reduces_risk_by = 60
           }
         }
         """

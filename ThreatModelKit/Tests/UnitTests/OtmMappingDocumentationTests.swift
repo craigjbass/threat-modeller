@@ -82,7 +82,6 @@ struct OtmMappingDocumentationTests {
                     source: guardId,
                     target: serverId,
                     threatIds: [ThreatId("misconfiguration")],
-                    reducesRiskBy: 50
                 )
             ],
             recommendations: [

@@ -1,10 +1,13 @@
 import SwiftUI
 import ThreatModelKit
 
-/// Names the threats one component lowers on another, and by how much.
+/// Names the threats one component lowers on another.
 ///
-/// An edge is `adopted` when the team runs it today, and `assumed` when the
-/// team would run it. An assumed edge does not lower the score: it lowers the
+/// An edge is `live` when the team runs it today, and `proposed` when the team
+/// would run it. How much the edge takes off is not stated here: a person says
+/// that an edge implements a control, on the threat card, and states the
+/// reduction there, because the same edge is worth a different amount to each
+/// control it stands for. A proposed edge lowers no score today: it lowers the
 /// score the report states the system would reach, and it carries the action
 /// that would make it true.
 struct MitigatesSheet: View {
@@ -16,8 +19,7 @@ struct MitigatesSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var chosen: Set<String> = []
-    @State private var percent = 50.0
-    @State private var status = "adopted"
+    @State private var status = ComponentStatus.default.rawValue
     @State private var search = ""
     @State private var actionLabel = ""
     @State private var actionText = ""
@@ -50,24 +52,14 @@ struct MitigatesSheet: View {
             threatList
 
             Form {
-                LabeledContent("Lowers each by") {
-                    HStack {
-                        Slider(value: $percent, in: 0 ... 100, step: 5)
-                            .accessibilityIdentifier("mitigates-percent")
-                        Text("\(Int(percent))%")
-                            .monospacedDigit()
-                            .frame(width: 50, alignment: .trailing)
-                    }
-                }
-
                 Picker("The team", selection: $status) {
-                    Text("runs this today").tag("adopted")
-                    Text("would run this").tag("assumed")
+                    Text("runs this today").tag(ComponentStatus.live.rawValue)
+                    Text("would run this").tag(ComponentStatus.proposed.rawValue)
                 }
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("mitigates-status")
 
-                if status == "assumed" {
+                if status == ComponentStatus.proposed.rawValue {
                     TextField("What would be done", text: $actionLabel)
                         .accessibilityIdentifier("mitigates-action-label")
                     TextField("How", text: $actionText, axis: .vertical)
@@ -189,7 +181,6 @@ struct MitigatesSheet: View {
     func readWhatIsThere() {
         guard let existing else { return }
         chosen = Set(existing.threatIds)
-        percent = Double(existing.reducesRiskBy)
         status = existing.status
         actionLabel = existing.actionLabel ?? ""
         actionText = existing.actionText ?? ""
@@ -207,9 +198,10 @@ struct MitigatesSheet: View {
             from: protector.id,
             to: protected.id,
             threatIds: chosen.sorted(),
-            reducesRiskBy: Int(percent),
             status: status,
-            actionLabel: status == "assumed" && label.isEmpty == false ? label : nil,
+            actionLabel: status == ComponentStatus.proposed.rawValue && label.isEmpty == false
+                ? label
+                : nil,
             actionText: written(actionText),
             actionNote: written(actionNote),
             blockedBy: blockedBy.isEmpty ? nil : blockedBy,

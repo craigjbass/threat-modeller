@@ -202,17 +202,27 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
             nameOf: nameOf
         )
 
-        // An edge names no assumption, so the assumed `mitigates` edges
+        // An edge names no assumption, so the proposed `mitigates` edges
         // travel as their own list rather than repeated under every
-        // assumption.
+        // assumption. What the edge is worth is what the controls that name
+        // it state, and the strongest of those is what it would buy.
+        var worthOfEdge: [String: Int] = [:]
+        for mitigations in model.controlMitigatedBy.values {
+            for mitigation in mitigations {
+                worthOfEdge[mitigation.edgeId] = max(
+                    worthOfEdge[mitigation.edgeId] ?? 0,
+                    mitigation.reducesRiskBy
+                )
+            }
+        }
         let assumedMitigations = model.mitigatesEdges
-            .filter { $0.effectiveStatus == .assumed }
+            .filter { $0.effectiveStatus == .proposed }
             .map {
                 ReportAssumedMitigation(
                     protectorName: nameOf($0.source),
                     protectedName: nameOf($0.target),
                     threatIds: $0.threatIds.map(\.value),
-                    reducesRiskBy: $0.reducesRiskBy
+                    reducesRiskBy: worthOfEdge[$0.id] ?? 0
                 )
             }
         let assumptions = model.assumptions.map { assumption in
@@ -670,10 +680,10 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                         ).says
                         : nil,
                     note: $0.note,
-                    mitigatedBy: $0.mitigatedByEdgeId.flatMap { edgeId in
+                    mitigatedBy: $0.mitigations.compactMap { mitigation in
                         assessed.mitigatesEdgeChoices
-                            .first { $0.id == edgeId }?
-                            .protectorName
+                            .first { $0.id == mitigation.edgeId }
+                            .map { "\($0.protectorName) (\(mitigation.reducesRiskBy)%)" }
                     }
                 )
             },

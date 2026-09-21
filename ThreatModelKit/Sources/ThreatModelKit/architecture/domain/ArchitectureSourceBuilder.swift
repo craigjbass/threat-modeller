@@ -102,7 +102,6 @@ public enum ArchitectureSourceBuilder {
                         sourceId: edge.source.value,
                         targetId: edge.target.value,
                         threatIds: edge.threatIds.map(\.value),
-                        reducesRiskBy: edge.reducesRiskBy,
                         // Straight through: an edge with no status writes no
                         // line, and a file that stated one round trips it.
                         status: edge.status?.rawValue,

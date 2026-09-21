@@ -96,6 +96,7 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
     case controlsLikelihood
     case controlsSeverityOverride
     case controlsControl
+    case controlsMitigatedBy
     case controlsCompensating
     case controlsRecommendation
 
@@ -325,7 +326,7 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                 keywords: ["mitigates"],
                 within: [.archSystem],
                 phrase: "a mitigates edge holds",
-                attributes: ["threats", "reduces_risk_by", "status", "recommendation"]
+                attributes: ["threats", "status", "recommendation"]
             )
         case .archRecommendation:
             LanguageBlock(
@@ -418,6 +419,15 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                 attributes: [
                     "status", "note", "mitigated_by", "evidence", "reference", "verified_on"
                 ]
+            )
+        case .controlsMitigatedBy:
+            LanguageBlock(
+                language: "controls",
+                name: "mitigated_by",
+                keywords: ["mitigated_by"],
+                within: [.controlsControl],
+                phrase: "a mitigated_by block holds",
+                attributes: ["reduces_risk_by"]
             )
         case .controlsCompensating:
             LanguageBlock(

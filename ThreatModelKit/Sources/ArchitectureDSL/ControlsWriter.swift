@@ -142,11 +142,16 @@ struct ControlsWriter {
             if let note = control.note, note.isEmpty == false {
                 inner.append(("note", quoted(note)))
             }
-            if let edgeId = control.mitigatedBy, edgeId.isEmpty == false {
-                inner.append(("mitigated_by", quoted(edgeId)))
-            }
             inner += Self.proofAttributes(control.proof, quoted: quoted)
             body += indent(aligned(inner))
+            for mitigation in control.mitigations {
+                body.append("")
+                body.append("  mitigated_by \(quoted(mitigation.edgeId)) {")
+                body += indent(
+                    indent(aligned([("reduces_risk_by", String(mitigation.reducesRiskBy))]))
+                )
+                body.append("  }")
+            }
             body.append("}")
         }
 

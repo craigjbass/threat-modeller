@@ -380,7 +380,7 @@ struct ControlsParser {
         var evidence: ControlEvidence?
         var reference = ""
         var verifiedOn: GovernanceDate?
-        var mitigatedBy: String?
+        var mitigations: [ControlMitigation] = []
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -403,17 +403,7 @@ struct ControlsParser {
             case "note":
                 note = parseTextAttribute()
             case "mitigated_by":
-                let token = current
-                let raw = parseTextAttribute() ?? ""
-                if raw.contains("->") {
-                    mitigatedBy = raw
-                } else {
-                    record(
-                        "mitigated_by is \"\(raw)\"; a mitigates edge is named "
-                            + "\"<protector>-><protected>\"",
-                        at: token
-                    )
-                }
+                if let mitigation = parseMitigatedBy() { mitigations.append(mitigation) }
             default:
                 record(LanguageBlockId.controlsControl.unknownAttribute(current.text))
                 skipAttribute()
@@ -430,8 +420,55 @@ struct ControlsParser {
                 reference: reference,
                 verifiedOn: verifiedOn
             ),
-            mitigatedBy: mitigatedBy
+            mitigations: mitigations
         )
+    }
+
+    /// How much one `mitigates` edge takes off this control's threat.
+    ///
+    /// The edge states what it answers and whether it is in place. What it is
+    /// worth is written here, because the same edge is worth a different
+    /// amount to each control it stands for.
+    private mutating func parseMitigatedBy() -> ControlMitigation? {
+        advance()
+        guard let named = expect(.string, "the mitigates edge this control names") else {
+            return nil
+        }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
+        var reducesRiskBy: Int?
+        while current.kind != .rightBrace && current.kind != .endOfFile {
+            switch current.text {
+            case "reduces_risk_by":
+                let token = current
+                reducesRiskBy = parseNumberAttribute()
+                if let percent = reducesRiskBy, percent < 0 || percent > 100 {
+                    record("reduces_risk_by is \(percent); it runs from 0 to 100", at: token)
+                    reducesRiskBy = nil
+                }
+            default:
+                record(LanguageBlockId.controlsMitigatedBy.unknownAttribute(current.text))
+                skipAttribute()
+            }
+        }
+        _ = expect(.rightBrace, "}")
+
+        guard named.text.contains("->") else {
+            record(
+                "mitigated_by names \"\(named.text)\"; a mitigates edge is named "
+                    + "\"<protector>-><protected>\"",
+                at: named
+            )
+            return nil
+        }
+        guard let reducesRiskBy else {
+            record(
+                "the mitigated_by block \"\(named.text)\" has no reduces_risk_by",
+                at: named
+            )
+            return nil
+        }
+        return ControlMitigation(edgeId: named.text, reducesRiskBy: reducesRiskBy)
     }
 
     private mutating func parseCompensating() -> CompensatingControl? {

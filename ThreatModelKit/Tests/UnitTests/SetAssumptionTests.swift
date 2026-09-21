@@ -108,8 +108,7 @@ struct SetAssumptionTests {
                 sourceComponentId: guardId,
                 targetComponentId: storeId,
                 threatIds: ["credential-theft"],
-                reducesRiskBy: 60,
-                status: "assumed",
+                status: "proposed",
                 action: SetMitigatesEdgeRequest.Action(
                     label: "adopt-the-guard",
                     text: "Adopt the guard",
@@ -141,8 +140,7 @@ struct SetAssumptionTests {
       }
       mitigates guard -> store {
         threats         = ["credential-theft"]
-        reduces_risk_by = 60
-        status          = "assumed"
+        status          = "proposed"
 
         recommendation "adopt-the-guard" {
           text       = "Adopt the guard"

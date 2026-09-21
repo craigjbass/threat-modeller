@@ -27,11 +27,16 @@ struct ReportActionsTests {
                 source: ComponentId(guardId),
                 target: ComponentId(store1Id),
                 threatIds: threats,
-                reducesRiskBy: 75,
-                status: .assumed,
+                status: .proposed,
                 action: EdgeAction(label: "adopt", text: "Adopt the guard", blockedBy: nil)
             )
         ]
+        for threat in threatsOnStore1 {
+            guard let control = threat.controls.first else { continue }
+            model.controlMitigatedBy[ControlKey(control.key)] = [
+                ControlMitigation(edgeId: "\(guardId)->\(store1Id)", reducesRiskBy: 75)
+            ]
+        }
         app.modelStore.save(model)
 
         let report = app.buildThreatModelReport().execute(BuildThreatModelReportRequest()).report

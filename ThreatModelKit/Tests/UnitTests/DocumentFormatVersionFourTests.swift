@@ -46,7 +46,7 @@ struct DocumentFormatVersionFourTests {
                     [
                         CompensatingControl(
                             label: "hardware-bound key",
-                            reducesRiskBy: 40,
+                            reducesRiskBy: 30,
                             rationale: "the key never leaves the Secure Enclave",
                             sources: ["https://example.internal/adr/17"]
                         )
@@ -57,8 +57,7 @@ struct DocumentFormatVersionFourTests {
                     source: ComponentId("guard"),
                     target: ComponentId("store"),
                     threatIds: [ThreatId("credential-theft")],
-                    reducesRiskBy: 80,
-                    status: .assumed
+                    status: .proposed
                 )
             ],
             recommendations: [
@@ -84,7 +83,6 @@ struct DocumentFormatVersionFourTests {
         #expect(read.components.first?.assets == [Asset(name: "ssh-keys", sensitivity: .restricted)])
         #expect(read.zones.first?.boundary == .privilege)
         #expect(read.zones.first?.description == "uid 0")
-        #expect(read.mitigatesEdges.first?.reducesRiskBy == 80)
         #expect(read.recommendations.values.first?.first?.text == "Deny reads of /dev/rdisk**")
     }
 
@@ -96,7 +94,7 @@ struct DocumentFormatVersionFourTests {
         let data = try ThreatModelCodec().encode(model())
         let read = try ThreatModelCodec().decode(data)
 
-        #expect(read.mitigatesEdges.first?.status == .assumed)
+        #expect(read.mitigatesEdges.first?.status == .proposed)
         #expect(
             read.compensatingControls.values.first?.first?.sources
                 == ["https://example.internal/adr/17"]
@@ -118,7 +116,6 @@ struct DocumentFormatVersionFourTests {
                     source: ComponentId("guard"),
                     target: ComponentId("store"),
                     threatIds: [ThreatId("credential-theft")],
-                    reducesRiskBy: 80
                 )
             ]
         )
@@ -129,7 +126,7 @@ struct DocumentFormatVersionFourTests {
 
         let read = try ThreatModelCodec().decode(data)
         #expect(read.mitigatesEdges.first?.status == nil)
-        #expect(read.mitigatesEdges.first?.effectiveStatus == .adopted)
+        #expect(read.mitigatesEdges.first?.effectiveStatus == .live)
     }
 
     @Test func aVersionThreeDocumentStillReads() throws {

@@ -350,8 +350,7 @@ struct ArchitectureWriter {
         for edge in source.mitigates {
             body.append("mitigates \(edge.sourceId) -> \(edge.targetId) {")
             var attributes: [(String, String)] = [
-                ("threats", "[" + edge.threatIds.map(quoted).joined(separator: ", ") + "]"),
-                ("reduces_risk_by", String(edge.reducesRiskBy))
+                ("threats", "[" + edge.threatIds.map(quoted).joined(separator: ", ") + "]")
             ]
             if let status = edge.status {
                 attributes.append(("status", quoted(status)))

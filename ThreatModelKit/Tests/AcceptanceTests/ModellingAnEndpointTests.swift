@@ -47,8 +47,7 @@ struct ModellingAnEndpointTests {
       }
 
       mitigates guard -> secrets {
-        threats         = ["credential-theft"]
-        reduces_risk_by = 80
+        threats = ["credential-theft"]
       }
     }
     """
@@ -65,8 +64,25 @@ struct ModellingAnEndpointTests {
             Issue.record("the import refused the file: \(response)")
             throw ImportFault.refused
         }
+        // The architecture states that the guard protects the secrets. What
+        // that is worth is the answer a person writes on a control.
+        models.mutate { model in
+            model.controlStatuses[Self.guardedControl] = .implemented
+            model.controlMitigatedBy[Self.guardedControl] = [
+                ControlMitigation(edgeId: "guard->secrets", reducesRiskBy: 60)
+            ]
+        }
         return models.current()
     }
+
+    /// The first control of credential theft on the secrets component, which
+    /// is what the guard implements.
+    private static let guardedControl = ControlIdentity.componentControl(
+        componentId: ComponentId("secrets"),
+        threatId: ThreatId("credential-theft"),
+        description: "Enforce IMDSv2 to block SSRF-based credential theft",
+        isTechnologySpecific: true
+    )
 
     private enum ImportFault: Error { case refused }
 

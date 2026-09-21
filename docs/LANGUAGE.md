@@ -132,7 +132,8 @@ The architecture language reads these keywords: `system`, `catalogue`,
 The controls language reads these keywords: `controls`, `for`, `catalogue`,
 `tolerance`, `stale`, `threat`, `on`, `severity`, `score`, `likelihood`,
 `tier`, `prior`, `rationale`, `sources`, `impacts`, `severity_override`, `control`,
-`status`, `note`, `compensating`, `reduces_risk_by`, `recommendation`,
+`status`, `note`, `mitigated_by`, `compensating`, `reduces_risk_by`,
+`recommendation`,
 `evidence`, `reference`, `verified_on`, `tree`, `goal`, `chain`, `score_before`,
 `step`, `by`.
 
@@ -487,9 +488,8 @@ FlowEntry     = "kind"        "=" String
               | "tags"        "=" StringList ;
 
 MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
-MitigatesEntry = "threats"         "=" StringList
-               | "reduces_risk_by" "=" Number
-               | "status"          "=" String
+MitigatesEntry = "threats" "=" StringList
+               | "status"  "=" String
                | ActionBlock ;
 
 ActionBlock = "recommendation" String "{" { ActionAttr } "}" ;
@@ -621,7 +621,7 @@ has no text`, and the block is dropped.
 
 The report's `## Assumptions` section lists every assumption, by label, text
 and owner, in the order the `.arch` file declares them. The same section also
-lists every assumed `mitigates` edge, under an `### Assumed mitigations`
+lists every proposed `mitigates` edge, under a `### Proposed mitigations`
 subheading, because an edge names no assumption of its own. `BuildThreatModelReport`
 fills both lists from the model, `MarkdownAssumptions` writes the section, and
 `ExportModelAsMarkdown` places it after the recommendations. A model that
@@ -1320,9 +1320,8 @@ set on another component.
 
 ```hcl
 mitigates guard -> store {
-  threats         = ["credential-theft"]
-  reduces_risk_by = 80
-  status          = "assumed"
+  threats = ["credential-theft"]
+  status  = "proposed"
 }
 ```
 
@@ -1332,38 +1331,40 @@ provides the mitigation, then the component it protects.
 | Attribute | Type | Values | Default |
 | --- | --- | --- | --- |
 | `threats` | list of strings | threat identifiers | **required** |
-| `reduces_risk_by` | number | 0 to 100 | **required** |
-| `status` | string | `adopted`, `assumed` | `adopted` |
+| `status` | string | `live`, `proposed` | `live` |
+
+The edge states what it answers and whether it is in place. It does not state
+how much it takes off: the same guard is worth a different amount to each
+control it stands for, so the number is written on the control, in the
+`.controls` file, which section 5.6 states. An edge no control names lowers no
+score.
 
 A block with no `threats` is the error `the mitigates edge "<id>" names no
-threats`. A block with no `reduces_risk_by` is the error `the mitigates edge
-"<id>" has no reduces_risk_by`. Either error drops the block. A `status`
-outside `adopted` or `assumed` is the error `status is "<value>"; a mitigates
-edge is "adopted" or "assumed"`.
+threats`, and the block drops. A `status` outside `live` and `proposed` is the
+error `status is "<value>"; a mitigates edge is "live" or "proposed"`. A block
+that states `reduces_risk_by` is the error `a mitigates edge holds threats,
+status and recommendation, not "reduces_risk_by"`.
 
-An `assumed` edge never lowers the residual score: it states a mitigation the
+`live` and `proposed` are the words a `component` block uses, and they mean the
+same thing: the team runs this today, or the team would run it.
+
+A `proposed` edge never lowers the residual score: it states a mitigation the
 team plans but has not put in place. The report shows the score both with and
-without it, in an "If assumed hold" column, so a reader sees the risk today
-and the risk once the assumption is true. The report's `## Assumptions`
-section also lists the edge itself, under an `### Assumed mitigations`
+without it, in an "If proposed in place" column, so a reader sees the risk
+today and the risk once the team runs it. The report's `## Assumptions`
+section also lists the edge itself, under a `### Proposed mitigations`
 subheading, alongside the `assumption` blocks of section 4.2.
 
-Two `mitigates` edges that lower the same threat on the same component give
-the stronger reduction, not the sum.
+Two mappings that lower the same threat on the same component give the stronger
+reduction, not the sum.
 
-An edge lowers a score. It answers no control, and it takes no threat out of
-the open count on its own. A person says that an edge is an example of one
-control in place by writing `mitigated_by` on that control in the `.controls`
-file, which section 5.6 states.
-
-**`recommendation`.** An `assumed` `mitigates` edge may hold a
-`recommendation` block: what a team would do to adopt it.
+**`recommendation`.** A `proposed` `mitigates` edge may hold a
+`recommendation` block: what a team would do to put it in place.
 
 ```hcl
 mitigates guard -> store {
-  threats         = ["credential-theft"]
-  reduces_risk_by = 60
-  status          = "assumed"
+  threats = ["credential-theft"]
+  status  = "proposed"
 
   recommendation "adopt-the-guard" {
     text       = "Adopt the guard"
@@ -1383,10 +1384,10 @@ The label names the action.
 | `blocked_by` | string | an `assumption` label declared in the same system | none |
 | `sources` | list of strings | any | empty |
 
-Only an `assumed` edge carries a `recommendation`. An `adopted` edge that
-states one is the warning `the mitigates edge "<id>" is adopted, so it
-carries no recommendation`, and the `recommendation` block drops; the edge
-itself, and its `reduces_risk_by`, stand.
+Only a `proposed` edge carries a `recommendation`. A `live` edge that states
+one is the warning `the mitigates edge "<id>" is live, so it carries no
+recommendation`, and the `recommendation` block drops; the edge itself
+stands.
 
 Two or more `mitigates` edges may share one label: this is one action, named
 once but reachable through several edges. Exactly one of the edges states the
@@ -1549,12 +1550,15 @@ SeverityOverrideAttr  = "rationale" "=" String
                       | "sources"   "=" StringList ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
-ControlAttr  = "status"       "=" String
-             | "mitigated_by" "=" String
-             | "note"         "=" String
-             | "evidence"     "=" String
-             | "reference"    "=" String
-             | "verified_on"  "=" String ;
+ControlAttr  = "status"      "=" String
+             | "note"        "=" String
+             | "evidence"    "=" String
+             | "reference"   "=" String
+             | "verified_on" "=" String
+             | MitigatedByBlock ;
+
+MitigatedByBlock = "mitigated_by" String "{" { MitigatedByAttr } "}" ;
+MitigatedByAttr  = "reduces_risk_by" "=" Number ;
 
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number
@@ -1838,7 +1842,7 @@ answer is not kept.
 | --- | --- | --- | --- |
 | `status` | string | `implemented`, `not_implemented`, `not_applicable`, `accepted` | `not_implemented` |
 | `note` | string | any | none |
-| `mitigated_by` | string | a `mitigates` edge, `<protector>-><protected>` | none |
+| `mitigated_by` | block | one per `mitigates` edge this control names | none |
 
 | Status | Counts as an answer | Lowers the score |
 | --- | --- | --- |
@@ -1865,23 +1869,42 @@ A `status` outside the four values is an error that lists the four.
 `note` is free text, and a rewrite keeps it.
 
 **`mitigated_by`.** A `mitigates` edge in the `.arch` file states that one
-component lowers a threat on another. It answers no control on its own. A
-person says that the edge is an example of one control in place, and this
-attribute is where they say it.
+component lowers a threat on another, and whether it is in place. It answers no
+control on its own. A person says that the edge is an example of one control in
+place, and states what it takes off for that control. A control may name more
+than one edge.
 
 ```hcl
 threat "credential-theft" on component "store" {
   control "Hold credentials in a hardware-backed store" {
-    status       = "implemented"
-    mitigated_by = "guard->store"
+    status = "implemented"
+
+    mitigated_by "guard->store" {
+      reduces_risk_by = 80
+    }
+
+    mitigated_by "vault->store" {
+      reduces_risk_by = 40
+    }
   }
 }
 ```
 
-The value is the edge's identifier: the protector, then `->`, then the
-component it protects, which is the shape a flow identifier uses. A value with
-no `->` in it is the error `mitigated_by is "<value>"; a mitigates edge is
-named "<protector>-><protected>"`.
+The label is the edge's identifier: the protector, then `->`, then the
+component it protects, which is the shape a flow identifier uses.
+
+| Attribute | Type | Values | Default |
+| --- | --- | --- | --- |
+| `reduces_risk_by` | number | 0 to 100 | **required** |
+
+The same edge is worth a different amount to each control it stands for, which
+is why the number lives here and not on the edge.
+
+A label with no `->` in it is the error `mitigated_by names "<value>"; a
+mitigates edge is named "<protector>-><protected>"`, and the block drops. A
+block with no `reduces_risk_by` is the error `the mitigated_by block "<id>"
+has no reduces_risk_by`, and the block drops. A `reduces_risk_by` outside 0 to
+100 is the error `reduces_risk_by is <value>; it runs from 0 to 100`.
 
 An edge answers a control only while it protects the element the answer is
 written on and names the threat the answer is written for:
@@ -1890,13 +1913,17 @@ written on and names the threat the answer is written for:
 | --- | --- |
 | the system declares no edge with that name | the warning `the control "<description>" names the mitigates edge "<id>", which this system does not declare, so the mapping is not applied`; the control keeps its status and the next compile writes no `mitigated_by` |
 | the edge protects another element, or names another threat | the warning `the mitigates edge "<id>" does not answer "<threat>" on <kind> "<id>", so the mapping is not applied` |
-| the edge is `assumed` and the control is `implemented` | the warning `the mitigates edge "<id>" is assumed, so the control "<description>" is not implemented`, and the status reads `not_implemented` |
+| the edge is `proposed` and the control is `implemented` | the warning `the mitigates edge "<id>" is proposed, so the control "<description>" is not implemented`, and the status reads `not_implemented` |
 
-WARNING: a control that names an edge leaves the share on both sides. It is
-neither an implemented control nor an applicable one, so the edge's
-`reduces_risk_by` is the only reduction for that control. Without this rule
-one protection lowers the score twice, once through the share and once
-through the edge.
+Two mappings that answer one threat give the stronger reduction, not the sum,
+whether they sit on one control or on two.
+
+WARNING: an **implemented** control that names an edge leaves the share on both
+sides. It is neither an implemented control nor an applicable one, so the
+mappings it names are the only reduction it brings. Without this rule one
+protection lowers the score twice, once through the share and once through the
+edge. A mapped control nobody has implemented stays in the share, because the
+work is still undone.
 
 The status still counts as an answer, so a threat every control of which is
 answered this way leaves the open count on the diagram, leaves the sidebar's
@@ -2096,7 +2123,7 @@ says something the model does not:
 | the `severity_override` names a severity the catalogue does not hold | `"<severity>" is not a severity this catalogue holds, so the severity_override on "<threat>" is not applied` |
 | `mitigated_by` names an edge the system does not declare | `the control "<description>" names the mitigates edge "<id>", which this system does not declare, so the mapping is not applied` |
 | `mitigated_by` names an edge that answers another threat or another element | `the mitigates edge "<id>" does not answer "<threat>" on <kind> "<id>", so the mapping is not applied` |
-| `mitigated_by` names an `assumed` edge on an implemented control | `the mitigates edge "<id>" is assumed, so the control "<description>" is not implemented` |
+| `mitigated_by` names a `proposed` edge on an implemented control | `the mitigates edge "<id>" is proposed, so the control "<description>" is not implemented` |
 
 ### 5.12 The merge
 
@@ -3103,7 +3130,7 @@ entry" or "an unknown attribute".
 | architecture | `flow` | `the flow "<id>" carries "<asset id>", which the component "<id>" does not hold` |
 | architecture | `component` | `the component "<id>" states data "<word>" and holds "<asset id>", which is "<word>"` |
 | architecture | `flow` | `a flow holds kind and description, not "<word>"` |
-| architecture | `mitigates` | `a mitigates edge holds threats, reduces_risk_by, status and recommendation, not "<word>"` |
+| architecture | `mitigates` | `a mitigates edge holds threats, status and recommendation, not "<word>"` |
 | architecture | `recommendation` (on a `mitigates` edge) | `a recommendation holds text, note, blocked_by and sources, not "<word>"` |
 | controls | `controls for` | `a controls file holds catalogue, tolerance, threat, tree, stale threat and stale tree, not "<word>"` |
 | controls | `threat` | `a threat holds severity, score, impacts, likelihood, severity_override, control, compensating and recommendation, not "<word>"` |
@@ -3111,6 +3138,7 @@ entry" or "an unknown attribute".
 | controls | `likelihood` | `a likelihood holds tier, prior, rationale and sources, not "<word>"` |
 | controls | `severity_override` | `a severity_override holds rationale and sources, not "<word>"` |
 | controls | `control` | `a control holds status, note, mitigated_by, evidence, reference and verified_on, not "<word>"` |
+| controls | `mitigated_by` | `a mitigated_by block holds reduces_risk_by, not "<word>"` |
 | controls | `compensating` | `a compensating control holds reduces_risk_by, rationale, sources, evidence, reference and verified_on, not "<word>"` |
 | controls | `recommendation` | `a recommendation holds note and sources, not "<word>"` |
 | controls | `tree` | `a tree holds goal, chain, raises_risk_by, score, score_before, closed_by, sufficient and step, not "<word>"` |
@@ -3377,9 +3405,8 @@ FlowEntry     = "kind"        "=" String
               | "carries"     "=" StringList ;
 
 MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
-MitigatesEntry = "threats"         "=" StringList
-               | "reduces_risk_by" "=" Number
-               | "status"          "=" String
+MitigatesEntry = "threats" "=" StringList
+               | "status"  "=" String
                | ActionBlock ;
 
 ActionBlock = "recommendation" String "{" { ActionAttr } "}" ;
@@ -3438,12 +3465,15 @@ SeverityOverrideAttr  = "rationale" "=" String
                       | "sources"   "=" StringList ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
-ControlAttr  = "status"       "=" String
-             | "mitigated_by" "=" String
-             | "note"         "=" String
-             | "evidence"     "=" String
-             | "reference"    "=" String
-             | "verified_on"  "=" String ;
+ControlAttr  = "status"      "=" String
+             | "note"        "=" String
+             | "evidence"    "=" String
+             | "reference"   "=" String
+             | "verified_on" "=" String
+             | MitigatedByBlock ;
+
+MitigatedByBlock = "mitigated_by" String "{" { MitigatedByAttr } "}" ;
+MitigatedByAttr  = "reduces_risk_by" "=" Number ;
 
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number

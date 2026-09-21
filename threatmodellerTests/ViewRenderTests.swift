@@ -1905,7 +1905,6 @@ struct ViewRenderTests {
             sourceComponentId: "c1",
             targetComponentId: "c2",
             threatIds: ["t1"],
-            reducesRiskBy: 40,
             status: status
         )
     }
@@ -1937,7 +1936,7 @@ struct ViewRenderTests {
 
     @Test func drawsAMitigatesEdge() async {
         expectDrawn(
-            aLayer(connections: [], mitigations: [aMitigatesEdge(status: "adopted")]),
+            aLayer(connections: [], mitigations: [aMitigatesEdge(status: "live")]),
             width: 640,
             height: 400,
             "a mitigates edge"
@@ -1957,7 +1956,7 @@ struct ViewRenderTests {
         )
         let edge = try #require(
             pixels(
-                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "adopted")]),
+                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "live")]),
                 width: 640,
                 height: 400
             )
@@ -1969,14 +1968,14 @@ struct ViewRenderTests {
     @Test func drawsAnAssumedEdgeDifferentlyFromAnAdoptedOne() async throws {
         let adopted = try #require(
             pixels(
-                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "adopted")]),
+                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "live")]),
                 width: 640,
                 height: 400
             )
         )
         let assumed = try #require(
             pixels(
-                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "assumed")]),
+                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "proposed")]),
                 width: 640,
                 height: 400
             )
@@ -1996,7 +1995,7 @@ struct ViewRenderTests {
         )
         let held = try #require(
             pixels(
-                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "adopted")]),
+                of: aLayer(connections: [], mitigations: [aMitigatesEdge(status: "live")]),
                 width: 640,
                 height: 400
             )
@@ -2034,7 +2033,7 @@ struct ViewRenderTests {
                     zones: [],
                     risks: [:],
                     guards: [:],
-                    mitigations: [aMitigatesEdge(status: "adopted")],
+                    mitigations: [aMitigatesEdge(status: "live")],
                     origin: .zero,
                     size: CGSize(width: 640, height: 400)
                 ),
@@ -2405,8 +2404,7 @@ struct ViewRenderTests {
                 from: ids[0],
                 to: ids[1],
                 threatIds: ["credential-theft"],
-                reducesRiskBy: 80,
-                status: "assumed"
+                status: "proposed"
             )
         }
         return session

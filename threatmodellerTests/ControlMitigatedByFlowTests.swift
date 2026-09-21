@@ -6,8 +6,9 @@ import TestSupport
 @testable import threatmodeller
 
 /// Saying in the window that a `mitigates` edge implements a control, end to
-/// end: the card offers the edges that answer the threat, picking one records
-/// the control, a save writes `mitigated_by`, and a reopen reads it back.
+/// end: the card offers the edges that answer the threat, naming one records
+/// the control, a save writes the `mitigated_by` block, and a reopen reads it
+/// back.
 @MainActor
 @Suite("Saying in the window what implements a control")
 struct ControlMitigatedByFlowTests {
@@ -17,14 +18,21 @@ struct ControlMitigatedByFlowTests {
         technology = "aws-waf"
       }
 
+      component "vault" {
+        technology = "aws-waf"
+      }
+
       component "api" {
         technology = "aws-ec2"
         data       = "confidential"
       }
 
       mitigates guard -> api {
-        threats         = ["credential-theft"]
-        reduces_risk_by = 80
+        threats = ["credential-theft"]
+      }
+
+      mitigates vault -> api {
+        threats = ["credential-theft"]
       }
     }
 
@@ -33,9 +41,9 @@ struct ControlMitigatedByFlowTests {
     private let control = "Enforce IMDSv2 to block SSRF-based credential theft"
     private let controlsPath = "/work/threatmodel/payments.controls"
 
-    private func aProject() async -> (ProjectSession, TestDependencies) {
+    private func aProject(_ architecture: String? = nil) async -> (ProjectSession, TestDependencies) {
         let useCases = TestDependencies()
-        useCases.project.put(payments, at: "/work/threatmodel/payments.arch")
+        useCases.project.put(architecture ?? payments, at: "/work/threatmodel/payments.arch")
         let session = ProjectSession(
             useCases: useCases,
             watcher: FakeProjectWatcher(),
@@ -62,32 +70,55 @@ struct ControlMitigatedByFlowTests {
         let (session, _) = await aProject()
         let threat = try theThreat(of: session)
 
-        #expect(threat.mitigatesEdgeChoices.map(\.id) == ["guard->api"])
-        #expect(threat.mitigatesEdgeChoices.map(\.label) == ["WAF (80%)"])
-        #expect(ThreatCard.reducedBy(threat) == "WAF (80%)")
+        #expect(threat.mitigatesEdgeChoices.map(\.id).sorted() == ["guard->api", "vault->api"])
+        #expect(threat.mitigatesEdgeChoices.map(\.label) == ["WAF", "WAF"])
     }
 
-    @Test func pickingAnEdgeRecordsTheControlAndWritesTheFile() async throws {
+    @Test func namingAnEdgeRecordsTheControlAndWritesTheFile() async throws {
         let (session, useCases) = await aProject()
         let model = try #require(session.model)
 
-        model.setControlMitigatedBy(key: try theControl(of: session).key, edgeId: "guard->api")
+        model.setControlMitigatedBy(
+            key: try theControl(of: session).key,
+            edgeId: "guard->api",
+            reducesRiskBy: 80
+        )
         #expect(model.errorMessage == nil)
 
         let shown = try theControl(of: session)
-        #expect(shown.mitigatedByEdgeId == "guard->api")
+        #expect(shown.mitigations == [ControlMitigation(edgeId: "guard->api", reducesRiskBy: 80)])
         #expect(shown.isImplemented)
 
         await session.save()
 
         let written = try #require(useCases.project.text(at: controlsPath))
-        #expect(written.contains("mitigated_by = \"guard->api\""))
+        #expect(written.contains("mitigated_by \"guard->api\" {"))
+        #expect(written.contains("reduces_risk_by = 80"))
+    }
+
+    @Test func namesTwoEdgesOnOneControl() async throws {
+        let (session, useCases) = await aProject()
+        let model = try #require(session.model)
+        let key = try theControl(of: session).key
+
+        model.setControlMitigatedBy(key: key, edgeId: "guard->api", reducesRiskBy: 80)
+        model.setControlMitigatedBy(key: key, edgeId: "vault->api", reducesRiskBy: 40)
+        await session.save()
+
+        let written = try #require(useCases.project.text(at: controlsPath))
+        #expect(written.contains("mitigated_by \"guard->api\" {"))
+        #expect(written.contains("mitigated_by \"vault->api\" {"))
+        #expect(try theControl(of: session).mitigations.count == 2)
     }
 
     @Test func aReopenKeepsWhatImplementsTheControl() async throws {
         let (session, useCases) = await aProject()
         let model = try #require(session.model)
-        model.setControlMitigatedBy(key: try theControl(of: session).key, edgeId: "guard->api")
+        model.setControlMitigatedBy(
+            key: try theControl(of: session).key,
+            edgeId: "guard->api",
+            reducesRiskBy: 80
+        )
         await session.save()
 
         let reopened = ProjectSession(
@@ -97,18 +128,22 @@ struct ControlMitigatedByFlowTests {
         )
         await reopened.open(root: "/work")
 
-        #expect(try theControl(of: reopened).mitigatedByEdgeId == "guard->api")
+        #expect(
+            try theControl(of: reopened).mitigations
+                == [ControlMitigation(edgeId: "guard->api", reducesRiskBy: 80)]
+        )
     }
 
-    @Test func pickingNobodyTakesTheMappingOff() async throws {
+    @Test func removingTheLastMappingTakesItOutOfTheFile() async throws {
         let (session, useCases) = await aProject()
         let model = try #require(session.model)
-        model.setControlMitigatedBy(key: try theControl(of: session).key, edgeId: "guard->api")
+        let key = try theControl(of: session).key
+        model.setControlMitigatedBy(key: key, edgeId: "guard->api", reducesRiskBy: 80)
 
-        model.setControlMitigatedBy(key: try theControl(of: session).key, edgeId: nil)
+        model.setControlMitigatedBy(key: key, edgeId: "guard->api", reducesRiskBy: nil)
         await session.save()
 
-        #expect(try theControl(of: session).mitigatedByEdgeId == nil)
+        #expect(try theControl(of: session).mitigations.isEmpty)
         let written = try #require(useCases.project.text(at: controlsPath))
         #expect(written.contains("mitigated_by") == false)
     }
@@ -121,7 +156,11 @@ struct ControlMitigatedByFlowTests {
 
         #expect(filter.narrow(model.threats).contains { $0.threatId == "credential-theft" })
 
-        model.setControlMitigatedBy(key: try theControl(of: session).key, edgeId: "guard->api")
+        model.setControlMitigatedBy(
+            key: try theControl(of: session).key,
+            edgeId: "guard->api",
+            reducesRiskBy: 80
+        )
 
         let shown = try #require(session.model)
         #expect(
@@ -131,29 +170,38 @@ struct ControlMitigatedByFlowTests {
         )
     }
 
-    @Test func statesWhyAnAssumedEdgeImplementsNothing() async throws {
-        let useCases = TestDependencies()
-        useCases.project.put(
+    @Test func leavesAControlOpenWhileTheEdgeItNamesIsProposed() async throws {
+        let (session, _) = await aProject(
             payments.replacingOccurrences(
-                of: "reduces_risk_by = 80",
-                with: "reduces_risk_by = 80\n    status          = \"assumed\""
-            ),
-            at: "/work/threatmodel/payments.arch"
+                of: "mitigates guard -> api {\n    threats = [\"credential-theft\"]",
+                with: "mitigates guard -> api {\n    threats = [\"credential-theft\"]\n    status  = \"proposed\""
+            )
         )
-        let session = ProjectSession(
-            useCases: useCases,
-            watcher: FakeProjectWatcher(),
-            defaults: aTestDefaults()
-        )
-        await session.open(root: "/work")
         let model = try #require(session.model)
 
-        model.setControlMitigatedBy(key: try theControl(of: session).key, edgeId: "guard->api")
-
-        #expect(
-            model.errorMessage
-                == "That mitigates edge is assumed, so it implements no control yet."
+        model.setControlMitigatedBy(
+            key: try theControl(of: session).key,
+            edgeId: "guard->api",
+            reducesRiskBy: 80
         )
-        #expect(try theControl(of: session).mitigatedByEdgeId == nil)
+
+        #expect(model.errorMessage == nil)
+        let shown = try theControl(of: session)
+        #expect(shown.isImplemented == false)
+        #expect(shown.mitigations.isEmpty == false)
+    }
+
+    @Test func statesWhyAReductionOutsideItsRangeIsRefused() async throws {
+        let (session, _) = await aProject()
+        let model = try #require(session.model)
+
+        model.setControlMitigatedBy(
+            key: try theControl(of: session).key,
+            edgeId: "guard->api",
+            reducesRiskBy: 101
+        )
+
+        #expect(model.errorMessage == "How much an edge takes off runs from 0 to 100.")
+        #expect(try theControl(of: session).mitigations.isEmpty)
     }
 }

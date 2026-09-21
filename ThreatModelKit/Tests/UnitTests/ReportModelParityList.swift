@@ -550,14 +550,9 @@ extension ReportModelParityTests {
                 section("the threat stanza, in Reduced by, and Protection dependencies"),
                 [.json]
             )),
-            ("reduces_risk_by", row(
-                analysis("ComponentMitigations"),
-                section("the threat stanza, in Reduced by"),
-                [.json]
-            )),
             ("status", row(
                 analysis("ThreatResolver, and AssessLeverage"),
-                section("Assumptions, under Assumed mitigations"),
+                section("Assumptions, under Proposed mitigations"),
                 [.json]
             )),
             ("recommendation", nested("recommendation (in mitigates)"))
@@ -789,11 +784,7 @@ extension ReportModelParityTests {
                 section("the threat stanza, under Controls"),
                 []
             )),
-            ("mitigated_by", row(
-                analysis("ApplyControlAnswers, and ControlCoverage, which drops a mapped control"),
-                section("the threat stanza, under Controls"),
-                []
-            )),
+            ("mitigated_by", nested("mitigated_by")),
             ("evidence", row(
                 analysis("CompileControls, PolicyRules, and AttackTreeBinding"),
                 section("the threat stanza, under Controls"),
@@ -808,6 +799,13 @@ extension ReportModelParityTests {
                 noAnalysis("no arithmetic compares the date to today"),
                 section("the threat stanza, folded into the evidence the control states"),
                 [.otm, .threatcl, .json]
+            ))
+        ])) { first, _ in first }
+        all.merge(rows("controls", "mitigated_by", [
+            ("reduces_risk_by", row(
+                analysis("ComponentMitigations, and ControlCoverage, which drops a mapped control"),
+                section("the threat stanza, under Controls"),
+                []
             ))
         ])) { first, _ in first }
         all.merge(rows("controls", "compensating", [

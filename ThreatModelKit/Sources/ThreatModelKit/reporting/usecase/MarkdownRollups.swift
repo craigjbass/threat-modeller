@@ -4,7 +4,7 @@ public enum MarkdownRollups {
     /// 6 says the column appears only when the model draws at least one
     /// assumed edge, not only when the rows this table happens to show
     /// differ under it. A threat whose residual is low because it is
-    /// unlikely can drop out of the top-20 prefix while an assumed edge
+    /// unlikely can drop out of the top-20 prefix while a proposed edge
     /// still stands elsewhere in the model, and the column must still show.
     public static func lines(_ tables: ReportRollupTables, showsAssumed: Bool) -> [String] {
         var lines: [String] = []
@@ -23,7 +23,7 @@ public enum MarkdownRollups {
             lines.append("")
             lines.append(
                 showsAssumed
-                    ? "| Zone | Components | Worst | If assumed hold | Levels |"
+                    ? "| Zone | Components | Worst | If proposed in place | Levels |"
                     : "| Zone | Components | Worst | Levels |"
             )
             lines.append(
@@ -49,7 +49,7 @@ public enum MarkdownRollups {
             lines.append("")
             lines.append(
                 showsAssumed
-                    ? "| Threat | Raised by | Residual | If assumed hold | Before controls | Level |"
+                    ? "| Threat | Raised by | Residual | If proposed in place | Before controls | Level |"
                     : "| Threat | Raised by | Residual | Before controls | Level |"
             )
             lines.append(

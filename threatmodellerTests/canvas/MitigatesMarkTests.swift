@@ -30,13 +30,12 @@ struct MitigatesMarkTests {
     private func edge(
         _ source: String,
         _ target: String,
-        status: String = "adopted"
+        status: String = "live"
     ) -> ViewedMitigation {
         ViewedMitigation(
             sourceComponentId: source,
             targetComponentId: target,
             threatIds: ["t1"],
-            reducesRiskBy: 40,
             status: status
         )
     }
@@ -139,10 +138,10 @@ struct MitigatesMarkTests {
     @Test func drawsAnAssumedEdgeBrokenAndHollow() throws {
         let components = twoNodes()
         let adopted = try #require(
-            geometry([edge("c1", "c2", status: "adopted")], components: components).marks.first
+            geometry([edge("c1", "c2", status: "live")], components: components).marks.first
         )
         let assumed = try #require(
-            geometry([edge("c1", "c2", status: "assumed")], components: components).marks.first
+            geometry([edge("c1", "c2", status: "proposed")], components: components).marks.first
         )
 
         #expect(adopted.isAssumed == false)
@@ -157,10 +156,10 @@ struct MitigatesMarkTests {
     @Test func drawsBothStatesOnTheSameCurve() throws {
         let components = twoNodes()
         let adopted = try #require(
-            geometry([edge("c1", "c2", status: "adopted")], components: components).marks.first
+            geometry([edge("c1", "c2", status: "live")], components: components).marks.first
         )
         let assumed = try #require(
-            geometry([edge("c1", "c2", status: "assumed")], components: components).marks.first
+            geometry([edge("c1", "c2", status: "proposed")], components: components).marks.first
         )
 
         #expect(adopted.apex == assumed.apex)

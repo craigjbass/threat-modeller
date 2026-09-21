@@ -88,8 +88,15 @@ public struct AssessLeverage: AssessLeverageUseCase {
             adopted.mitigatesEdges = model.mitigatesEdges.map { edge in
                 guard action.edgeIds.contains(edge.id) else { return edge }
                 var promoted = edge
-                promoted.status = .adopted
+                promoted.status = .live
                 return promoted
+            }
+            // An edge lowers a score through the control that names it, so
+            // putting the edge in place also puts that control in place.
+            // Without this the leverage of every action reads zero.
+            for (key, mitigations) in model.controlMitigatedBy
+            where mitigations.contains(where: { action.edgeIds.contains($0.edgeId) }) {
+                adopted.controlStatuses[key] = .implemented
             }
             let after = scores(of: adopted)
 
