@@ -11,6 +11,10 @@ public struct ResolvedControl: Equatable, Sendable {
     public let status: ControlStatus
     /// What the user wrote beside the answer, or nil.
     public let note: String?
+    /// The `mitigates` edge a person says implements this control, or nil.
+    /// A control that names one leaves `ControlCoverage` on both sides: the
+    /// edge's own reduction is what lowers the score.
+    public let mitigatedByEdgeId: String?
 
     public init(
         description: String,
@@ -18,7 +22,8 @@ public struct ResolvedControl: Equatable, Sendable {
         key: ControlKey,
         isImplemented: Bool,
         status: ControlStatus? = nil,
-        note: String? = nil
+        note: String? = nil,
+        mitigatedByEdgeId: String? = nil
     ) {
         self.description = description
         self.isTechnologySpecific = isTechnologySpecific
@@ -26,6 +31,7 @@ public struct ResolvedControl: Equatable, Sendable {
         self.isImplemented = isImplemented
         self.status = status ?? (isImplemented ? .implemented : .notImplemented)
         self.note = note
+        self.mitigatedByEdgeId = mitigatedByEdgeId
     }
 }
 
@@ -843,7 +849,8 @@ public struct ThreatResolver {
                 isTechnologySpecific: isTechnologySpecific,
                 key: key,
                 isImplemented: model.controlStatuses[key]?.isRecorded == true,
-                status: model.controlStatuses[key] ?? .notImplemented
+                status: model.controlStatuses[key] ?? .notImplemented,
+                mitigatedByEdgeId: model.controlMitigatedBy[key]
             )
         }
     }
@@ -859,7 +866,8 @@ public struct ThreatResolver {
                 isTechnologySpecific: false,
                 key: key,
                 isImplemented: model.controlStatuses[key]?.isRecorded == true,
-                status: model.controlStatuses[key] ?? .notImplemented
+                status: model.controlStatuses[key] ?? .notImplemented,
+                mitigatedByEdgeId: model.controlMitigatedBy[key]
             )
         }
     }

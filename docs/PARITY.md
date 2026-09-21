@@ -71,6 +71,7 @@ the language all follow.
 | Language | Attribute | Rule |
 | --- | --- | --- |
 | `.arch` | `uses "<client>"` on a `user` block | The label names a component the file declares. `RemoveComponents` takes the client off every user that holds it, with the components reached through it. The user panel opens one `user-use-reaches-<client>` row per client the user holds, so a client with no reach still shows its row. |
+| `.controls` | `mitigated_by` on a `control` block | The value names a `mitigates` edge the `.arch` file declares, written `<protector>-><protected>`. `ApplyControlAnswers` drops a mapping whose edge the architecture no longer declares, or whose edge answers another threat or another element, keeps the control's status, and warns; the next compile writes no `mitigated_by`. The threat card opens one `control-mitigated-by-<key>` picker per control, offering only the edges that answer this threat on this element, and it reads `Nobody` while nothing is mapped. |
 | `.arch` | `recommendation.blocked_by` on a `mitigates` edge | The parser refuses an action whose `blocked_by` names an assumption the file does not declare. `RemoveAssumption` clears `blocked_by` on every edge that names the removed assumption, keeps the action, and reports how many actions it unblocked. The assumptions panel shows that count in `unblocked-actions-note`. The mitigates sheet opens the "Held up by" picker on `nothing` when the model no longer declares the blocker. |
 
 ## What to do when a language changes

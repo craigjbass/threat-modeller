@@ -10,6 +10,9 @@ struct ThreatCard: View {
     let severityChoices: [AssessedSeverity]
     let onSetControl: (_ key: String, _ implemented: Bool) -> Void
     let onSetControlStatus: (_ key: String, _ statusId: String) -> Void
+    /// Records which `mitigates` edge implements one control, or nil to take
+    /// the mapping off. A window with no project writes nothing.
+    var onSetControlMitigatedBy: (_ key: String, _ edgeId: String?) -> Void = { _, _ in }
     /// Opens the evidence editor for one implemented control.
     var onEvidence: (AssessedControl) -> Void = { _ in }
     let onCompensate: () -> Void
@@ -47,6 +50,16 @@ struct ThreatCard: View {
 
     /// `Known vulnerabilities: CVE-2023-44487 (KEV, 1+), CVE-2024-7347 (4)`,
     /// or nil for a threat whose component states no CVE.
+    /// `Guard (80%), Vault (40%)`: what each component's `mitigates` edge
+    /// took off this threat, in the order the assessment states them.
+    static func reducedBy(_ threat: AssessedThreat) -> String {
+        threat.mitigatedByComponentLabels.enumerated().map { index, label in
+            guard index < threat.mitigatedByComponentReductions.count else { return label }
+            return "\(label) (\(threat.mitigatedByComponentReductions[index])%)"
+        }
+        .joined(separator: ", ")
+    }
+
     static func knownVulnerabilitiesLine(_ threat: AssessedThreat) -> String? {
         guard threat.knownVulnerabilities.isEmpty == false else { return nil }
         return "Known vulnerabilities: "
@@ -177,6 +190,7 @@ struct ThreatCard: View {
                     ForEach(threat.controls, id: \.key) { control in
                         VStack(alignment: .leading, spacing: 2) {
                             controlRow(control)
+                            mitigatedBy(control)
                             breaksTree(control)
                             evidence(control)
                             governance(control)
@@ -237,6 +251,32 @@ struct ThreatCard: View {
             .font(.caption2)
             .foregroundStyle(.secondary)
             .accessibilityIdentifier("governance-\(control.key)")
+        }
+    }
+
+    /// Which `mitigates` edge implements this control. An edge lowers the
+    /// score on its own; it answers a control only when a person says it
+    /// does, and this picker is where they say it.
+    @ViewBuilder
+    private func mitigatedBy(_ control: AssessedControl) -> some View {
+        if threat.mitigatesEdgeChoices.isEmpty == false {
+            HStack(spacing: 4) {
+                Text("Implemented by")
+                Picker("Implemented by", selection: Binding(
+                    get: { control.mitigatedByEdgeId ?? "" },
+                    set: { onSetControlMitigatedBy(control.key, $0.isEmpty ? nil : $0) }
+                )) {
+                    Text("Nobody").tag("")
+                    ForEach(threat.mitigatesEdgeChoices, id: \.id) { edge in
+                        Text(edge.label).tag(edge.id)
+                    }
+                }
+                .labelsHidden()
+                .frame(maxWidth: 220)
+                .accessibilityIdentifier("control-mitigated-by-\(control.key)")
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
         }
     }
 
@@ -490,6 +530,12 @@ struct ThreatCard: View {
                 Text("Before controls \(threat.inherentScore)")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
+            }
+            if threat.mitigatedByComponentLabels.isEmpty == false {
+                Text("Reduced by \(Self.reducedBy(threat))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("reduced-by-\(threat.threatKey)")
             }
         }
     }

@@ -111,7 +111,9 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                         description: control.description,
                         status: onScreen.statuses[answer.key]?[control.description] ?? control.status,
                         note: onScreen.notes[answer.key]?[control.description] ?? control.note,
-                        proof: onScreen.proofs[answer.key]?[control.description] ?? control.proof
+                        proof: onScreen.proofs[answer.key]?[control.description] ?? control.proof,
+                        mitigatedBy: onScreen.mitigatedBy[answer.key]?[control.description]
+                            ?? control.mitigatedBy
                     )
                 },
                 compensating: onScreen.compensating[answer.key] ?? answer.compensating,
@@ -196,11 +198,13 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
         statuses: [ThreatKey: [String: ControlStatus]],
         proofs: [ThreatKey: [String: ControlProof]],
         notes: [ThreatKey: [String: String]],
+        mitigatedBy: [ThreatKey: [String: String]],
         compensating: [ThreatKey: [CompensatingControl]]
     ) {
         var statuses: [ThreatKey: [String: ControlStatus]] = [:]
         var proofs: [ThreatKey: [String: ControlProof]] = [:]
         var notes: [ThreatKey: [String: String]] = [:]
+        var mitigatedBy: [ThreatKey: [String: String]] = [:]
 
         for threat in ThreatResolver(model: model, catalogue: catalogue).resolve() {
             let key = ThreatKey(threatId: threat.threat.id.value, sourceId: threat.source.id)
@@ -220,8 +224,14 @@ public struct SaveSystemAnswers: SaveSystemAnswersUseCase {
                 threat.controls.map { ($0.description, model.controlNotes[$0.key] ?? "") },
                 uniquingKeysWith: { first, _ in first }
             )
+            // Every offered control lands here, the empty name included, so a
+            // mapping taken off on screen goes off in the file.
+            mitigatedBy[key] = Dictionary(
+                threat.controls.map { ($0.description, $0.mitigatedByEdgeId ?? "") },
+                uniquingKeysWith: { first, _ in first }
+            )
         }
 
-        return (statuses, proofs, notes, model.compensatingControls)
+        return (statuses, proofs, notes, mitigatedBy, model.compensatingControls)
     }
 }

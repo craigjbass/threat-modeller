@@ -1517,6 +1517,15 @@ final class ThreatModelSession {
         refresh()
     }
 
+    /// Records which `mitigates` edge implements one control. Nil takes the
+    /// mapping off. An adopted edge also records the control as implemented.
+    func setControlMitigatedBy(key: String, edgeId: String?) {
+        useCases.setControlMitigatedBy().execute(
+            SetControlMitigatedByRequest(controlKey: key, edgeId: edgeId)
+        ).describe(into: &errorMessage)
+        refresh()
+    }
+
     /// Writes what proves one control is in place. Everything empty clears it.
     func setControlEvidence(
         key: String,

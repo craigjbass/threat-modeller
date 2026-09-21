@@ -1351,6 +1351,11 @@ subheading, alongside the `assumption` blocks of section 4.2.
 Two `mitigates` edges that lower the same threat on the same component give
 the stronger reduction, not the sum.
 
+An edge lowers a score. It answers no control, and it takes no threat out of
+the open count on its own. A person says that an edge is an example of one
+control in place by writing `mitigated_by` on that control in the `.controls`
+file, which section 5.6 states.
+
 **`recommendation`.** An `assumed` `mitigates` edge may hold a
 `recommendation` block: what a team would do to adopt it.
 
@@ -1544,11 +1549,12 @@ SeverityOverrideAttr  = "rationale" "=" String
                       | "sources"   "=" StringList ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
-ControlAttr  = "status"      "=" String
-             | "note"        "=" String
-             | "evidence"    "=" String
-             | "reference"   "=" String
-             | "verified_on" "=" String ;
+ControlAttr  = "status"       "=" String
+             | "mitigated_by" "=" String
+             | "note"         "=" String
+             | "evidence"     "=" String
+             | "reference"    "=" String
+             | "verified_on"  "=" String ;
 
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number
@@ -1832,6 +1838,7 @@ answer is not kept.
 | --- | --- | --- | --- |
 | `status` | string | `implemented`, `not_implemented`, `not_applicable`, `accepted` | `not_implemented` |
 | `note` | string | any | none |
+| `mitigated_by` | string | a `mitigates` edge, `<protector>-><protected>` | none |
 
 | Status | Counts as an answer | Lowers the score |
 | --- | --- | --- |
@@ -1856,6 +1863,44 @@ control and no compensating control.
 A `status` outside the four values is an error that lists the four.
 
 `note` is free text, and a rewrite keeps it.
+
+**`mitigated_by`.** A `mitigates` edge in the `.arch` file states that one
+component lowers a threat on another. It answers no control on its own. A
+person says that the edge is an example of one control in place, and this
+attribute is where they say it.
+
+```hcl
+threat "credential-theft" on component "store" {
+  control "Hold credentials in a hardware-backed store" {
+    status       = "implemented"
+    mitigated_by = "guard->store"
+  }
+}
+```
+
+The value is the edge's identifier: the protector, then `->`, then the
+component it protects, which is the shape a flow identifier uses. A value with
+no `->` in it is the error `mitigated_by is "<value>"; a mitigates edge is
+named "<protector>-><protected>"`.
+
+An edge answers a control only while it protects the element the answer is
+written on and names the threat the answer is written for:
+
+| Check | What happens |
+| --- | --- |
+| the system declares no edge with that name | the warning `the control "<description>" names the mitigates edge "<id>", which this system does not declare, so the mapping is not applied`; the control keeps its status and the next compile writes no `mitigated_by` |
+| the edge protects another element, or names another threat | the warning `the mitigates edge "<id>" does not answer "<threat>" on <kind> "<id>", so the mapping is not applied` |
+| the edge is `assumed` and the control is `implemented` | the warning `the mitigates edge "<id>" is assumed, so the control "<description>" is not implemented`, and the status reads `not_implemented` |
+
+WARNING: a control that names an edge leaves the share on both sides. It is
+neither an implemented control nor an applicable one, so the edge's
+`reduces_risk_by` is the only reduction for that control. Without this rule
+one protection lowers the score twice, once through the share and once
+through the edge.
+
+The status still counts as an answer, so a threat every control of which is
+answered this way leaves the open count on the diagram, leaves the sidebar's
+Unanswered filter, and leaves the executive summary's open count.
 
 **Evidence.** A `control` and a `compensating` block each state what proves
 the control is in place:
@@ -2049,6 +2094,9 @@ says something the model does not:
 | the model does not raise that threat on that source | `this model does not raise "<threat>" on <kind> "<id>", so its answers are not applied` |
 | the threat no longer offers that control | `"<threat>" no longer offers the control "<description>", so its answer is not applied` |
 | the `severity_override` names a severity the catalogue does not hold | `"<severity>" is not a severity this catalogue holds, so the severity_override on "<threat>" is not applied` |
+| `mitigated_by` names an edge the system does not declare | `the control "<description>" names the mitigates edge "<id>", which this system does not declare, so the mapping is not applied` |
+| `mitigated_by` names an edge that answers another threat or another element | `the mitigates edge "<id>" does not answer "<threat>" on <kind> "<id>", so the mapping is not applied` |
+| `mitigated_by` names an `assumed` edge on an implemented control | `the mitigates edge "<id>" is assumed, so the control "<description>" is not implemented` |
 
 ### 5.12 The merge
 
@@ -3062,7 +3110,7 @@ entry" or "an unknown attribute".
 | controls | `threat` | `impacts holds "<word>"; this application holds confidentiality, integrity and availability` |
 | controls | `likelihood` | `a likelihood holds tier, prior, rationale and sources, not "<word>"` |
 | controls | `severity_override` | `a severity_override holds rationale and sources, not "<word>"` |
-| controls | `control` | `a control holds status, note, evidence, reference and verified_on, not "<word>"` |
+| controls | `control` | `a control holds status, note, mitigated_by, evidence, reference and verified_on, not "<word>"` |
 | controls | `compensating` | `a compensating control holds reduces_risk_by, rationale, sources, evidence, reference and verified_on, not "<word>"` |
 | controls | `recommendation` | `a recommendation holds note and sources, not "<word>"` |
 | controls | `tree` | `a tree holds goal, chain, raises_risk_by, score, score_before, closed_by, sufficient and step, not "<word>"` |
@@ -3390,11 +3438,12 @@ SeverityOverrideAttr  = "rationale" "=" String
                       | "sources"   "=" StringList ;
 
 ControlBlock = "control" String "{" { ControlAttr } "}" ;
-ControlAttr  = "status"      "=" String
-             | "note"        "=" String
-             | "evidence"    "=" String
-             | "reference"   "=" String
-             | "verified_on" "=" String ;
+ControlAttr  = "status"       "=" String
+             | "mitigated_by" "=" String
+             | "note"         "=" String
+             | "evidence"     "=" String
+             | "reference"    "=" String
+             | "verified_on"  "=" String ;
 
 CompensatingBlock = "compensating" String "{" { CompensatingAttr } "}" ;
 CompensatingAttr  = "reduces_risk_by" "=" Number

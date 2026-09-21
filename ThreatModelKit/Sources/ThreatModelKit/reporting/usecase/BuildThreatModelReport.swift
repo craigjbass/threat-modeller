@@ -669,7 +669,12 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                             verifiedOn: $0.verifiedOn.flatMap { try? GovernanceDate.read($0).get() }
                         ).says
                         : nil,
-                    note: $0.note
+                    note: $0.note,
+                    mitigatedBy: $0.mitigatedByEdgeId.flatMap { edgeId in
+                        assessed.mitigatesEdgeChoices
+                            .first { $0.id == edgeId }?
+                            .protectorName
+                    }
                 )
             },
             pathwayMitigationLabels: assessed.pathwayMitigationLabels,

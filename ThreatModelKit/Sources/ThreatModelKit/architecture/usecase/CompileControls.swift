@@ -199,7 +199,11 @@ public struct CompileControls: CompileControlsUseCase {
                     note: answered?.note,
                     // What proves the control is in place is the person's, so
                     // the merge keeps it whole.
-                    proof: answered?.proof ?? ControlProof()
+                    proof: answered?.proof ?? ControlProof(),
+                    // The model holds the mapping only while the architecture
+                    // still declares the edge, so an edge a person deleted
+                    // leaves the file on the next compile.
+                    mitigatedBy: control.mitigatedByEdgeId
                 )
             }
 

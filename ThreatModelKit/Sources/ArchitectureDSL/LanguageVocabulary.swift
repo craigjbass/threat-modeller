@@ -415,7 +415,9 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                 keywords: ["control"],
                 within: [.controlsThreat],
                 phrase: "a control holds",
-                attributes: ["status", "note", "evidence", "reference", "verified_on"]
+                attributes: [
+                    "status", "note", "mitigated_by", "evidence", "reference", "verified_on"
+                ]
             )
         case .controlsCompensating:
             LanguageBlock(

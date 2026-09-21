@@ -55,6 +55,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         var statuses: [ControlKey: ControlStatus] = [:]
         var proofs: [ControlKey: ControlProof] = [:]
         var notes: [ControlKey: String] = [:]
+        var mitigatedBy: [ControlKey: String] = [:]
         var compensating: [ThreatKey: [CompensatingControl]] = [:]
         var recommendations: [ThreatKey: [Recommendation]] = [:]
         var likelihoods: [ThreatKey: LikelihoodFinding] = [:]
@@ -90,12 +91,60 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
                     )
                     continue
                 }
-                statuses[key] = control.status
+                var status = control.status
+                if let edgeId = control.mitigatedBy {
+                    switch Self.read(
+                        edgeId: edgeId,
+                        answering: answer,
+                        in: model.mitigatesEdges
+                    ) {
+                    case .unknown:
+                        warnings.append(
+                            Diagnostic(
+                                severity: .warning,
+                                line: 1,
+                                column: 1,
+                                message: "the control \"\(control.description)\" names the "
+                                    + "mitigates edge \"\(edgeId)\", which this system does not "
+                                    + "declare, so the mapping is not applied"
+                            )
+                        )
+                    case .answersSomethingElse:
+                        warnings.append(
+                            Diagnostic(
+                                severity: .warning,
+                                line: 1,
+                                column: 1,
+                                message: "the mitigates edge \"\(edgeId)\" does not answer "
+                                    + "\"\(answer.threatId)\" on \(answer.sourceKind) "
+                                    + "\"\(answer.sourceId)\", so the mapping is not applied"
+                            )
+                        )
+                    case .assumed:
+                        mitigatedBy[key] = edgeId
+                        if status == .implemented {
+                            status = .notImplemented
+                            warnings.append(
+                                Diagnostic(
+                                    severity: .warning,
+                                    line: 1,
+                                    column: 1,
+                                    message: "the mitigates edge \"\(edgeId)\" is assumed, so "
+                                        + "the control \"\(control.description)\" is not "
+                                        + "implemented"
+                                )
+                            )
+                        }
+                    case .adopted:
+                        mitigatedBy[key] = edgeId
+                    }
+                }
+                statuses[key] = status
                 if control.proof.isEmpty == false { proofs[key] = control.proof }
                 if let controlNote = control.note, controlNote.isEmpty == false {
                     notes[key] = controlNote
                 }
-                if control.status.isAnswered { applied += 1 }
+                if status.isAnswered { applied += 1 }
             }
 
             if answer.compensating.isEmpty == false {
@@ -137,6 +186,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         let readStatuses = statuses
         let readProofs = proofs
         let readNotes = notes
+        let readMitigatedBy = mitigatedBy
         let readCompensating = compensating
         let readRecommendations = recommendations
         let readLikelihoods = likelihoods
@@ -149,6 +199,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
             model.controlStatuses = readStatuses
             model.controlProofs = readProofs
             model.controlNotes = readNotes
+            model.controlMitigatedBy = readMitigatedBy
             model.compensatingControls = readCompensating
             model.recommendations = readRecommendations
             model.likelihoodFindings = readLikelihoods
@@ -156,5 +207,30 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
             model.impactOverrides = readImpacts
             return .applied(answers: count, warnings: readWarnings)
         }
+    }
+
+    /// What the model says about the edge a control names.
+    private enum EdgeReading {
+        /// No edge of this model carries that identifier.
+        case unknown
+        /// An edge carries the identifier and answers another threat, or
+        /// protects another element.
+        case answersSomethingElse
+        case adopted
+        case assumed
+    }
+
+    /// An edge answers a control only when it protects the element the answer
+    /// is written on and names the threat the answer is written for.
+    private static func read(
+        edgeId: String,
+        answering answer: SourceThreatAnswer,
+        in edges: [MitigatesEdge]
+    ) -> EdgeReading {
+        guard let edge = edges.first(where: { $0.id == edgeId }) else { return .unknown }
+        guard answer.sourceKind == "component",
+              edge.target.value == answer.sourceId,
+              edge.answers(ThreatId(answer.threatId)) else { return .answersSomethingElse }
+        return edge.effectiveStatus == .assumed ? .assumed : .adopted
     }
 }

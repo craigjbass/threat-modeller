@@ -166,6 +166,10 @@ public final class TestDependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    public func setControlMitigatedBy() -> SetControlMitigatedByUseCase {
+        SetControlMitigatedBy(models: models)
+    }
+
     public func setControlEvidence() -> SetControlEvidenceUseCase {
         SetControlEvidence(models: models)
     }

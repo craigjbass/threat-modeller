@@ -380,6 +380,7 @@ struct ControlsParser {
         var evidence: ControlEvidence?
         var reference = ""
         var verifiedOn: GovernanceDate?
+        var mitigatedBy: String?
 
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
@@ -401,6 +402,18 @@ struct ControlsParser {
                 }
             case "note":
                 note = parseTextAttribute()
+            case "mitigated_by":
+                let token = current
+                let raw = parseTextAttribute() ?? ""
+                if raw.contains("->") {
+                    mitigatedBy = raw
+                } else {
+                    record(
+                        "mitigated_by is \"\(raw)\"; a mitigates edge is named "
+                            + "\"<protector>-><protected>\"",
+                        at: token
+                    )
+                }
             default:
                 record(LanguageBlockId.controlsControl.unknownAttribute(current.text))
                 skipAttribute()
@@ -416,7 +429,8 @@ struct ControlsParser {
                 evidence: evidence,
                 reference: reference,
                 verifiedOn: verifiedOn
-            )
+            ),
+            mitigatedBy: mitigatedBy
         )
     }
 

@@ -14,9 +14,13 @@ public enum ControlCoverage {
     /// `not_applicable` leaves the denominator, because a control that does
     /// not apply is not work anybody skipped. `accepted` stays in the
     /// denominator and gives nothing, because an accepted risk is still a
-    /// risk.
+    /// risk. A control a person mapped to a `mitigates` edge leaves the
+    /// denominator as well: the edge's own reduction is what lowers the
+    /// score, so one protection lowers the score once.
     public static func coverage(of controls: [ResolvedControl]) -> Double {
-        let applicable = controls.filter { $0.status != .notApplicable }
+        let applicable = controls.filter {
+            $0.status != .notApplicable && $0.mitigatedByEdgeId == nil
+        }
         guard applicable.isEmpty == false else { return 0 }
         let implemented = applicable.filter { $0.status == .implemented }
         return Double(implemented.count) / Double(applicable.count)

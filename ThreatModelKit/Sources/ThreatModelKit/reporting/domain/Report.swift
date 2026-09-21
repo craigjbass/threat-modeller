@@ -1196,19 +1196,24 @@ public struct ReportControl: Equatable, Sendable {
     public let evidence: String?
     /// What a person wrote about this control, beside its evidence, or nil.
     public let note: String?
+    /// The component whose `mitigates` edge a person says implements this
+    /// control, or nil when nobody has mapped one.
+    public let mitigatedBy: String?
 
     public init(
         description: String,
         isImplemented: Bool,
         statusLabel: String? = nil,
         evidence: String? = nil,
-        note: String? = nil
+        note: String? = nil,
+        mitigatedBy: String? = nil
     ) {
         self.description = description
         self.isImplemented = isImplemented
         self.statusLabel = statusLabel ?? (isImplemented ? "Implemented" : "Not implemented")
         self.evidence = evidence
         self.note = note
+        self.mitigatedBy = mitigatedBy
     }
 }
 

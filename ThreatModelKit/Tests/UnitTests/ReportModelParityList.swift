@@ -789,6 +789,11 @@ extension ReportModelParityTests {
                 section("the threat stanza, under Controls"),
                 []
             )),
+            ("mitigated_by", row(
+                analysis("ApplyControlAnswers, and ControlCoverage, which drops a mapped control"),
+                section("the threat stanza, under Controls"),
+                []
+            )),
             ("evidence", row(
                 analysis("CompileControls, PolicyRules, and AttackTreeBinding"),
                 section("the threat stanza, under Controls"),

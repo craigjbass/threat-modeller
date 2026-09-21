@@ -159,6 +159,10 @@ nonisolated final class Dependencies: UseCaseFactory {
         SetControlStatus(models: models)
     }
 
+    func setControlMitigatedBy() -> SetControlMitigatedByUseCase {
+        SetControlMitigatedBy(models: models)
+    }
+
     func setControlEvidence() -> SetControlEvidenceUseCase {
         SetControlEvidence(models: models)
     }

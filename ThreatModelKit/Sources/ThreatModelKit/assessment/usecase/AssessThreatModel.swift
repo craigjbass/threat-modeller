@@ -144,6 +144,9 @@ public struct AssessedControl: Hashable, Sendable {
     /// Empty for a control that closes no route. The order rule of
     /// `RouteClosing` puts a control with names here before one without.
     public let closesTreeNames: [String]
+    /// The `mitigates` edge a person says implements this control, or nil
+    /// when nobody has mapped one. Written `<protector>-><protected>`.
+    public let mitigatedByEdgeId: String?
 
     public init(
         description: String,
@@ -159,7 +162,8 @@ public struct AssessedControl: Hashable, Sendable {
         evidenceReference: String? = nil,
         verifiedOn: String? = nil,
         note: String? = nil,
-        closesTreeNames: [String] = []
+        closesTreeNames: [String] = [],
+        mitigatedByEdgeId: String? = nil
     ) {
         self.description = description
         self.isTechnologySpecific = isTechnologySpecific
@@ -173,10 +177,36 @@ public struct AssessedControl: Hashable, Sendable {
         self.evidenceReference = evidenceReference
         self.verifiedOn = verifiedOn
         self.closesTreeNames = closesTreeNames
+        self.mitigatedByEdgeId = mitigatedByEdgeId
         let status = statusId.flatMap(ControlStatus.init(rawValue:))
             ?? (isImplemented ? ControlStatus.implemented : .notImplemented)
         self.statusId = status.rawValue
         self.statusLabel = statusLabel ?? status.label
+    }
+}
+
+/// One `mitigates` edge a person may map a control to.
+public struct AssessedMitigatesEdge: Hashable, Sendable {
+    /// `<protector>-><protected>`, which is what a `.controls` file writes.
+    public let id: String
+    /// What the protecting component is called on the diagram.
+    public let protectorName: String
+    public let reducesRiskBy: Int
+    /// `adopted` or `assumed`.
+    public let statusId: String
+
+    public init(id: String, protectorName: String, reducesRiskBy: Int, statusId: String) {
+        self.id = id
+        self.protectorName = protectorName
+        self.reducesRiskBy = reducesRiskBy
+        self.statusId = statusId
+    }
+
+    /// `Guard (80%)`, or `Guard (80%, assumed)` for an edge the team plans.
+    public var label: String {
+        statusId == MitigationStatus.assumed.rawValue
+            ? "\(protectorName) (\(reducesRiskBy)%, assumed)"
+            : "\(protectorName) (\(reducesRiskBy)%)"
     }
 }
 
@@ -390,6 +420,10 @@ public struct AssessedThreat: Hashable, Sendable {
     /// The percentage each component in `mitigatedByComponentLabels` takes
     /// off, same order and same count.
     public let mitigatedByComponentReductions: [Int]
+    /// Every `mitigates` edge that answers this threat on this element,
+    /// adopted and assumed alike, so a person picks the one that implements a
+    /// control. Empty for a threat no edge answers.
+    public let mitigatesEdgeChoices: [AssessedMitigatesEdge]
     /// The likelihood tier the score used, and what a reader sees.
     public let likelihoodId: String
     public let likelihoodLabel: String
@@ -469,6 +503,7 @@ public struct AssessedThreat: Hashable, Sendable {
         inherentScore: Int? = nil,
         mitigatedByComponentLabels: [String] = [],
         mitigatedByComponentReductions: [Int] = [],
+        mitigatesEdgeChoices: [AssessedMitigatesEdge] = [],
         likelihoodId: String = Likelihood.commodity.id,
         likelihoodLabel: String = Likelihood.commodity.label,
         scoreBeforeLikelihood: Int? = nil,
@@ -517,6 +552,7 @@ public struct AssessedThreat: Hashable, Sendable {
         self.inherentScore = inherentScore ?? riskScore
         self.mitigatedByComponentLabels = mitigatedByComponentLabels
         self.mitigatedByComponentReductions = mitigatedByComponentReductions
+        self.mitigatesEdgeChoices = mitigatesEdgeChoices
         self.likelihoodId = likelihoodId
         self.likelihoodLabel = likelihoodLabel
         self.scoreBeforeLikelihood = scoreBeforeLikelihood ?? riskScore
@@ -704,7 +740,8 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                                     )
                                 ] ?? [],
                                 sufficientFor: sufficientTrees
-                            )
+                            ),
+                            mitigatedByEdgeId: control.mitigatedByEdgeId
                         )
                     }),
                     source: Self.source(threat.source),
@@ -746,6 +783,11 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
                     inherentScore: threat.scoreBeforeControls,
                     mitigatedByComponentLabels: threat.mitigatedByComponents.map(\.protectorName),
                     mitigatedByComponentReductions: threat.mitigatedByComponents.map(\.reducesRiskBy),
+                    mitigatesEdgeChoices: Self.edgeChoices(
+                        answering: threat,
+                        in: model.mitigatesEdges,
+                        nameOf: nameOf
+                    ),
                     likelihoodId: threat.likelihood.id,
                     likelihoodLabel: threat.likelihood.label,
                     scoreBeforeLikelihood: threat.scoreBeforeLikelihood,
@@ -803,6 +845,27 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
     /// The open trees this control closes a step on, by name. A control on an
     /// open step breaks that step; a control a tree names as sufficient breaks
     /// the whole route.
+    /// Every `mitigates` edge a person may map a control of this threat to:
+    /// the edges that protect the element the threat is raised on and name
+    /// the threat. Only a component carries such an edge.
+    private static func edgeChoices(
+        answering threat: ResolvedThreat,
+        in edges: [MitigatesEdge],
+        nameOf: (ComponentId) -> String
+    ) -> [AssessedMitigatesEdge] {
+        guard case .component(let componentId, _, _) = threat.source else { return [] }
+        return edges
+            .filter { $0.target == componentId && $0.answers(threat.threat.id) }
+            .map { edge in
+                AssessedMitigatesEdge(
+                    id: edge.id,
+                    protectorName: nameOf(edge.source),
+                    reducesRiskBy: edge.reducesRiskBy,
+                    statusId: edge.effectiveStatus.rawValue
+                )
+            }
+    }
+
     private static func closes(
         _ description: String,
         onAnOpenStepOf stepTrees: [BoundAttackTree],

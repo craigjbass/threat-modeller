@@ -35,6 +35,7 @@ public protocol UseCaseFactory: Sendable {
     func importTerraformIntoSystem() -> ImportTerraformIntoSystemUseCase
     func exportArchitecture() -> ExportArchitectureUseCase
     func setControlStatus() -> SetControlStatusUseCase
+    func setControlMitigatedBy() -> SetControlMitigatedByUseCase
     func setControlEvidence() -> SetControlEvidenceUseCase
     func setControlNote() -> SetControlNoteUseCase
     func listStaleAnswers() -> ListStaleAnswersUseCase

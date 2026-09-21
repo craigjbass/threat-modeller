@@ -236,82 +236,7 @@ struct ThreatSidebar: View {
                                 Section {
                                     if session.collapsedGroups.contains(group.id) == false {
                                         ForEach(group.threats, id: \.rowIdentity) { threat in
-                                            ThreatCard(
-                                                threat: threat,
-                                                focus: focus,
-                                                severityChoices: session.severityChoices,
-                                                onSetControl: { key, implemented in
-                                                    session.setControl(key: key, implemented: implemented)
-                                                },
-                                                onSetControlStatus: { key, statusId in
-                                                    session.setControlStatus(key: key, statusId: statusId)
-                                                },
-                                                onEvidence: { control in
-                                                    evidencing = GovernedControl(
-                                                        threat: threat,
-                                                        control: control
-                                                    )
-                                                },
-                                                onCompensate: { compensating = CompensatedThreat(threat: threat) },
-                                                // The editor writes a file in
-                                                // the project, so a window
-                                                // with no project disables
-                                                // the button instead of
-                                                // opening an empty sheet.
-                                                onLikelihood: project == nil ? nil : {
-                                                    likelihooding = CompensatedThreat(threat: threat)
-                                                },
-                                                // The editor writes a file in
-                                                // the project, so a window
-                                                // with no project offers none.
-                                                onGovern: project == nil ? nil : { control in
-                                                    governing = GovernedControl(
-                                                        threat: threat,
-                                                        control: control
-                                                    )
-                                                },
-                                                // The editor writes a file in
-                                                // the project, so a window
-                                                // with no project offers none.
-                                                onDecideSeverity: project == nil ? nil : {
-                                                    deciding = CompensatedThreat(threat: threat)
-                                                },
-                                                onOverride: { severityId in
-                                                    session.overrideSeverity(
-                                                        overrideKey: threat.overrideKey,
-                                                        severityId: severityId
-                                                    )
-                                                },
-                                                onClearOverride: {
-                                                    session.clearOverride(overrideKey: threat.overrideKey)
-                                                },
-                                                // The writer writes a file in
-                                                // the project, so a window
-                                                // with no project offers no
-                                                // toggle.
-                                                onSetImpacts: project == nil ? nil : { impacts in
-                                                    guard case .threat(let threatId, let sourceKind, let sourceId)?
-                                                        = GovernanceSheet.place(of: threat.threatKey) else { return }
-                                                    project?.saveImpacts(
-                                                        threatId: threatId,
-                                                        sourceKind: sourceKind,
-                                                        sourceId: sourceId,
-                                                        impacts: impacts
-                                                    )
-                                                },
-                                                // The editor writes a file in
-                                                // the project, so a window
-                                                // with no project offers none.
-                                                onRecommend: project == nil ? nil : {
-                                                    recommending = CompensatedThreat(threat: threat)
-                                                },
-                                                // The lookup writes the
-                                                // `.arch` file, so a window
-                                                // with no project offers none.
-                                                onLookUpVulnerabilities: project == nil ? nil : {
-                                                    lookingUp = CompensatedThreat(threat: threat)
-                                                }
-                                            )
+                                            card(for: threat)
                                         }
                                     }
                                 } header: {
@@ -450,6 +375,92 @@ struct ThreatSidebar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    /// One threat's card, with every writer the sidebar gives it.
+    ///
+    /// It is its own method because the card takes fourteen closures, and the
+    /// type checker gives up on that many inside the list's builder.
+    private func card(for threat: AssessedThreat) -> some View {
+        ThreatCard(
+            threat: threat,
+            focus: focus,
+            severityChoices: session.severityChoices,
+            onSetControl: { key, implemented in
+                session.setControl(key: key, implemented: implemented)
+            },
+            onSetControlStatus: { key, statusId in
+                session.setControlStatus(key: key, statusId: statusId)
+            },
+            onSetControlMitigatedBy: { key, edgeId in
+                session.setControlMitigatedBy(key: key, edgeId: edgeId)
+            },
+            onEvidence: { control in
+                evidencing = GovernedControl(
+                    threat: threat,
+                    control: control
+                )
+            },
+            onCompensate: { compensating = CompensatedThreat(threat: threat) },
+            // The editor writes a file in
+            // the project, so a window
+            // with no project disables
+            // the button instead of
+            // opening an empty sheet.
+            onLikelihood: project == nil ? nil : {
+                likelihooding = CompensatedThreat(threat: threat)
+            },
+            // The editor writes a file in
+            // the project, so a window
+            // with no project offers none.
+            onGovern: project == nil ? nil : { control in
+                governing = GovernedControl(
+                    threat: threat,
+                    control: control
+                )
+            },
+            // The editor writes a file in
+            // the project, so a window
+            // with no project offers none.
+            onDecideSeverity: project == nil ? nil : {
+                deciding = CompensatedThreat(threat: threat)
+            },
+            onOverride: { severityId in
+                session.overrideSeverity(
+                    overrideKey: threat.overrideKey,
+                    severityId: severityId
+                )
+            },
+            onClearOverride: {
+                session.clearOverride(overrideKey: threat.overrideKey)
+            },
+            // The writer writes a file in
+            // the project, so a window
+            // with no project offers no
+            // toggle.
+            onSetImpacts: project == nil ? nil : { impacts in
+                guard case .threat(let threatId, let sourceKind, let sourceId)?
+                    = GovernanceSheet.place(of: threat.threatKey) else { return }
+                project?.saveImpacts(
+                    threatId: threatId,
+                    sourceKind: sourceKind,
+                    sourceId: sourceId,
+                    impacts: impacts
+                )
+            },
+            // The editor writes a file in
+            // the project, so a window
+            // with no project offers none.
+            onRecommend: project == nil ? nil : {
+                recommending = CompensatedThreat(threat: threat)
+            },
+            // The lookup writes the
+            // `.arch` file, so a window
+            // with no project offers none.
+            onLookUpVulnerabilities: project == nil ? nil : {
+                lookingUp = CompensatedThreat(threat: threat)
+            }
+        )
     }
 
     /// The Reorder button, beside the risk summary.

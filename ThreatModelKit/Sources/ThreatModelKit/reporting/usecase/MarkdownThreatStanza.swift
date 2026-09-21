@@ -124,6 +124,7 @@ public enum MarkdownThreatStanza {
                 lines.append(
                     "- [\(control.isImplemented ? "x" : " ")] \(control.description)"
                         + " \u{2014} \(control.statusLabel)"
+                        + (control.mitigatedBy.map { " \u{2014} mitigated by \($0)" } ?? "")
                         + (control.evidence.map { " \u{2014} \($0)" } ?? "")
                         + (control.note.map { " \u{2014} \($0)" } ?? "")
                 )

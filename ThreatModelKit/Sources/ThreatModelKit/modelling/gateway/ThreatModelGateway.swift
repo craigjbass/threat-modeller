@@ -78,6 +78,7 @@ public enum ChangeLabel {
     public static let duplicate = "Duplicate"
     public static let recordControl = "Tick Control"
     public static let setControlStatus = "Set Control Status"
+    public static let setControlMitigatedBy = "Set What Implements A Control"
     public static let setControlEvidence = "Set Evidence"
     public static let setControlNote = "Set Control Note"
     public static let overrideSeverity = "Set Severity"
