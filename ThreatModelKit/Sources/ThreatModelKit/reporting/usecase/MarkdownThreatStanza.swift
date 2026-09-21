@@ -121,19 +121,30 @@ public enum MarkdownThreatStanza {
             lines.append("Controls:")
             lines.append("")
             for control in threat.controls {
-                lines.append(
-                    "- [\(control.isImplemented ? "x" : " ")] \(control.description)"
-                        + " \u{2014} \(control.statusLabel)"
-                        + (control.mitigatedBy.isEmpty
-                            ? ""
-                            : " \u{2014} mitigated by "
-                                + control.mitigatedBy.joined(separator: ", "))
-                        + (control.evidence.map { " \u{2014} \($0)" } ?? "")
-                        + (control.note.map { " \u{2014} \($0)" } ?? "")
-                )
+                lines.append(Self.line(of: control))
             }
         }
         lines.append("")
         return lines
+    }
+
+    /// One control's line: the tick, the description, the status, what
+    /// implements it, what proves it and what a person wrote about it.
+    ///
+    /// It is its own method because the Linux compiler gives up on the whole
+    /// sentence as one expression.
+    private static func line(of control: ReportControl) -> String {
+        var said = "- [\(control.isImplemented ? "x" : " ")] \(control.description)"
+        said += " \u{2014} \(control.statusLabel)"
+        if control.mitigatedBy.isEmpty == false {
+            said += " \u{2014} mitigated by " + control.mitigatedBy.joined(separator: ", ")
+        }
+        if let evidence = control.evidence {
+            said += " \u{2014} \(evidence)"
+        }
+        if let note = control.note {
+            said += " \u{2014} \(note)"
+        }
+        return said
     }
 }
