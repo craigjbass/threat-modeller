@@ -10,7 +10,6 @@ struct ActionsTests {
         MitigatesEdge(
             source: ComponentId(source),
             target: ComponentId(target),
-            threatIds: [ThreatId("credential-theft")],
             status: .proposed,
             action: action
         )

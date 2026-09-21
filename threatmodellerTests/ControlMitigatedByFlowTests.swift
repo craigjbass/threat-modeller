@@ -27,13 +27,9 @@ struct ControlMitigatedByFlowTests {
         data       = "confidential"
       }
 
-      mitigates guard -> api {
-        threats = ["credential-theft"]
-      }
+      mitigates guard -> api
 
-      mitigates vault -> api {
-        threats = ["credential-theft"]
-      }
+      mitigates vault -> api
     }
 
     """
@@ -173,8 +169,8 @@ struct ControlMitigatedByFlowTests {
     @Test func leavesAControlOpenWhileTheEdgeItNamesIsProposed() async throws {
         let (session, _) = await aProject(
             payments.replacingOccurrences(
-                of: "mitigates guard -> api {\n    threats = [\"credential-theft\"]",
-                with: "mitigates guard -> api {\n    threats = [\"credential-theft\"]\n    status  = \"proposed\""
+                of: "mitigates guard -> api",
+                with: "mitigates guard -> api {\n    status = \"proposed\"\n  }"
             )
         )
         let model = try #require(session.model)

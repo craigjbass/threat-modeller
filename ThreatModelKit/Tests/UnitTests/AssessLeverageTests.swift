@@ -64,7 +64,6 @@ struct AssessLeverageTests {
             MitigatesEdge(
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.storeId),
-                threatIds: threats,
                 status: .proposed,
                 action: EdgeAction(label: "adopt", text: "Adopt the guard")
             )
@@ -90,14 +89,12 @@ struct AssessLeverageTests {
             MitigatesEdge(
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.storeId),
-                threatIds: onStore,
                 status: .proposed,
                 action: EdgeAction(label: "adopt", text: "Adopt the guard")
             ),
             MitigatesEdge(
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.queueId),
-                threatIds: onQueue,
                 status: .proposed,
                 action: EdgeAction(label: "adopt")
             )
@@ -117,14 +114,12 @@ struct AssessLeverageTests {
         let weaker = MitigatesEdge(
             source: ComponentId(ids.guardId),
             target: ComponentId(ids.storeId),
-            threatIds: threats,
             status: .proposed,
             action: EdgeAction(label: "weaker", text: "The weaker guard")
         )
         let stronger = MitigatesEdge(
             source: ComponentId(ids.queueId),
             target: ComponentId(ids.storeId),
-            threatIds: threats,
             status: .proposed,
             action: EdgeAction(label: "stronger", text: "The stronger guard")
         )
@@ -167,14 +162,12 @@ struct AssessLeverageTests {
         let alpha = MitigatesEdge(
             source: ComponentId(ids.queueId),
             target: ComponentId(ids.storeId),
-            threatIds: threats,
             status: .proposed,
             action: EdgeAction(label: "alpha", text: "Do alpha")
         )
         let beta = MitigatesEdge(
             source: ComponentId(ids.guardId),
             target: ComponentId(ids.storeId),
-            threatIds: threats,
             status: .proposed,
             action: EdgeAction(label: "beta", text: "Do beta")
         )
@@ -199,7 +192,6 @@ struct AssessLeverageTests {
             MitigatesEdge(
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.storeId),
-                threatIds: [ThreatId("a-threat-this-model-does-not-raise")],
                 status: .proposed,
                 action: EdgeAction(label: "pointless", text: "Buy the wrong thing")
             )
@@ -229,14 +221,12 @@ struct AssessLeverageTests {
             MitigatesEdge(
                 source: ComponentId(ids.guardId),
                 target: ComponentId(ids.storeId),
-                threatIds: threats,
                 status: .proposed,
                 action: EdgeAction(label: "measured", text: "The one measured")
             ),
             MitigatesEdge(
                 source: ComponentId(ids.queueId),
                 target: ComponentId(ids.storeId),
-                threatIds: threats,
                 status: .proposed
             )
         ])

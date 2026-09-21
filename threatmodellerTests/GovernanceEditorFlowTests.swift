@@ -46,7 +46,6 @@ struct GovernanceEditorFlowTests {
       component "guard" { technology = "aws-waf" }
 
       mitigates guard -> api {
-        threats         = ["credential-theft"]
         status          = "proposed"
 
         recommendation "Turn the guard on" {

@@ -1956,7 +1956,6 @@ final class ThreatModelSession {
     func setMitigatesEdge(
         from sourceComponentId: String,
         to targetComponentId: String,
-        threatIds: [String],
         status: String,
         actionLabel: String? = nil,
         actionText: String? = nil,
@@ -1978,7 +1977,6 @@ final class ThreatModelSession {
                 SetMitigatesEdgeRequest(
                     sourceComponentId: sourceComponentId,
                     targetComponentId: targetComponentId,
-                    threatIds: threatIds,
                     status: status,
                     action: action
                 )

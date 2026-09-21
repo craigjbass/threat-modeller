@@ -24,7 +24,6 @@ struct AssumptionLanguageTests {
       }
 
       mitigates hardening -> laptop {
-        threats         = ["persistence"]
         status          = "proposed"
       }
     }

@@ -326,7 +326,7 @@ public enum LanguageBlockId: String, CaseIterable, Sendable {
                 keywords: ["mitigates"],
                 within: [.archSystem],
                 phrase: "a mitigates edge holds",
-                attributes: ["threats", "status", "recommendation"]
+                attributes: ["status", "recommendation"]
             )
         case .archRecommendation:
             LanguageBlock(

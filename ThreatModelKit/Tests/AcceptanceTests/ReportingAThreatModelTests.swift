@@ -213,7 +213,6 @@ struct ReportingAThreatModelTests {
                 MitigatesEdge(
                     source: ComponentId(guardId),
                     target: ComponentId(serverId),
-                    threatIds: [ThreatId("credential-theft")]
                 )
             ]
             // The edge lowers a score through the control a person says it

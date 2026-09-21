@@ -47,7 +47,6 @@ struct ModellingAnEndpointTests {
       }
 
       mitigates guard -> secrets {
-        threats = ["credential-theft"]
       }
     }
     """

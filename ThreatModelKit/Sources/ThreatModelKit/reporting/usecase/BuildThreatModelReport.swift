@@ -207,12 +207,19 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
         // assumption. What the edge is worth is what the controls that name
         // it state, and the strongest of those is what it would buy.
         var worthOfEdge: [String: Int] = [:]
-        for mitigations in model.controlMitigatedBy.values {
-            for mitigation in mitigations {
-                worthOfEdge[mitigation.edgeId] = max(
-                    worthOfEdge[mitigation.edgeId] ?? 0,
-                    mitigation.reducesRiskBy
-                )
+        var answeredByEdge: [String: [String]] = [:]
+        for threat in assessment.threats {
+            for control in threat.controls {
+                for mitigation in control.mitigations {
+                    worthOfEdge[mitigation.edgeId] = max(
+                        worthOfEdge[mitigation.edgeId] ?? 0,
+                        mitigation.reducesRiskBy
+                    )
+                    if answeredByEdge[mitigation.edgeId]?.contains(threat.threatId) == true {
+                        continue
+                    }
+                    answeredByEdge[mitigation.edgeId, default: []].append(threat.threatId)
+                }
             }
         }
         let assumedMitigations = model.mitigatesEdges
@@ -221,7 +228,7 @@ public struct BuildThreatModelReport: BuildThreatModelReportUseCase {
                 ReportAssumedMitigation(
                     protectorName: nameOf($0.source),
                     protectedName: nameOf($0.target),
-                    threatIds: $0.threatIds.map(\.value),
+                    threatIds: answeredByEdge[$0.id] ?? [],
                     reducesRiskBy: worthOfEdge[$0.id] ?? 0
                 )
             }

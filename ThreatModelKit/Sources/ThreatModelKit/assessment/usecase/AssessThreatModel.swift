@@ -844,8 +844,10 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
     /// open step breaks that step; a control a tree names as sufficient breaks
     /// the whole route.
     /// Every `mitigates` edge a person may map a control of this threat to:
-    /// the edges that protect the element the threat is raised on and name
-    /// the threat. Only a component carries such an edge.
+    /// the edges that protect the element the threat is raised on. The edge
+    /// names no threats, so every edge onto the element is a candidate, and
+    /// the mapping a person writes is what says the edge is relevant. Only a
+    /// component carries such an edge.
     private static func edgeChoices(
         answering threat: ResolvedThreat,
         in edges: [MitigatesEdge],
@@ -853,7 +855,7 @@ public struct AssessThreatModel: AssessThreatModelUseCase {
     ) -> [AssessedMitigatesEdge] {
         guard case .component(let componentId, _, _) = threat.source else { return [] }
         return edges
-            .filter { $0.target == componentId && $0.answers(threat.threat.id) }
+            .filter { $0.target == componentId }
             .map { edge in
                 AssessedMitigatesEdge(
                     id: edge.id,

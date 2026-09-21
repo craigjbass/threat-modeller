@@ -13,7 +13,6 @@ struct DocumentFormatVersionSixTests {
             MitigatesEdge(
                 source: ComponentId("guard"),
                 target: ComponentId("store"),
-                threatIds: [ThreatId("credential-theft")],
                 status: .proposed,
                 action: EdgeAction(
                     label: "adopt-the-guard",
@@ -26,7 +25,6 @@ struct DocumentFormatVersionSixTests {
             MitigatesEdge(
                 source: ComponentId("guard"),
                 target: ComponentId("queue"),
-                threatIds: [ThreatId("credential-theft")],
                 status: .proposed
             )
         ]
@@ -61,7 +59,6 @@ struct DocumentFormatVersionSixTests {
             MitigatesEdge(
                 source: ComponentId("guard"),
                 target: ComponentId("store"),
-                threatIds: [ThreatId("credential-theft")],
                 status: .proposed,
                 action: EdgeAction(label: "adopt-the-guard", text: "Adopt the guard")
             )

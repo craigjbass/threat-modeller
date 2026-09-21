@@ -27,12 +27,10 @@ struct ControlMitigatedByTests {
           }
 
           mitigates guard -> store {
-            threats = ["credential-theft"]
             status  = "\(status)"
           }
 
           mitigates vault -> store {
-            threats = ["credential-theft"]
           }
         }
 
@@ -231,14 +229,29 @@ struct ControlMitigatedByTests {
           component "store" { technology = "aws-ec2" }
 
           mitigates guard -> store {
-            threats         = ["credential-theft"]
             reduces_risk_by = 80
           }
         }
         """)
         #expect(read.diagnostics.contains {
-            $0.message == "a mitigates edge holds threats, status and recommendation, "
+            $0.message == "a mitigates edge holds status and recommendation, "
                 + "not \"reduces_risk_by\""
+        })
+    }
+
+    @Test func refusesAnEdgeThatStatesWhichThreatsItAnswers() {
+        let read = HclArchitectureSource().read("""
+        system "Payments" {
+          component "guard" { technology = "aws-waf" }
+          component "store" { technology = "aws-ec2" }
+
+          mitigates guard -> store {
+            threats = ["credential-theft"]
+          }
+        }
+        """)
+        #expect(read.diagnostics.contains {
+            $0.message == "a mitigates edge holds status and recommendation, not \"threats\""
         })
     }
 
@@ -249,7 +262,6 @@ struct ControlMitigatedByTests {
           component "store" { technology = "aws-ec2" }
 
           mitigates guard -> store {
-            threats = ["credential-theft"]
             status  = "adopted"
           }
         }

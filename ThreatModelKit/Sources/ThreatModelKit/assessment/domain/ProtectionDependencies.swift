@@ -47,6 +47,10 @@ public struct ProtectionDependency: Equatable, Sendable {
 /// nobody can defend in a review.
 public enum ProtectionDependencies {
     /// One entry per protector, in the order the edges are declared.
+    ///
+    /// An edge names no threats, so what a protector protects is what the
+    /// controls that name its edges say, read back off the resolved threats.
+    /// A declared edge no control names protects nothing, and its row says so.
     public static func derive(
         from resolved: [ResolvedThreat],
         edges: [MitigatesEdge],
@@ -55,10 +59,16 @@ public enum ProtectionDependencies {
         var order: [ComponentId] = []
         var protects: [ComponentId: [String]] = [:]
 
-        for edge in edges {
-            if protects[edge.source] == nil { order.append(edge.source) }
-            protects[edge.source, default: []] += edge.threatIds.map {
-                "\($0.value) on \(edge.target.value)"
+        for edge in edges where order.contains(edge.source) == false {
+            order.append(edge.source)
+        }
+
+        for threat in resolved {
+            guard case .component(let componentId, _, _) = threat.source else { continue }
+            for mitigation in threat.mitigatedByComponents {
+                let said = "\(threat.threat.id.value) on \(componentId.value)"
+                if protects[mitigation.protectorId]?.contains(said) == true { continue }
+                protects[mitigation.protectorId, default: []].append(said)
             }
         }
 

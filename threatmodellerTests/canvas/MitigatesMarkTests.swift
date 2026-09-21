@@ -35,7 +35,6 @@ struct MitigatesMarkTests {
         ViewedMitigation(
             sourceComponentId: source,
             targetComponentId: target,
-            threatIds: ["t1"],
             status: status
         )
     }

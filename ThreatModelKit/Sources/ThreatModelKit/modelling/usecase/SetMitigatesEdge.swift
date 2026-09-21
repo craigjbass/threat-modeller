@@ -29,7 +29,6 @@ public struct SetMitigatesEdgeRequest: Equatable, Sendable {
 
     public let sourceComponentId: String
     public let targetComponentId: String
-    public let threatIds: [String]
     /// `live` or `proposed`.
     public let status: String
     public let action: Action?
@@ -37,13 +36,11 @@ public struct SetMitigatesEdgeRequest: Equatable, Sendable {
     public init(
         sourceComponentId: String,
         targetComponentId: String,
-        threatIds: [String],
         status: String,
         action: Action? = nil
     ) {
         self.sourceComponentId = sourceComponentId
         self.targetComponentId = targetComponentId
-        self.threatIds = threatIds
         self.status = status
         self.action = action
     }
@@ -54,7 +51,6 @@ public enum SetMitigatesEdgeResponse: Equatable, Sendable {
     /// The edge stands, and the action it named does not: only a proposed
     /// edge carries one.
     case recordedWithoutTheAction
-    case noThreats
     case unknownStatus
     case unknownComponent
     case selfEdge
@@ -65,8 +61,6 @@ public enum SetMitigatesEdgeResponse: Equatable, Sendable {
             message = nil
         case .recordedWithoutTheAction:
             message = "A live edge carries no recommendation, so that one was dropped."
-        case .noThreats:
-            message = "A mitigates edge names the threats it lowers."
         case .unknownStatus:
             message = "A mitigates edge is \"live\" or \"proposed\"."
         case .unknownComponent:
@@ -99,10 +93,6 @@ public struct SetMitigatesEdge: SetMitigatesEdgeUseCase {
 
         guard source != target else { return .selfEdge }
 
-        let threats = request.threatIds
-            .map { $0.trimmingWhitespace() }
-            .filter { $0.isEmpty == false }
-        guard threats.isEmpty == false else { return .noThreats }
         guard let status = ComponentStatus(rawValue: request.status) else {
             return .unknownStatus
         }
@@ -117,7 +107,6 @@ public struct SetMitigatesEdge: SetMitigatesEdgeUseCase {
             let written = MitigatesEdge(
                 source: source,
                 target: target,
-                threatIds: threats.map(ThreatId.init),
                 status: status,
                 action: carried.map {
                     EdgeAction(

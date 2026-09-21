@@ -126,7 +126,10 @@ struct ControlMitigationJSON: Codable {
 struct MitigatesEdgeJSON: Codable {
     let source: String
     let target: String
-    let threatIds: [String]
+    /// Version 12 and below state which threats the edge answers. Version 13
+    /// reads that off the controls that name the edge, and a file at 13 or
+    /// above states none.
+    let threatIds: [String]?
     /// Version 11 and below state what the edge takes off. Version 12 moves
     /// that number onto the control that names the edge, and a file at 12 or
     /// above states none.

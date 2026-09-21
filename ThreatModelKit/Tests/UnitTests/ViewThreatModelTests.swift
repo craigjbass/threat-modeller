@@ -195,7 +195,6 @@ struct ViewThreatModelTests {
                     MitigatesEdge(
                         source: ComponentId("guard"),
                         target: ComponentId("store"),
-                        threatIds: [ThreatId("credential-theft")],
                         status: .proposed
                     )
                 ]
@@ -205,7 +204,6 @@ struct ViewThreatModelTests {
         #expect(response.mitigations.count == 1)
         #expect(response.mitigations.first?.sourceComponentId == "guard")
         #expect(response.mitigations.first?.targetComponentId == "store")
-        #expect(response.mitigations.first?.threatIds == ["credential-theft"])
         #expect(response.mitigations.first?.status == "proposed")
     }
 

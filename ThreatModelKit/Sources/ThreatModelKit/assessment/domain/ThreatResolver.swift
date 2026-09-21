@@ -345,7 +345,6 @@ public struct ThreatResolver {
                 ) else { continue }
                 let byComponents = ComponentMitigations.apply(
                     score: mitigation.score,
-                    threatId: threat.id,
                     target: component.id,
                     controls: controls,
                     edges: model.mitigatesEdges,
@@ -354,7 +353,6 @@ public struct ThreatResolver {
                 )
                 let byProposed = ComponentMitigations.apply(
                     score: mitigation.score,
-                    threatId: threat.id,
                     target: component.id,
                     controls: controls,
                     edges: model.mitigatesEdges,

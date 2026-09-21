@@ -389,7 +389,6 @@ public struct ImportArchitecture: ImportArchitectureUseCase {
             return MitigatesEdge(
                 source: ComponentId(edge.sourceId),
                 target: ComponentId(edge.targetId),
-                threatIds: edge.threatIds.map(ThreatId.init),
                 status: status,
                 action: edge.action.map {
                     EdgeAction(

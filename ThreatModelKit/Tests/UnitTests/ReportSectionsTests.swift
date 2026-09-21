@@ -63,7 +63,6 @@ struct ReportSectionsTests {
             MitigatesEdge(
                 source: ComponentId("guard"),
                 target: ComponentId("store\(index)"),
-                threatIds: [ThreatId("misconfiguration")],
                 status: .proposed,
                 action: EdgeAction(label: "action-\(index)", text: "Do thing \(index)")
             )

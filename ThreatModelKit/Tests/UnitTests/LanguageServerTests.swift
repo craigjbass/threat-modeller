@@ -975,7 +975,6 @@ struct LanguageServerTests {
       }
 
       mitigates guard -> api {
-        threats         = ["credential-theft"]
         status          = "live"
       }
     }
@@ -1025,7 +1024,6 @@ struct LanguageServerTests {
 
         #expect(said.contains("guard"))
         #expect(said.contains("api"))
-        #expect(said.contains("credential-theft"))
         #expect(said.contains("live"))
         #expect(said.contains("each control that names it"))
     }

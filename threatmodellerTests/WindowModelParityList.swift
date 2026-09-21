@@ -198,7 +198,6 @@ extension WindowModelParityTests {
             ("tags", .writes("connection-tags"))
         ])) { first, _ in first }
         all.merge(rows("arch", "mitigates", [
-            ("threats", .writes("mitigates-threat-")),
             ("status", .writes("mitigates-status")),
             ("recommendation", nested("recommendation (in mitigates)"))
         ])) { first, _ in first }

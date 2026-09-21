@@ -169,12 +169,10 @@ struct MarkdownGlossaryTests {
             MitigatesEdge(
                 source: guardId,
                 target: serverId,
-                threatIds: [ThreatId("credential-theft")],
             ),
             MitigatesEdge(
                 source: guardId,
                 target: databaseId,
-                threatIds: [ThreatId("misconfiguration")],
                 status: .proposed,
                 action: EdgeAction(
                     label: "adopt-waf-on-database",

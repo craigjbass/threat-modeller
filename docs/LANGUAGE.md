@@ -487,9 +487,8 @@ FlowEntry     = "kind"        "=" String
               | "carries"     "=" StringList
               | "tags"        "=" StringList ;
 
-MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
-MitigatesEntry = "threats" "=" StringList
-               | "status"  "=" String
+MitigatesBlock = "mitigates" Identifier "->" Identifier [ "{" { MitigatesEntry } "}" ] ;
+MitigatesEntry = "status" "=" String
                | ActionBlock ;
 
 ActionBlock = "recommendation" String "{" { ActionAttr } "}" ;
@@ -1320,8 +1319,7 @@ set on another component.
 
 ```hcl
 mitigates guard -> store {
-  threats = ["credential-theft"]
-  status  = "proposed"
+  status = "proposed"
 }
 ```
 
@@ -1330,20 +1328,26 @@ provides the mitigation, then the component it protects.
 
 | Attribute | Type | Values | Default |
 | --- | --- | --- | --- |
-| `threats` | list of strings | threat identifiers | **required** |
 | `status` | string | `live`, `proposed` | `live` |
 
-The edge states what it answers and whether it is in place. It does not state
-how much it takes off: the same guard is worth a different amount to each
-control it stands for, so the number is written on the control, in the
+An edge with no body states nothing but the pair, the way a network flow does:
+
+```hcl
+mitigates guard -> store
+```
+
+The edge states which two components it runs between and whether it is in
+place. It states neither which threats it answers nor how much it takes off.
+The catalogue generates the controls, so the edge repeating their threats would
+state the same fact twice and let the two disagree. A person ticks the edge on
+each control it implements, and states what it takes off there, in the
 `.controls` file, which section 5.6 states. An edge no control names lowers no
 score.
 
-A block with no `threats` is the error `the mitigates edge "<id>" names no
-threats`, and the block drops. A `status` outside `live` and `proposed` is the
-error `status is "<value>"; a mitigates edge is "live" or "proposed"`. A block
-that states `reduces_risk_by` is the error `a mitigates edge holds threats,
-status and recommendation, not "reduces_risk_by"`.
+A `status` outside `live` and `proposed` is the error `status is "<value>"; a
+mitigates edge is "live" or "proposed"`. A block that states `threats` or
+`reduces_risk_by` is the error `a mitigates edge holds status and
+recommendation, not "<word>"`.
 
 `live` and `proposed` are the words a `component` block uses, and they mean the
 same thing: the team runs this today, or the team would run it.
@@ -1363,8 +1367,7 @@ reduction, not the sum.
 
 ```hcl
 mitigates guard -> store {
-  threats = ["credential-theft"]
-  status  = "proposed"
+  status = "proposed"
 
   recommendation "adopt-the-guard" {
     text       = "Adopt the guard"
@@ -3130,7 +3133,7 @@ entry" or "an unknown attribute".
 | architecture | `flow` | `the flow "<id>" carries "<asset id>", which the component "<id>" does not hold` |
 | architecture | `component` | `the component "<id>" states data "<word>" and holds "<asset id>", which is "<word>"` |
 | architecture | `flow` | `a flow holds kind and description, not "<word>"` |
-| architecture | `mitigates` | `a mitigates edge holds threats, status and recommendation, not "<word>"` |
+| architecture | `mitigates` | `a mitigates edge holds status and recommendation, not "<word>"` |
 | architecture | `recommendation` (on a `mitigates` edge) | `a recommendation holds text, note, blocked_by and sources, not "<word>"` |
 | controls | `controls for` | `a controls file holds catalogue, tolerance, threat, tree, stale threat and stale tree, not "<word>"` |
 | controls | `threat` | `a threat holds severity, score, impacts, likelihood, severity_override, control, compensating and recommendation, not "<word>"` |
@@ -3404,9 +3407,8 @@ FlowEntry     = "kind"        "=" String
               | "description" "=" String
               | "carries"     "=" StringList ;
 
-MitigatesBlock = "mitigates" Identifier "->" Identifier "{" { MitigatesEntry } "}" ;
-MitigatesEntry = "threats" "=" StringList
-               | "status"  "=" String
+MitigatesBlock = "mitigates" Identifier "->" Identifier [ "{" { MitigatesEntry } "}" ] ;
+MitigatesEntry = "status" "=" String
                | ActionBlock ;
 
 ActionBlock = "recommendation" String "{" { ActionAttr } "}" ;

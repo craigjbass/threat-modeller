@@ -188,7 +188,7 @@ struct AssumptionsPanel: View {
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier("remove-mitigates-\(mitigation.sourceComponentId)")
             }
-            Text("\(mitigation.status.capitalized) \u{00B7} lowers \(mitigation.threatIds.count) threats")
+            Text(mitigation.status.capitalized)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

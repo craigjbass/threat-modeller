@@ -148,7 +148,6 @@ struct CanvasGestureTests {
         session.setMitigatesEdge(
             from: api,
             to: db,
-            threatIds: ["t1"],
             status: status
         )
         return (session, canvas, gestures, api, db)

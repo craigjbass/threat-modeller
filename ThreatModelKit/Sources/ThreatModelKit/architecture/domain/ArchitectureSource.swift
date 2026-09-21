@@ -521,7 +521,6 @@ public struct SourceEdgeAction: Equatable, Sendable {
 public struct SourceMitigates: Equatable, Sendable {
     public var sourceId: String
     public var targetId: String
-    public var threatIds: [String]
     /// "live" or "proposed". Nil means the file states none.
     public var status: String?
     /// What a team would do to adopt this edge, or nil when it names none.
@@ -530,13 +529,11 @@ public struct SourceMitigates: Equatable, Sendable {
     public init(
         sourceId: String,
         targetId: String,
-        threatIds: [String],
         status: String? = nil,
         action: SourceEdgeAction? = nil
     ) {
         self.sourceId = sourceId
         self.targetId = targetId
-        self.threatIds = threatIds
         self.status = status
         self.action = action
     }

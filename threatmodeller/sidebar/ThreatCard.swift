@@ -259,46 +259,47 @@ struct ThreatCard: View {
     /// Which `mitigates` edges implement this control, and how much each one
     /// takes off.
     ///
-    /// An edge states what it answers and whether it is in place. What it is
-    /// worth is said here, because the same edge is worth a different amount
-    /// to each control it stands for.
+    /// An edge states which two components it runs between and whether it is
+    /// in place, and nothing else. A person ticks the edges that implement
+    /// this control, and the tick writes the mapping; the stepper beside a
+    /// ticked edge says what it takes off, because the same edge is worth a
+    /// different amount to each control it stands for.
     @ViewBuilder
     private func mitigatedBy(_ control: AssessedControl) -> some View {
         if threat.mitigatesEdgeChoices.isEmpty == false {
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(control.mitigations, id: \.edgeId) { mitigation in
-                    let named = "\(control.key)-\(mitigation.edgeId)"
+                ForEach(threat.mitigatesEdgeChoices, id: \.id) { edge in
+                    let named = "\(control.key)-\(edge.id)"
+                    let held = control.mitigations.first { $0.edgeId == edge.id }
                     HStack(spacing: 4) {
-                        Text(Self.protectorName(of: mitigation, on: threat))
-                        Stepper(
-                            "\(mitigation.reducesRiskBy)%",
-                            value: Binding(
-                                get: { mitigation.reducesRiskBy },
-                                set: {
-                                    onSetControlMitigatedBy(control.key, mitigation.edgeId, $0)
-                                }
-                            ),
-                            in: 0 ... 100,
-                            step: 5
-                        )
-                        .accessibilityIdentifier("control-mitigated-by-percent-\(named)")
-                        Button("Remove") {
-                            onSetControlMitigatedBy(control.key, mitigation.edgeId, nil)
-                        }
-                        .accessibilityIdentifier("control-mitigated-by-remove-\(named)")
-                    }
-                }
-                if unmapped(control).isEmpty == false {
-                    Menu("Implemented by\u{2026}") {
-                        ForEach(unmapped(control), id: \.id) { edge in
-                            Button(edge.label) {
-                                onSetControlMitigatedBy(control.key, edge.id, Self.defaultPercent)
+                        Toggle(isOn: Binding(
+                            get: { held != nil },
+                            set: { isOn in
+                                onSetControlMitigatedBy(
+                                    control.key,
+                                    edge.id,
+                                    isOn ? Self.defaultPercent : nil
+                                )
                             }
+                        )) {
+                            Text("Implemented by \(edge.label)")
+                        }
+                        .toggleStyle(.checkbox)
+                        .accessibilityIdentifier("control-mitigated-by-\(named)")
+
+                        if let held {
+                            Stepper(
+                                "\(held.reducesRiskBy)%",
+                                value: Binding(
+                                    get: { held.reducesRiskBy },
+                                    set: { onSetControlMitigatedBy(control.key, edge.id, $0) }
+                                ),
+                                in: 0 ... 100,
+                                step: 5
+                            )
+                            .accessibilityIdentifier("control-mitigated-by-percent-\(named)")
                         }
                     }
-                    .menuStyle(.borderlessButton)
-                    .frame(maxWidth: 220, alignment: .leading)
-                    .accessibilityIdentifier("control-mitigated-by-\(control.key)")
                 }
             }
             .font(.caption2)
@@ -309,22 +310,6 @@ struct ThreatCard: View {
     /// What a mapping starts at, so a person states the edge first and tunes
     /// the number after.
     static let defaultPercent = 50
-
-    /// The edges that answer this threat and that this control does not name
-    /// yet.
-    private func unmapped(_ control: AssessedControl) -> [AssessedMitigatesEdge] {
-        let held = Set(control.mitigations.map(\.edgeId))
-        return threat.mitigatesEdgeChoices.filter { held.contains($0.id) == false }
-    }
-
-    /// What the protecting component is called, or the edge's own name when
-    /// the model no longer offers the edge.
-    static func protectorName(of mitigation: ControlMitigation, on threat: AssessedThreat) -> String {
-        threat.mitigatesEdgeChoices
-            .first { $0.id == mitigation.edgeId }?
-            .label
-            ?? mitigation.edgeId
-    }
 
     /// Which open tree this control closes a step on. The order rule puts
     /// such a control first, and this line says what closing it would break.

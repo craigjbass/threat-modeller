@@ -155,7 +155,6 @@ struct ImportArchitectureTests {
           component "host" { technology = "aws-ec2" }
 
           mitigates shield -> host {
-            threats         = ["persistence"]
             status          = "proposed"
           }
         }
@@ -173,7 +172,6 @@ struct ImportArchitectureTests {
           component "host" { technology = "aws-ec2" }
 
           mitigates shield -> host {
-            threats         = ["persistence"]
           }
         }
         """)
@@ -191,7 +189,6 @@ struct ImportArchitectureTests {
           component "host" { technology = "aws-ec2" }
 
           mitigates shield -> host {
-            threats         = ["persistence"]
             status          = "live"
           }
         }

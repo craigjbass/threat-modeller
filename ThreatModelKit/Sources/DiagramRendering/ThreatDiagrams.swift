@@ -348,7 +348,6 @@ public enum ThreatDiagrams {
                     SourceMitigates(
                         sourceId: held.label,
                         targetId: component.id,
-                        threatIds: [],
                         status: held.isAssumed ? "proposed" : "live"
                     )
                 }

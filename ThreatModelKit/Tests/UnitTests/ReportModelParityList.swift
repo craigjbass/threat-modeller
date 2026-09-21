@@ -545,11 +545,6 @@ extension ReportModelParityTests {
             ))
         ])) { first, _ in first }
         all.merge(rows("arch", "mitigates", [
-            ("threats", row(
-                analysis("ComponentMitigations, and EdgeGuards"),
-                section("the threat stanza, in Reduced by, and Protection dependencies"),
-                [.json]
-            )),
             ("status", row(
                 analysis("ThreatResolver, and AssessLeverage"),
                 section("Assumptions, under Proposed mitigations"),

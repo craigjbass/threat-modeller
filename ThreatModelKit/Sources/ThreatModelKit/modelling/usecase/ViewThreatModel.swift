@@ -539,7 +539,6 @@ public struct ViewedExclusion: Equatable, Sendable {
 public struct ViewedMitigation: Equatable, Sendable {
     public let sourceComponentId: String
     public let targetComponentId: String
-    public let threatIds: [String]
     /// `live` or `proposed`.
     public let status: String
     /// What a team would do to put a proposed edge in place, or nil.
@@ -555,7 +554,6 @@ public struct ViewedMitigation: Equatable, Sendable {
     public init(
         sourceComponentId: String,
         targetComponentId: String,
-        threatIds: [String],
         status: String,
         actionLabel: String? = nil,
         actionText: String? = nil,
@@ -565,7 +563,6 @@ public struct ViewedMitigation: Equatable, Sendable {
     ) {
         self.sourceComponentId = sourceComponentId
         self.targetComponentId = targetComponentId
-        self.threatIds = threatIds
         self.status = status
         self.actionLabel = actionLabel
         self.actionText = actionText
@@ -741,7 +738,6 @@ public struct ViewThreatModel: ViewThreatModelUseCase {
                 ViewedMitigation(
                     sourceComponentId: edge.source.value,
                     targetComponentId: edge.target.value,
-                    threatIds: edge.threatIds.map(\.value),
                     status: edge.effectiveStatus.rawValue,
                     actionLabel: edge.action?.label,
                     actionText: edge.action?.text,

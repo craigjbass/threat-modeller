@@ -519,10 +519,10 @@ enum ComponentMerge {
             let target = end(edge.target)
             guard source != target else { continue }
             let pair = "\(source.value)->\(target.value)"
-            if let existing = edgeByPair[pair] {
-                edges[existing].threatIds = union(edges[existing].threatIds, edge.threatIds)
-                continue
-            }
+            // The pair is the edge's identity, so two edges that land on one
+            // pair are one edge. The survivor keeps the first status the
+            // model states.
+            if edgeByPair[pair] != nil { continue }
             var moved = edge
             moved.source = source
             moved.target = target

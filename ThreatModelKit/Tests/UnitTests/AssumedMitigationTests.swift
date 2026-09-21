@@ -77,7 +77,6 @@ struct AssumedMitigationTests {
                 MitigatesEdge(
                     source: ComponentId(protector),
                     target: ComponentId(target),
-                    threatIds: [ThreatId("endpoint-persistence")],
                     status: .proposed
                 )
             ]
@@ -133,7 +132,6 @@ struct AssumedMitigationTests {
                 MitigatesEdge(
                     source: ComponentId(protector),
                     target: ComponentId(target),
-                    threatIds: [ThreatId("endpoint-persistence")],
                     status: status
                 )
             ]

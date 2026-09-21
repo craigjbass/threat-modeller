@@ -215,15 +215,15 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
     private enum EdgeReading {
         /// No edge of this model carries that identifier.
         case unknown
-        /// An edge carries the identifier and answers another threat, or
-        /// protects another element.
+        /// An edge carries the identifier and protects another element.
         case answersSomethingElse
         case live
         case proposed
     }
 
     /// An edge answers a control only when it protects the element the answer
-    /// is written on and names the threat the answer is written for.
+    /// is written on. Which threats it answers is what the controls that name
+    /// it say, so the edge states no threats of its own.
     private static func read(
         edgeId: String,
         answering answer: SourceThreatAnswer,
@@ -231,8 +231,7 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
     ) -> EdgeReading {
         guard let edge = edges.first(where: { $0.id == edgeId }) else { return .unknown }
         guard answer.sourceKind == "component",
-              edge.target.value == answer.sourceId,
-              edge.answers(ThreatId(answer.threatId)) else { return .answersSomethingElse }
+              edge.target.value == answer.sourceId else { return .answersSomethingElse }
         return edge.effectiveStatus == .proposed ? .proposed : .live
     }
 }

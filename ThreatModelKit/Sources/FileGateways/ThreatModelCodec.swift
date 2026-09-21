@@ -41,9 +41,14 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
     /// dropped: the scores rise until a person says which control each edge
     /// implements. `adopted` reads as `live` and `assumed` reads as
     /// `proposed`.
-    public static let formatVersion = 12
+    ///
+    /// WARNING: version 13 takes the threat list off the edge as well. The
+    /// catalogue generates the controls, so which threats an edge answers is
+    /// what the controls that name it say. A file at version 12 or below
+    /// states a threat list nothing reads, and it is dropped.
+    public static let formatVersion = 13
     private static let readableFormatVersions: Set<Int> = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
     ]
 
     public init() {}
@@ -128,7 +133,7 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
         MitigatesEdgeJSON(
             source: edge.source.value,
             target: edge.target.value,
-            threatIds: edge.threatIds.map(\.value),
+            threatIds: nil,
             reducesRiskBy: nil,
             status: edge.status?.rawValue,
             action: edge.action.map {
@@ -404,7 +409,6 @@ public struct ThreatModelCodec: ThreatModelFileGateway {
                 MitigatesEdge(
                     source: ComponentId($0.source),
                     target: ComponentId($0.target),
-                    threatIds: $0.threatIds.map(ThreatId.init),
                     status: try $0.status.map { raw in
                         try Self.value(
                             ComponentStatus(rawValue: Self.statusWord(of: raw)),

@@ -351,7 +351,6 @@ struct MarkdownExportTests {
                 MitigatesEdge(
                     source: ComponentId(guardId),
                     target: ComponentId(storeId),
-                    threatIds: [ThreatId("credential-theft")]
                 )
             ]
             model.controlStatuses[control] = .implemented

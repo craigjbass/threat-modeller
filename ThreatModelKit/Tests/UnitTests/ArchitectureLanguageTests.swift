@@ -92,24 +92,36 @@ struct ArchitectureLanguageTests {
           component "guard" { technology = "t" }
           component "store" { technology = "t" }
           mitigates guard -> store {
-            threats = ["credential-theft"]
           }
         }
         """).source)
         #expect(source.mitigates.first?.id == "guard->store")
-        #expect(source.mitigates.first?.threatIds == ["credential-theft"])
     }
 
-    @Test func aMitigatesEdgeWithNoThreatsIsAnError() {
+    @Test func aMitigatesEdgeThatStatesWhatItAnswersIsAnError() {
         let read = read("""
         system "S" {
           component "guard" { technology = "t" }
           component "store" { technology = "t" }
-          mitigates guard -> store { reduces_risk_by = 80 }
+          mitigates guard -> store { threats = ["credential-theft"] }
         }
         """)
         #expect(read.hasErrors)
-        #expect(read.diagnostics.contains { $0.message.contains("names no threats") })
+        #expect(read.diagnostics.contains {
+            $0.message == "a mitigates edge holds status and recommendation, not \"threats\""
+        })
+    }
+
+    @Test func aMitigatesEdgeWithNoBodyStatesNothingButThePair() throws {
+        let source = try #require(read("""
+        system "S" {
+          component "guard" { technology = "t" }
+          component "store" { technology = "t" }
+          mitigates guard -> store
+        }
+        """).source)
+        #expect(source.mitigates.first?.id == "guard->store")
+        #expect(source.mitigates.first?.status == nil)
     }
 
     @Test func aMitigatesEdgeToAnUndeclaredComponentIsAnError() {
@@ -117,7 +129,6 @@ struct ArchitectureLanguageTests {
         system "S" {
           component "guard" { technology = "t" }
           mitigates guard -> store {
-            threats = ["credential-theft"]
           }
         }
         """)
@@ -148,9 +159,7 @@ struct ArchitectureLanguageTests {
             description = "XPC call"
           }
 
-          mitigates guard -> store {
-            threats = ["credential-theft"]
-          }
+          mitigates guard -> store
         }
 
         """

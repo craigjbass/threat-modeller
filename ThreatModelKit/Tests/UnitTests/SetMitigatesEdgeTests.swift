@@ -21,7 +21,6 @@ struct SetMitigatesEdgeTests {
     private func set(
         from source: String,
         to target: String,
-        threats: [String] = ["credential-theft"],
         status: String = "proposed",
         action: SetMitigatesEdgeRequest.Action? = nil
     ) -> SetMitigatesEdgeResponse {
@@ -29,7 +28,6 @@ struct SetMitigatesEdgeTests {
             SetMitigatesEdgeRequest(
                 sourceComponentId: source,
                 targetComponentId: target,
-                threatIds: threats,
                 status: status,
                 action: action
             )
@@ -46,29 +44,18 @@ struct SetMitigatesEdgeTests {
         #expect(edges.count == 1)
         #expect(edges.first?.source.value == guardId)
         #expect(edges.first?.target.value == storeId)
-        #expect(edges.first?.threatIds.map(\.value) == ["credential-theft"])
         #expect(edges.first?.status == .proposed)
     }
 
     /// The two ends name the edge, the way they name a flow.
     @Test func changesTheEdgeBetweenTheSameTwoEnds() {
         let (guardId, storeId) = aModelOfTwoComponents()
-        _ = set(from: guardId, to: storeId, threats: ["credential-theft"])
+        _ = set(from: guardId, to: storeId, status: "proposed")
 
-        #expect(
-            set(from: guardId, to: storeId, threats: ["credential-theft", "dos-attack"])
-                == .recorded
-        )
+        #expect(set(from: guardId, to: storeId, status: "live") == .recorded)
 
         #expect(edges.count == 1)
-        #expect(edges.first?.threatIds.map(\.value) == ["credential-theft", "dos-attack"])
-    }
-
-    @Test func refusesAnEdgeThatNamesNoThreats() {
-        let (guardId, storeId) = aModelOfTwoComponents()
-
-        #expect(set(from: guardId, to: storeId, threats: []) == .noThreats)
-        #expect(edges.isEmpty)
+        #expect(edges.first?.status == .live)
     }
 
     @Test func refusesAStatusTheLanguageDoesNotRead() {

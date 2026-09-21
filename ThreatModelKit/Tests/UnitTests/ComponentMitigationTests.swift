@@ -56,7 +56,6 @@ struct ComponentMitigationTests {
         MitigatesEdge(
             source: ComponentId("guard"),
             target: ComponentId("store"),
-            threatIds: threats.map(ThreatId.init)
         )
     }
 
@@ -96,10 +95,15 @@ struct ComponentMitigationTests {
         #expect(threat.mitigatedByComponents.isEmpty)
     }
 
-    @Test func anEdgeNamingAnotherThreatChangesNothing() {
+    @Test func anEdgeOntoAnotherComponentChangesNothing() {
         let threat = credentialTheft(model(
-            [liveEdge(["dos-attack"])],
-            mapping: [firstControl: [ControlMitigation(edgeId: "guard->store", reducesRiskBy: 75)]],
+            [
+                MitigatesEdge(
+                    source: ComponentId("store"),
+                    target: ComponentId("guard")
+                )
+            ],
+            mapping: [firstControl: [ControlMitigation(edgeId: "store->guard", reducesRiskBy: 75)]],
             implemented: [firstControl]
         ))
 
@@ -113,7 +117,6 @@ struct ComponentMitigationTests {
                 MitigatesEdge(
                     source: ComponentId("store"),
                     target: ComponentId("store"),
-                    threatIds: [ThreatId("credential-theft")]
                 )
             ],
             mapping: [
@@ -133,7 +136,6 @@ struct ComponentMitigationTests {
                 MitigatesEdge(
                     source: ComponentId("store"),
                     target: ComponentId("store"),
-                    threatIds: [ThreatId("credential-theft")]
                 )
             ],
             mapping: [
@@ -163,7 +165,6 @@ struct ComponentMitigationTests {
         let proposed = MitigatesEdge(
             source: ComponentId("guard"),
             target: ComponentId("store"),
-            threatIds: [ThreatId("credential-theft")],
             status: .proposed
         )
         let threat = credentialTheft(model(

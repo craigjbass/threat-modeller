@@ -274,7 +274,6 @@ struct ModellingFromSourceTests {
           component "baseline" { technology = "actor-user" data = "internal" }
 
           mitigates baseline -> laptop {
-            threats         = ["credential-theft"]
             status          = "proposed"
           }
         }
@@ -301,7 +300,6 @@ struct ModellingFromSourceTests {
           component "baseline" { technology = "actor-user" data = "internal" }
 
           mitigates baseline -> laptop {
-            threats         = ["credential-theft"]
             status          = "live"
           }
         }
@@ -311,7 +309,7 @@ struct ModellingFromSourceTests {
         let text = app.exportArchitecture().execute(ExportArchitectureRequest()).text
 
         #expect(text.contains("risk_tolerance = \"low\""))
-        #expect(text.contains("status  = \"live\""))
+        #expect(text.contains("status = \"live\""))
     }
 
     @Test func exportsAProposedEdgesRecommendationAndALiveEdgeWithNone() {
@@ -326,7 +324,6 @@ struct ModellingFromSourceTests {
           component "store" { technology = "aws-ec2" data = "confidential" }
 
           mitigates baseline -> laptop {
-            threats         = ["credential-theft"]
             status          = "proposed"
 
             recommendation "adopt-the-guard" {
@@ -338,7 +335,6 @@ struct ModellingFromSourceTests {
           }
 
           mitigates laptop -> store {
-            threats         = ["credential-theft"]
             status          = "live"
           }
         }
@@ -367,7 +363,6 @@ struct ModellingFromSourceTests {
           component "baseline" { technology = "actor-user" data = "internal" }
 
           mitigates baseline -> laptop {
-            threats         = ["credential-theft"]
           }
         }
         """
@@ -375,7 +370,8 @@ struct ModellingFromSourceTests {
 
         let text = app.exportArchitecture().execute(ExportArchitectureRequest()).text
 
-        #expect(text.contains("mitigates baseline -> laptop {"))
+        // An edge that states nothing but its pair writes no body.
+        #expect(text.contains("mitigates baseline -> laptop\n"))
         #expect(text.contains("status") == false)
         #expect(text.contains("assumption") == false)
         #expect(text.contains("risk_tolerance") == false)

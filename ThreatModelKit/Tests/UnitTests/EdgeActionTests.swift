@@ -6,7 +6,6 @@ struct EdgeActionTests {
         let edge = MitigatesEdge(
             source: ComponentId("guard"),
             target: ComponentId("store"),
-            threatIds: [ThreatId("credential-theft")],
         )
 
         #expect(edge.action == nil)
@@ -16,7 +15,6 @@ struct EdgeActionTests {
         let edge = MitigatesEdge(
             source: ComponentId("guard"),
             target: ComponentId("store"),
-            threatIds: [ThreatId("credential-theft")],
             status: .proposed,
             action: EdgeAction(
                 label: "adopt-the-guard",

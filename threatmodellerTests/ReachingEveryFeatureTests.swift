@@ -55,7 +55,6 @@ struct ReachingEveryFeatureTests {
         session.setMitigatesEdge(
             from: guardId,
             to: storeId,
-            threatIds: ["credential-theft"],
             status: "proposed"
         )
 
@@ -76,7 +75,6 @@ struct ReachingEveryFeatureTests {
         session.setMitigatesEdge(
             from: guardId,
             to: storeId,
-            threatIds: ["credential-theft"],
             status: "proposed",
             actionLabel: "adopt-the-guard",
             actionText: "Adopt the guard",
@@ -94,19 +92,18 @@ struct ReachingEveryFeatureTests {
         #expect(edge.actionSources == ["https://example.test/plan"])
     }
 
-    @Test func saysSoWhenAMitigatesEdgeNamesNoThreats() throws {
+    @Test func saysSoWhenAMitigatesEdgeStatesAStatusTheLanguageDoesNotRead() throws {
         let session = aModel()
         let ids = session.canvas.components.map(\.id)
 
         session.setMitigatesEdge(
             from: try #require(ids.first),
             to: try #require(ids.last),
-            threatIds: [],
-            status: "proposed"
+            status: "adopted"
         )
 
         #expect(session.canvas.mitigations.isEmpty)
-        #expect(session.errorMessage == "A mitigates edge names the threats it lowers.")
+        #expect(session.errorMessage == "A mitigates edge is \"live\" or \"proposed\".")
     }
 
     @Test func takesAMitigatesEdgeBackOff() throws {
@@ -116,7 +113,6 @@ struct ReachingEveryFeatureTests {
         session.setMitigatesEdge(
             from: guardId,
             to: storeId,
-            threatIds: ["credential-theft"],
             status: "proposed"
         )
 

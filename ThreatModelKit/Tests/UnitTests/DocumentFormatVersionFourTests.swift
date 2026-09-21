@@ -56,7 +56,6 @@ struct DocumentFormatVersionFourTests {
                 MitigatesEdge(
                     source: ComponentId("guard"),
                     target: ComponentId("store"),
-                    threatIds: [ThreatId("credential-theft")],
                     status: .proposed
                 )
             ],
@@ -115,7 +114,6 @@ struct DocumentFormatVersionFourTests {
                 MitigatesEdge(
                     source: ComponentId("guard"),
                     target: ComponentId("store"),
-                    threatIds: [ThreatId("credential-theft")],
                 )
             ]
         )

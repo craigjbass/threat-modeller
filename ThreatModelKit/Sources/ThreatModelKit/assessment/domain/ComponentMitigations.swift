@@ -30,7 +30,6 @@ public struct ComponentMitigation: Equatable, Sendable {
 public enum ComponentMitigations {
     public static func apply(
         score: Int,
-        threatId: ThreatId,
         target: ComponentId,
         controls: [ResolvedControl],
         edges: [MitigatesEdge],
@@ -43,7 +42,6 @@ public enum ComponentMitigations {
             for mitigation in control.mitigations {
                 guard let edge = edges.first(where: { $0.id == mitigation.edgeId }),
                       edge.target == target,
-                      edge.answers(threatId),
                       statuses.contains(edge.effectiveStatus) else { continue }
                 // A live edge takes its reduction off only while the person
                 // says the control is in place. A proposed edge states what

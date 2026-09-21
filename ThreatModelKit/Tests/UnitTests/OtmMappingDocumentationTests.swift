@@ -81,7 +81,6 @@ struct OtmMappingDocumentationTests {
                 MitigatesEdge(
                     source: guardId,
                     target: serverId,
-                    threatIds: [ThreatId("misconfiguration")],
                 )
             ],
             recommendations: [

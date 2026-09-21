@@ -1,15 +1,17 @@
 import SwiftUI
 import ThreatModelKit
 
-/// Names the threats one component lowers on another.
+/// Says that one component lowers threats on another, and whether the team
+/// runs it today.
 ///
 /// An edge is `live` when the team runs it today, and `proposed` when the team
-/// would run it. How much the edge takes off is not stated here: a person says
-/// that an edge implements a control, on the threat card, and states the
-/// reduction there, because the same edge is worth a different amount to each
-/// control it stands for. A proposed edge lowers no score today: it lowers the
-/// score the report states the system would reach, and it carries the action
-/// that would make it true.
+/// would run it. Which threats it answers, and how much it takes off, are not
+/// stated here: a person ticks the edge on each control it implements, on the
+/// threat card, and states the reduction there. The catalogue generates the
+/// controls, so the edge repeating their threats would state the same fact
+/// twice. A proposed edge lowers no score today: it lowers the score the
+/// report states the system would reach, and it carries the action that would
+/// make it true.
 struct MitigatesSheet: View {
     let session: ThreatModelSession
     let protector: ViewedComponent
@@ -18,9 +20,7 @@ struct MitigatesSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var chosen: Set<String> = []
     @State private var status = ComponentStatus.default.rawValue
-    @State private var search = ""
     @State private var actionLabel = ""
     @State private var actionText = ""
     @State private var actionNote = ""
@@ -28,28 +28,10 @@ struct MitigatesSheet: View {
     @State private var blockedBy = ""
     @State private var actionSources = ""
 
-    /// The threats the protected component raises. An edge that names a
-    /// threat this component never raises lowers nothing, so the list is what
-    /// is on the table.
-    private var choices: [AssessedThreat] {
-        let raised = session.threats.filter { $0.source.id == "component:\(protected.id)" }
-        guard search.trimmingCharacters(in: .whitespaces).isEmpty == false else { return raised }
-        return raised.filter {
-            $0.name.localizedCaseInsensitiveContains(search)
-                || $0.threatId.localizedCaseInsensitiveContains(search)
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("\(protector.name) lowers threats on \(protected.name)")
                 .font(.headline)
-
-            TextField("Search the threats", text: $search)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityIdentifier("mitigates-search")
-
-            threatList
 
             Form {
                 Picker("The team", selection: $status) {
@@ -89,51 +71,15 @@ struct MitigatesSheet: View {
                 Button("Cancel") { dismiss() }
                 Button("Save", action: write)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(chosen.isEmpty)
                     .accessibilityIdentifier("save-mitigates")
             }
         }
         .padding(16)
-        .frame(width: 520, height: 660)
+        .frame(width: 520, height: 420)
         .onAppear(perform: readWhatIsThere)
         .accessibilityIdentifier("mitigates-sheet")
     }
 
-    private var threatList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 4) {
-                if choices.isEmpty {
-                    Text("\(protected.name) raises no threats to lower.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(choices, id: \.threatKey) { threat in
-                    Toggle(isOn: binding(for: threat.threatId)) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(threat.name).font(.callout)
-                            Text("\(threat.severityLabel) \u{00B7} \(threat.riskScore)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.checkbox)
-                    .accessibilityIdentifier("mitigates-threat-\(threat.threatId)")
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(height: 220)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .controlBackgroundColor)))
-    }
-
-    private func binding(for threatId: String) -> Binding<Bool> {
-        Binding(
-            get: { chosen.contains(threatId) },
-            set: { isOn in
-                if isOn { chosen.insert(threatId) } else { chosen.remove(threatId) }
-            }
-        )
-    }
 
     /// One choice the "Held up by" picker offers: no assumption, or one the
     /// model declares.
@@ -180,7 +126,6 @@ struct MitigatesSheet: View {
 
     func readWhatIsThere() {
         guard let existing else { return }
-        chosen = Set(existing.threatIds)
         status = existing.status
         actionLabel = existing.actionLabel ?? ""
         actionText = existing.actionText ?? ""
@@ -197,7 +142,6 @@ struct MitigatesSheet: View {
         session.setMitigatesEdge(
             from: protector.id,
             to: protected.id,
-            threatIds: chosen.sorted(),
             status: status,
             actionLabel: status == ComponentStatus.proposed.rawValue && label.isEmpty == false
                 ? label

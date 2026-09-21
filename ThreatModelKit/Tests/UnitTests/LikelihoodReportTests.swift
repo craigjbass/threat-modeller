@@ -161,7 +161,6 @@ struct LikelihoodReportTests {
                 MitigatesEdge(
                     source: ComponentId(protectorId),
                     target: ComponentId(protectedId),
-                    threatIds: [ThreatId("endpoint-sip-bypass")],
                     status: .proposed
                 )
             ]

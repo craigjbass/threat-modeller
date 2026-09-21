@@ -72,7 +72,6 @@ struct MitigatesSheetBlockerTests {
         model.setMitigatesEdge(
             from: "guard",
             to: "store",
-            threatIds: ["credential-theft"],
             status: "proposed",
             actionLabel: "adopt-the-guard",
             actionText: "Adopt the guard",
@@ -116,7 +115,6 @@ struct MitigatesSheetBlockerTests {
         model.setMitigatesEdge(
             from: "guard",
             to: "store",
-            threatIds: ["credential-theft"],
             status: "proposed",
             actionLabel: "adopt-the-guard",
             actionText: "Adopt the guard",
@@ -134,7 +132,6 @@ struct MitigatesSheetBlockerTests {
         model.setMitigatesEdge(
             from: "guard",
             to: "store",
-            threatIds: edge.threatIds,
             status: edge.status,
             actionLabel: edge.actionLabel,
             actionText: edge.actionText,

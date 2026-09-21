@@ -348,10 +348,15 @@ struct ArchitectureWriter {
         if source.flows.isEmpty == false && body.last != "" { body.append("") }
 
         for edge in source.mitigates {
+            // An edge that states nothing but its pair writes no body, the way
+            // a network flow does.
+            guard edge.status != nil || edge.action != nil else {
+                body.append("mitigates \(edge.sourceId) -> \(edge.targetId)")
+                body.append("")
+                continue
+            }
             body.append("mitigates \(edge.sourceId) -> \(edge.targetId) {")
-            var attributes: [(String, String)] = [
-                ("threats", "[" + edge.threatIds.map(quoted).joined(separator: ", ") + "]")
-            ]
+            var attributes: [(String, String)] = []
             if let status = edge.status {
                 attributes.append(("status", quoted(status)))
             }

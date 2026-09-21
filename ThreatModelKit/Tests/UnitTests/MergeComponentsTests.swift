@@ -314,17 +314,14 @@ struct MergeComponentsTests {
                     MitigatesEdge(
                         source: ComponentId("waf"),
                         target: ComponentId("api"),
-                        threatIds: [ThreatId("dos-attack")]
                     ),
                     MitigatesEdge(
                         source: ComponentId("waf"),
                         target: ComponentId("api2"),
-                        threatIds: [ThreatId("dos-attack"), ThreatId("credential-theft")]
                     ),
                     MitigatesEdge(
                         source: ComponentId("api2"),
                         target: ComponentId("api"),
-                        threatIds: [ThreatId("misconfiguration")]
                     )
                 ]
             )
@@ -336,7 +333,6 @@ struct MergeComponentsTests {
         #expect(edges.count == 1)
         #expect(edges.first?.source == ComponentId("waf"))
         #expect(edges.first?.target == ComponentId("api"))
-        #expect(edges.first?.threatIds == [ThreatId("dos-attack"), ThreatId("credential-theft")])
     }
 
     @Test func aUsersReachesNameTheSurvivorOnce() throws {

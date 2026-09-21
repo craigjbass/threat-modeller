@@ -26,7 +26,6 @@ struct ReportActionsTests {
             MitigatesEdge(
                 source: ComponentId(guardId),
                 target: ComponentId(store1Id),
-                threatIds: threats,
                 status: .proposed,
                 action: EdgeAction(label: "adopt", text: "Adopt the guard", blockedBy: nil)
             )

@@ -84,7 +84,6 @@ struct SaveSystemAnswersTests {
       component "guard" { technology = "aws-waf" }
 
       mitigates guard -> c1 {
-        threats         = ["credential-theft"]
         status          = "proposed"
 
         recommendation "Turn the guard on" {

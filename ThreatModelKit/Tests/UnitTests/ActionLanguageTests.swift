@@ -20,7 +20,6 @@ struct ActionLanguageTests {
         text = "The guard is bought and not deployed."
       }
       mitigates guard -> store {
-        threats         = ["credential-theft"]
         status          = "proposed"
 
         recommendation "adopt-the-guard" {
@@ -87,7 +86,6 @@ struct ActionLanguageTests {
           component "store" { technology = "aws-rds" }
           component "guard" { technology = "aws-ec2" }
           mitigates guard -> store {
-            threats         = ["credential-theft"]
           }
         }
         """)
@@ -119,12 +117,10 @@ struct ActionLanguageTests {
           component "queue" { technology = "aws-rds" }
           component "guard" { technology = "aws-ec2" }
           mitigates guard -> store {
-            threats         = ["credential-theft"]
             status          = "proposed"
             recommendation "adopt" { text = "Adopt the guard" }
           }
           mitigates guard -> queue {
-            threats         = ["credential-theft"]
             status          = "proposed"
             recommendation "adopt" { text = "Adopt it again" }
           }
@@ -184,12 +180,10 @@ struct ActionLanguageTests {
           component "queue" { technology = "aws-rds" }
           component "guard" { technology = "aws-ec2" }
           mitigates guard -> store {
-            threats         = ["credential-theft"]
             status          = "proposed"
             recommendation "adopt" { text = "Adopt the guard" }
           }
           mitigates guard -> queue {
-            threats         = ["credential-theft"]
             status          = "proposed"
             recommendation "adopt" {}
           }
@@ -249,7 +243,6 @@ struct ActionLanguageTests {
           component "store" { technology = "aws-rds" }
           component "guard" { technology = "aws-ec2" }
           mitigates guard -> store {
-            threats         = ["credential-theft"]
           }
         }
         """).source)

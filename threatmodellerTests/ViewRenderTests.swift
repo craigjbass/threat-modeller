@@ -1904,7 +1904,6 @@ struct ViewRenderTests {
         ViewedMitigation(
             sourceComponentId: "c1",
             targetComponentId: "c2",
-            threatIds: ["t1"],
             status: status
         )
     }
@@ -2403,7 +2402,6 @@ struct ViewRenderTests {
             session.setMitigatesEdge(
                 from: ids[0],
                 to: ids[1],
-                threatIds: ["credential-theft"],
                 status: "proposed"
             )
         }

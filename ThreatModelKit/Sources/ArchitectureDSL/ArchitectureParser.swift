@@ -1222,17 +1222,18 @@ struct ArchitectureParser {
         guard let source = expect(.identifier, "the component the mitigation comes from") else { return nil }
         guard expect(.arrow, "->") != nil else { return nil }
         guard let target = expect(.identifier, "the component the mitigation protects") else { return nil }
-        let name = "\(source.text)->\(target.text)"
-        guard expect(.leftBrace, "{") != nil else { return nil }
-
-        var threatIds: [String] = []
         var status: String?
         var action: SourceEdgeAction?
 
+        // An edge with no body states nothing but the pair, the way a flow
+        // with no body states nothing but its ends.
+        guard current.kind == .leftBrace else {
+            return SourceMitigates(sourceId: source.text, targetId: target.text)
+        }
+        guard expect(.leftBrace, "{") != nil else { return nil }
+
         while current.kind != .rightBrace && current.kind != .endOfFile {
             switch current.text {
-            case "threats":
-                threatIds = parseListAttribute()
             case "status":
                 let token = current
                 let raw = parseTextAttribute() ?? ""
@@ -1253,14 +1254,9 @@ struct ArchitectureParser {
         }
         _ = expect(.rightBrace, "}")
 
-        guard threatIds.isEmpty == false else {
-            record("the mitigates edge \"\(name)\" names no threats", at: source)
-            return nil
-        }
         return SourceMitigates(
             sourceId: source.text,
             targetId: target.text,
-            threatIds: threatIds,
             status: status,
             action: action
         )

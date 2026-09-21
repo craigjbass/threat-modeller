@@ -780,7 +780,6 @@ struct WindowLayoutTests {
               component "guard" { technology = "aws-waf" }
 
               mitigates guard -> api {
-                threats         = ["credential-theft"]
                 status          = "proposed"
               }
 

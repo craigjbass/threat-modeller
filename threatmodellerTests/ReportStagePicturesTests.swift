@@ -29,7 +29,6 @@ struct ReportStagePicturesTests {
       flow api -> store
 
       mitigates guard -> api {
-        threats         = ["credential-theft"]
       }
     }
 

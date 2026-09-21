@@ -33,14 +33,15 @@ public struct EdgeAction: Equatable, Sendable {
 /// product is a component like any other, and what it answers is an edge, not
 /// prose repeated in every compensating control.
 ///
-/// The edge states what it answers and whether it is in place. How much it
-/// takes off is the answer a person writes on a control, in the `.controls`
-/// file, because the same edge is worth a different amount to each control it
-/// stands for.
+/// The edge states which two components it runs between and whether it is in
+/// place. Which threats it answers, and how much it takes off, are the answers
+/// a person writes on the controls of those threats, in the `.controls` file:
+/// a control names the edges that implement it. The catalogue generates the
+/// controls, so the edge repeating their threats would state the same fact
+/// twice and let the two disagree.
 public struct MitigatesEdge: Equatable, Sendable {
     public var source: ComponentId
     public var target: ComponentId
-    public var threatIds: [ThreatId]
     /// What the file states, or nil when the file states none.
     public var status: ComponentStatus?
     /// What a team would do to put this edge in place, or nil when it names
@@ -51,13 +52,11 @@ public struct MitigatesEdge: Equatable, Sendable {
     public init(
         source: ComponentId,
         target: ComponentId,
-        threatIds: [ThreatId],
         status: ComponentStatus? = nil,
         action: EdgeAction? = nil
     ) {
         self.source = source
         self.target = target
-        self.threatIds = threatIds
         self.status = status
         self.action = action
     }
@@ -68,10 +67,6 @@ public struct MitigatesEdge: Equatable, Sendable {
     /// What a check uses: what the file states, or `.live` when the file
     /// states none.
     public var effectiveStatus: ComponentStatus { status ?? ComponentStatus.default }
-
-    public func answers(_ threatId: ThreatId) -> Bool {
-        threatIds.contains(threatId)
-    }
 }
 
 /// How much one `mitigates` edge takes off one control's threat.

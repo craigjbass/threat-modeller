@@ -59,7 +59,6 @@ struct LikelihoodEndToEndTests {
       }
 
       mitigates baseline -> laptop {
-        threats = ["endpoint-sip-bypass"]
         status  = "proposed"
       }
     }

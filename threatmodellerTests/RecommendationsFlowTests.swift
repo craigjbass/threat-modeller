@@ -197,7 +197,6 @@ struct RecommendationsFlowTests {
         session.setMitigatesEdge(
             from: guardId,
             to: storeId,
-            threatIds: ["credential-theft"],
             status: "proposed",
             actionLabel: "adopt-the-guard",
             actionText: "Adopt the guard",
