@@ -145,6 +145,10 @@ public struct LayoutFitness: Equatable, Sendable {
     public let crowdedCallouts: Int
     /// How far the labels reach from the flows they name, added up.
     public let calloutReach: Double
+    /// How far the connection lines run, added up over every flow. A line to
+    /// a user block counts the same as any other: the layout reads a user as
+    /// one more component joined to the clients it holds.
+    public let lineLength: Double
     public let width: Double
     public let height: Double
 
@@ -159,6 +163,7 @@ public struct LayoutFitness: Equatable, Sendable {
         flowsBehindNodes: Int = 0,
         crowdedCallouts: Int = 0,
         calloutReach: Double = 0,
+        lineLength: Double = 0,
         width: Double,
         height: Double
     ) {
@@ -172,6 +177,7 @@ public struct LayoutFitness: Equatable, Sendable {
         self.flowsBehindNodes = flowsBehindNodes
         self.crowdedCallouts = crowdedCallouts
         self.calloutReach = calloutReach
+        self.lineLength = lineLength
         self.width = width
         self.height = height
     }
@@ -187,6 +193,7 @@ public struct LayoutFitness: Equatable, Sendable {
             + 1 * Double(flowsBehindNodes)
             + 8 * Double(crowdedCallouts)
             + calloutReach / 500
+            + lineLength / 400
             + (width + height) / 50
             + lopsidedness
     }

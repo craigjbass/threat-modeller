@@ -121,6 +121,32 @@ public enum FlowShape {
         return false
     }
 
+    /// How long the flow runs, in points.
+    ///
+    /// A reader reads two blocks a short line joins as near each other. A
+    /// long line runs across the picture, past every block it does not join,
+    /// and a reader follows it more slowly.
+    public static func length(of curve: FlowCurve) -> Double {
+        length(of: CurveCrossing.samples(of: curve, steps: steps))
+    }
+
+    /// The same measure, of a curve already sampled.
+    ///
+    /// A caller that samples every flow once asks this, rather than sampling
+    /// the same curve again.
+    public static func length(of points: [Point]) -> Double {
+        var total = 0.0
+
+        for index in 1 ..< max(points.count, 1) {
+            total += hypot(
+                points[index].x - points[index - 1].x,
+                points[index].y - points[index - 1].y
+            )
+        }
+
+        return total
+    }
+
     /// How many of the rectangles the flow passes behind.
     public static func timesBehind(_ curve: FlowCurve, _ rects: [Rect]) -> Int {
         guard rects.isEmpty == false else { return 0 }

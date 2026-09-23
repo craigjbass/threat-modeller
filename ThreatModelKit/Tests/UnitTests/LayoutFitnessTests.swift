@@ -229,3 +229,44 @@ struct LayoutSharedPathFitnessTests {
         #expect(fitness(overZones: 1).score > fitness(shared: 16).score)
     }
 }
+
+@Suite("Scoring how far the lines run")
+struct LayoutLineLengthFitnessTests {
+    private func fitness(
+        overZones: Int = 0,
+        broken: Int = 0,
+        waypoints: Int = 0,
+        lineLength: Double = 0,
+        width: Double = 1000,
+        height: Double = 1000
+    ) -> LayoutFitness {
+        LayoutFitness(
+            brokenBoundaries: broken,
+            flowsOverUnrelatedZones: overZones,
+            waypoints: waypoints,
+            lineLength: lineLength,
+            width: width,
+            height: height
+        )
+    }
+
+    @Test func prefersTheLayoutWhoseLinesAreShorter() {
+        #expect(fitness(lineLength: 4000).score > fitness(lineLength: 2000).score)
+    }
+
+    @Test func chargesNothingForAPictureWithNoLines() {
+        #expect(fitness().score == fitness(lineLength: 0).score)
+    }
+
+    @Test func weighsOneDetourAboveNineteenHundredPointsOfLine() {
+        #expect(fitness(waypoints: 1).score > fitness(lineLength: 1900).score)
+    }
+
+    @Test func weighsTwentyOneHundredPointsOfLineAboveOneDetour() {
+        #expect(fitness(lineLength: 2100).score > fitness(waypoints: 1).score)
+    }
+
+    @Test func weighsAFaultAboveThirtyThousandPointsOfLine() {
+        #expect(fitness(overZones: 1).score > fitness(lineLength: 30000).score)
+    }
+}

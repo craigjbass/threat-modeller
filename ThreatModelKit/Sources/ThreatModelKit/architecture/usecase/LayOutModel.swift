@@ -454,13 +454,15 @@ public struct LayOutModel: LayOutModelUseCase {
             flowsBehindNodes: shape.behindNodes,
             crowdedCallouts: labels.crowded,
             calloutReach: labels.reach,
+            lineLength: shape.length,
             width: width,
             height: height
         )
     }
 
     /// How easy the flows are to follow: how far they turn past comfortable,
-    /// how many pairs cross, and how often one runs behind a node.
+    /// how many pairs cross, how often one runs behind a node, and how far
+    /// they run altogether.
     ///
     /// `onSample` runs once for each flow whose curve is sampled. A caller
     /// passes nothing in production; a test passes a counter.
@@ -469,7 +471,7 @@ public struct LayOutModel: LayOutModelUseCase {
         in request: LayOutModelRequest,
         curves: [String: FlowCurve],
         onSample: (() -> Void)? = nil
-    ) -> (tightness: Double, crossings: Int, shared: Int, behindNodes: Int) {
+    ) -> (tightness: Double, crossings: Int, shared: Int, behindNodes: Int, length: Double) {
         let footprints = footprints(of: placed, in: request)
         var tightness = 0.0
         var behindNodes = 0
@@ -491,6 +493,7 @@ public struct LayOutModel: LayOutModelUseCase {
 
         var sampled: [Int: [Point]] = [:]
         var bounds: [Int: Rect] = [:]
+        var length = 0.0
         for index in flows.indices {
             guard let curve = curves["\(flows[index].sourceId)->\(flows[index].targetId)"] else {
                 continue
@@ -499,6 +502,7 @@ public struct LayOutModel: LayOutModelUseCase {
             onSample?()
             sampled[index] = points
             bounds[index] = Self.bounds(of: points)
+            length += FlowShape.length(of: points)
         }
 
         for first in flows.indices {
@@ -520,7 +524,7 @@ public struct LayOutModel: LayOutModelUseCase {
             }
         }
 
-        return (tightness, crossings, shared, behindNodes)
+        return (tightness, crossings, shared, behindNodes, length)
     }
 
     /// The box a sampled curve fits in.

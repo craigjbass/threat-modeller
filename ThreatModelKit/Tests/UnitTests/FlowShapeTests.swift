@@ -4,6 +4,23 @@ import ThreatModelKit
 
 @Suite("How easy a flow is to follow")
 struct FlowShapeTests {
+    @Test func measuresAStraightFlowAsTheDistanceBetweenItsEnds() {
+        let curve = FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0))
+
+        #expect(abs(FlowShape.length(of: curve) - 400) < 1)
+    }
+
+    @Test func measuresAFlowThatGoesRoundAsLongerThanTheDirectRun() {
+        let direct = FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0))
+        let round = FlowCurve(
+            from: Point(x: 0, y: 0),
+            through: [Point(x: 200, y: 300)],
+            to: Point(x: 400, y: 0)
+        )
+
+        #expect(FlowShape.length(of: round) > FlowShape.length(of: direct))
+    }
+
     @Test func chargesNothingForAStraightFlow() {
         let curve = FlowCurve(from: Point(x: 0, y: 0), to: Point(x: 400, y: 0))
 

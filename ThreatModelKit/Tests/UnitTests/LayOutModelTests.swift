@@ -596,3 +596,95 @@ private final class HeardLayouts: @unchecked Sendable {
         return layouts
     }
 }
+
+@Suite("Keeping the connection lines short")
+struct LayoutLineLengthTests {
+    private let useCase = LayOutModel()
+
+    private func component(_ id: String) -> SourceComponent {
+        SourceComponent(id: id, technologyId: "aws-ec2")
+    }
+
+    private func layOut(_ source: ArchitectureSource) -> LayOutModelResponse {
+        useCase.execute(LayOutModelRequest(source: source))
+    }
+
+    /// Three zones declared a, b, c, where a talks only to c.
+    private var threeZones: ArchitectureSource {
+        ArchitectureSource(
+            systemName: "P",
+            zones: [
+                SourceZone(id: "a", components: [component("a1")]),
+                SourceZone(id: "b", components: [component("b1")]),
+                SourceZone(id: "c", components: [component("c1")])
+            ],
+            flows: [SourceFlow(sourceId: "a1", targetId: "c1")]
+        )
+    }
+
+    private func placed(_ id: String, in response: LayOutModelResponse) throws -> LaidOutComponent {
+        try #require(response.components.first { $0.id == id })
+    }
+
+    @Test func measuresNothingForAPictureWithNoFlows() {
+        let response = layOut(
+            ArchitectureSource(systemName: "P", components: [component("a"), component("b")])
+        )
+
+        #expect(response.fitness.lineLength == 0)
+    }
+
+    @Test func measuresTheLineItDrewBetweenTwoComponents() {
+        let response = layOut(
+            ArchitectureSource(
+                systemName: "P",
+                components: [component("a"), component("b")],
+                flows: [SourceFlow(sourceId: "a", targetId: "b")]
+            )
+        )
+
+        #expect(response.fitness.lineLength > 0)
+    }
+
+    @Test func measuresTheLineToAUserBlock() {
+        let withoutUser = ArchitectureSource(
+            systemName: "P",
+            components: [component("client"), component("api")],
+            flows: [SourceFlow(sourceId: "client", targetId: "api")]
+        )
+        let withUser = withoutUser.holding(
+            users: [SourceUser(id: "u", uses: [SourceUse(clientId: "client")])]
+        )
+
+        #expect(layOut(withUser).fitness.lineLength > layOut(withoutUser).fitness.lineLength)
+    }
+
+    @Test func measuresTheLinesThePictureDraws() {
+        let request = LayOutModelRequest(source: threeZones)
+        let response = useCase.execute(request)
+        let drawn = LayOutModel.curves(of: response, in: request)
+            .values
+            .map(FlowShape.length(of:))
+            .reduce(0, +)
+
+        #expect(abs(response.fitness.lineLength - drawn) < 0.001)
+    }
+
+    @Test func countsEveryFlowInTheLength() {
+        let twoFlows = ArchitectureSource(
+            systemName: "P",
+            components: [component("a"), component("b"), component("c")],
+            flows: [
+                SourceFlow(sourceId: "a", targetId: "b"),
+                SourceFlow(sourceId: "b", targetId: "c")
+            ]
+        )
+        let oneFlow = ArchitectureSource(
+            systemName: "P",
+            components: [component("a"), component("b"), component("c")],
+            flows: [SourceFlow(sourceId: "a", targetId: "b")]
+        )
+
+        #expect(layOut(twoFlows).fitness.lineLength > layOut(oneFlow).fitness.lineLength)
+    }
+}
