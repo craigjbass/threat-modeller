@@ -29,28 +29,42 @@ public enum ArchitectureSourceSplit {
             let loose = source.components.filter { file(of: .component($0.id)) == path }
                 + statingAZone
 
+            let isHeader = path == header
             let part = ArchitectureSource(
                 systemName: source.systemName,
-                catalogueTag: path == header ? source.catalogueTag : nil,
+                catalogueTag: isHeader ? source.catalogueTag : nil,
                 technologies: source.technologies.filter { file(of: .technology($0.id)) == path },
                 zones: zones,
                 components: loose,
                 flows: source.flows.filter { file(of: .flow($0.id)) == path },
                 mitigates: source.mitigates.filter { file(of: .mitigates($0.id)) == path },
-                riskTolerance: path == header ? source.riskTolerance : nil,
+                riskTolerance: isHeader ? source.riskTolerance : nil,
                 assumptions: source.assumptions.filter { file(of: .assumption($0.label)) == path },
-                requiresEvidenceAbove: path == header ? source.requiresEvidenceAbove : nil,
-                owner: path == header ? source.owner : nil,
-                faces: path == header ? source.faces : [],
-                threatActors: path == header ? source.threatActors : [],
+                useCases: isHeader ? source.useCases : [],
+                exclusions: isHeader ? source.exclusions : [],
+                systemAssets: isHeader ? source.systemAssets : [],
+                thirdParties: isHeader ? source.thirdParties : [],
+                diagrams: isHeader ? source.diagrams : [],
+                requiresEvidenceAbove: isHeader ? source.requiresEvidenceAbove : nil,
+                owner: isHeader ? source.owner : nil,
+                faces: isHeader ? source.faces : [],
+                threatActors: isHeader ? source.threatActors : [],
+                description: isHeader ? source.description : nil,
+                authors: isHeader ? source.authors : [],
+                links: isHeader ? source.links : [],
+                repositories: isHeader ? source.repositories : [],
+                created: isHeader ? source.created : nil,
+                reviewed: isHeader ? source.reviewed : nil,
+                version: isHeader ? source.version : nil,
+                attributes: isHeader ? source.attributes : [],
                 users: source.users.filter { file(of: .user($0.id)) == path },
-                clearances: path == header ? source.clearances : []
+                clearances: isHeader ? source.clearances : []
             )
 
             written.append(
                 SourcePart(
                     file: path,
-                    text: path == header ? sources.write(part) : sources.writePart(part)
+                    text: isHeader ? sources.write(part) : sources.writePart(part)
                 )
             )
         }

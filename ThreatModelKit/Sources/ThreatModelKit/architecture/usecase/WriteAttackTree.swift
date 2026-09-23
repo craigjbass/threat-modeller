@@ -47,8 +47,12 @@ public struct ListAttackTreeSources: ListAttackTreeSourcesUseCase {
             projects: projects,
             sources: sources
         ) {
-        case .read(let source, let path):
-            return .listed(trees: source.trees, path: path, catalogueTag: source.catalogueTag)
+        case .read(let held):
+            return .listed(
+                trees: held.source.trees,
+                path: held.system.attackTreePath,
+                catalogueTag: held.source.catalogueTag
+            )
         case .noSuchSystem:
             return .noSuchSystem
         case .cannotRead(let reason):
@@ -122,8 +126,7 @@ public struct WriteAttackTree: WriteAttackTreeUseCase {
         guard id.isEmpty == false else { return .noId }
         guard (0...100).contains(request.tree.raisesRiskBy) else { return .riskOutsideTheRange }
 
-        let held: AttackTreeSource
-        let path: String
+        let held: AttackTreeFile.Held
         switch AttackTreeFile.read(
             root: request.root,
             systemName: request.systemName,
@@ -131,29 +134,36 @@ public struct WriteAttackTree: WriteAttackTreeUseCase {
             projects: projects,
             sources: sources
         ) {
-        case .read(let source, let at):
-            held = source
-            path = at
+        case .read(let found):
+            held = found
         case .noSuchSystem:
             return .noSuchSystem
         case .cannotRead(let reason):
             return .cannotWrite(reason: reason)
         }
 
-        var trees = held.trees
-        if let already = trees.firstIndex(where: { $0.id == id }) {
-            trees[already] = request.tree
-        } else {
-            trees.append(request.tree)
-        }
-
-        let written = AttackTreeSource(
-            systemName: held.systemName,
-            catalogueTag: held.catalogueTag,
-            trees: trees
+        let written = SourceAttackTree(
+            id: id,
+            name: request.tree.name,
+            description: request.tree.description,
+            raisesRiskBy: request.tree.raisesRiskBy,
+            closedBy: request.tree.closedBy,
+            goal: request.tree.goal,
+            root: request.tree.root
         )
+        let path = held.path(of: id)
+        let trees = held.trees(in: path, replacing: written)
         do {
-            try projects.write(sources.write(written), to: path)
+            try projects.write(
+                sources.write(
+                    AttackTreeSource(
+                        systemName: held.source.systemName,
+                        catalogueTag: held.source.catalogueTag,
+                        trees: trees
+                    )
+                ),
+                to: path
+            )
         } catch {
             return .cannotWrite(reason: String(describing: error))
         }
@@ -219,8 +229,7 @@ public struct TakeAttackTreeCatalogue: TakeAttackTreeCatalogueUseCase {
     }
 
     public func execute(_ request: TakeAttackTreeCatalogueRequest) -> TakeAttackTreeCatalogueResponse {
-        let held: AttackTreeSource
-        let path: String
+        let held: AttackTreeFile.Held
         switch AttackTreeFile.read(
             root: request.root,
             systemName: request.systemName,
@@ -228,26 +237,37 @@ public struct TakeAttackTreeCatalogue: TakeAttackTreeCatalogueUseCase {
             projects: projects,
             sources: sources
         ) {
-        case .read(let source, let at):
-            held = source
-            path = at
+        case .read(let found):
+            held = found
         case .noSuchSystem:
             return .noSuchSystem
         case .cannotRead(let reason):
             return .cannotWrite(reason: reason)
         }
 
-        let written = AttackTreeSource(
-            systemName: held.systemName,
-            catalogueTag: request.tag,
-            trees: held.trees
-        )
-        do {
-            try projects.write(sources.write(written), to: path)
-        } catch {
-            return .cannotWrite(reason: String(describing: error))
+        // The tag is a fact about the system, so every tree file states it.
+        // A system with no tree file yet gets the file the header mirrors.
+        let paths = held.pathOfTree.values.isEmpty
+            ? [held.system.attackTreePath]
+            : Set(held.pathOfTree.values).sorted()
+        for path in paths {
+            let trees = held.pathOfTree.isEmpty ? held.source.trees : held.trees(in: path)
+            do {
+                try projects.write(
+                    sources.write(
+                        AttackTreeSource(
+                            systemName: held.source.systemName,
+                            catalogueTag: request.tag,
+                            trees: trees
+                        )
+                    ),
+                    to: path
+                )
+            } catch {
+                return .cannotWrite(reason: String(describing: error))
+            }
         }
-        return .written(path: path)
+        return .written(path: paths[0])
     }
 }
 
@@ -297,32 +317,44 @@ public struct RemoveAttackTree: RemoveAttackTreeUseCase {
     }
 
     public func execute(_ request: RemoveAttackTreeRequest) -> RemoveAttackTreeResponse {
-        let held: AttackTreeSource
-        let path: String
+        let held: AttackTreeFile.Held
         switch AttackTreeFile.read(
             root: request.root,
             systemName: request.systemName,
             projects: projects,
             sources: sources
         ) {
-        case .read(let source, let at):
-            held = source
-            path = at
+        case .read(let found):
+            held = found
         case .noSuchSystem:
             return .noSuchSystem
         case .cannotRead(let reason):
             return .cannotWrite(reason: reason)
         }
 
-        guard held.trees.contains(where: { $0.id == request.treeId }) else { return .noSuchTree }
-        let trees = held.trees.filter { $0.id != request.treeId }
+        guard held.source.trees.contains(where: { $0.id == request.treeId }) else {
+            return .noSuchTree
+        }
+        let path = held.path(of: request.treeId)
+        let trees = held.trees(in: path).filter { $0.id != request.treeId }
+
+        // A file of the split form holds one tree, so taking that tree away
+        // leaves no file rather than a file that states nothing.
+        if trees.isEmpty, held.system.isSplit {
+            do {
+                try projects.delete(path: path)
+            } catch {
+                return .cannotWrite(reason: String(describing: error))
+            }
+            return .removed(path: path, trees: held.source.trees.count - 1)
+        }
 
         do {
             try projects.write(
                 sources.write(
                     AttackTreeSource(
-                        systemName: held.systemName,
-                        catalogueTag: held.catalogueTag,
+                        systemName: held.source.systemName,
+                        catalogueTag: held.source.catalogueTag,
                         trees: trees
                     )
                 ),
@@ -331,17 +363,45 @@ public struct RemoveAttackTree: RemoveAttackTreeUseCase {
         } catch {
             return .cannotWrite(reason: String(describing: error))
         }
-        return .removed(path: path, trees: trees.count)
+        return .removed(path: path, trees: held.source.trees.count - 1)
     }
 }
 
-/// One system's `.attacktree` file, read for a change.
+/// One system's attack trees, read for a change.
 ///
-/// A system with no file yet reads as a file holding no tree, so writing the
-/// first tree writes the file.
+/// A flat system holds every tree in one file. A split system gives each tree
+/// a file of its own, so the read joins every tree file and remembers which
+/// file each tree came from. A system with no file yet reads as no tree, so
+/// writing the first tree writes the file.
 enum AttackTreeFile {
+    struct Held {
+        let source: AttackTreeSource
+        /// The file each tree came from, by tree identifier.
+        let pathOfTree: [String: String]
+        /// The system, for the file a new tree goes in.
+        let system: ProjectSystem
+
+        /// The file one tree is written in: the file that already holds it,
+        /// else the file the system's shape gives it.
+        func path(of treeId: String) -> String {
+            pathOfTree[treeId] ?? system.treePath(ofTreeId: treeId)
+        }
+
+        /// The trees one file holds, with the tree the caller writes put in
+        /// place of the tree of that identifier.
+        func trees(in path: String, replacing tree: SourceAttackTree) -> [SourceAttackTree] {
+            var held = source.trees.filter { pathOfTree[$0.id] == path && $0.id != tree.id }
+            held.append(tree)
+            return held
+        }
+
+        func trees(in path: String) -> [SourceAttackTree] {
+            source.trees.filter { pathOfTree[$0.id] == path }
+        }
+    }
+
     enum Read {
-        case read(AttackTreeSource, path: String)
+        case read(Held)
         case noSuchSystem
         case cannotRead(reason: String)
     }
@@ -363,21 +423,38 @@ enum AttackTreeFile {
             return .noSuchSystem
         }
 
-        let path = system.attackTreePath
-        guard projects.exists(path: path) else {
-            // A system with no file yet reads as a file holding no tree, and
-            // the header names the system the way the architecture does.
-            return .read(AttackTreeSource(systemName: displayName ?? systemName), path: path)
+        var trees: [SourceAttackTree] = []
+        var pathOfTree: [String: String] = [:]
+        var name: String?
+        var catalogueTag: String?
+        for path in system.attackTreePaths where projects.exists(path: path) {
+            guard let text = try? projects.read(path: path) else {
+                return .cannotRead(reason: "\(path) could not be read")
+            }
+            let found = sources.read(text)
+            guard let source = found.source, found.hasErrors == false else {
+                return .cannotRead(
+                    reason: found.diagnostics.first?.described(in: path) ?? "\(path) does not parse"
+                )
+            }
+            name = name ?? source.systemName
+            catalogueTag = catalogueTag ?? source.catalogueTag
+            for tree in source.trees {
+                trees.append(tree)
+                pathOfTree[tree.id] = path
+            }
         }
-        guard let text = try? projects.read(path: path) else {
-            return .cannotRead(reason: "\(path) could not be read")
-        }
-        let found = sources.read(text)
-        guard let source = found.source, found.hasErrors == false else {
-            return .cannotRead(
-                reason: found.diagnostics.first?.described(in: path) ?? "\(path) does not parse"
+
+        return .read(
+            Held(
+                source: AttackTreeSource(
+                    systemName: name ?? displayName ?? systemName,
+                    catalogueTag: catalogueTag,
+                    trees: trees
+                ),
+                pathOfTree: pathOfTree,
+                system: system
             )
-        }
-        return .read(source, path: path)
+        )
     }
 }

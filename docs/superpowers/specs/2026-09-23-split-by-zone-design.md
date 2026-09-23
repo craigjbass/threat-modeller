@@ -75,6 +75,20 @@ a split system drops every block of those kinds from the header file.
 The split uses that writer, so the writer carries every header field into
 the header's part. The window's save reads the same fix.
 
+### The header file names another file's component
+
+A file that opens with `system` is read with the whole-file checks, which
+refuse a flow end the file does not declare. The header file of a split
+system states the system block and names components the zone files declare,
+so the parser runs the checks that read one file alone when the caller reads
+a part, and the merge runs the cross-file checks.
+
+`MergedArchitecture.merge` builds the joined source without `useCases`,
+`exclusions`, `systemAssets`, `thirdParties`, `diagrams`, `description`,
+`authors`, `links`, `repositories`, `created`, `reviewed`, `version` and
+`attributes`, so a split system loses those header blocks when it opens. The
+merge carries them from the header file.
+
 ### The answers
 
 Each architecture file takes the controls file that mirrors its stem, which
@@ -91,9 +105,14 @@ So `arch/edge.arch` gets `controls/edge.controls`. A later `compile` reads
 the same origins and writes the same files, so the split and the compile do
 not disagree.
 
+An answer whose element no file declares goes in the header's controls file.
+
 A controls file answers for any element of the system. The reader applies
 every file in `controlsPaths` to the whole model, and this design does not
 narrow that.
+
+The `.governance` file moves into the subproject unchanged. It states who
+carries each risk, which no file of the split decides.
 
 ### The trees
 
@@ -103,8 +122,13 @@ files reads whole.
 
 `WriteAttackTree` reads one file named by `system.attackTreePath`, changes
 one tree and writes the other trees back. It now finds the file by the
-tree's identifier, and it lists the trees of every tree file. The command
-line's `treeText(of:)` reads every tree file for the same reason.
+tree's identifier, and it lists the trees of every tree file. Taking a tree
+away from a split system deletes that tree's file rather than leaving a file
+that states nothing. `threatmodeller format` formats every tree file.
+
+`ProjectSystem.treePath(ofTreeId:)` states the rule: a split system gives
+each tree `attacktree/<tree id>.attacktree`, and a flat system holds every
+tree in one file.
 
 ### The editor
 
@@ -130,6 +154,14 @@ this design does not do that.
 `architecturePaths()` and `libraryPaths()` read `documents.keys.first`, so
 with two documents open they answer for the wrong one. Both take the uri the
 request names.
+
+Go to definition reaches the other files of the system: a name the open file
+does not declare is looked for as a `component`, a `zone`, a `user`, an
+`adversary` or a `technology` in every other architecture file, and the jump
+lands in that file.
+
+A merge fault about a reference names the file that states the block, so the
+fault about a flow end sits in the file the flow is in.
 
 ### The faults
 
@@ -192,3 +224,4 @@ Every check drives a use case or the command line.
   declares.
 - The language server answers for the document the request names when two
   documents are open.
+- Go to definition on a name another part file declares lands in that file.

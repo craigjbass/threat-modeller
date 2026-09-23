@@ -496,52 +496,26 @@ public struct CommandLineApplication {
         }
         let root = rest.count > 1 ? rest[1] : "."
 
-        let layout: ProjectLayout
-        do {
-            layout = try projects.discover(root: root)
-        } catch {
-            output("threatmodeller: \(Self.described(error))")
-            return ExitCode.fileFault.rawValue
-        }
-
-        guard let system = layout.system(named: name) else {
+        let split = SplitSystem(
+            projects: projects,
+            sources: architecture,
+            controlsSources: controls,
+            attackTreeSources: attackTrees
+        )
+        switch split.execute(SplitSystemRequest(root: root, systemName: name)) {
+        case .split:
+            output("split \(name)")
+            return ExitCode.success.rawValue
+        case .noSuchSystem:
             output("threatmodeller: this project holds no system called \"\(name)\"")
             return ExitCode.fileFault.rawValue
-        }
-        guard system.isSplit == false else {
-            output("threatmodeller: the system \"\(name)\" is already a directory")
+        case .refused(let reason):
+            output("threatmodeller: \(reason)")
+            return ExitCode.fileFault.rawValue
+        case .cannotWrite(let reason):
+            output("threatmodeller: \(reason)")
             return ExitCode.fileFault.rawValue
         }
-
-        let subproject = ProjectConvention.path(layout.directory, name)
-        func move(_ from: String, _ fileExtension: String) -> Bool {
-            guard projects.exists(path: from) else { return true }
-            let stem = ((from as NSString).lastPathComponent)
-            let into = ProjectConvention.path(
-                ProjectConvention.path(subproject, ProjectConvention.kindDirectory(fileExtension)),
-                stem
-            )
-            do {
-                try projects.write(try projects.read(path: from), to: into)
-                try projects.delete(path: from)
-                output("moved \(from) to \(into)")
-                return true
-            } catch {
-                output("threatmodeller: \(Self.described(error))")
-                return false
-            }
-        }
-
-        guard move(system.architecturePath, ProjectConvention.architectureExtension),
-              move(system.controlsPath, ProjectConvention.controlsExtension),
-              move(system.attackTreePath, ProjectConvention.attackTreeExtension) else {
-            return ExitCode.fileFault.rawValue
-        }
-
-        // The report is written, not read, and the next `report` writes it
-        // inside the subproject.
-        try? projects.delete(path: system.reportPath)
-        return ExitCode.success.rawValue
     }
 
     // MARK: attack
@@ -864,29 +838,33 @@ public struct CommandLineApplication {
         isQuiet: Bool,
         output: (String) -> Void
     ) -> Bool {
-        guard let text = treeText(of: system) else { return true }
+        // A split system gives each tree a file, so every tree file is
+        // formatted, not the one the header mirrors.
+        for path in system.attackTreePaths where projects.exists(path: path) {
+            guard let text = try? projects.read(path: path) else { continue }
 
-        let read = attackTrees.read(text)
-        guard let source = read.source, read.hasErrors == false else {
-            for diagnostic in read.diagnostics {
-                output(diagnostic.described(in: system.attackTreePath))
+            let read = attackTrees.read(text)
+            guard let source = read.source, read.hasErrors == false else {
+                for diagnostic in read.diagnostics {
+                    output(diagnostic.described(in: path))
+                }
+                return false
             }
-            return false
-        }
 
-        let written = attackTrees.write(source)
-        guard written != text else {
-            if isQuiet == false { output("unchanged \(system.attackTreePath)") }
-            return true
+            let written = attackTrees.write(source)
+            guard written != text else {
+                if isQuiet == false { output("unchanged \(path)") }
+                continue
+            }
+            do {
+                try projects.write(written, to: path)
+                if isQuiet == false { output("formatted \(path)") }
+            } catch {
+                output("threatmodeller: \(Self.described(error))")
+                return false
+            }
         }
-        do {
-            try projects.write(written, to: system.attackTreePath)
-            if isQuiet == false { output("formatted \(system.attackTreePath)") }
-            return true
-        } catch {
-            output("threatmodeller: \(Self.described(error))")
-            return false
-        }
+        return true
     }
 
     /// Writes or merges every system's answers.

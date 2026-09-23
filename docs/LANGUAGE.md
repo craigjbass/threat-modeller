@@ -265,11 +265,11 @@ directory per kind. The directory name states the extension it holds:
 threatmodel/
   payments/
     arch/payments.arch        the header file
-    arch/edge.arch            a part file
-    arch/ledger.arch          a part file
+    arch/edge.arch            a part file, the zone "edge"
+    arch/core.arch            a part file, the zone "core"
     controls/payments.controls
     controls/edge.controls
-    attacktree/edge.attacktree
+    attacktree/steal.attacktree   one file per tree
     payments.md               the report
 ```
 
@@ -337,16 +337,45 @@ Every fault names the file it is in, so a build log reads
 `controls/edge.controls`, and an answer goes to the file that mirrors the
 architecture file the element it answers came from. An answer whose element
 nothing declares any more stays where it is, as a `stale` block.
-`.attacktree` files mirror the same way.
+Each attack tree takes a file of its own, `attacktree/<tree id>.attacktree`,
+and the reader reads every one of them.
 
 **Writing back.** A save reads the files as they are on disk, takes which file
 each block came from, and writes each file whose text changed. A block a person
 adds in the application goes into the header file.
 
-`threatmodeller split <system>` moves a flat system into the directory form. It
-moves files and writes no new content, so a person reads the diff and sees
-moves. It divides no file: a person divides a file by cutting blocks into a new
-`.arch` file, and the merge joins them again.
+`threatmodeller split <system>` divides a system into the directory form, one
+architecture file per zone. The window's `Split into Directory` item runs the
+same rule.
+
+| Block | The file it goes in |
+| --- | --- |
+| the `system` block and every header field | `arch/<system>.arch` |
+| `technology`, `user`, `adversary`, `assumption`, `clearance` | `arch/<system>.arch` |
+| a component outside every zone | `arch/<system>.arch` |
+| a `zone` block and the components it holds | `arch/<zone id>.arch` |
+| a `flow` | the file its source node sits in |
+| a `mitigates` edge | the file its source node sits in |
+
+The answers follow their element: an element declared in `arch/edge.arch` is
+answered in `controls/edge.controls`, and an answer about the system itself
+goes in `controls/<system>.controls`. Each tree takes
+`attacktree/<tree id>.attacktree`. The `.governance` file moves into the
+subproject unchanged. A zone whose identifier makes the header file's name
+stays in the header file.
+
+The split reads the system and writes the files, so a file that was not in the
+writer's order changes shape. A system already in the directory form is read
+and written the same way, which sorts a subproject a person wrote by hand, and
+a second run writes the same bytes.
+
+| Fault | Message |
+| --- | --- |
+| the merge refuses the system | `the system "<name>" cannot be split: <the first fault>` |
+| two zones write one file name | `the zone "<id>" and the zone "<other>" both write the file "<name>.arch"` |
+
+WARNING: the split writes nothing when the merge refuses the system, so the
+files stay as they are until the fault is fixed.
 
 **What the layout refuses.** Nested subprojects: `payments/cards/arch/` is not a
 system, and a person who wants a tree writes `payments-cards`. A flow that names

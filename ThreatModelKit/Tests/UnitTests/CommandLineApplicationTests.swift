@@ -772,13 +772,21 @@ struct CommandLineApplicationTests {
         #expect(project.text(at: "/work/threatmodel/payments.controls") == nil)
     }
 
-    @Test func splitRefusesASystemThatIsAlreadyADirectory() {
+    /// A subproject a person wrote by hand is read and written again, so
+    /// every component outside a zone moves into the header file.
+    @Test func splitSortsASystemThatIsAlreadyADirectory() throws {
         aSplitProject()
 
         let result = run("split", "payments", "/work")
 
-        #expect(result.code == 3)
-        #expect(result.lines.contains { $0.contains("is already a directory") })
+        #expect(result.code == 0)
+        let header = try #require(
+            project.text(at: "/work/threatmodel/payments/arch/payments.arch")
+        )
+        #expect(header.contains("component \"api\""))
+        #expect(header.contains("component \"waf\""))
+        #expect(project.text(at: "/work/threatmodel/payments/arch/ledger.arch") == nil)
+        #expect(project.text(at: "/work/threatmodel/payments/arch/edge.arch") == nil)
     }
 
     @Test func splitRefusesASystemTheProjectDoesNotHold() {

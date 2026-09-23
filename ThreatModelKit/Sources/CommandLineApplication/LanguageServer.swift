@@ -220,7 +220,9 @@ public final class LanguageServer: @unchecked Sendable {
     /// Every fault the parser found, at the line and the column it states.
     /// The protocol counts from zero and the parsers count from one.
     func diagnostics(of uri: String) -> String {
-        let found = read(documents[uri] ?? "", as: Language.of(uri))
+        let found = Language.of(uri) == .architecture
+            ? architectureDiagnostics(of: uri)
+            : read(documents[uri] ?? "", as: Language.of(uri))
         let published = found.map { diagnostic -> [String: Any] in
             let line = max(0, diagnostic.line - 1)
             let column = max(0, diagnostic.column - 1)
@@ -238,6 +240,37 @@ public final class LanguageServer: @unchecked Sendable {
             "textDocument/publishDiagnostics",
             ["uri": uri, "diagnostics": published]
         )
+    }
+
+    /// The faults an architecture file holds, read as one file of its system.
+    ///
+    /// A part file names a component another file declares, so the faults come
+    /// from the merge of every architecture file of the system. The editor's
+    /// own text is read for a file the editor holds open, and the file on disk
+    /// for the rest. Only the open file's faults are published.
+    ///
+    /// A file that belongs to no system is read on its own, the way a whole
+    /// file is read.
+    private func architectureDiagnostics(of uri: String) -> [Diagnostic] {
+        let text = documents[uri] ?? ""
+        let path = Self.path(of: uri)
+        let siblings = architecturePaths(of: uri)
+        guard siblings.contains(path) else { return read(text, as: .architecture) }
+
+        let sources = HclArchitectureSource()
+        var parts: [SourcePart] = []
+        for sibling in siblings {
+            if sibling == path {
+                parts.append(SourcePart(file: path, text: text))
+                continue
+            }
+            guard let held = documents[Self.uri(of: sibling)] ?? (try? projects.read(path: sibling))
+            else { continue }
+            parts.append(SourcePart(file: sibling, text: held))
+        }
+
+        let merged = sources.read(parts, named: nil)
+        return merged.diagnostics.filter { $0.file == nil || $0.file == path }
     }
 
     /// The faults one text holds, read by the language it is written in.
@@ -272,7 +305,7 @@ public final class LanguageServer: @unchecked Sendable {
         var items: [[String: Any]] = []
 
         if trimmedBefore.hasPrefix("mitigated_by") {
-            items += declaredEdges().map {
+            items += declaredEdges(of: uri).map {
                 item(
                     $0.id,
                     kind: 6,
@@ -421,7 +454,7 @@ public final class LanguageServer: @unchecked Sendable {
             )
         }
 
-        if let edge = declaredEdges().first(where: { $0.id == word }) {
+        if let edge = declaredEdges(of: uri).first(where: { $0.id == word }) {
             let status = edge.body["status"] ?? ComponentStatus.default.rawValue
             return Self.said(
                 "**\(edge.protector) \u{2192} \(edge.protected)** (`\(edge.id)`)\n\nThis edge "
@@ -514,6 +547,8 @@ public final class LanguageServer: @unchecked Sendable {
                 ?? Self.line(declaring: "adversary", named: named, in: lines) {
                 return Self.location(uri: uri, line: found)
             }
+            // A flow names a component another file of the system declares.
+            if let found = declaration(of: named, besides: uri) { return found }
         }
 
         // A technology a library declares, in whichever `.lib` the project
@@ -523,7 +558,7 @@ public final class LanguageServer: @unchecked Sendable {
             in: line
         ) as String? else { return NSNull() }
 
-        if let edge = declaredEdges().first(where: { $0.id == word }) {
+        if let edge = declaredEdges(of: uri).first(where: { $0.id == word }) {
             return Self.location(uri: "file://\(edge.path)", line: edge.line)
         }
 
@@ -531,7 +566,9 @@ public final class LanguageServer: @unchecked Sendable {
             return Self.location(uri: uri, line: found)
         }
 
-        for path in libraryPaths() {
+        if let found = declaration(of: word, besides: uri) { return found }
+
+        for path in libraryPaths(of: uri) {
             guard let libraryText = try? projects.read(path: path) else { continue }
             let libraryLines = libraryText
                 .split(separator: "\n", omittingEmptySubsequences: false)
@@ -554,6 +591,28 @@ public final class LanguageServer: @unchecked Sendable {
         return NSNull()
     }
 
+    /// The place another architecture file of this system declares one
+    /// identifier, or nil when no other file declares it.
+    ///
+    /// The files of one system hold one namespace, so a part file names a
+    /// component, a zone or a user another part file declares, and the jump
+    /// reaches it.
+    private func declaration(of name: String, besides uri: String) -> Any? {
+        let open = Self.path(of: uri)
+        for path in architecturePaths(of: uri) where path != open {
+            guard let text = documents[Self.uri(of: path)] ?? (try? projects.read(path: path))
+            else { continue }
+            let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+                .map(String.init)
+            for kind in ["component", "zone", "user", "adversary", "technology"] {
+                if let found = Self.line(declaring: kind, named: name, in: lines) {
+                    return Self.location(uri: Self.uri(of: path), line: found)
+                }
+            }
+        }
+        return nil
+    }
+
     /// One `mitigates` edge an architecture file declares, as a `.controls`
     /// file names it.
     struct DeclaredEdge {
@@ -573,8 +632,8 @@ public final class LanguageServer: @unchecked Sendable {
     /// A `.controls` file names an edge the `.arch` file declares, so the
     /// completion, the hover and the jump read the architecture rather than
     /// the document in front of the person.
-    func declaredEdges() -> [DeclaredEdge] {
-        architecturePaths().flatMap { path -> [DeclaredEdge] in
+    func declaredEdges(of uri: String? = nil) -> [DeclaredEdge] {
+        architecturePaths(of: uri).flatMap { path -> [DeclaredEdge] in
             guard let text = try? projects.read(path: path) else { return [] }
             let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
                 .map(String.init)
@@ -621,11 +680,11 @@ public final class LanguageServer: @unchecked Sendable {
 
     /// Every architecture file of the system the open document belongs to, or
     /// of every system when the document belongs to none.
-    private func architecturePaths() -> [String] {
-        guard let uri = documents.keys.first,
+    private func architecturePaths(of uri: String? = nil) -> [String] {
+        guard let uri = uri ?? documents.keys.first,
               let root = Self.root(of: uri),
               let layout = try? projects.discover(root: root) else { return [] }
-        let path = uri.hasPrefix("file://") ? String(uri.dropFirst("file://".count)) : uri
+        let path = Self.path(of: uri)
         if let system = layout.systems.first(where: {
             $0.architecturePaths.contains(path) || $0.controlsPaths.contains(path)
         }) {
@@ -634,12 +693,20 @@ public final class LanguageServer: @unchecked Sendable {
         return layout.systems.flatMap(\.architecturePaths)
     }
 
-    private func libraryPaths() -> [String] {
-        guard let uri = documents.keys.first,
+    private func libraryPaths(of uri: String? = nil) -> [String] {
+        guard let uri = uri ?? documents.keys.first,
               let root = Self.root(of: uri),
               let layout = try? projects.discover(root: root) else { return [] }
         return layout.libraryPaths
     }
+
+    /// The file a uri names.
+    static func path(of uri: String) -> String {
+        uri.hasPrefix("file://") ? String(uri.dropFirst("file://".count)) : uri
+    }
+
+    /// The uri a file path is held under while the editor holds it open.
+    static func uri(of path: String) -> String { "file://\(path)" }
 
     /// The project a file sits in: the directory above `threatmodel/`.
     static func root(of uri: String) -> String? {

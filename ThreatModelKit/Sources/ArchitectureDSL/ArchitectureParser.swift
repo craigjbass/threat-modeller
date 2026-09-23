@@ -36,7 +36,14 @@ struct ArchitectureParser {
         guard let system = parseSystem() else {
             return ArchitectureRead(source: nil, diagnostics: diagnostics)
         }
-        check(system)
+        // The header file of a split system states the system block and names
+        // components other files declare, so the cross-file checks run over
+        // the merged source rather than here.
+        if allowsPart {
+            checkWithinOneFile(system)
+        } else {
+            check(system)
+        }
         return ArchitectureRead(
             source: diagnostics.contains { $0.severity == .error } ? nil : system,
             diagnostics: diagnostics

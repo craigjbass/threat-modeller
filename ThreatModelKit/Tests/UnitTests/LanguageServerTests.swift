@@ -384,6 +384,140 @@ struct LanguageServerTests {
         #expect(diagnostics.isEmpty)
     }
 
+    // MARK: a part file of a split system
+
+    /// The files of one system hold one namespace, so a part file names a
+    /// component another file declares and the editor shows no fault.
+    private func aSplitProject() {
+        project.put(
+            """
+            system "Payments" {
+              catalogue = "v1.0.0"
+            }
+
+            """,
+            at: "/work/threatmodel/payments/arch/payments.arch"
+        )
+        project.put(
+            """
+            zone "core" {
+              component "queue" { technology = "aws-sqs" }
+            }
+
+            """,
+            at: "/work/threatmodel/payments/arch/core.arch"
+        )
+    }
+
+    private func faults(of uri: String, holding text: String) throws -> [[String: Any]] {
+        let answers = ask(server(), [
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": ["textDocument": ["uri": uri, "text": text]]
+        ])
+        return try #require(
+            (answers.first?["params"] as? [String: Any])?["diagnostics"] as? [[String: Any]]
+        )
+    }
+
+    @Test func publishesNoFaultForAPartFileThatNamesAnotherFilesComponent() throws {
+        aSplitProject()
+        let edge = """
+        zone "edge" {
+          component "waf" { technology = "aws-waf" }
+        }
+
+        flow waf -> queue
+
+        """
+        project.put(edge, at: "/work/threatmodel/payments/arch/edge.arch")
+
+        let diagnostics = try faults(
+            of: "file:///work/threatmodel/payments/arch/edge.arch",
+            holding: edge
+        )
+
+        #expect(diagnostics.isEmpty)
+    }
+
+    @Test func publishesAFaultForANameNoPartOfTheSystemDeclares() throws {
+        aSplitProject()
+        let edge = """
+        zone "edge" {
+          component "waf" { technology = "aws-waf" }
+        }
+
+        flow waf -> ghost
+
+        """
+        project.put(edge, at: "/work/threatmodel/payments/arch/edge.arch")
+
+        let diagnostics = try faults(
+            of: "file:///work/threatmodel/payments/arch/edge.arch",
+            holding: edge
+        )
+
+        #expect(
+            diagnostics.contains {
+                ($0["message"] as? String)?.contains("which this system does not declare") == true
+            }
+        )
+    }
+
+    /// A fault another file holds belongs in that file, not in this one.
+    @Test func publishesOnlyTheOpenFilesFaults() throws {
+        aSplitProject()
+        project.put(
+            "zone \"core\" {\n  component \"queue\" { technology = \"aws-sqs\" }\n}\n",
+            at: "/work/threatmodel/payments/arch/core.arch"
+        )
+        let edge = """
+        zone "edge" {
+          component "waf" { technology = "aws-waf" }
+        }
+
+        """
+        project.put(edge, at: "/work/threatmodel/payments/arch/edge.arch")
+        project.put(
+            "component \"api\" { technology = \"aws-ec2\" }\n\nflow api -> ghost\n",
+            at: "/work/threatmodel/payments/arch/ledger.arch"
+        )
+
+        let diagnostics = try faults(
+            of: "file:///work/threatmodel/payments/arch/edge.arch",
+            holding: edge
+        )
+
+        #expect(diagnostics.isEmpty)
+    }
+
+    @Test func jumpsToAComponentAnotherPartFileDeclares() throws {
+        aSplitProject()
+        let edge = """
+        zone "edge" {
+          component "waf" { technology = "aws-waf" }
+        }
+
+        flow waf -> queue
+
+        """
+        project.put(edge, at: "/work/threatmodel/payments/arch/edge.arch")
+        let server = opened(edge, at: "file:///work/threatmodel/payments/arch/edge.arch")
+
+        let answers = ask(server, [
+            "jsonrpc": "2.0",
+            "id": 7,
+            "method": "textDocument/definition",
+            "params": [
+                "textDocument": ["uri": "file:///work/threatmodel/payments/arch/edge.arch"],
+                "position": ["line": 4, "character": 13]
+            ]
+        ])
+
+        let found = try #require(result(answers) as? [String: Any])
+        #expect(found["uri"] as? String == "file:///work/threatmodel/payments/arch/core.arch")
+    }
+
     // MARK: completion
 
     private func completions(

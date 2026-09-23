@@ -832,11 +832,14 @@ struct ProjectSessionTests {
 
         #expect(session.errorMessage == nil)
         #expect(useCases.project.text(at: "/work/threatmodel/payments/arch/payments.arch") != nil)
+        // The zone takes a file, the answers for its component take the file
+        // that mirrors it, and each tree takes a file named after the tree.
+        #expect(useCases.project.text(at: "/work/threatmodel/payments/arch/app.arch") != nil)
         #expect(
-            useCases.project.text(at: "/work/threatmodel/payments/controls/payments.controls") != nil
+            useCases.project.text(at: "/work/threatmodel/payments/controls/app.controls") != nil
         )
         #expect(
-            useCases.project.text(at: "/work/threatmodel/payments/attacktree/payments.attacktree")
+            useCases.project.text(at: "/work/threatmodel/payments/attacktree/phishing.attacktree")
                 != nil
         )
         #expect(useCases.project.text(at: "/work/threatmodel/payments.arch") == nil)
@@ -849,7 +852,9 @@ struct ProjectSessionTests {
         #expect(session.attackTreeSources.map(\.id) == treesBefore)
     }
 
-    @Test func aSystemAlreadySplitShowsTheItemDisabledAndRefusesASecondSplit() async throws {
+    /// A system already in the directory form is read and written again, so
+    /// splitting it a second time sorts it and shows no error.
+    @Test func aSecondSplitSortsTheSystemAndShowsNoError() async throws {
         let useCases = TestDependencies()
         useCases.project.put(payments, at: "/work/threatmodel/payments/arch/payments.arch")
         let session = ProjectSession(useCases: useCases, defaults: aTestDefaults())
@@ -859,7 +864,9 @@ struct ProjectSessionTests {
 
         await session.splitSystem()
 
-        #expect(session.errorMessage == "\"payments\" is already a directory.")
+        #expect(session.errorMessage == nil)
+        #expect(useCases.project.text(at: "/work/threatmodel/payments/arch/app.arch") != nil)
+        #expect(session.chosenSystemIsSplit)
     }
 }
 

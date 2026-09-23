@@ -1591,8 +1591,8 @@ final class ProjectSession {
             await reloadFromDisk()
         case .noSuchSystem:
             errorMessage = "This project no longer holds \"\(chosenSystem)\"."
-        case .alreadySplit:
-            errorMessage = "\"\(chosenSystem)\" is already a directory."
+        case .refused(let reason):
+            errorMessage = reason
         case .cannotWrite(let reason):
             errorMessage = "The system could not be split: \(reason)"
         }

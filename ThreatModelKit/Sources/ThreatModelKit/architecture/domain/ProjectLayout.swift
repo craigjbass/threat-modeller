@@ -87,6 +87,20 @@ public struct ProjectSystem: Equatable, Sendable {
             ?? treePath(mirroring: headerPath)
     }
 
+    /// The file one attack tree is written in. A split system gives each
+    /// tree a file of its own, named after the tree. A flat system holds
+    /// every tree in one file.
+    public func treePath(ofTreeId treeId: String) -> String {
+        guard isSplit else { return attackTreePath }
+        let directory = (headerPath as NSString).deletingLastPathComponent
+        let subproject = (directory as NSString).deletingLastPathComponent
+        return ProjectConvention.path(
+            ProjectConvention.path(subproject, ProjectConvention.attackTreeExtension),
+            "\(ProjectConvention.stem(forSystemNamed: treeId))"
+                + ".\(ProjectConvention.attackTreeExtension)"
+        )
+    }
+
     /// The attack tree file that mirrors an architecture file.
     public func treePath(mirroring architecturePath: String) -> String {
         guard isSplit else {

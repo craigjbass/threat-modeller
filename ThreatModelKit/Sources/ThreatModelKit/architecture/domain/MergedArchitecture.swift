@@ -237,10 +237,23 @@ public enum MergedArchitecture {
             mitigates: mitigates,
             riskTolerance: head.riskTolerance,
             assumptions: assumptions,
+            useCases: head.useCases,
+            exclusions: head.exclusions,
+            systemAssets: head.systemAssets,
+            thirdParties: head.thirdParties,
+            diagrams: head.diagrams,
             requiresEvidenceAbove: head.requiresEvidenceAbove,
             owner: head.owner,
             faces: head.faces,
             threatActors: head.threatActors,
+            description: head.description,
+            authors: head.authors,
+            links: head.links,
+            repositories: head.repositories,
+            created: head.created,
+            reviewed: head.reviewed,
+            version: head.version,
+            attributes: head.attributes,
             users: users,
             clearances: head.clearances
         )
@@ -270,13 +283,17 @@ public enum MergedArchitecture {
         }
 
         // The checks that read two identifiers run here, over every file.
+        // A fault about a reference belongs in the file that states the
+        // block, so an editor showing one file shows the faults of that file.
         let componentIds = Set(merged.everyComponent.map(\.id))
         for user in merged.users {
+            let file = origins[.user(user.id)]
             for client in user.clientIds where componentIds.contains(client) == false {
                 diagnostics.append(
                     fault(
                         "the user \"\(user.id)\" uses \"\(client)\", which this system does "
-                            + "not declare"
+                            + "not declare",
+                        in: file
                     )
                 )
             }
@@ -284,34 +301,40 @@ public enum MergedArchitecture {
                 diagnostics.append(
                     fault(
                         "the user \"\(user.id)\" reaches \"\(reached)\", which this system does "
-                            + "not declare"
+                            + "not declare",
+                        in: file
                     )
                 )
             }
         }
         let declared = Set(merged.everyNodeId)
         for flow in merged.flows {
+            let file = origins[.flow(flow.id)]
             if declared.contains(flow.sourceId) == false {
                 diagnostics.append(
                     fault(
-                        "the flow starts at \"\(flow.sourceId)\", which this system does not declare"
+                        "the flow starts at \"\(flow.sourceId)\", which this system does not declare",
+                        in: file
                     )
                 )
             }
             if declared.contains(flow.targetId) == false {
                 diagnostics.append(
                     fault(
-                        "the flow ends at \"\(flow.targetId)\", which this system does not declare"
+                        "the flow ends at \"\(flow.targetId)\", which this system does not declare",
+                        in: file
                     )
                 )
             }
         }
         for edge in merged.mitigates {
+            let file = origins[.mitigates(edge.id)]
             if declared.contains(edge.sourceId) == false {
                 diagnostics.append(
                     fault(
                         "the mitigates edge starts at \"\(edge.sourceId)\", which this system does "
-                            + "not declare"
+                            + "not declare",
+                        in: file
                     )
                 )
             }
@@ -319,7 +342,8 @@ public enum MergedArchitecture {
                 diagnostics.append(
                     fault(
                         "the mitigates edge ends at \"\(edge.targetId)\", which this system does "
-                            + "not declare"
+                            + "not declare",
+                        in: file
                     )
                 )
             }
@@ -421,7 +445,7 @@ public enum MergedArchitecture {
         fault("\"\(id)\" is declared twice: \(first) and \(second)")
     }
 
-    private static func fault(_ message: String) -> Diagnostic {
-        Diagnostic(severity: .error, line: 1, column: 1, message: message)
+    private static func fault(_ message: String, in file: String? = nil) -> Diagnostic {
+        Diagnostic(severity: .error, line: 1, column: 1, message: message, file: file)
     }
 }
