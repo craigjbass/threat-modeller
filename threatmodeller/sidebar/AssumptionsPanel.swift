@@ -70,7 +70,7 @@ struct AssumptionsPanel: View {
                     Divider()
                     Text("What one component lowers on another")
                         .font(.subheadline.weight(.semibold))
-                    ForEach(session.canvas.mitigations, id: \.sourceComponentId) { mitigation in
+                    ForEach(session.canvas.mitigations) { mitigation in
                         mitigationRow(mitigation)
                     }
                 }

@@ -82,6 +82,22 @@ struct SetMitigatesEdgeTests {
 
     // MARK: what a team would do to adopt it
 
+    @Test func twoEdgesFromOneComponentShowAsTwoMitigations() {
+        let (guardId, storeId) = aModelOfTwoComponents()
+        guard case .added(let queueId) = app.addComponent().execute(
+            AddComponentRequest(technologyId: "aws-rds", x: 800, y: 0, sensitivity: "restricted")
+        ) else {
+            Issue.record("the third component was not added")
+            return
+        }
+        _ = set(from: guardId, to: storeId)
+        _ = set(from: guardId, to: queueId)
+
+        let viewed = app.viewThreatModel().execute(ViewThreatModelRequest()).mitigations
+
+        #expect(Set(viewed.map(\.id)) == ["\(guardId)->\(storeId)", "\(guardId)->\(queueId)"])
+    }
+
     @Test func carriesTheActionOnAnAssumedEdge() {
         let (guardId, storeId) = aModelOfTwoComponents()
 

@@ -536,7 +536,9 @@ public struct ViewedExclusion: Equatable, Sendable {
 
 /// One component lowering a named threat set on another, as the interface
 /// reads it.
-public struct ViewedMitigation: Equatable, Sendable {
+public struct ViewedMitigation: Equatable, Sendable, Identifiable {
+    /// The edge's name, `<protector>-><protected>`, the same as the language's.
+    public let id: String
     public let sourceComponentId: String
     public let targetComponentId: String
     /// `live` or `proposed`.
@@ -561,6 +563,7 @@ public struct ViewedMitigation: Equatable, Sendable {
         actionBlockedBy: String? = nil,
         actionSources: [String] = []
     ) {
+        self.id = "\(sourceComponentId)->\(targetComponentId)"
         self.sourceComponentId = sourceComponentId
         self.targetComponentId = targetComponentId
         self.status = status
