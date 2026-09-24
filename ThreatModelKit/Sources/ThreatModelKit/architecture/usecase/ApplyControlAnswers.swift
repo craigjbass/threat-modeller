@@ -4,7 +4,14 @@ public protocol ApplyControlAnswersUseCase {
 
 public struct ApplyControlAnswersRequest: Equatable, Sendable {
     public let text: String
-    public init(text: String) { self.text = text }
+    /// True when the file is one part of a split system, read after another
+    /// part. The answers join the answers on screen instead of replacing them.
+    public let addsToEarlierParts: Bool
+
+    public init(text: String, addsToEarlierParts: Bool = false) {
+        self.text = text
+        self.addsToEarlierParts = addsToEarlierParts
+    }
 }
 
 public enum ApplyControlAnswersResponse: Equatable, Sendable {
@@ -197,16 +204,20 @@ public struct ApplyControlAnswers: ApplyControlAnswersUseCase {
         let count = applied
         let readWarnings = warnings
 
+        let adds = request.addsToEarlierParts
         return models.mutate(label: ChangeLabel.applyAnswers) { model in
-            model.controlStatuses = readStatuses
-            model.controlProofs = readProofs
-            model.controlNotes = readNotes
-            model.controlMitigatedBy = readMitigatedBy
-            model.compensatingControls = readCompensating
-            model.recommendations = readRecommendations
-            model.likelihoodFindings = readLikelihoods
-            model.severityDecisions = readDecisions
-            model.impactOverrides = readImpacts
+            func joined<Key, Value>(_ held: [Key: Value], _ read: [Key: Value]) -> [Key: Value] {
+                adds ? held.merging(read) { _, part in part } : read
+            }
+            model.controlStatuses = joined(model.controlStatuses, readStatuses)
+            model.controlProofs = joined(model.controlProofs, readProofs)
+            model.controlNotes = joined(model.controlNotes, readNotes)
+            model.controlMitigatedBy = joined(model.controlMitigatedBy, readMitigatedBy)
+            model.compensatingControls = joined(model.compensatingControls, readCompensating)
+            model.recommendations = joined(model.recommendations, readRecommendations)
+            model.likelihoodFindings = joined(model.likelihoodFindings, readLikelihoods)
+            model.severityDecisions = joined(model.severityDecisions, readDecisions)
+            model.impactOverrides = joined(model.impactOverrides, readImpacts)
             return .applied(answers: count, warnings: readWarnings)
         }
     }

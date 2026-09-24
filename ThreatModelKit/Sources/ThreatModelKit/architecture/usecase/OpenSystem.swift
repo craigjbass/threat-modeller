@@ -86,10 +86,14 @@ public struct OpenSystem: OpenSystemUseCase {
             // The answers beside the architecture are part of the system, so
             // opening one reads both.
             var everyWarning = warnings
+            var appliedParts = 0
             for path in system.controlsPaths where projects.exists(path: path) {
                 guard let controlsText = try? projects.read(path: path) else { continue }
-                switch applies.execute(ApplyControlAnswersRequest(text: controlsText)) {
+                switch applies.execute(
+                    ApplyControlAnswersRequest(text: controlsText, addsToEarlierParts: appliedParts > 0)
+                ) {
                 case .applied(_, let controlWarnings):
+                    appliedParts += 1
                     everyWarning += controlWarnings
                 case .refused(let diagnostics):
                     return .refused(

@@ -193,6 +193,69 @@ struct SplitSystemUseCaseTests {
         #expect(useCases.project.text(at: "/work/threatmodel/payments.controls") == nil)
     }
 
+    @Test func everyControlsFileOfASplitSystemOpensItsAnswers() throws {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              zone "core" {
+                component "ledger" { technology = "aws-rds" }
+              }
+
+              zone "edge" {
+                component "guard" { technology = "aws-waf" }
+              }
+
+              component "api" { technology = "aws-ec2" }
+
+              flow api -> ledger
+              mitigates guard -> ledger
+            }
+
+            """,
+            at: "/work/threatmodel/payments.arch"
+        )
+        _ = split(useCases)
+        _ = useCases.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
+        let resolved = ThreatResolver(
+            model: useCases.modelStore.current(),
+            catalogue: useCases.catalogueInUse
+        ).resolve()
+        let onLedger = try #require(resolved.first { $0.source.id == "component:ledger" && $0.controls.isEmpty == false })
+        let onApi = try #require(resolved.first { $0.source.id == "component:api" && $0.controls.isEmpty == false })
+        func answer(_ threat: ResolvedThreat, on component: String, mitigatedBy: String = "") -> String {
+            """
+            controls for "Payments" {
+              threat "\(threat.threat.id.value)" on component "\(component)" {
+                control "\(threat.controls[0].description)" {
+                  status = "implemented"
+                  \(mitigatedBy)
+                }
+              }
+            }
+
+            """
+        }
+        useCases.project.put(
+            answer(onLedger, on: "ledger", mitigatedBy: "mitigated_by \"guard->ledger\" { reduces_risk_by = 50 }"),
+            at: "/work/threatmodel/payments/controls/core.controls"
+        )
+        useCases.project.put(
+            answer(onApi, on: "api"),
+            at: "/work/threatmodel/payments/controls/payments.controls"
+        )
+
+        _ = useCases.openSystem().execute(OpenSystemRequest(root: "/work", systemName: "payments"))
+
+        let statuses = useCases.modelStore.current().controlStatuses
+        #expect(statuses[onLedger.controls[0].key] == .implemented)
+        #expect(statuses[onApi.controls[0].key] == .implemented)
+        #expect(
+            useCases.modelStore.current().controlMitigatedBy[onLedger.controls[0].key]
+                == [ControlMitigation(edgeId: "guard->ledger", reducesRiskBy: 50)]
+        )
+    }
+
     // MARK: the trees
 
     @Test func eachTreeTakesAFileOfItsOwn() throws {
