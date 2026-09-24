@@ -115,6 +115,7 @@ When starting any long-running background job — a subagent, a background shell
 
 - **adversarial-bug-hunt** — hunt latent bugs in a scope via Hunter → Skeptic → Referee subagents. Triggers: "find bugs in X", "race conditions", "what could go wrong", "/bug-hunt".
 - **e2e-coverage-validation** — prove a feature is fully end-to-end covered; list the untested branches, error values and UI states. Triggers: "validate e2e coverage", "find test gaps".
+- **writing-release-notes** — write the body of a GitHub release in the clearancekit format: Highlights, Features, Bug fixes, Upgrade notes, Internal, Commits. Triggers: "release notes", "changelog", "what's new".
 - **design-insufficiency** — is the feature well designed for a human? Static usability-smell scan + handicapped-persona walkthrough + archetype completeness diff. Reports, never fixes. Triggers: "is this well designed", "usability audit".
 
 ## End-of-turn rule
