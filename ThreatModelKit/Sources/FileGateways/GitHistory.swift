@@ -19,10 +19,11 @@ public enum GitHistoryFault: Error, Equatable {
 public struct GitHistory: GitHistoryGateway {
     /// How long one `git` command may take before it is killed.
     private let timeout: TimeInterval
-    /// The `PATH` `git` is looked for on.
-    private let path: String
+    /// The `PATH` `git` is looked for on, or nil to read the login shell's
+    /// `PATH` the first time a command runs.
+    private let path: String?
 
-    public init(timeout: TimeInterval = 30, path: String = ShellPath.value) {
+    public init(timeout: TimeInterval = 30, path: String? = nil) {
         self.timeout = timeout
         self.path = path
     }
@@ -84,7 +85,8 @@ public struct GitHistory: GitHistoryGateway {
     }
 
     private func run(_ arguments: [String]) throws -> String {
-        var environment = ShellPath.environment(path: path, of: ProcessInfo.processInfo.environment)
+        let resolvedPath = path ?? ShellPath.value
+        var environment = ShellPath.environment(path: resolvedPath, of: ProcessInfo.processInfo.environment)
         environment["GIT_TERMINAL_PROMPT"] = "0"
         environment["GIT_PAGER"] = "cat"
 

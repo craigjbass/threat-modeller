@@ -11,10 +11,11 @@ public struct CurlDownloader: AttackDownloading {
     /// How long the download may take before it is killed.
     private let timeout: TimeInterval
 
-    /// The `PATH` `curl` is looked for on.
-    private let path: String
+    /// The `PATH` `curl` is looked for on, or nil to read the login shell's
+    /// `PATH` the first time a download runs.
+    private let path: String?
 
-    public init(timeout: TimeInterval = 600, path: String = ShellPath.value) {
+    public init(timeout: TimeInterval = 600, path: String? = nil) {
         self.timeout = timeout
         self.path = path
     }
@@ -28,6 +29,7 @@ public struct CurlDownloader: AttackDownloading {
             .appendingPathComponent("threatmodeller-attack-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: into) }
 
+        let resolvedPath = path ?? ShellPath.value
         let answer: ChildProcessAnswer
         do {
             answer = try ChildProcess.run(
@@ -36,7 +38,7 @@ public struct CurlDownloader: AttackDownloading {
                     "curl", "--fail", "--silent", "--show-error", "--location",
                     "--output", into.path, "--", address
                 ],
-                environment: ShellPath.environment(path: path, of: ProcessInfo.processInfo.environment),
+                environment: ShellPath.environment(path: resolvedPath, of: ProcessInfo.processInfo.environment),
                 timeout: timeout
             )
         } catch {

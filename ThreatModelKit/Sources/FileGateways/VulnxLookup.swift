@@ -11,12 +11,13 @@ import ThreatModelKit
 /// are read from the JSON it prints, one object per line or one array.
 public struct VulnxLookup: VulnerabilityLookup {
     private let timeout: TimeInterval
-    /// The `PATH` the tool is looked for on.
-    private let path: String
+    /// The `PATH` the tool is looked for on, or nil to read the login shell's
+    /// `PATH` the first time a search runs.
+    private let path: String?
     /// How many records the tool is asked for.
     public static let limit = 50
 
-    public init(timeout: TimeInterval = 60, path: String = ShellPath.value) {
+    public init(timeout: TimeInterval = 60, path: String? = nil) {
         self.timeout = timeout
         self.path = path
     }
@@ -27,12 +28,13 @@ public struct VulnxLookup: VulnerabilityLookup {
             throw VulnerabilityLookupFault.cannotRead(reason: "\(word) reads as a flag")
         }
 
+        let resolvedPath = path ?? ShellPath.value
         let answer: ChildProcessAnswer
         do {
             answer = try ChildProcess.run(
                 "/usr/bin/env",
                 ["vulnx", "search", "--json", "--limit", String(Self.limit)] + query.words,
-                environment: ShellPath.environment(path: path, of: ProcessInfo.processInfo.environment),
+                environment: ShellPath.environment(path: resolvedPath, of: ProcessInfo.processInfo.environment),
                 timeout: timeout
             )
         } catch {

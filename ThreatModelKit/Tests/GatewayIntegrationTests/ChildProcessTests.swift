@@ -84,6 +84,15 @@ struct ChildProcessTests {
         #expect(answer.timerKilledIt)
     }
 
+    @Test func aChildThatExitsAtOnceReturnsWithoutWaitingOnTheTimer() throws {
+        let start = Date()
+        let answer = try ChildProcess.run("/usr/bin/false", [], environment: Self.environment, timeout: 5)
+        let elapsed = Date().timeIntervalSince(start)
+
+        #expect(answer.exitCode == 1)
+        #expect(elapsed < 0.05)
+    }
+
     @Test func aChildThatEndsInTimeIsNotKilledByTheTimer() throws {
         let answer = try ChildProcess.run(
             "/bin/sh",

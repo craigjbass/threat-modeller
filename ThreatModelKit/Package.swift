@@ -70,7 +70,7 @@ let package = Package(
             name: "GatewayIntegrationTests",
             dependencies: [
                 "ThreatModelKit", "CatalogueGateways", "FileGateways", "ArchitectureDSL",
-                "TestSupport"
+                "TestSupport", "CommandLineApplication"
             ]
         )
     ]

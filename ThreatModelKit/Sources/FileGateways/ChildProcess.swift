@@ -40,6 +40,9 @@ public enum ChildProcess {
         process.standardOutput = output
         process.standardError = errors
 
+        let processEnded = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in processEnded.signal() }
+
         beforeItStarts?(process)
         try spawnLock.withLock {
             closeEveryOtherDescriptorOnExec()
@@ -64,7 +67,7 @@ public enum ChildProcess {
         reader.start()
         let outputBytes = output.fileHandleForReading.readDataToEndOfFile()
         readTheErrors.wait()
-        process.waitUntilExit()
+        processEnded.wait()
         ended.signal()
 
         return ChildProcessAnswer(

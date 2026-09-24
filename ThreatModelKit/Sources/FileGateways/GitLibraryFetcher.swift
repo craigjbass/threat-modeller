@@ -22,13 +22,14 @@ public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @un
     /// than cloned, because a clone over HTTPS asks for a username.
     private let downloader: AttackDownloading
 
-    /// The `PATH` `git` is looked for on.
-    private let path: String
+    /// The `PATH` `git` is looked for on, or nil to read the login shell's
+    /// `PATH` the first time a command runs.
+    private let path: String?
 
     public init(
         timeout: TimeInterval = 60,
         downloader: AttackDownloading = CurlDownloader(),
-        path: String = ShellPath.value
+        path: String? = nil
     ) {
         self.timeout = timeout
         self.downloader = downloader
@@ -158,7 +159,8 @@ public final class GitLibraryFetcher: LibraryFetching, LibraryIndexFetching, @un
     }
 
     private func run(_ arguments: [String]) throws -> String {
-        var environment = ShellPath.environment(path: path, of: ProcessInfo.processInfo.environment)
+        let resolvedPath = path ?? ShellPath.value
+        var environment = ShellPath.environment(path: resolvedPath, of: ProcessInfo.processInfo.environment)
         // A repository the user cannot read fails and says so, rather than
         // waiting for a password nobody can type.
         environment["GIT_TERMINAL_PROMPT"] = "0"
