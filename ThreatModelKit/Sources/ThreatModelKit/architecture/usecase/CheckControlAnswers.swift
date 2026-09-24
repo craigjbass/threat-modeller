@@ -228,6 +228,8 @@ public struct CheckControlAnswers: CheckControlAnswersUseCase {
                     controlsText: text,
                     governanceText: request.governanceText,
                     architectureText: request.architectureText,
+                    architectureParts: request.architectureParts,
+                    directoryName: request.directoryName,
                     threats: source.answers.compactMap(Self.policyThreat)
                 )
             )

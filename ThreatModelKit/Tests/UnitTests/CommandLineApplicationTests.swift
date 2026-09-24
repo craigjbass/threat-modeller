@@ -732,6 +732,89 @@ struct CommandLineApplicationTests {
         #expect(result.lines.contains { $0.contains("\"api\"") })
     }
 
+    // Issue #275: `CheckPolicy` read the header file alone with the
+    // whole-file parser, so a header user that reaches a component in a zone
+    // file drew a false "does not declare" refusal.
+    @Test func checkPolicyReadsAUserThatReachesAComponentInAnotherPartFile() {
+        project.put(
+            """
+            system "Payments" {
+              user "customer" {
+                reaches = ["api"]
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments/arch/payments.arch"
+        )
+        project.put(
+            """
+            zone "core" {
+              component "api" { technology = "aws-ec2" }
+            }
+            """,
+            at: "/work/threatmodel/payments/arch/core.arch"
+        )
+        project.put(
+            """
+            policy {
+              system_requires_owner = true
+            }
+            """,
+            at: "/work/threatmodel/policy.hcl"
+        )
+
+        let result = run("check", "/work")
+
+        // The system owner rule still breaches, so the policy still ran; the
+        // architecture refusal about "does not declare" is gone.
+        #expect(result.code == 1)
+        #expect(result.lines.contains { $0.contains("this system states no owner") })
+        #expect(result.lines.contains { $0.contains("does not declare") } == false)
+    }
+
+    // Issue #275, acceptance criterion 2: a policy rule that reads an
+    // element finds it whichever part file declares it.
+    @Test func aPolicyRuleFindsAnElementAnotherPartFileDeclares() {
+        project.put(
+            """
+            system "Payments" {
+              owner = "Payments team"
+            }
+
+            """,
+            at: "/work/threatmodel/payments/arch/payments.arch"
+        )
+        project.put(
+            """
+            zone "edge" {
+              kind = "public"
+
+              component "ledger" {
+                technology = "aws-rds"
+                data       = "restricted"
+              }
+            }
+            """,
+            at: "/work/threatmodel/payments/arch/edge.arch"
+        )
+        project.put(
+            """
+            policy {
+              restricted_data_stays_out_of_public_zones = true
+            }
+            """,
+            at: "/work/threatmodel/policy.hcl"
+        )
+
+        let result = run("check", "/work")
+
+        #expect(result.code == 1)
+        #expect(
+            result.lines.contains { $0.contains("\"ledger\" holds restricted data in a public zone") }
+        )
+    }
+
     @Test func reportWritesOneReportInsideTheSubproject() {
         aSplitProject()
 

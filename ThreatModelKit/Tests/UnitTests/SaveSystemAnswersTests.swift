@@ -171,6 +171,45 @@ struct SaveSystemAnswersTests {
         #expect(accepted.reviewBy == "2026-07-05")
     }
 
+    // Issue #275: the export the save reads is the merged in-memory model,
+    // so a split system whose mitigates edge crosses part files still writes
+    // the action label the compile writes.
+    @Test func aSaveWritesTheActionLabelOfASplitSystemWhoseMitigatesEdgeCrossesPartFiles() throws {
+        app.project.put(
+            """
+            system "S" {
+              component "c1" { technology = "aws-ec2" data = "confidential" }
+            }
+
+            """,
+            at: "/project/threatmodel/s/arch/s.arch"
+        )
+        app.project.put(
+            """
+            component "guard" { technology = "aws-waf" }
+
+            mitigates guard -> c1 {
+              status = "proposed"
+
+              recommendation "Turn the guard on" {
+                text = "Turn the guard on in every region."
+              }
+            }
+            """,
+            at: "/project/threatmodel/s/arch/edge.arch"
+        )
+        app.project.put(governedControls, at: "/project/threatmodel/s/controls/s.controls")
+
+        _ = app.openSystem().execute(OpenSystemRequest(root: "/project", systemName: "s"))
+        _ = app.saveSystemAnswers().execute(
+            SaveSystemAnswersRequest(root: "/project", systemName: "s")
+        )
+
+        let written = try #require(app.project.text(at: "/project/threatmodel/s/s.governance"))
+        let source = try #require(HclGovernanceSource().read(written).source)
+        #expect(source.actions.contains { $0.label == "Turn the guard on" })
+    }
+
     /// A system that accepts nothing, recommends nothing and declares no
     /// action governs nothing. Nothing writes an empty file.
     @Test func aSaveWritesNoGovernanceFileForASystemThatGovernsNothing() throws {

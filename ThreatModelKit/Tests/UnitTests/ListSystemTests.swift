@@ -150,6 +150,47 @@ struct ListSystemTests {
         #expect(summary.isSplit == false)
     }
 
+    // Issue #275: a split system's flow crosses part files, so listing it
+    // must merge every part rather than read the header file alone.
+    @Test func statesTheUnansweredCountOfASplitSystemWhoseFlowCrossesPartFiles() throws {
+        let useCases = TestDependencies()
+        useCases.project.put(
+            """
+            system "Payments" {
+              component "api" {
+                technology = "aws-ec2"
+                data       = "confidential"
+              }
+            }
+
+            """,
+            at: "/work/threatmodel/payments/arch/payments.arch"
+        )
+        useCases.project.put(
+            """
+            zone "core" {
+              component "db" {
+                technology = "aws-rds"
+                data       = "restricted"
+              }
+            }
+
+            flow api -> db
+            """,
+            at: "/work/threatmodel/payments/arch/core.arch"
+        )
+
+        guard case .listed(let summary) = useCases.listSystem().execute(
+            ListSystemRequest(root: "/work", systemName: "payments")
+        ) else {
+            Issue.record("payments did not list")
+            return
+        }
+
+        #expect(summary.isUnparsed == false)
+        #expect(summary.unanswered > 0)
+    }
+
     @Test func statesASplitSystemIsSplit() throws {
         let useCases = TestDependencies()
         useCases.project.put(

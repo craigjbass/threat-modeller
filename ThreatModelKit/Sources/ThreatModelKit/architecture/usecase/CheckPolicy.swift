@@ -11,6 +11,11 @@ public struct CheckPolicyRequest: Equatable, Sendable {
     public let governanceText: String?
     /// The architecture, for the rules about zones, assumptions and the owner.
     public let architectureText: String
+    /// Every architecture file of a split system. Empty means the one
+    /// `architectureText` above, which is a flat system.
+    public let architectureParts: [SourcePart]
+    /// The directory name of a split system, or nil for a flat one.
+    public let directoryName: String?
     /// The threats the model raises, with the score each one had before its
     /// controls, so a rule can read a level the controls have not lowered.
     public let threats: [PolicyThreat]
@@ -20,12 +25,16 @@ public struct CheckPolicyRequest: Equatable, Sendable {
         controlsText: String,
         governanceText: String? = nil,
         architectureText: String,
+        architectureParts: [SourcePart] = [],
+        directoryName: String? = nil,
         threats: [PolicyThreat] = []
     ) {
         self.policyText = policyText
         self.controlsText = controlsText
         self.governanceText = governanceText
         self.architectureText = architectureText
+        self.architectureParts = architectureParts
+        self.directoryName = directoryName
         self.threats = threats
     }
 }
@@ -125,7 +134,13 @@ public struct CheckPolicy: CheckPolicyUseCase {
             governance = source
         }
 
-        let architectureRead = architectureSources.read(request.architectureText)
+        // Every architecture file of the system, merged into one source, so a
+        // rule that reads an element finds it whichever file declares it. A
+        // flat system passes one part.
+        let parts = request.architectureParts.isEmpty
+            ? [SourcePart(file: "", text: request.architectureText)]
+            : request.architectureParts
+        let architectureRead = architectureSources.read(parts, named: request.directoryName)
         guard let architecture = architectureRead.source, architectureRead.hasErrors == false else {
             return .refused(diagnostics: architectureRead.diagnostics)
         }
@@ -176,7 +191,7 @@ public struct CheckPolicy: CheckPolicyUseCase {
                 elements.append(
                     PolicyRules.Element(
                         id: component.id,
-                        sensitivity: DataSensitivity(component.data ?? "internal"),
+                        sensitivity: DataSensitivity(component.data),
                         zone: NetworkZone(rawValue: zone.kind)
                     )
                 )
@@ -186,7 +201,7 @@ public struct CheckPolicy: CheckPolicyUseCase {
             elements.append(
                 PolicyRules.Element(
                     id: component.id,
-                    sensitivity: DataSensitivity(component.data ?? "internal"),
+                    sensitivity: DataSensitivity(component.data),
                     zone: nil
                 )
             )
